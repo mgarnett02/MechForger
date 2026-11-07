@@ -29,7 +29,7 @@ export function technicalReadout(design: MechDesign, summary: MechSummary = comp
   lines.push('');
   lines.push(row('Equipment', 'Mass'));
   lines.push(row(`Internal Structure: ${design.structureType === 'endo-steel' ? 'Endo Steel' : ''}`.trimEnd(), s.weights.structure));
-  const engineName = { standard: 'Fusion', xl: 'XL', light: 'Light' }[design.engineType];
+  const engineName = { standard: 'Fusion', xl: 'XL', light: 'Light', compact: 'Compact' }[design.engineType];
   lines.push(row(`Engine: ${s.rating} ${engineName}`, s.weights.engine));
   lines.push(`    Walking MP: ${design.walkMP}`);
   lines.push(`    Running MP: ${s.runMP}${s.mascRunMP ? ` [${s.mascRunMP}]` : ''}`);
@@ -37,10 +37,13 @@ export function technicalReadout(design: MechDesign, summary: MechSummary = comp
   lines.push(`    Jumping MP: ${s.jumpMP}`);
   const hsLabel = design.heatSinkType === 'double' ? ' Double' : '';
   lines.push(row(`Heat Sinks:${hsLabel} ${s.heatSinks.total} [${s.heatSinks.dissipation}]`, s.weights.heatSinks));
-  const gyroName = { standard: '', xl: ' XL', 'heavy-duty': ' Heavy-Duty' }[design.gyroType];
+  const gyroName = { standard: '', xl: ' XL', 'heavy-duty': ' Heavy-Duty', compact: ' Compact' }[design.gyroType];
   lines.push(row(`Gyro:${gyroName}`, s.weights.gyro));
   lines.push(row(`Cockpit:${design.cockpitType === 'small' ? ' Small' : ''}`, s.weights.cockpit));
-  const ff = { standard: '', 'ferro-fibrous': ' (Ferro-Fibrous)', 'light-ferro': ' (Light Ferro-Fibrous)' }[design.armorType];
+  const ff = {
+    standard: '', 'ferro-fibrous': ' (Ferro-Fibrous)', 'light-ferro': ' (Light Ferro-Fibrous)',
+    'heavy-ferro': ' (Heavy Ferro-Fibrous)',
+  }[design.armorType];
   lines.push(row(`Armor Factor${ff}: ${s.armorTotal}`, s.weights.armor));
   lines.push('');
   lines.push(`${''.padEnd(22)}Internal   Armor`);
@@ -98,11 +101,11 @@ export function technicalReadout(design: MechDesign, summary: MechSummary = comp
     const name = g.n > 1 ? `${g.n} ${g.name}` : g.name;
     lines.push(`${name.padEnd(26)}${g.loc.padEnd(6)}${String(g.slots).padEnd(6)}${t(g.tons)}`);
   }
-  const jj = items.filter((e) => e.equipmentId === 'jump-jet');
+  const jj = items.filter((e) => e.equipmentId.endsWith('jump-jet'));
   if (jj.length) {
     const locs = [...new Set(jj.map((e) => e.location ?? '—'))].join('/');
     const tons = (s.weights.jumpJets / Math.max(1, s.jumpMP)) * jj.length;
-    lines.push(`${'Jump Jets'.padEnd(26)}${locs.padEnd(6)}${String(jj.length).padEnd(6)}${t(tons)}`);
+    lines.push(`${(design.jumpJetType === 'improved' ? 'Improved Jump Jets' : 'Jump Jets').padEnd(26)}${locs.padEnd(6)}${String(jj.length).padEnd(6)}${t(tons)}`);
   }
   const hs = items.filter((e) => getEquipment(e.equipmentId)?.id.includes('heat-sink'));
   if (hs.length && design.omni) {

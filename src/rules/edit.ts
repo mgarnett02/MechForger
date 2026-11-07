@@ -1,5 +1,5 @@
 import type {
-  ArmLocation, ArmorFacing, ArmorType, CockpitType, EngineType, GyroType, HeatSinkType, Location,
+  ArmLocation, ArmorFacing, ArmorType, CockpitType, EngineType, GyroType, HeatSinkType, JumpJetType, Location,
   MechDesign, MountedItem, MyomerType, OmniData, StructureType, TechBase,
 } from './types';
 import { ARMOR_FACINGS, LOCATIONS, REAR_FACING } from './types';
@@ -7,8 +7,8 @@ import {
   FREE_HEAT_SINKS, armorPointsPerTon, armorSlots, engineHeatSinkCapacity, maxWalkMP, structureSlots,
 } from './tables';
 import {
-  ENDO_STEEL_ID, FERRO_FIBROUS_ID, HEAT_SINK_IDS, JUMP_JET_ID, TSM_ID, allowedLocations,
-  canRearMount, getEquipment, heatSinkIdFor, itemSlots,
+  ENDO_STEEL_ID, FERRO_FIBROUS_ID, HEAT_SINK_IDS, JUMP_JET_IDS, TSM_ID, allowedLocations,
+  canRearMount, getEquipment, heatSinkIdFor, itemSlots, jumpJetIdFor,
 } from './equipment';
 import { isFixedOnly } from './omni';
 import { computeMech } from './construction';
@@ -35,6 +35,7 @@ export function newDesign(era: EraId = DEFAULT_ERA, techBase: TechBase = 'IS'): 
     gyroType: 'standard',
     cockpitType: 'standard',
     heatSinkType: 'single',
+    jumpJetType: 'standard',
     armorType: 'standard',
     myomer: 'standard',
     mixedTech: false,
@@ -121,7 +122,7 @@ export function setWalkMP(d: MechDesign, walkMP: number): MechDesign {
 }
 
 export function setJumpMP(d: MechDesign, jumpMP: number): MechDesign {
-  return syncCount(d, JUMP_JET_ID, jumpMP);
+  return syncCount(d, jumpJetIdFor(d), jumpMP);
 }
 
 export function setActuator(
@@ -232,6 +233,18 @@ export function setEngineType(d: MechDesign, engineType: EngineType): MechDesign
   return { ...d, engineType };
 }
 
+/** Switch jump jet type, keeping the jump MP (jets are re-sized, so they need placing again). */
+export function setJumpJetType(d: MechDesign, jumpJetType: JumpJetType): MechDesign {
+  const id = jumpJetIdFor({ jumpJetType });
+  return {
+    ...d,
+    jumpJetType,
+    equipment: d.equipment.map((e) =>
+      JUMP_JET_IDS.includes(e.equipmentId) && e.equipmentId !== id ? { ...e, equipmentId: id, location: null } : e,
+    ),
+  };
+}
+
 export function setGyroType(d: MechDesign, gyroType: GyroType): MechDesign {
   return { ...d, gyroType };
 }
@@ -323,11 +336,12 @@ export function parseDesign(raw: unknown): MechDesign {
     era: getEra(String(r.era))?.id ?? DEFAULT_ERA,
     techBase: pick(r.techBase, ['IS', 'Clan'] as const, 'IS'),
     structureType: pick(r.structureType, ['standard', 'endo-steel'] as const, 'standard'),
-    engineType: pick(r.engineType, ['standard', 'xl', 'light'] as const, 'standard'),
-    gyroType: pick(r.gyroType, ['standard', 'xl', 'heavy-duty'] as const, 'standard'),
+    engineType: pick(r.engineType, ['standard', 'xl', 'light', 'compact'] as const, 'standard'),
+    gyroType: pick(r.gyroType, ['standard', 'xl', 'heavy-duty', 'compact'] as const, 'standard'),
+    jumpJetType: pick(r.jumpJetType, ['standard', 'improved'] as const, 'standard'),
     cockpitType: pick(r.cockpitType, ['standard', 'small'] as const, 'standard'),
     heatSinkType: pick(r.heatSinkType, ['single', 'double'] as const, 'single'),
-    armorType: pick(r.armorType, ['standard', 'ferro-fibrous', 'light-ferro'] as const, 'standard'),
+    armorType: pick(r.armorType, ['standard', 'ferro-fibrous', 'light-ferro', 'heavy-ferro'] as const, 'standard'),
     myomer: pick(r.myomer, ['standard', 'tsm'] as const, 'standard'),
     mixedTech: r.mixedTech === true,
     omni,

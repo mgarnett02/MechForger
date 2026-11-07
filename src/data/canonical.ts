@@ -10,7 +10,7 @@ import { newUid } from '../rules/edit';
  * and per-location armor are legal but may differ in detail from the
  * official record sheets.
  *
- * 3050 / 3062: original MechForger designs (not canon mechs) that exercise
+ * 3050 / 3062 / 3068: original MechForger designs (not canon mechs) that exercise
  * the Standard-level construction options.
  */
 
@@ -29,7 +29,8 @@ function mounts(list: Mount[], pod = false): MountedItem[] {
 
 /** Defaults for options not used by a sample. */
 const PLAIN = {
-  gyroType: 'standard', cockpitType: 'standard', myomer: 'standard', mixedTech: false, omni: null,
+  gyroType: 'standard', cockpitType: 'standard', jumpJetType: 'standard', myomer: 'standard', mixedTech: false,
+  omni: null,
 } as const;
 
 function armor(
@@ -169,7 +170,7 @@ export const PRESETS: Preset[] = [
     build: () => ({
       schemaVersion: 1, era: '3050', techBase: 'Clan', structureType: 'endo-steel', engineType: 'xl',
       heatSinkType: 'double', armorType: 'ferro-fibrous', myomer: 'standard', mixedTech: false,
-      gyroType: 'standard', cockpitType: 'standard',
+      gyroType: 'standard', cockpitType: 'standard', jumpJetType: 'standard',
       chassis: 'Grimfang', model: '', tonnage: 65, walkMP: 5,
       engineHeatSinks: 13,
       armor: armor(9, 31, 11, 22, 8, 20, 30),
@@ -285,6 +286,64 @@ export const PRESETS: Preset[] = [
         ['ferro-fibrous', 'HD'],
         ['jump-jet', 'LL', 2],
         ['jump-jet', 'RL', 2],
+      ]),
+    }),
+  },
+  {
+    key: 'Rampart RMP-3X (sample)', era: '3068', techBase: 'IS', canon: false,
+    build: () => ({
+      schemaVersion: 1, era: '3068', techBase: 'IS', structureType: 'standard', engineType: 'xl',
+      heatSinkType: 'double', armorType: 'standard', ...PLAIN, gyroType: 'compact', jumpJetType: 'improved',
+      chassis: 'Rampart', model: 'RMP-3X', tonnage: 50, walkMP: 5,
+      engineHeatSinks: 10,
+      armor: { HD: 9, CT: 24, CTR: 8, LT: 18, LTR: 6, RT: 18, RTR: 6, LA: 16, RA: 16, LL: 24, RL: 23 },
+      actuators: FULL_ARMS,
+      equipment: mounts([
+        ['improved-jump-jet', 'LL'],
+        ['improved-jump-jet', 'RL'],
+        ['improved-jump-jet', 'LT', 2],
+        ['improved-jump-jet', 'RT', 2],
+        ['mml-5', 'LT'],
+        ['ammo-mml-5-lrm', 'LT'],
+        ['ammo-mml-5-srm', 'LT'],
+        ['plasma-rifle', 'RA'],
+        ['ammo-plasma-rifle', 'RT'],
+        ['double-heat-sink', 'LA'],
+        ['double-heat-sink', 'RA'],
+        ['er-small-laser', 'HD'],
+      ]),
+    }),
+  },
+  {
+    key: 'Cindermaw Prime (sample)', era: '3068', techBase: 'Clan', canon: false,
+    build: () => ({
+      schemaVersion: 1, era: '3068', techBase: 'Clan', structureType: 'endo-steel', engineType: 'xl',
+      heatSinkType: 'double', armorType: 'ferro-fibrous', ...PLAIN,
+      chassis: 'Cindermaw', model: 'Prime', tonnage: 70, walkMP: 5,
+      engineHeatSinks: 14,
+      armor: { HD: 9, CT: 32, CTR: 10, LT: 22, LTR: 8, RT: 22, RTR: 8, LA: 21, RA: 21, LL: 29, RL: 29 },
+      actuators: FULL_ARMS,
+      equipment: mounts([
+        ['clan-hag-30', 'RT'],
+        ['ammo-clan-hag-30', 'RT', 2],
+        ['clan-plasma-cannon', 'LT'],
+        ['ammo-clan-plasma-cannon', 'LT'],
+        ['ammo-clan-ap-gauss-rifle', 'LT'],
+        ['clan-double-heat-sink', 'LT'],
+        ['clan-er-large-laser', 'LT'],
+        ['endo-steel', 'LT', 2],
+        ['ferro-fibrous', 'LT', 2],
+        ['clan-ap-gauss-rifle', 'LA'],
+        ['clan-er-medium-laser', 'LA'],
+        ['clan-double-heat-sink', 'LA'],
+        ['endo-steel', 'LA', 2],
+        ['ferro-fibrous', 'LA', 2],
+        ['clan-ap-gauss-rifle', 'RA'],
+        ['clan-er-medium-laser', 'RA'],
+        ['endo-steel', 'RA', 3],
+        ['ferro-fibrous', 'RA', 2],
+        ['clan-er-small-laser', 'CT'],
+        ['ferro-fibrous', 'CT'],
       ]),
     }),
   },

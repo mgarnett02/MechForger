@@ -1,10 +1,10 @@
 import type {
-  CockpitType, EngineType, GyroType, HeatSinkType, MechDesign, MyomerType, StructureType, TechBase,
+  CockpitType, EngineType, GyroType, HeatSinkType, JumpJetType, MechDesign, MyomerType, StructureType, TechBase,
 } from '../rules/types';
 import type { ComponentOption } from '../rules/tables';
 import {
-  COCKPIT_OPTIONS, ENGINE_OPTIONS, GYRO_OPTIONS, HEAT_SINK_OPTIONS, MYOMER_OPTIONS, STRUCTURE_OPTIONS,
-  componentAvailable, componentEraOk,
+  COCKPIT_OPTIONS, ENGINE_OPTIONS, GYRO_OPTIONS, HEAT_SINK_OPTIONS, JUMP_JET_OPTIONS, MYOMER_OPTIONS,
+  STRUCTURE_OPTIONS, componentAvailable, componentEraOk, componentFirstEra,
 } from '../rules/tables';
 import { ARM_LOCATIONS, LOCATION_NAMES, TECH_BASE_NAMES } from '../rules/types';
 import { ERAS, getEra, isAvailableIn } from '../rules/eras';
@@ -12,7 +12,7 @@ import type { MechSummary } from '../rules/construction';
 import { TONNAGES, maxWalkMP } from '../rules/tables';
 import {
   setActuator, setCockpitType, setEngineHeatSinks, setEngineType, setGyroType, setHeatSinkTotal,
-  setHeatSinkType, setJumpMP,
+  setHeatSinkType, setJumpJetType, setJumpMP,
   setMixedTech, setMyomer, setStructureType, setTechBase, setTonnage, setWalkMP,
 } from '../rules/edit';
 import { setOmni } from '../rules/omni';
@@ -33,11 +33,12 @@ export function ChassisPanel({ design, summary, update }: Props) {
   const advanced = isAvailableIn(ADVANCED_ERA, design.era);
   const lockedTitle = advanced ? undefined : 'Available from the Clan Invasion era (3050)';
   const xlSlots = design.techBase === 'Clan' ? 2 : 3;
+  const jumpMax = design.jumpJetType === 'improved' ? summary.runMP : design.walkMP;
   /** Whether a construction option can be chosen, and why not when it can't. */
   const ok = (o: ComponentOption) => componentAvailable(o, design.era, design.techBase, design.mixedTech);
   const why = (o: ComponentOption) => {
-    if (!componentEraOk(o, design.era)) {
-      const first = ERAS.find((e) => e.id === o.firstEra);
+    if (!componentEraOk(o, design.era, design.techBase)) {
+      const first = ERAS.find((e) => e.id === componentFirstEra(o, design.techBase));
       return `Available from the ${first?.name} era (${first?.year})`;
     }
     if (!ok(o)) return 'Inner Sphere technology: needs mixed tech on a Clan design';
@@ -114,6 +115,9 @@ export function ChassisPanel({ design, summary, update }: Props) {
             <option value="light" disabled={!ok(ENGINE_OPTIONS.light)} title={why(ENGINE_OPTIONS.light)}>
               {summary.rating} Light (2 slots per side torso)
             </option>
+            <option value="compact" disabled={!ok(ENGINE_OPTIONS.compact)} title={why(ENGINE_OPTIONS.compact)}>
+              {summary.rating} Compact (3 center-torso slots)
+            </option>
           </select>
           <span className="muted"> {summary.engineWeight ?? '—'} t</span>
         </div>
@@ -142,6 +146,9 @@ export function ChassisPanel({ design, summary, update }: Props) {
             <option value="heavy-duty" disabled={!ok(GYRO_OPTIONS['heavy-duty'])} title={why(GYRO_OPTIONS['heavy-duty'])}>
               Heavy-duty (4 slots)
             </option>
+            <option value="compact" disabled={!ok(GYRO_OPTIONS.compact)} title={why(GYRO_OPTIONS.compact)}>
+              Compact (2 slots)
+            </option>
           </select>
           <span className="muted"> {summary.weights.gyro} t</span>
         </div>
@@ -160,9 +167,16 @@ export function ChassisPanel({ design, summary, update }: Props) {
 
         <label>Jumping MP</label>
         <div>
-          <NumberField label="Jumping MP" value={summary.jumpMP} min={0} max={design.walkMP}
-            invalid={summary.jumpMP > design.walkMP}
-            onChange={(n) => update((d) => setJumpMP(d, n))} />
+          <NumberField label="Jumping MP" value={summary.jumpMP} min={0} max={jumpMax}
+            invalid={summary.jumpMP > jumpMax}
+            onChange={(n) => update((d) => setJumpMP(d, n))} />{' '}
+          <select aria-label="Jump jet type" value={design.jumpJetType}
+            onChange={(e) => update((d) => setJumpJetType(d, e.target.value as JumpJetType))}>
+            <option value="standard">Standard</option>
+            <option value="improved" disabled={!ok(JUMP_JET_OPTIONS.improved)} title={why(JUMP_JET_OPTIONS.improved)}>
+              Improved (up to run MP)
+            </option>
+          </select>
           <span className="muted"> {summary.weights.jumpJets} t</span>
         </div>
 

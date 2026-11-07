@@ -31,7 +31,7 @@ export interface Equipment {
   allowedLocations?: readonly Location[];
   isWeapon: boolean;
   /** Weight (and for MASC / targeting computers, slots) depends on the mech. */
-  variableWeight?: 'jumpJet' | 'masc' | 'targetingComputer';
+  variableWeight?: 'jumpJet' | 'improvedJumpJet' | 'masc' | 'targetingComputer';
   /** LRM/SRM launchers that can be linked to an Artemis IV fire-control system. */
   artemisCapable?: boolean;
   /** Ammo bins: Artemis IV-capable ammunition. */
@@ -54,6 +54,9 @@ const IS_3025: Avail = { techBase: 'IS', firstEra: '3025' };
 const IS_3050: Avail = { techBase: 'IS', firstEra: '3050' };
 const CLAN_3050: Avail = { techBase: 'Clan', firstEra: '3050' };
 const IS_3062: Avail = { techBase: 'IS', firstEra: '3062' };
+const CLAN_3062: Avail = { techBase: 'Clan', firstEra: '3062' };
+const IS_3068: Avail = { techBase: 'IS', firstEra: '3068' };
+const CLAN_3068: Avail = { techBase: 'Clan', firstEra: '3068' };
 const ANY_3025: Avail = { techBase: 'Both', firstEra: '3025' };
 const ANY_3050: Avail = { techBase: 'Both', firstEra: '3050' };
 
@@ -138,6 +141,39 @@ const IS_3062_WEAPONS: Equipment[] = [
   weapon(IS_3062, 'rac-2', 'Rotary AC/2', 'Ballistic', 8, 3, 1, '2 (×6)', [0, 6, 12, 18], 45),
   weapon(IS_3062, 'rac-5', 'Rotary AC/5', 'Ballistic', 10, 6, 1, '5 (×6)', [0, 5, 10, 15], 20),
   weapon(IS_3062, 'inarc', 'iNarc Launcher', 'Missile', 5, 3, 0, 'beacon', [0, 4, 9, 15], 4),
+  // Introduced 3067.
+  weapon(IS_3062, 'light-ppc', 'Light PPC', 'Energy', 3, 2, 5, '5', [3, 6, 12, 18]),
+  weapon(IS_3062, 'heavy-ppc', 'Heavy PPC', 'Energy', 10, 4, 15, '15', [3, 6, 12, 18]),
+  weapon(IS_3062, 'snub-nose-ppc', 'Snub-Nose PPC', 'Energy', 6, 2, 10, '10/8/5', [0, 9, 13, 15]),
+  weapon(IS_3062, 'er-flamer', 'ER Flamer', 'Energy', 1, 1, 4, '2', [0, 3, 5, 7]),
+  weapon(CLAN_3062, 'clan-er-flamer', 'ER Flamer', 'Energy', 1, 1, 4, '2', [0, 3, 5, 7]),
+];
+
+/** Jihad era (3068–3080) weapons. */
+const JIHAD_WEAPONS: Equipment[] = [
+  weapon(IS_3068, 'light-machine-gun', 'Light Machine Gun', 'Ballistic', 0.5, 1, 0, '1', [0, 2, 4, 6], 200),
+  weapon(IS_3068, 'heavy-machine-gun', 'Heavy Machine Gun', 'Ballistic', 1, 1, 0, '3', [0, 1, 2, 0], 100),
+  weapon(IS_3068, 'magshot', 'Magshot Gauss Rifle', 'Ballistic', 0.5, 1, 1, '2', [0, 3, 6, 9], 50),
+  weapon(IS_3068, 'plasma-rifle', 'Plasma Rifle', 'Energy', 6, 2, 10, '10 + heat', [0, 5, 10, 15], 10),
+  // Multi-Missile Launchers fire LRM (shown) or SRM ammunition; ammo is listed separately below.
+  weapon(IS_3068, 'mml-3', 'MML 3', 'Missile', 1.5, 2, 2, '1 or 2/missile', [6, 7, 14, 21]),
+  weapon(IS_3068, 'mml-5', 'MML 5', 'Missile', 3, 3, 3, '1 or 2/missile', [6, 7, 14, 21]),
+  weapon(IS_3068, 'mml-7', 'MML 7', 'Missile', 4.5, 4, 4, '1 or 2/missile', [6, 7, 14, 21]),
+  weapon(IS_3068, 'mml-9', 'MML 9', 'Missile', 6, 5, 5, '1 or 2/missile', [6, 7, 14, 21]),
+  weapon(IS_3068, 'thunderbolt-5', 'Thunderbolt 5', 'Missile', 3, 1, 3, '5', [5, 6, 12, 18], 12),
+  weapon(IS_3068, 'thunderbolt-10', 'Thunderbolt 10', 'Missile', 7, 2, 5, '10', [5, 6, 12, 18], 6),
+  weapon(IS_3068, 'thunderbolt-15', 'Thunderbolt 15', 'Missile', 11, 3, 7, '15', [5, 6, 12, 18], 4),
+  weapon(IS_3068, 'thunderbolt-20', 'Thunderbolt 20', 'Missile', 15, 5, 8, '20', [5, 6, 12, 18], 3),
+  weapon(CLAN_3068, 'clan-plasma-cannon', 'Plasma Cannon', 'Energy', 3, 1, 7, 'heat (2d6)', [0, 6, 12, 18], 10),
+  weapon(CLAN_3068, 'clan-ap-gauss-rifle', 'AP Gauss Rifle', 'Ballistic', 0.5, 1, 1, '3', [0, 3, 6, 9], 40),
+  weapon(CLAN_3068, 'clan-hag-20', 'Hyper-Assault Gauss 20', 'Ballistic', 10, 6, 4, '20 (cluster)', [2, 8, 16, 24], 6),
+  weapon(CLAN_3068, 'clan-hag-30', 'Hyper-Assault Gauss 30', 'Ballistic', 13, 8, 6, '30 (cluster)', [2, 8, 16, 24], 4),
+  weapon(CLAN_3068, 'clan-hag-40', 'Hyper-Assault Gauss 40', 'Ballistic', 16, 10, 8, '40 (cluster)', [2, 8, 16, 24], 3),
+];
+
+/** MML ammunition: [launcher, LRM shots per ton, SRM shots per ton]. */
+const MML_AMMO: [string, number, number][] = [
+  ['mml-3', 40, 33], ['mml-5', 24, 20], ['mml-7', 17, 14], ['mml-9', 13, 11],
 ];
 
 /** Clan weapons (Clan Invasion era). */
@@ -188,7 +224,7 @@ const CLAN_WEAPONS: Equipment[] = [
   weapon(CLAN_3050, 'clan-light-tag', 'Light TAG', 'Other', 0.5, 1, 0, 'designator', [0, 3, 6, 9]),
 ];
 
-const ALL_WEAPONS = [...IS_INTRO_WEAPONS, ...IS_3050_WEAPONS, ...IS_3062_WEAPONS, ...CLAN_WEAPONS];
+const ALL_WEAPONS = [...IS_INTRO_WEAPONS, ...IS_3050_WEAPONS, ...IS_3062_WEAPONS, ...JIHAD_WEAPONS, ...CLAN_WEAPONS];
 // Standard LRM / SRM launchers (not Streak) can take Artemis IV.
 for (const w of ALL_WEAPONS) {
   if (/^(clan-)?(lrm|srm)-\d+$/.test(w.id)) w.artemisCapable = true;
@@ -216,6 +252,13 @@ export const AMMO: readonly Equipment[] = [
     artemisAmmo: true,
     firstEra: '3050' as const,
   })),
+  ...MML_AMMO.flatMap(([id, lrm, srm]) => {
+    const w = ALL_WEAPONS.find((x) => x.id === id)!;
+    return [
+      { ...ammoBase(w), id: `ammo-${id}-lrm`, name: `${w.name} LRM Ammo (${lrm})`, tons: 1, firstEra: w.firstEra },
+      { ...ammoBase(w), id: `ammo-${id}-srm`, name: `${w.name} SRM Ammo (${srm})`, tons: 1, firstEra: w.firstEra },
+    ];
+  }),
   // Half-ton machine gun ammunition (Standard rules).
   ...WEAPONS.filter((w) => w.id.endsWith('machine-gun')).map((w) => ({
     ...ammoBase(w),
@@ -231,6 +274,8 @@ export const DOUBLE_HEAT_SINK_ID = 'double-heat-sink';
 export const CLAN_DOUBLE_HEAT_SINK_ID = 'clan-double-heat-sink';
 export const HEAT_SINK_IDS: readonly string[] = [HEAT_SINK_ID, DOUBLE_HEAT_SINK_ID, CLAN_DOUBLE_HEAT_SINK_ID];
 export const JUMP_JET_ID = 'jump-jet';
+export const IMPROVED_JUMP_JET_ID = 'improved-jump-jet';
+export const JUMP_JET_IDS: readonly string[] = [JUMP_JET_ID, IMPROVED_JUMP_JET_ID];
 export const ENDO_STEEL_ID = 'endo-steel';
 export const FERRO_FIBROUS_ID = 'ferro-fibrous';
 export const TSM_ID = 'tsm';
@@ -248,6 +293,11 @@ export const OTHER_EQUIPMENT: readonly Equipment[] = [
   {
     ...managed(ANY_3025, JUMP_JET_ID, 'Jump Jet', 0, 1),
     variableWeight: 'jumpJet',
+    allowedLocations: ['CT', 'LT', 'RT', 'LL', 'RL'],
+  },
+  {
+    ...managed(ANY_3050, IMPROVED_JUMP_JET_ID, 'Improved Jump Jet', 0, 2),
+    variableWeight: 'improvedJumpJet',
     allowedLocations: ['CT', 'LT', 'RT', 'LL', 'RL'],
   },
   managed(ANY_3050, ENDO_STEEL_ID, 'Endo Steel', 0, 1),
@@ -292,6 +342,12 @@ export const OTHER_EQUIPMENT: readonly Equipment[] = [
 export const ALL_EQUIPMENT: readonly Equipment[] = [...WEAPONS, ...AMMO, ...OTHER_EQUIPMENT];
 
 const BY_ID = new Map(ALL_EQUIPMENT.map((e) => [e.id, e]));
+const AMMO_FED = new Set(AMMO.map((a) => a.ammoFor));
+
+/** Weapons that need ammunition (anything some ammo bin feeds). */
+export function usesAmmo(eq: Equipment): boolean {
+  return AMMO_FED.has(eq.id);
+}
 
 export function getEquipment(id: string): Equipment | undefined {
   return BY_ID.get(id);
@@ -337,6 +393,7 @@ export function targetingComputerWeight(eq: Equipment, d: SizingDesign): number 
 
 export function itemWeight(eq: Equipment, d: SizingDesign): number {
   if (eq.variableWeight === 'jumpJet') return jumpJetWeight(d.tonnage);
+  if (eq.variableWeight === 'improvedJumpJet') return jumpJetWeight(d.tonnage) * 2;
   if (eq.variableWeight === 'masc') return mascWeight(d.tonnage, eq.techBase === 'Clan' ? 'Clan' : 'IS');
   if (eq.variableWeight === 'targetingComputer') return targetingComputerWeight(eq, d);
   return eq.tons;
@@ -346,6 +403,10 @@ export function itemSlots(eq: Equipment, d: SizingDesign): number {
   return eq.variableWeight === 'masc' || eq.variableWeight === 'targetingComputer'
     ? itemWeight(eq, d)
     : eq.slots;
+}
+
+export function jumpJetIdFor(d: Pick<MechDesign, 'jumpJetType'>): string {
+  return d.jumpJetType === 'improved' ? IMPROVED_JUMP_JET_ID : JUMP_JET_ID;
 }
 
 /** Heat sink equipment id for a design's heat sink type and tech base. */

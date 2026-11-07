@@ -3,7 +3,7 @@
 An application to build BattleMechs for the BattleTech game.
 
 On launch MechForger asks which tech level (era) to build for, from 3025
-onward; it can be changed later with **Change era**. Three eras are supported so far.
+onward; it can be changed later with **Change era**. All eight eras are selectable.
 
 ### 3025 Succession Wars — Inner Sphere, Introductory rules
 
@@ -53,6 +53,26 @@ Everything above, plus (Inner Sphere technology; Clan designs need mixed tech):
 - **Small cockpits** (2 tons, frees two head slots)
 - **Light Ferro-Fibrous** armor (×1.06 points/ton, 7 slots)
 - Rotary AC/2 and AC/5, iNarc, Improved C3 and the Inner Sphere targeting computer
+- Light, Heavy and Snub-Nose PPCs and ER flamers (IS and Clan), introduced 3067
+
+### 3068 Jihad — Inner Sphere or Clan, Standard rules
+
+Everything above, plus:
+
+- **Compact engines** (150% weight, only 3 center-torso slots) and **compact gyros**
+  (150% weight, 2 slots) — Inner Sphere
+- **Heavy Ferro-Fibrous** armor (×1.24 points/ton, 21 slots) — Inner Sphere
+- **Improved jump jets** (double weight and slots; jump up to running MP) — the Inner
+  Sphere from 3068, the Clans already in 3050
+- IS: Multi-Missile Launchers 3–9 (LRM or SRM ammo), Thunderbolt 5–20, Plasma Rifle,
+  Magshot Gauss, light and heavy machine guns
+- Clan: Hyper-Assault Gauss 20/30/40, AP Gauss Rifle, Plasma Cannon
+
+### 3081 Early Republic, 3101 Late Republic, 3131 Dark Age, 3151 ilClan
+
+Selectable, with all of the Standard-level technology above. The Standard
+construction rules add little after the Jihad; most newer equipment is
+Advanced or Experimental level and is not modeled yet.
 
 ### Everywhere
 
@@ -103,13 +123,16 @@ npm run dist:win   # build the Windows installer + portable exe into release/
   - `readout.ts` — technical-readout text
 - `src/data/canonical.ts` — sample designs: 3025 canon mechs (Locust, Wasp, Hunchback, Atlas) and
   original samples for 3050 (Warden; the Grimfang OmniMech with Prime and A
-  configurations) and 3062 (Bulwark, Emberclaw); also used as test fixtures
+  configurations), 3062 (Bulwark, Emberclaw) and 3068 (Rampart, Cindermaw); also used
+  as test fixtures
 - `src/ui/` — React interface
 - `electron/main.cjs` — desktop window wrapper; `build/icon.png` — app icon
 - `.github/workflows/windows-build.yml` — automatic Windows builds
 
 ## Not yet supported
 
-Split critical slots across locations, Battle Value, C-Bill cost, quads, and
-eras after 3067. Mixed tech applies to equipment only: structure, engine, heat
+Split critical slots across locations, Battle Value, C-Bill cost, quads,
+Advanced / Experimental equipment (e.g. XXL engines, stealth and reactive armor,
+composite and reinforced structure, rifles, VSP lasers), and physical weapons.
+Mixed tech applies to equipment only: structure, engine, heat
 sinks and armor follow the chassis tech base.

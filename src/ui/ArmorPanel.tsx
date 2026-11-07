@@ -37,6 +37,10 @@ export function ArmorPanel({ design, summary, update }: Props) {
             disabled={!componentAvailable(ARMOR_OPTIONS['light-ferro'], design.era, design.techBase, design.mixedTech)}>
             Light Ferro-Fibrous (7 slots)
           </option>
+          <option value="heavy-ferro"
+            disabled={!componentAvailable(ARMOR_OPTIONS['heavy-ferro'], design.era, design.techBase, design.mixedTech)}>
+            Heavy Ferro-Fibrous (21 slots)
+          </option>
         </select>{' '}
         <span className="muted small">{pptLabel} pts/ton</span>
       </h2>

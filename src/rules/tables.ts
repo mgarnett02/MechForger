@@ -1,6 +1,6 @@
 import type {
-  ArmorType, CockpitType, EngineType, GyroType, HeatSinkType, Location, MyomerType, StructureType, TechBase,
-  WeightClass,
+  ArmorType, CockpitType, EngineType, GyroType, HeatSinkType, JumpJetType, Location, MyomerType, StructureType,
+  TechBase, WeightClass,
 } from './types';
 import type { EraId } from './eras';
 import { isAvailableIn } from './eras';
@@ -77,6 +77,11 @@ export function gyroWeight(rating: number): number {
 }
 
 /** Weight per standard jump jet. */
+/** Improved jump jets weigh and occupy twice as much as standard ones. */
+export function jumpJetWeightFor(type: JumpJetType, tonnage: number): number {
+  return jumpJetWeight(tonnage) * (type === 'improved' ? 2 : 1);
+}
+
 export function jumpJetWeight(tonnage: number): number {
   if (tonnage <= 55) return 0.5;
   if (tonnage <= 85) return 1;
@@ -121,10 +126,22 @@ export function lightEngineWeight(rating: number): number | null {
   return std === null ? null : Math.ceil(std * 0.75 * 2) / 2;
 }
 
+/** Compact fusion engine (IS): 150% of standard weight, rounded up to the half ton. */
+export function compactEngineWeight(rating: number): number | null {
+  const std = standardFusionEngineWeight(rating);
+  return std === null ? null : Math.ceil(std * 1.5 * 2) / 2;
+}
+
 export function engineWeight(type: EngineType, rating: number): number | null {
   if (type === 'xl') return xlEngineWeight(rating);
   if (type === 'light') return lightEngineWeight(rating);
+  if (type === 'compact') return compactEngineWeight(rating);
   return standardFusionEngineWeight(rating);
+}
+
+/** Engine critical slots in the center torso: 6, or 3 for a compact engine. */
+export function engineCenterSlots(type: EngineType): number {
+  return type === 'compact' ? 3 : 6;
 }
 
 /** Engine critical slots in each side torso: XL 3 (IS) / 2 (Clan), Light 2. */
@@ -139,11 +156,14 @@ export function gyroWeightFor(type: GyroType, rating: number): number {
   const base = gyroWeight(rating);
   if (type === 'xl') return Math.ceil(base) / 2;
   if (type === 'heavy-duty') return base * 2;
+  if (type === 'compact') return Math.ceil(base * 1.5 * 2) / 2;
   return base;
 }
 
 export function gyroSlots(type: GyroType): number {
-  return type === 'xl' ? 6 : 4;
+  if (type === 'xl') return 6;
+  if (type === 'compact') return 2;
+  return 4;
 }
 
 export function cockpitWeight(type: CockpitType): number {
@@ -163,6 +183,7 @@ export function structureSlots(type: StructureType, techBase: TechBase): number 
 
 export function armorSlots(type: ArmorType, techBase: TechBase): number {
   if (type === 'light-ferro') return 7;
+  if (type === 'heavy-ferro') return 21;
   if (type !== 'ferro-fibrous') return 0;
   return techBase === 'Clan' ? 7 : 14;
 }
@@ -170,6 +191,7 @@ export function armorSlots(type: ArmorType, techBase: TechBase): number {
 /** Armor points per ton: standard 16; Ferro-Fibrous ×1.12 (IS) / ×1.2 (Clan); Light Ferro ×1.06. */
 export function armorPointsPerTon(type: ArmorType, techBase: TechBase): number {
   if (type === 'light-ferro') return ARMOR_POINTS_PER_TON * 1.06;
+  if (type === 'heavy-ferro') return ARMOR_POINTS_PER_TON * 1.24;
   if (type !== 'ferro-fibrous') return ARMOR_POINTS_PER_TON;
   return ARMOR_POINTS_PER_TON * (techBase === 'Clan' ? 1.2 : 1.12);
 }
@@ -188,9 +210,12 @@ export interface ComponentOption {
   label: string;
   techBase: TechBase | 'Both';
   firstEra: EraId;
+  /** When the Clans had it earlier than the Inner Sphere. */
+  firstEraClan?: EraId;
 }
 
-const opt = (label: string, techBase: TechBase | 'Both', firstEra: EraId): ComponentOption => ({ label, techBase, firstEra });
+const opt = (label: string, techBase: TechBase | 'Both', firstEra: EraId, firstEraClan?: EraId): ComponentOption =>
+  ({ label, techBase, firstEra, ...(firstEraClan ? { firstEraClan } : {}) });
 
 export const STRUCTURE_OPTIONS: Record<StructureType, ComponentOption> = {
   standard: opt('Standard structure', 'Both', '3025'),
@@ -200,11 +225,13 @@ export const ENGINE_OPTIONS: Record<EngineType, ComponentOption> = {
   standard: opt('Standard fusion engines', 'Both', '3025'),
   xl: opt('XL engines', 'Both', '3050'),
   light: opt('Light engines', 'IS', '3062'),
+  compact: opt('Compact engines', 'IS', '3068'),
 };
 export const GYRO_OPTIONS: Record<GyroType, ComponentOption> = {
   standard: opt('Standard gyros', 'Both', '3025'),
   xl: opt('XL gyros', 'IS', '3062'),
   'heavy-duty': opt('Heavy-duty gyros', 'IS', '3062'),
+  compact: opt('Compact gyros', 'IS', '3068'),
 };
 export const COCKPIT_OPTIONS: Record<CockpitType, ComponentOption> = {
   standard: opt('Standard cockpits', 'Both', '3025'),
@@ -218,14 +245,24 @@ export const ARMOR_OPTIONS: Record<ArmorType, ComponentOption> = {
   standard: opt('Standard armor', 'Both', '3025'),
   'ferro-fibrous': opt('Ferro-Fibrous armor', 'Both', '3050'),
   'light-ferro': opt('Light Ferro-Fibrous armor', 'IS', '3062'),
+  'heavy-ferro': opt('Heavy Ferro-Fibrous armor', 'IS', '3068'),
+};
+export const JUMP_JET_OPTIONS: Record<JumpJetType, ComponentOption> = {
+  standard: opt('Standard jump jets', 'Both', '3025'),
+  // Clan improved jump jets date from the 3020s; the Inner Sphere's from the Jihad.
+  improved: opt('Improved jump jets', 'Both', '3068', '3050'),
 };
 export const MYOMER_OPTIONS: Record<MyomerType, ComponentOption> = {
   standard: opt('Standard myomer', 'Both', '3025'),
   tsm: opt('Triple-Strength Myomer', 'IS', '3050'),
 };
 
-export function componentEraOk(o: ComponentOption, era: EraId): boolean {
-  return isAvailableIn(o.firstEra, era);
+export function componentFirstEra(o: ComponentOption, techBase: TechBase = 'IS'): EraId {
+  return techBase === 'Clan' && o.firstEraClan ? o.firstEraClan : o.firstEra;
+}
+
+export function componentEraOk(o: ComponentOption, era: EraId, techBase: TechBase = 'IS'): boolean {
+  return isAvailableIn(componentFirstEra(o, techBase), era);
 }
 
 export function componentTechOk(o: ComponentOption, techBase: TechBase, mixedTech: boolean): boolean {
@@ -233,5 +270,5 @@ export function componentTechOk(o: ComponentOption, techBase: TechBase, mixedTec
 }
 
 export function componentAvailable(o: ComponentOption, era: EraId, techBase: TechBase, mixedTech: boolean): boolean {
-  return componentEraOk(o, era) && componentTechOk(o, techBase, mixedTech);
+  return componentEraOk(o, era, techBase) && componentTechOk(o, techBase, mixedTech);
 }

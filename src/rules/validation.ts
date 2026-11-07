@@ -5,15 +5,15 @@ import {
 } from './tables';
 import {
   ENDO_STEEL_ID, FERRO_FIBROUS_ID, HEAT_SINK_IDS, TSM_ID, allowedLocations, canRearMount, getEquipment,
-  heatSinkIdFor, isDirectFire, isEquipmentAvailable,
+  JUMP_JET_IDS, heatSinkIdFor, isDirectFire, isEquipmentAvailable, jumpJetIdFor, usesAmmo,
 } from './equipment';
 import { configurationDesigns, isFixedOnly } from './omni';
 import { getEra, isAvailableIn } from './eras';
 import { TECH_BASE_NAMES } from './types';
 import type { ComponentOption } from './tables';
 import {
-  ARMOR_OPTIONS, COCKPIT_OPTIONS, ENGINE_OPTIONS, GYRO_OPTIONS, HEAT_SINK_OPTIONS, MYOMER_OPTIONS,
-  STRUCTURE_OPTIONS, armorSlots, componentEraOk, componentTechOk, structureSlots,
+  ARMOR_OPTIONS, COCKPIT_OPTIONS, ENGINE_OPTIONS, GYRO_OPTIONS, HEAT_SINK_OPTIONS, JUMP_JET_OPTIONS,
+  MYOMER_OPTIONS, STRUCTURE_OPTIONS, armorSlots, componentEraOk, componentTechOk, structureSlots,
 } from './tables';
 import { armorPointsForTons } from './armor';
 import { locationArmor } from './armor';
@@ -84,9 +84,10 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
       HEAT_SINK_OPTIONS[design.heatSinkType],
       ARMOR_OPTIONS[design.armorType],
       MYOMER_OPTIONS[design.myomer],
+      JUMP_JET_OPTIONS[design.jumpJetType],
     ];
     for (const o of chosen) {
-      if (!componentEraOk(o, design.era)) {
+      if (!componentEraOk(o, design.era, design.techBase)) {
         error(`${o.label} cannot be used in the ${era.name} era.`);
       } else if (!componentTechOk(o, design.techBase, design.mixedTech)) {
         error(`${o.label}: ${TECH_BASE_NAMES[o.techBase as 'IS' | 'Clan']} technology only (needs mixed tech on a ${TECH_BASE_NAMES[design.techBase]} design).`);
@@ -151,8 +152,16 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
   }
 
   // Jump jets
-  if (summary.jumpMP > design.walkMP) {
+  if (design.jumpJetType === 'improved') {
+    if (summary.jumpMP > summary.runMP) {
+      error(`Jumping MP (${summary.jumpMP}) cannot exceed running MP (${summary.runMP}) with improved jump jets.`);
+    }
+  } else if (summary.jumpMP > design.walkMP) {
     error(`Jumping MP (${summary.jumpMP}) cannot exceed walking MP (${design.walkMP}).`);
+  }
+  const jjId = jumpJetIdFor(design);
+  if (design.equipment.some((e) => JUMP_JET_IDS.includes(e.equipmentId) && e.equipmentId !== jjId)) {
+    error('Standard and improved jump jets cannot be mixed.');
   }
 
   // Actuators
@@ -254,7 +263,7 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
     if (eq?.artemisAmmo && !hasArtemis) {
       warn(`${eq.name} needs an Artemis IV FCS to give any benefit.`);
     }
-    if (eq?.ammoPerTon && !fedWeapons.has(id)) {
+    if (eq && usesAmmo(eq) && !fedWeapons.has(id)) {
       warn(`${eq.name} has no ammunition.`);
     }
   }
