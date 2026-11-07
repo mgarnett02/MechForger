@@ -34,33 +34,69 @@ const TECH_BASE_INFO: Record<TechBase, { name: string; blurb: string }> = {
 /** Modal asking which tech level (and, where relevant, tech base) to build for. */
 export function EraDialog({ current, currentTechBase, onSelect, onCancel, theme, onThemeChange }: Props) {
   const [pending, setPending] = useState<Era | null>(null);
+  // Steps: pick an era → pick mech or vehicle → (if the era offers both) pick a tech base.
+  const [step, setStep] = useState<'era' | 'unit' | 'techbase'>('era');
+  const back = () => {
+    if (step === 'techbase') setStep('unit');
+    else {
+      setStep('era');
+      setPending(null);
+    }
+  };
   const firstRef = useRef<HTMLButtonElement>(null);
   // Start keyboard focus on the current era, or the first one that can be built.
   const focusId = ERAS.find((e) => e.id === current && e.available)?.id ?? ERAS.find((e) => e.available)?.id;
 
   useEffect(() => {
     firstRef.current?.focus();
-  }, [pending]);
+  }, [pending, step]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
-      if (pending) setPending(null);
+      if (step !== 'era') back();
       else onCancel?.();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onCancel, pending]);
+  }, [onCancel, step]);
 
   const pickEra = (era: Era) => {
-    if (era.techBases.length === 1) onSelect(era.id, era.techBases[0]);
-    else setPending(era);
+    setPending(era);
+    setStep('unit');
+  };
+  const pickMech = () => {
+    if (!pending) return;
+    if (pending.techBases.length === 1) onSelect(pending.id, pending.techBases[0]);
+    else setStep('techbase');
   };
 
   return (
     <div className={`modal-backdrop ${onCancel ? '' : 'startup'}`}>
       <div className="modal" role="dialog" aria-modal="true" aria-labelledby="era-title">
-        {!pending ? (
+        {step === 'unit' && pending ? (
+          <>
+            <h2 id="era-title">{pending.year} {pending.name}: what are you building?</h2>
+            <p className="muted">Both use the {pending.name} era&apos;s technology.</p>
+            <div className="era-grid two">
+              <button ref={firstRef} className="era-btn" onClick={pickMech}>
+                <span className="unit-icon" aria-hidden="true">
+                  <svg viewBox="0 0 48 48" width="40" height="40"><path d="M18 6h12v8h6v14h-4v14h-6V30h-4v12h-6V28h-4V14h6z" fill="currentColor" /></svg>
+                </span>
+                <span className="era-year">BattleMech</span>
+                <span className="era-desc">A walking war machine: tonnage, engine, armor, weapons and critical slots.</span>
+              </button>
+              <button className="era-btn" disabled title="Vehicle construction is not available yet">
+                <span className="unit-icon" aria-hidden="true">
+                  <svg viewBox="0 0 48 48" width="40" height="40"><path d="M10 20h18l4-6h8v6h4v10H4V24zM8 32h32v6H8z" fill="currentColor" /></svg>
+                </span>
+                <span className="era-year">Combat Vehicle</span>
+                <span className="era-desc">Tracked, wheeled, hover and VTOL vehicles.</span>
+                <span className="era-soon">Coming soon</span>
+              </button>
+            </div>
+          </>
+        ) : step === 'era' || !pending ? (
           <>
             <h2 id="era-title">Choose a tech level</h2>
             <p className="muted">Pick the era your BattleMech is built for. This sets which technology is available.</p>
@@ -115,7 +151,7 @@ export function EraDialog({ current, currentTechBase, onSelect, onCancel, theme,
             ))}
           </div>
           <span className="spacer" />
-          {pending && <button onClick={() => setPending(null)}>Back</button>}
+          {step !== 'era' && <button onClick={back}>Back</button>}
           {onCancel && <button onClick={onCancel}>Cancel</button>}
         </div>
       </div>

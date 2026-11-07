@@ -3,7 +3,8 @@
 An application to build BattleMechs for the BattleTech game.
 
 On launch MechForger asks which tech level (era) to build for, from 3025
-onward; it can be changed later with **Change era**. All eight eras are selectable.
+onward, then whether to build a BattleMech or a combat vehicle (vehicles are
+coming soon); it can be changed later with **Change era**. All eight eras are selectable.
 
 ### 3025 Succession Wars — Inner Sphere, Introductory rules
 

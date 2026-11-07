@@ -304,3 +304,6 @@ td, th { padding: 0.2rem 0.35rem; }
 
 .mounted .item-name { display: flex; flex-direction: column; line-height: 1.2; min-width: 0; }
 .mounted li select { max-width: 13rem; }
+
+.unit-icon { color: var(--accent); display: block; margin-bottom: 0.25rem; }
+.era-btn:disabled .unit-icon { color: var(--muted); }
