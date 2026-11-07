@@ -7,6 +7,7 @@ import { PRESETS } from '../data/canonical';
 import type { EraId } from '../rules/eras';
 import { eraLabel, getEra } from '../rules/eras';
 import { EraDialog } from './EraDialog';
+import { StatusLight } from './StatusLight';
 import { ChassisPanel } from './ChassisPanel';
 import { ArmorPanel } from './ArmorPanel';
 import { EquipmentPanel } from './EquipmentPanel';
@@ -72,6 +73,7 @@ export function App() {
           <button className="small" onClick={() => setEraDialog('change')}>Change era</button>
         </h1>
         <div className="row wrap">
+          <StatusLight issues={issues} />
           <input aria-label="Chassis name" value={design.chassis} placeholder="Chassis"
             onChange={(e) => update((d) => ({ ...d, chassis: e.target.value }))} />
           <input aria-label="Model" value={design.model} placeholder="Model" style={{ width: '7rem' }}

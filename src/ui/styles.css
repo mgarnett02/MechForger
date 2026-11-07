@@ -13,6 +13,9 @@
   --slot-fixed: #ecebe7;
   --slot-item: #fff6dc;
   --input-bg: #ffffff;
+  --lamp-red: #e5383b;
+  --lamp-amber: #f2a900;
+  --lamp-green: #2fb344;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
@@ -31,6 +34,9 @@
     --slot-fixed: #272a2f;
     --slot-item: #3a3322;
     --input-bg: #15171a;
+    --lamp-red: #ff4d4f;
+    --lamp-amber: #ffc53d;
+    --lamp-green: #52d36b;
     color-scheme: dark;
   }
 }
@@ -72,9 +78,15 @@ button.link { border: none; background: none; padding: 0; color: var(--accent); 
 label.check { display: inline-flex; align-items: center; gap: 0.3rem; margin-right: 0.75rem; }
 
 .app { max-width: 1600px; margin: 0 auto; padding: 1rem; }
-.toolbar { margin-bottom: 1rem; position: relative; }
+.toolbar {
+  margin: -1rem -1rem 1rem;
+  padding: 1rem 1rem 0.75rem;
+  position: sticky; top: 0; z-index: 10;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
 .notice {
-  position: absolute; right: 0; top: 0;
+  position: absolute; right: 1rem; top: 1rem;
   background: var(--accent-soft); border: 1px solid var(--accent);
   padding: 0.3rem 0.7rem; border-radius: 6px;
 }
@@ -222,3 +234,30 @@ td, th { padding: 0.2rem 0.35rem; }
   font-size: 0.7rem; padding: 0.05rem 0.45rem; border-radius: 999px;
   border: 1px solid var(--border); color: var(--muted);
 }
+
+/* Legal / illegal traffic light */
+.status-light {
+  display: inline-flex; align-items: center; gap: 0.6rem;
+  padding: 0.25rem 0.75rem 0.25rem 0.35rem;
+  border-radius: 999px; border-width: 2px;
+  min-width: 14rem; /* keep the toolbar from shifting as the label changes */
+}
+.status-light.illegal { border-color: var(--lamp-red); }
+.status-light.warnings { border-color: var(--lamp-amber); }
+.status-light.legal { border-color: var(--lamp-green); }
+.lamps {
+  display: inline-flex; gap: 4px; padding: 4px 6px;
+  background: #1b1d21; border-radius: 999px;
+}
+.lamp { width: 14px; height: 14px; border-radius: 50%; opacity: 0.22; transition: opacity 0.2s, box-shadow 0.2s; }
+.lamp-illegal { background: var(--lamp-red); }
+.lamp-warnings { background: var(--lamp-amber); }
+.lamp-legal { background: var(--lamp-green); }
+.lamp.on { opacity: 1; }
+.lamp-illegal.on { box-shadow: 0 0 8px 2px var(--lamp-red); }
+.lamp-warnings.on { box-shadow: 0 0 8px 2px var(--lamp-amber); }
+.lamp-legal.on { box-shadow: 0 0 8px 2px var(--lamp-green); }
+.status-text { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.15; }
+.status-light.illegal strong { color: var(--bad); }
+.status-light.warnings strong { color: var(--warn); }
+.status-light.legal strong { color: var(--ok); }

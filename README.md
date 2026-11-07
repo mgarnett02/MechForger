@@ -13,6 +13,8 @@ onward; it can be changed later with **Change era**. The first milestone covers 
 - Standard armor (16 points/ton, half-ton increments, per-location maximums)
 - 3025 weapons: lasers, PPC, flamer, machine gun, AC/2–AC/20, LRM 5–20, SRM 2–6 and their ammo
 - Optional lower-arm / hand actuators, rear-mounted torso weapons
+- Red / amber / green status light: illegal, legal but incomplete (unused tonnage,
+  unallocated armor), or fully legal
 - Critical slot allocation with live validation, technical-readout text export,
   JSON import/export and saving in the browser
 

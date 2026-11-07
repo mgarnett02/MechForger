@@ -1,7 +1,7 @@
 import type { MechDesign } from './types';
 import { ARM_LOCATIONS, ARMOR_FACINGS, FACING_NAMES, LOCATIONS, LOCATION_NAMES } from './types';
 import {
-  FREE_HEAT_SINKS, MAX_ENGINE_RATING, MIN_ENGINE_RATING, TONNAGES,
+  ARMOR_POINTS_PER_TON, FREE_HEAT_SINKS, MAX_ENGINE_RATING, MIN_ENGINE_RATING, TONNAGES,
 } from './tables';
 import { allowedLocations, canRearMount, getEquipment } from './equipment';
 import { locationArmor } from './armor';
@@ -55,6 +55,18 @@ export function validate(design: MechDesign, summary: MechSummary = computeMech(
     const max = summary.armorMax[loc];
     if (pts > max) {
       error(`${LOCATION_NAMES[loc]} has ${pts} armor points; the maximum is ${max}.`);
+    }
+  }
+  if (summary.armorTotal === 0) {
+    warn('No armor allocated.');
+  } else {
+    const paidFor = summary.weights.armor * ARMOR_POINTS_PER_TON;
+    const unallocated = Math.min(paidFor, summary.armorMaxTotal) - summary.armorTotal;
+    if (unallocated > 0) {
+      warn(
+        `${unallocated} armor point(s) paid for but not allocated ` +
+          `(armor is bought in half-ton lots of ${ARMOR_POINTS_PER_TON / 2} points).`,
+      );
     }
   }
 
@@ -136,6 +148,15 @@ function summarizeNames(names: string[]): string {
   const counts = new Map<string, number>();
   for (const n of names) counts.set(n, (counts.get(n) ?? 0) + 1);
   return [...counts].map(([n, c]) => (c > 1 ? `${c}× ${n}` : n)).join(', ');
+}
+
+export type DesignStatus = 'illegal' | 'warnings' | 'legal';
+
+/** Traffic-light status: errors make a design illegal; warnings mean legal but incomplete. */
+export function designStatus(issues: Issue[]): DesignStatus {
+  if (issues.some((i) => i.severity === 'error')) return 'illegal';
+  if (issues.some((i) => i.severity === 'warning')) return 'warnings';
+  return 'legal';
 }
 
 export function isValid(issues: Issue[]): boolean {

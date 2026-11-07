@@ -3,7 +3,7 @@ import {
   addEquipment, computeMech, distributeArmor, gyroWeight, internalStructure, isValid,
   maxTotalArmor, newDesign, setActuator, setEngineHeatSinks, setHeatSinkTotal, setItemLocation,
   setItemRear, setJumpMP, setTonnage, setWalkMP, standardFusionEngineWeight, technicalReadout,
-  totalArmorPoints, validate, parseDesign, ERAS, DEFAULT_ERA,
+  totalArmorPoints, validate, parseDesign, ERAS, designStatus, DEFAULT_ERA,
 } from './index';
 import type { MechDesign } from './types';
 import { PRESETS } from '../data/canonical';
@@ -220,5 +220,29 @@ describe('eras', () => {
     expect(parseDesign(JSON.parse(JSON.stringify(legacy))).era).toBe('3025');
     expect(parseDesign({ ...legacy, era: '3050' }).era).toBe('3050');
     expect(parseDesign({ ...legacy, era: 'bogus' }).era).toBe('3025');
+  });
+});
+
+describe('design status', () => {
+  const warnings = (d: MechDesign) => validate(d).filter((i) => i.severity === 'warning').map((i) => i.message);
+
+  it('canon designs are fully legal (green)', () => {
+    for (const p of PRESETS) expect(designStatus(validate(p.build()))).toBe('legal');
+  });
+
+  it('errors are illegal (red)', () => {
+    expect(designStatus(validate(addEquipment(newDesign(), 'medium-laser')))).toBe('illegal');
+  });
+
+  it('unused tonnage or missing armor is a warning (amber)', () => {
+    const d = newDesign();
+    expect(designStatus(validate(d))).toBe('warnings');
+    expect(warnings(d)).toContain('No armor allocated.');
+  });
+
+  it('warns about armor points paid for but not allocated', () => {
+    const d = preset('Hunchback HBK-4G');
+    d.armor.HD = 6; // 157 points still costs 10 tons = 160 points
+    expect(warnings(d).some((m) => m.startsWith('3 armor point(s) paid for but not allocated'))).toBe(true);
   });
 });

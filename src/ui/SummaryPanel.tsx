@@ -56,7 +56,7 @@ export function SummaryPanel({ design, summary, issues }: Props) {
         <div><span className="muted">Armor</span> {summary.armorTotal}/{summary.armorMaxTotal}</div>
       </div>
 
-      <h3>
+      <h3 id="validation">
         Validation{' '}
         {errors.length === 0
           ? <span className="ok small">✓ legal design</span>
