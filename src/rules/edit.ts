@@ -1,10 +1,19 @@
-import type { ArmLocation, ArmorFacing, Location, MechDesign, MountedItem } from './types';
+import type {
+  ArmLocation, ArmorFacing, ArmorType, EngineType, HeatSinkType, Location, MechDesign, MountedItem,
+  StructureType, TechBase,
+} from './types';
 import { ARMOR_FACINGS, LOCATIONS, REAR_FACING } from './types';
-import { ARMOR_POINTS_PER_TON, FREE_HEAT_SINKS, engineHeatSinkCapacity, maxWalkMP } from './tables';
-import { HEAT_SINK_ID, JUMP_JET_ID, canRearMount, getEquipment } from './equipment';
+import {
+  FREE_HEAT_SINKS, armorPointsPerTon, armorSlots, engineHeatSinkCapacity, maxWalkMP, structureSlots,
+} from './tables';
+import {
+  ENDO_STEEL_ID, FERRO_FIBROUS_ID, HEAT_SINK_IDS, JUMP_JET_ID, allowedLocations, canRearMount,
+  getEquipment, heatSinkIdFor, itemSlots,
+} from './equipment';
+import { computeMech } from './construction';
 import type { EraId } from './eras';
 import { DEFAULT_ERA, getEra } from './eras';
-import { distributeArmor, emptyArmor, maxArmorByLocation, maxTotalArmor } from './armor';
+import { armorPointsForTons, distributeArmor, emptyArmor, maxArmorByLocation, maxTotalArmor } from './armor';
 
 /** Pure editing operations: each returns a new design. */
 
@@ -14,11 +23,16 @@ export function newUid(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}-${uidCounter}`;
 }
 
-export function newDesign(era: EraId = DEFAULT_ERA): MechDesign {
+export function newDesign(era: EraId = DEFAULT_ERA, techBase: TechBase = 'IS'): MechDesign {
   // 50 tons, walk 4: engine 200 holds 8 heat sinks; place the other 2 of the free 10.
   return {
     schemaVersion: 1,
     era,
+    techBase,
+    structureType: 'standard',
+    engineType: 'standard',
+    heatSinkType: 'single',
+    armorType: 'standard',
     chassis: 'New Mech',
     model: 'NM-1',
     tonnage: 50,
@@ -27,14 +41,14 @@ export function newDesign(era: EraId = DEFAULT_ERA): MechDesign {
     armor: emptyArmor(),
     actuators: { LA: { lowerArm: true, hand: true }, RA: { lowerArm: true, hand: true } },
     equipment: [
-      { uid: newUid(), equipmentId: HEAT_SINK_ID, location: 'LT' },
-      { uid: newUid(), equipmentId: HEAT_SINK_ID, location: 'RT' },
+      { uid: newUid(), equipmentId: 'heat-sink', location: 'LT' },
+      { uid: newUid(), equipmentId: 'heat-sink', location: 'RT' },
     ],
   };
 }
 
 function totalHeatSinks(d: MechDesign): number {
-  return d.engineHeatSinks + d.equipment.filter((e) => e.equipmentId === HEAT_SINK_ID).length;
+  return d.engineHeatSinks + d.equipment.filter((e) => HEAT_SINK_IDS.includes(e.equipmentId)).length;
 }
 
 /** Make the number of `equipmentId` items equal `count`, removing unallocated ones first. */
@@ -60,7 +74,7 @@ function syncCount(d: MechDesign, equipmentId: string, count: number): MechDesig
 function refitHeatSinks(d: MechDesign, total: number, preferredInEngine: number): MechDesign {
   const cap = engineHeatSinkCapacity(d.tonnage * d.walkMP);
   const inEngine = Math.max(0, Math.min(preferredInEngine, cap, total));
-  return syncCount({ ...d, engineHeatSinks: inEngine }, HEAT_SINK_ID, total - inEngine);
+  return syncCount({ ...d, engineHeatSinks: inEngine }, heatSinkIdFor(d), total - inEngine);
 }
 
 export function setHeatSinkTotal(d: MechDesign, total: number): MechDesign {
@@ -127,7 +141,8 @@ export function clearArmor(d: MechDesign): MechDesign {
 }
 
 export function setArmorTonnage(d: MechDesign, tons: number): MechDesign {
-  return { ...d, armor: distributeArmor(d.tonnage, Math.round(tons * 2) * (ARMOR_POINTS_PER_TON / 2)) };
+  const ppt = armorPointsPerTon(d.armorType, d.techBase);
+  return { ...d, armor: distributeArmor(d.tonnage, armorPointsForTons(Math.round(tons * 2) / 2, ppt)) };
 }
 
 export function addEquipment(d: MechDesign, equipmentId: string, location: Location | null = null): MechDesign {
@@ -157,6 +172,80 @@ export function setItemRear(d: MechDesign, uid: string, rear: boolean): MechDesi
   };
 }
 
+// ---------------------------------------------------------------------------
+// Construction options
+// ---------------------------------------------------------------------------
+
+/** Swap every heat sink to the id matching the design's type/tech base (unplacing resized ones). */
+function normalizeHeatSinks(d: MechDesign): MechDesign {
+  const id = heatSinkIdFor(d);
+  return {
+    ...d,
+    equipment: d.equipment.map((e) =>
+      HEAT_SINK_IDS.includes(e.equipmentId) && e.equipmentId !== id
+        ? { ...e, equipmentId: id, location: null }
+        : e,
+    ),
+  };
+}
+
+/** Keep Endo Steel / Ferro-Fibrous slot placeholders at the count the rules require. */
+function syncFillers(d: MechDesign): MechDesign {
+  const withEndo = syncCount(d, ENDO_STEEL_ID, structureSlots(d.structureType, d.techBase));
+  return syncCount(withEndo, FERRO_FIBROUS_ID, armorSlots(d.armorType, d.techBase));
+}
+
+export function setTechBase(d: MechDesign, techBase: TechBase): MechDesign {
+  return syncFillers(normalizeHeatSinks({ ...d, techBase }));
+}
+
+export function setStructureType(d: MechDesign, structureType: StructureType): MechDesign {
+  return syncFillers({ ...d, structureType });
+}
+
+export function setArmorType(d: MechDesign, armorType: ArmorType): MechDesign {
+  return syncFillers({ ...d, armorType });
+}
+
+export function setEngineType(d: MechDesign, engineType: EngineType): MechDesign {
+  return { ...d, engineType };
+}
+
+export function setHeatSinkType(d: MechDesign, heatSinkType: HeatSinkType): MechDesign {
+  return normalizeHeatSinks({ ...d, heatSinkType });
+}
+
+const PLACE_ORDER: Location[] = ['LT', 'RT', 'CT', 'LA', 'RA', 'LL', 'RL', 'HD'];
+const FILLER_ORDER: Location[] = ['LA', 'RA', 'LL', 'RL', 'LT', 'RT', 'CT', 'HD'];
+
+/**
+ * Place every unallocated item in the first location with room for it.
+ * Large items go first; Endo Steel / Ferro-Fibrous fill the limbs before the torso.
+ */
+export function autoAllocate(d: MechDesign): MechDesign {
+  const summary = computeMech(d);
+  const free = Object.fromEntries(LOCATIONS.map((l) => [l, summary.slots[l].free])) as Record<Location, number>;
+  const pending = d.equipment
+    .filter((e) => e.location === null && getEquipment(e.equipmentId))
+    .map((e) => ({ item: e, eq: getEquipment(e.equipmentId)! }))
+    .sort((a, b) => itemSlots(b.eq, d) - itemSlots(a.eq, d));
+  const placed = new Map<string, Location>();
+  for (const { item, eq } of pending) {
+    const n = itemSlots(eq, d);
+    const order = eq.id === ENDO_STEEL_ID || eq.id === FERRO_FIBROUS_ID ? FILLER_ORDER : PLACE_ORDER;
+    const loc = order.find((l) => allowedLocations(eq).includes(l) && free[l] >= n);
+    if (loc) {
+      free[loc] -= n;
+      placed.set(item.uid, loc);
+    }
+  }
+  if (placed.size === 0) return d;
+  return {
+    ...d,
+    equipment: d.equipment.map((e) => (placed.has(e.uid) ? { ...e, location: placed.get(e.uid)! } : e)),
+  };
+}
+
 /** Coerce untrusted JSON into a design, or throw with a readable message. */
 export function parseDesign(raw: unknown): MechDesign {
   if (!raw || typeof raw !== 'object') throw new Error('Not a mech design.');
@@ -181,9 +270,16 @@ export function parseDesign(raw: unknown): MechDesign {
       : null;
     return { uid: newUid(), equipmentId: e.equipmentId, location, rear: e.rear === true || undefined };
   });
+  const pick = <T extends string>(v: unknown, options: readonly T[], fallback: T): T =>
+    options.includes(v as T) ? (v as T) : fallback;
   return {
     schemaVersion: 1,
     era: getEra(String(r.era))?.id ?? DEFAULT_ERA,
+    techBase: pick(r.techBase, ['IS', 'Clan'] as const, 'IS'),
+    structureType: pick(r.structureType, ['standard', 'endo-steel'] as const, 'standard'),
+    engineType: pick(r.engineType, ['standard', 'xl'] as const, 'standard'),
+    heatSinkType: pick(r.heatSinkType, ['single', 'double'] as const, 'single'),
+    armorType: pick(r.armorType, ['standard', 'ferro-fibrous'] as const, 'standard'),
     chassis: typeof r.chassis === 'string' ? r.chassis : 'Unnamed',
     model: typeof r.model === 'string' ? r.model : '',
     tonnage: num(r.tonnage, 'tonnage'),

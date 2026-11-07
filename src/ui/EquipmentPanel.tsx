@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import type { Location, MechDesign } from '../rules/types';
+import type { Location, MechDesign, MountedItem } from '../rules/types';
 import { LOCATION_NAMES } from '../rules/types';
 import type { MechSummary } from '../rules/construction';
-import { itemWeight } from '../rules/construction';
 import type { Equipment, EquipmentCategory } from '../rules/equipment';
-import { ALL_EQUIPMENT, allowedLocations, canRearMount, getEquipment } from '../rules/equipment';
+import {
+  ALL_EQUIPMENT, FILLER_IDS, allowedLocations, canRearMount, getEquipment, isEquipmentAvailable,
+  itemSlots, itemWeight,
+} from '../rules/equipment';
 import { addEquipment, removeEquipment, setItemLocation, setItemRear } from '../rules/edit';
 
 interface Props {
@@ -15,26 +17,44 @@ interface Props {
   setSelected: (uid: string | null) => void;
 }
 
-const TABS: EquipmentCategory[] = ['Energy', 'Ballistic', 'Missile', 'Ammo'];
+const TABS: { id: EquipmentCategory; label: string }[] = [
+  { id: 'Energy', label: 'Energy' },
+  { id: 'Ballistic', label: 'Ballistic' },
+  { id: 'Missile', label: 'Missile' },
+  { id: 'Ammo', label: 'Ammo' },
+  { id: 'Other', label: 'Equipment' },
+];
 
 function rangeText(eq: Equipment): string {
-  if (!eq.range) return '';
+  if (!eq.range) return '—';
   const { min, short, medium, long } = eq.range;
   return `${min ? `(${min}) ` : ''}${short}/${medium}/${long}`;
 }
 
 export function EquipmentPanel({ design, summary, update, selected, setSelected }: Props) {
   const [tab, setTab] = useState<EquipmentCategory>('Energy');
-  const catalog = ALL_EQUIPMENT.filter((e) => e.category === tab && !e.managed);
-  const mountedWeapons = new Set(design.equipment.map((e) => e.equipmentId));
+  const available = ALL_EQUIPMENT.filter(
+    (e) => !e.managed && isEquipmentAvailable(e, design.era, design.techBase),
+  );
+  const tabs = TABS.filter((t) => available.some((e) => e.category === t.id));
+  const activeTab = tabs.some((t) => t.id === tab) ? tab : 'Energy';
+  const catalog = available.filter((e) => e.category === activeTab);
+  const mountedIds = new Set(design.equipment.map((e) => e.equipmentId));
+  const showCombat = activeTab !== 'Ammo';
+
+  const items = design.equipment.filter((e) => !FILLER_IDS.includes(e.equipmentId));
+  const fillers = FILLER_IDS.map((id) => ({
+    eq: getEquipment(id)!,
+    all: design.equipment.filter((e) => e.equipmentId === id),
+  })).filter((f) => f.all.length > 0);
 
   return (
     <section className="panel">
       <h2>Equipment</h2>
       <div className="tabs" role="tablist">
-        {TABS.map((t) => (
-          <button key={t} role="tab" aria-selected={tab === t} className={tab === t ? 'active' : ''}
-            onClick={() => setTab(t)}>{t}</button>
+        {tabs.map((t) => (
+          <button key={t.id} role="tab" aria-selected={activeTab === t.id}
+            className={activeTab === t.id ? 'active' : ''} onClick={() => setTab(t.id)}>{t.label}</button>
         ))}
       </div>
       <div className="table-scroll">
@@ -42,66 +62,100 @@ export function EquipmentPanel({ design, summary, update, selected, setSelected 
           <thead>
             <tr>
               <th>Name</th>
-              {tab !== 'Ammo' && <><th>Dmg</th><th>Heat</th><th>Range</th></>}
+              {showCombat && <><th>Dmg</th><th>Heat</th><th>Range</th></>}
               <th>Tons</th><th>Crits</th><th />
             </tr>
           </thead>
           <tbody>
-            {catalog.map((eq) => (
-              <tr key={eq.id} className={eq.ammoFor && !mountedWeapons.has(eq.ammoFor) ? 'dim' : ''}>
-                <td>{eq.name}</td>
-                {tab !== 'Ammo' && (
-                  <><td className="num">{eq.damage}</td><td className="num">{eq.heat}</td><td>{rangeText(eq)}</td></>
-                )}
-                <td className="num">{eq.tons}</td>
-                <td className="num">{eq.slots}</td>
-                <td>
-                  <button className="small" disabled={eq.tons > summary.weights.free}
-                    title={eq.tons > summary.weights.free ? 'Not enough free tonnage' : 'Add to mech'}
-                    onClick={() => update((d) => addEquipment(d, eq.id))}>Add</button>
-                </td>
-              </tr>
-            ))}
+            {catalog.map((eq) => {
+              const tons = itemWeight(eq, design);
+              const tooHeavy = tons > summary.weights.free;
+              return (
+                <tr key={eq.id} className={eq.ammoFor && !mountedIds.has(eq.ammoFor) ? 'dim' : ''}>
+                  <td>{eq.name}</td>
+                  {showCombat && (
+                    <>
+                      <td className="num">{eq.damage ?? '—'}</td>
+                      <td className="num">{eq.heat}</td>
+                      <td>{rangeText(eq)}</td>
+                    </>
+                  )}
+                  <td className="num">{tons}</td>
+                  <td className="num">{itemSlots(eq, design)}</td>
+                  <td>
+                    <button className="small" disabled={tooHeavy}
+                      title={tooHeavy ? 'Not enough free tonnage' : 'Add to mech'}
+                      onClick={() => update((d) => addEquipment(d, eq.id))}>Add</button>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
 
-      <h3>Mounted <span className="muted small">({design.equipment.length} items)</span></h3>
-      {design.equipment.length === 0 && <p className="muted">Nothing mounted yet.</p>}
+      <h3>Mounted <span className="muted small">({items.length} items)</span></h3>
+      {items.length === 0 && fillers.length === 0 && <p className="muted">Nothing mounted yet.</p>}
       <ul className="mounted">
-        {design.equipment.map((item) => {
-          const eq = getEquipment(item.equipmentId);
-          if (!eq) return null;
+        {items.map((item) => (
+          <MountedRow key={item.uid} item={item} design={design} summary={summary} update={update}
+            selected={selected} setSelected={setSelected} />
+        ))}
+        {fillers.map(({ eq, all }) => {
+          const placed = all.filter((e) => e.location !== null).length;
+          const next = all.find((e) => e.location === null);
           return (
-            <li key={item.uid} className={`${item.location ? '' : 'unallocated'} ${selected === item.uid ? 'selected' : ''}`}>
-              <button className="link" title="Select, then click a location in the critical slot diagram"
-                onClick={() => setSelected(selected === item.uid ? null : item.uid)}>
-                {eq.name}
-              </button>
-              <span className="muted small">{itemWeight(eq, design.tonnage)} t · {eq.slots} crit</span>
+            <li key={eq.id} className={placed < all.length ? 'unallocated' : ''}>
+              <strong>{eq.name}</strong>
+              <span className="muted small">
+                {all.length} slots spread over the mech · {placed} placed
+              </span>
               <span className="spacer" />
-              <select aria-label={`${eq.name} location`} value={item.location ?? ''}
-                onChange={(e) => update((d) => setItemLocation(d, item.uid, (e.target.value || null) as Location | null))}>
-                <option value="">— unallocated —</option>
-                {allowedLocations(eq).map((loc) => (
-                  <option key={loc} value={loc}>
-                    {LOCATION_NAMES[loc]} ({summary.slots[loc].free} free)
-                  </option>
-                ))}
-              </select>
-              {canRearMount(eq, item.location) && (
-                <label className="check small">
-                  <input type="checkbox" checked={!!item.rear}
-                    onChange={(e) => update((d) => setItemRear(d, item.uid, e.target.checked))} />
-                  Rear
-                </label>
+              {next && (
+                <button className="small" onClick={() => setSelected(next.uid)}
+                  title="Select, then click a location in the critical slot diagram">
+                  Place next
+                </button>
               )}
-              <button className="small danger" aria-label={`Remove ${eq.name}`}
-                onClick={() => update((d) => removeEquipment(d, item.uid))}>✕</button>
             </li>
           );
         })}
       </ul>
     </section>
+  );
+}
+
+function MountedRow({
+  item, design, summary, update, selected, setSelected,
+}: { item: MountedItem } & Props) {
+  const eq = getEquipment(item.equipmentId);
+  if (!eq) return null;
+  return (
+    <li className={`${item.location ? '' : 'unallocated'} ${selected === item.uid ? 'selected' : ''}`}>
+      <button className="link" title="Select, then click a location in the critical slot diagram"
+        onClick={() => setSelected(selected === item.uid ? null : item.uid)}>
+        {eq.name}
+      </button>
+      <span className="muted small">{itemWeight(eq, design)} t · {itemSlots(eq, design)} crit</span>
+      <span className="spacer" />
+      <select aria-label={`${eq.name} location`} value={item.location ?? ''}
+        onChange={(e) => update((d) => setItemLocation(d, item.uid, (e.target.value || null) as Location | null))}>
+        <option value="">— unallocated —</option>
+        {allowedLocations(eq).map((loc) => (
+          <option key={loc} value={loc}>
+            {LOCATION_NAMES[loc]} ({summary.slots[loc].free} free)
+          </option>
+        ))}
+      </select>
+      {canRearMount(eq, item.location) && (
+        <label className="check small">
+          <input type="checkbox" checked={!!item.rear}
+            onChange={(e) => update((d) => setItemRear(d, item.uid, e.target.checked))} />
+          Rear
+        </label>
+      )}
+      <button className="small danger" aria-label={`Remove ${eq.name}`}
+        onClick={() => update((d) => removeEquipment(d, item.uid))}>✕</button>
+    </li>
   );
 }

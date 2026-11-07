@@ -1,9 +1,16 @@
 import type { MechDesign } from './types';
 import { ARM_LOCATIONS, ARMOR_FACINGS, FACING_NAMES, LOCATIONS, LOCATION_NAMES } from './types';
 import {
-  ARMOR_POINTS_PER_TON, FREE_HEAT_SINKS, MAX_ENGINE_RATING, MIN_ENGINE_RATING, TONNAGES,
+  FREE_HEAT_SINKS, MAX_ENGINE_RATING, MIN_ENGINE_RATING, TONNAGES,
 } from './tables';
-import { allowedLocations, canRearMount, getEquipment } from './equipment';
+import {
+  ENDO_STEEL_ID, FERRO_FIBROUS_ID, HEAT_SINK_IDS, allowedLocations, canRearMount, getEquipment,
+  heatSinkIdFor, isEquipmentAvailable,
+} from './equipment';
+import { getEra, isAvailableIn } from './eras';
+import { TECH_BASE_NAMES } from './types';
+import { armorSlots, structureSlots } from './tables';
+import { armorPointsForTons } from './armor';
 import { locationArmor } from './armor';
 import type { MechSummary } from './construction';
 import { computeMech } from './construction';
@@ -38,6 +45,25 @@ export function validate(design: MechDesign, summary: MechSummary = computeMech(
     error(`No standard fusion engine exists with rating ${summary.rating}.`);
   }
 
+  // Era / tech base
+  const era = getEra(design.era);
+  if (!era) {
+    error(`Unknown era "${design.era}".`);
+  } else {
+    if (!era.techBases.includes(design.techBase)) {
+      error(`${TECH_BASE_NAMES[design.techBase]} designs cannot be built in the ${era.name} era.`);
+    }
+    const options: [boolean, string][] = [
+      [design.structureType === 'endo-steel', 'Endo Steel structure'],
+      [design.engineType === 'xl', 'XL engines'],
+      [design.heatSinkType === 'double', 'Double heat sinks'],
+      [design.armorType === 'ferro-fibrous', 'Ferro-Fibrous armor'],
+    ];
+    for (const [used, name] of options) {
+      if (used && !isAvailableIn('3050', design.era)) error(`${name} cannot be used in the ${era.name} era.`);
+    }
+  }
+
   // Weight
   if (summary.weights.free < 0) {
     error(`Overweight by ${fmt(-summary.weights.free)} tons.`);
@@ -60,12 +86,12 @@ export function validate(design: MechDesign, summary: MechSummary = computeMech(
   if (summary.armorTotal === 0) {
     warn('No armor allocated.');
   } else {
-    const paidFor = summary.weights.armor * ARMOR_POINTS_PER_TON;
+    const paidFor = armorPointsForTons(summary.weights.armor, summary.armorPointsPerTon);
     const unallocated = Math.min(paidFor, summary.armorMaxTotal) - summary.armorTotal;
     if (unallocated > 0) {
       warn(
         `${unallocated} armor point(s) paid for but not allocated ` +
-          `(armor is bought in half-ton lots of ${ARMOR_POINTS_PER_TON / 2} points).`,
+          `(armor is bought in half-ton lots).`,
       );
     }
   }
@@ -77,6 +103,11 @@ export function validate(design: MechDesign, summary: MechSummary = computeMech(
   }
   if (design.engineHeatSinks > hs.engineCapacity) {
     error(`The engine can hold only ${hs.engineCapacity} heat sinks (has ${design.engineHeatSinks}).`);
+  }
+  const hsId = heatSinkIdFor(design);
+  const wrongHS = design.equipment.filter((e) => HEAT_SINK_IDS.includes(e.equipmentId) && e.equipmentId !== hsId);
+  if (wrongHS.length) {
+    error(`Single and double heat sinks cannot be mixed (${wrongHS.length} heat sink(s) do not match the chosen type).`);
   }
   if (hs.total < FREE_HEAT_SINKS) {
     error(`A mech must carry at least ${FREE_HEAT_SINKS} heat sinks (has ${hs.total}).`);
@@ -95,12 +126,32 @@ export function validate(design: MechDesign, summary: MechSummary = computeMech(
     }
   }
 
+  // Endo Steel / Ferro-Fibrous slot placeholders
+  const fillerCheck: [string, number, string][] = [
+    [ENDO_STEEL_ID, structureSlots(design.structureType, design.techBase), 'Endo Steel'],
+    [FERRO_FIBROUS_ID, armorSlots(design.armorType, design.techBase), 'Ferro-Fibrous'],
+  ];
+  for (const [id, required, name] of fillerCheck) {
+    const have = design.equipment.filter((e) => e.equipmentId === id).length;
+    if (have !== required) error(`${name} needs ${required} critical slots (has ${have}).`);
+  }
+
   // Equipment placement
+  const unavailable = new Set<string>();
   for (const item of design.equipment) {
     const eq = getEquipment(item.equipmentId);
     if (!eq) {
       error(`Unknown equipment "${item.equipmentId}".`);
       continue;
+    }
+    if (!eq.managed && !isEquipmentAvailable(eq, design.era, design.techBase) && !unavailable.has(eq.id)) {
+      unavailable.add(eq.id);
+      const eraName = era?.name ?? design.era;
+      if (eq.techBase !== 'Both' && eq.techBase !== design.techBase) {
+        error(`${TECH_BASE_NAMES[eq.techBase]} ${eq.name} is not available to ${TECH_BASE_NAMES[design.techBase]} designs.`);
+      } else {
+        error(`${eq.name} is not available in the ${eraName} era.`);
+      }
     }
     if (item.location !== null && !allowedLocations(eq).includes(item.location)) {
       error(`${eq.name} cannot be mounted in the ${LOCATION_NAMES[item.location]}.`);
@@ -108,6 +159,9 @@ export function validate(design: MechDesign, summary: MechSummary = computeMech(
     if (item.rear && !canRearMount(eq, item.location)) {
       error(`${eq.name} cannot be rear-mounted there; only torso weapons can face rear.`);
     }
+  }
+  if (design.equipment.filter((e) => getEquipment(e.equipmentId)?.variableWeight === 'masc').length > 1) {
+    error('Only one MASC system may be installed.');
   }
   if (summary.unallocated.length > 0) {
     const names = summary.unallocated.map((i) => getEquipment(i.equipmentId)?.name ?? i.equipmentId);

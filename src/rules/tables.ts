@@ -1,4 +1,4 @@
-import type { Location, WeightClass } from './types';
+import type { ArmorType, EngineType, Location, StructureType, TechBase, WeightClass } from './types';
 
 /**
  * Introductory-level construction tables for Inner Sphere BattleMechs
@@ -98,4 +98,51 @@ export function maxWalkMP(tonnage: number): number {
 
 export function runMP(walkMP: number): number {
   return Math.ceil(walkMP * 1.5);
+}
+
+// ---------------------------------------------------------------------------
+// Standard-level construction options (Clan Invasion era onward)
+// ---------------------------------------------------------------------------
+
+/** XL fusion engine: half the standard weight, rounded up to the half ton. */
+export function xlEngineWeight(rating: number): number | null {
+  const std = standardFusionEngineWeight(rating);
+  return std === null ? null : Math.ceil(std) / 2;
+}
+
+export function engineWeight(type: EngineType, rating: number): number | null {
+  return type === 'xl' ? xlEngineWeight(rating) : standardFusionEngineWeight(rating);
+}
+
+/** Engine critical slots in each side torso (XL engines only). */
+export function engineSideTorsoSlots(type: EngineType, techBase: TechBase): number {
+  if (type !== 'xl') return 0;
+  return techBase === 'Clan' ? 2 : 3;
+}
+
+/** Endo Steel weighs 5% of tonnage, rounded up to the half ton. */
+export function internalStructureWeight(type: StructureType, tonnage: number): number {
+  return type === 'endo-steel' ? Math.ceil(tonnage * 0.05 * 2) / 2 : structureWeight(tonnage);
+}
+
+/** Critical slots Endo Steel / Ferro-Fibrous must occupy (spread anywhere on the mech). */
+export function structureSlots(type: StructureType, techBase: TechBase): number {
+  if (type !== 'endo-steel') return 0;
+  return techBase === 'Clan' ? 7 : 14;
+}
+
+export function armorSlots(type: ArmorType, techBase: TechBase): number {
+  if (type !== 'ferro-fibrous') return 0;
+  return techBase === 'Clan' ? 7 : 14;
+}
+
+/** Armor points per ton: standard 16; Ferro-Fibrous ×1.12 (IS) or ×1.2 (Clan). */
+export function armorPointsPerTon(type: ArmorType, techBase: TechBase): number {
+  if (type !== 'ferro-fibrous') return ARMOR_POINTS_PER_TON;
+  return ARMOR_POINTS_PER_TON * (techBase === 'Clan' ? 1.2 : 1.12);
+}
+
+/** MASC: IS 1 ton per 20 tons of mech, Clan 1 per 25, rounded to the nearest ton. Slots = tons. */
+export function mascWeight(tonnage: number, techBase: TechBase): number {
+  return Math.round(tonnage / (techBase === 'Clan' ? 25 : 20));
 }

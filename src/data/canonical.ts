@@ -1,11 +1,17 @@
-import type { ArmorAllocation, Location, MechDesign, MountedItem } from '../rules/types';
+import type { ArmorAllocation, Location, MechDesign, MountedItem, TechBase } from '../rules/types';
+import type { EraId } from '../rules/eras';
 import { newUid } from '../rules/edit';
 
 /**
- * Sample 3025-era designs. Tonnage, engine, heat sinks, armor totals and
+ * Sample designs.
+ *
+ * 3025: canon designs. Tonnage, engine, heat sinks, armor totals and
  * weapon loadouts follow the published designs; critical-slot placement
  * and per-location armor are legal but may differ in detail from the
  * official record sheets.
+ *
+ * 3050: original MechForger designs (not canon mechs) that exercise the
+ * Standard-level construction options.
  */
 
 type Mount = [equipmentId: string, location: Location, count?: number, rear?: boolean];
@@ -24,16 +30,25 @@ function armor(
 
 const FULL_ARMS = { LA: { lowerArm: true, hand: true }, RA: { lowerArm: true, hand: true } };
 
+const INTRO_3025 = {
+  era: '3025', techBase: 'IS', structureType: 'standard', engineType: 'standard',
+  heatSinkType: 'single', armorType: 'standard',
+} as const;
+
 export interface Preset {
   key: string;
+  era: EraId;
+  techBase: TechBase;
+  /** Canon design (true) or an original MechForger sample. */
+  canon: boolean;
   build: () => MechDesign;
 }
 
 export const PRESETS: Preset[] = [
   {
-    key: 'Locust LCT-1V',
+    key: 'Locust LCT-1V', era: '3025', techBase: 'IS', canon: true,
     build: () => ({
-      schemaVersion: 1, era: '3025', chassis: 'Locust', model: 'LCT-1V', tonnage: 20, walkMP: 8,
+      schemaVersion: 1, ...INTRO_3025, chassis: 'Locust', model: 'LCT-1V', tonnage: 20, walkMP: 8,
       engineHeatSinks: 6,
       armor: armor(8, 10, 2, 8, 2, 4, 8),
       actuators: { LA: { lowerArm: false, hand: false }, RA: { lowerArm: false, hand: false } },
@@ -48,9 +63,9 @@ export const PRESETS: Preset[] = [
     }),
   },
   {
-    key: 'Wasp WSP-1A',
+    key: 'Wasp WSP-1A', era: '3025', techBase: 'IS', canon: true,
     build: () => ({
-      schemaVersion: 1, era: '3025', chassis: 'Wasp', model: 'WSP-1A', tonnage: 20, walkMP: 6,
+      schemaVersion: 1, ...INTRO_3025, chassis: 'Wasp', model: 'WSP-1A', tonnage: 20, walkMP: 6,
       engineHeatSinks: 4,
       armor: armor(5, 7, 2, 6, 2, 4, 5),
       actuators: FULL_ARMS,
@@ -68,9 +83,9 @@ export const PRESETS: Preset[] = [
     }),
   },
   {
-    key: 'Hunchback HBK-4G',
+    key: 'Hunchback HBK-4G', era: '3025', techBase: 'IS', canon: true,
     build: () => ({
-      schemaVersion: 1, era: '3025', chassis: 'Hunchback', model: 'HBK-4G', tonnage: 50, walkMP: 4,
+      schemaVersion: 1, ...INTRO_3025, chassis: 'Hunchback', model: 'HBK-4G', tonnage: 50, walkMP: 4,
       engineHeatSinks: 8,
       armor: armor(9, 26, 5, 20, 4, 16, 20),
       actuators: FULL_ARMS,
@@ -87,9 +102,9 @@ export const PRESETS: Preset[] = [
     }),
   },
   {
-    key: 'Atlas AS7-D',
+    key: 'Atlas AS7-D', era: '3025', techBase: 'IS', canon: true,
     build: () => ({
-      schemaVersion: 1, era: '3025', chassis: 'Atlas', model: 'AS7-D', tonnage: 100, walkMP: 3,
+      schemaVersion: 1, ...INTRO_3025, chassis: 'Atlas', model: 'AS7-D', tonnage: 100, walkMP: 3,
       engineHeatSinks: 12,
       armor: armor(9, 47, 14, 32, 10, 34, 41),
       actuators: FULL_ARMS,
@@ -106,6 +121,68 @@ export const PRESETS: Preset[] = [
         ['heat-sink', 'LT', 2],
         ['heat-sink', 'LA', 3],
         ['heat-sink', 'RA', 3],
+      ]),
+    }),
+  },
+  {
+    key: 'Warden WDN-1X (sample)', era: '3050', techBase: 'IS', canon: false,
+    build: () => ({
+      schemaVersion: 1, era: '3050', techBase: 'IS', structureType: 'endo-steel', engineType: 'xl',
+      heatSinkType: 'double', armorType: 'standard',
+      chassis: 'Warden', model: 'WDN-1X', tonnage: 55, walkMP: 5,
+      engineHeatSinks: 11,
+      armor: { HD: 9, CT: 26, CTR: 8, LT: 20, LTR: 6, RT: 20, RTR: 6, LA: 17, RA: 17, LL: 24, RL: 23 },
+      actuators: FULL_ARMS,
+      equipment: mounts([
+        ['er-ppc', 'RA'],
+        ['lb-10x', 'LT'],
+        ['ammo-lb-10x', 'LT'],
+        ['case', 'LT'],
+        ['er-medium-laser', 'LA'],
+        ['er-medium-laser', 'RT'],
+        ['er-medium-laser', 'CT'],
+        ['double-heat-sink', 'RT'],
+        ['jump-jet', 'LT'],
+        ['jump-jet', 'RT'],
+        ['jump-jet', 'CT'],
+        ['jump-jet', 'LL'],
+        ['jump-jet', 'RL'],
+        ['endo-steel', 'HD'],
+        ['endo-steel', 'RT', 4],
+        ['endo-steel', 'RA', 5],
+        ['endo-steel', 'LA', 4],
+      ]),
+    }),
+  },
+  {
+    key: 'Grimfang Prime (sample)', era: '3050', techBase: 'Clan', canon: false,
+    build: () => ({
+      schemaVersion: 1, era: '3050', techBase: 'Clan', structureType: 'endo-steel', engineType: 'xl',
+      heatSinkType: 'double', armorType: 'ferro-fibrous',
+      chassis: 'Grimfang', model: 'Prime', tonnage: 65, walkMP: 5,
+      engineHeatSinks: 13,
+      armor: armor(9, 31, 11, 22, 8, 20, 30),
+      actuators: FULL_ARMS,
+      equipment: mounts([
+        ['clan-uac-5', 'RA'],
+        ['clan-er-large-laser', 'LA'],
+        ['clan-medium-pulse-laser', 'LA'],
+        ['clan-er-medium-laser', 'CT', 2],
+        ['clan-lrm-15', 'LT'],
+        ['ammo-clan-lrm-15', 'LT'],
+        ['clan-streak-srm-6', 'RT'],
+        ['ammo-clan-streak-srm-6', 'RT'],
+        ['ammo-clan-uac-5', 'RT', 2],
+        ['clan-double-heat-sink', 'LT', 2],
+        ['clan-double-heat-sink', 'RT'],
+        ['endo-steel', 'RA', 3],
+        ['endo-steel', 'LA', 2],
+        ['endo-steel', 'LT'],
+        ['endo-steel', 'LL'],
+        ['ferro-fibrous', 'RA', 2],
+        ['ferro-fibrous', 'LA', 2],
+        ['ferro-fibrous', 'RT', 2],
+        ['ferro-fibrous', 'HD'],
       ]),
     }),
   },

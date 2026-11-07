@@ -53,10 +53,23 @@ export interface ArmActuators {
   hand: boolean;
 }
 
+export type TechBase = 'IS' | 'Clan';
+export const TECH_BASE_NAMES: Record<TechBase, string> = { IS: 'Inner Sphere', Clan: 'Clan' };
+
+export type StructureType = 'standard' | 'endo-steel';
+export type EngineType = 'standard' | 'xl';
+export type HeatSinkType = 'single' | 'double';
+export type ArmorType = 'standard' | 'ferro-fibrous';
+
 export interface MechDesign {
   schemaVersion: 1;
   /** Tech level / era the design is built for. */
   era: EraId;
+  techBase: TechBase;
+  structureType: StructureType;
+  engineType: EngineType;
+  heatSinkType: HeatSinkType;
+  armorType: ArmorType;
   chassis: string;
   model: string;
   tonnage: number;

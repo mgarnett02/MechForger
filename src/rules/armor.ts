@@ -30,9 +30,17 @@ export function locationArmor(armor: ArmorAllocation, loc: Location): number {
   return armor[loc] + (rear ? armor[rear] : 0);
 }
 
-/** Standard armor is bought in half-ton increments of 8 points. */
-export function armorTonnage(points: number): number {
-  return Math.ceil((points / ARMOR_POINTS_PER_TON) * 2) / 2;
+/** Armor points provided by `tons` of armor (rounded down, per TechManual). */
+export function armorPointsForTons(tons: number, pointsPerTon = ARMOR_POINTS_PER_TON): number {
+  return Math.floor(tons * pointsPerTon + 1e-9);
+}
+
+/** Smallest half-ton amount of armor that provides `points`. */
+export function armorTonnage(points: number, pointsPerTon = ARMOR_POINTS_PER_TON): number {
+  if (points <= 0) return 0;
+  let halfTons = Math.ceil((points / pointsPerTon) * 2 - 1e-9);
+  while (armorPointsForTons(halfTons / 2, pointsPerTon) < points) halfTons++;
+  return halfTons / 2;
 }
 
 const FILL_ORDER: Location[] = ['CT', 'LT', 'RT', 'LL', 'RL', 'LA', 'RA', 'HD'];

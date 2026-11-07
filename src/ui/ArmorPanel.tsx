@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import type { MechDesign } from '../rules/types';
+import type { ArmorType, MechDesign } from '../rules/types';
+import { isAvailableIn } from '../rules/eras';
 import { LOCATIONS, LOCATION_NAMES, REAR_FACING } from '../rules/types';
 import type { MechSummary } from '../rules/construction';
-import { locationArmor } from '../rules/armor';
-import { clearArmor, maximizeArmor, setArmor, setArmorTonnage } from '../rules/edit';
+import { armorPointsForTons, armorTonnage, locationArmor } from '../rules/armor';
+import { clearArmor, maximizeArmor, setArmor, setArmorTonnage, setArmorType } from '../rules/edit';
 import { NumberField } from './NumberField';
 
 interface Props {
@@ -15,10 +16,25 @@ interface Props {
 export function ArmorPanel({ design, summary, update }: Props) {
   const [tons, setTons] = useState(summary.weights.armor);
   useEffect(() => setTons(summary.weights.armor), [summary.weights.armor]);
-  const maxTons = Math.ceil((summary.armorMaxTotal / 16) * 2) / 2;
+  const ppt = summary.armorPointsPerTon;
+  const maxTons = armorTonnage(summary.armorMaxTotal, ppt);
+  const advanced = isAvailableIn('3050', design.era);
+  const unused = armorPointsForTons(summary.weights.armor, ppt) - summary.armorTotal;
+  const pptLabel = Number.isInteger(ppt) ? String(ppt) : ppt.toFixed(2);
   return (
     <section className="panel">
-      <h2>Armor <span className="muted small">Standard · 16 pts/ton</span></h2>
+      <h2>
+        Armor{' '}
+        <select aria-label="Armor type" value={design.armorType}
+          title={advanced ? undefined : 'Available from the Clan Invasion era (3050)'}
+          onChange={(e) => update((d) => setArmorType(d, e.target.value as ArmorType))}>
+          <option value="standard">Standard</option>
+          <option value="ferro-fibrous" disabled={!advanced}>
+            Ferro-Fibrous ({design.techBase === 'Clan' ? 7 : 14} slots)
+          </option>
+        </select>{' '}
+        <span className="muted small">{pptLabel} pts/ton</span>
+      </h2>
       <table className="armor-table">
         <thead>
           <tr><th>Location</th><th>IS</th><th>Front</th><th>Rear</th><th>Max</th></tr>
@@ -60,8 +76,8 @@ export function ArmorPanel({ design, summary, update }: Props) {
       </table>
       <p className="muted small">
         {summary.weights.armor} tons
-        {summary.armorTotal % 8 !== 0 && summary.armorTotal > 0 &&
-          ` (${summary.weights.armor * 16 - summary.armorTotal} points paid for but unused)`}
+        {unused > 0 && summary.armorTotal > 0 && summary.armorTotal < summary.armorMaxTotal &&
+          ` (${unused} points paid for but unused)`}
       </p>
       <div className="row">
         <button onClick={() => update(maximizeArmor)}>Maximize</button>

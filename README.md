@@ -3,20 +3,39 @@
 An application to build BattleMechs for the BattleTech game.
 
 On launch MechForger asks which tech level (era) to build for, from 3025
-onward; it can be changed later with **Change era**. The first milestone covers **Introductory-level, Inner Sphere, 3025-era** construction
-(TechManual rules):
+onward; it can be changed later with **Change era**. Two eras are supported so far.
+
+### 3025 Succession Wars — Inner Sphere, Introductory rules
 
 - Biped mechs from 20 to 100 tons
 - Standard structure, standard fusion engine (rating 10–400), standard gyro & cockpit
 - Single heat sinks (10 free with the engine, up to rating ÷ 25 inside the engine)
 - Standard jump jets (Jump MP ≤ Walk MP; torso and legs only)
 - Standard armor (16 points/ton, half-ton increments, per-location maximums)
-- 3025 weapons: lasers, PPC, flamer, machine gun, AC/2–AC/20, LRM 5–20, SRM 2–6 and their ammo
+- Lasers, PPC, flamer, machine gun, AC/2–AC/20, LRM 5–20, SRM 2–6 and their ammo
 - Optional lower-arm / hand actuators, rear-mounted torso weapons
+
+### 3050 Clan Invasion — Inner Sphere or Clan, Standard rules
+
+Everything above, plus:
+
+- **Endo Steel** structure (half weight; 14 slots IS / 7 Clan)
+- **XL engines** (half weight; 3 slots per side torso IS / 2 Clan)
+- **Double heat sinks** (dissipate 2; 3 slots IS / 2 Clan; cannot mix with singles)
+- **Ferro-Fibrous** armor (×1.12 points/ton IS, ×1.2 Clan; 14 slots IS / 7 Clan)
+- **CASE** (IS) and **MASC** (IS and Clan)
+- IS weapons: ER and pulse lasers, ER PPC, Gauss rifle, LB-X and Ultra autocannons,
+  Streak SRMs, MRMs, Narc, Anti-Missile System, Beagle probe, Guardian ECM
+- The full Clan weapon list: ER/pulse lasers, ER PPC, Gauss, LB-X and Ultra ACs,
+  LRM/SRM/Streak SRM, ATM, Narc, AMS, active probe, ECM
+- Inner Sphere and Clan equipment cannot be mixed on one design
+
+### Everywhere
+
+- Critical slot allocation (click to place, or **Auto-allocate**) with live validation
 - Red / amber / green status light: illegal, legal but incomplete (unused tonnage,
   unallocated armor), or fully legal
-- Critical slot allocation with live validation, technical-readout text export,
-  JSON import/export and saving in the browser
+- Technical-readout text export, JSON import/export and saving in the app
 
 ## Download (Windows)
 
@@ -57,13 +76,14 @@ npm run dist:win   # build the Windows installer + portable exe into release/
   - `validation.ts` — `validate()` reports construction-rule errors and warnings
   - `edit.ts` — pure editing operations used by the UI
   - `readout.ts` — technical-readout text
-- `src/data/canonical.ts` — sample designs (Locust, Wasp, Hunchback, Atlas), also used as test fixtures
+- `src/data/canonical.ts` — sample designs: 3025 canon mechs (Locust, Wasp, Hunchback, Atlas) and
+  original 3050 samples (Warden, Grimfang); also used as test fixtures
 - `src/ui/` — React interface
 - `electron/main.cjs` — desktop window wrapper; `build/icon.png` — app icon
 - `.github/workflows/windows-build.yml` — automatic Windows builds
 
 ## Not yet supported
 
-Split critical slots across locations, Battle Value, C-Bill cost, quads, and any
-Standard/Advanced-level technology (Endo Steel, Ferro-Fibrous, XL engines,
-double heat sinks, CASE, Clan tech, …).
+Split critical slots across locations, Battle Value, C-Bill cost, quads,
+OmniMechs, Artemis IV, targeting computers, TSM, C3, half-ton machine-gun ammo,
+mixed tech, and eras after 3061.

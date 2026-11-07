@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { MechDesign } from '../rules/types';
+import type { MechDesign, TechBase } from '../rules/types';
+import { TECH_BASE_NAMES } from '../rules/types';
 import { computeMech } from '../rules/construction';
 import { validate } from '../rules/validation';
 import { newDesign, parseDesign } from '../rules/edit';
 import { PRESETS } from '../data/canonical';
 import type { EraId } from '../rules/eras';
-import { eraLabel, getEra } from '../rules/eras';
+import { getEra } from '../rules/eras';
 import { EraDialog } from './EraDialog';
 import { StatusLight } from './StatusLight';
 import { ChassisPanel } from './ChassisPanel';
@@ -42,11 +43,34 @@ export function App() {
     setSelected(null);
   };
 
-  const chooseEra = (era: EraId) => {
-    update((d) => (d.era === era ? d : { ...d, era }));
+  const chooseEra = (era: EraId, techBase: TechBase) => {
+    if (techBase === design.techBase) {
+      update((d) => (d.era === era ? d : { ...d, era }));
+    } else {
+      // Inner Sphere and Clan equipment can't be mixed, so switching tech base starts afresh.
+      const hasWork = design.equipment.some((e) => e.equipmentId !== 'heat-sink') ||
+        Object.values(design.armor).some((v) => v > 0);
+      const ok = !hasWork || eraDialog === 'startup' ||
+        window.confirm(`Switching to ${TECH_BASE_NAMES[techBase]} starts a new design. Save the current one first if you want to keep it. Continue?`);
+      if (!ok) return;
+      load(newDesign(era, techBase));
+    }
     setEraDialog(null);
   };
   const era = getEra(design.era);
+
+  // Samples for the current era / tech base first, then the rest.
+  const presetGroups = useMemo(() => {
+    const groups = new Map<string, typeof PRESETS>();
+    const sorted = [...PRESETS].sort((a, b) =>
+      Number(b.era === design.era && b.techBase === design.techBase) -
+      Number(a.era === design.era && a.techBase === design.techBase));
+    for (const p of sorted) {
+      const label = `${p.era} ${TECH_BASE_NAMES[p.techBase]} — ${p.canon ? 'canon' : 'original samples'}`;
+      groups.set(label, [...(groups.get(label) ?? []), p]);
+    }
+    return [...groups];
+  }, [design.era, design.techBase]);
 
   const onImport = async (file: File) => {
     try {
@@ -62,6 +86,7 @@ export function App() {
       {eraDialog && (
         <EraDialog
           current={design.era}
+          currentTechBase={design.techBase}
           onSelect={chooseEra}
           onCancel={eraDialog === 'change' ? () => setEraDialog(null) : undefined}
         />
@@ -69,7 +94,9 @@ export function App() {
       <header className="toolbar">
         <h1>
           MechForger{' '}
-          <span className="muted small">{era ? `${era.name} · ${eraLabel(era)}` : design.era}</span>{' '}
+          <span className="muted small">
+            {era ? `${era.name} · ${TECH_BASE_NAMES[design.techBase]} · ${era.rulesLevel} · ${era.year}` : design.era}
+          </span>{' '}
           <button className="small" onClick={() => setEraDialog('change')}>Change era</button>
         </h1>
         <div className="row wrap">
@@ -78,16 +105,18 @@ export function App() {
             onChange={(e) => update((d) => ({ ...d, chassis: e.target.value }))} />
           <input aria-label="Model" value={design.model} placeholder="Model" style={{ width: '7rem' }}
             onChange={(e) => update((d) => ({ ...d, model: e.target.value }))} />
-          <button onClick={() => load(newDesign(design.era))}>New</button>
+          <button onClick={() => load(newDesign(design.era, design.techBase))}>New</button>
           <select aria-label="Load a design" value="" onChange={(e) => {
             const [kind, key] = e.target.value.split(':', 2) as [string, string];
             if (kind === 'preset') load(PRESETS.find((p) => p.key === key)!.build());
             if (kind === 'saved' && saved[key]) load(parseDesign(saved[key]));
           }}>
             <option value="">Load…</option>
-            <optgroup label="Sample designs">
-              {PRESETS.map((p) => <option key={p.key} value={`preset:${p.key}`}>{p.key}</option>)}
-            </optgroup>
+            {presetGroups.map(([label, presets]) => (
+              <optgroup key={label} label={label}>
+                {presets.map((p) => <option key={p.key} value={`preset:${p.key}`}>{p.key}</option>)}
+              </optgroup>
+            ))}
             {Object.keys(saved).length > 0 && (
               <optgroup label="Saved">
                 {Object.keys(saved).sort().map((k) => <option key={k} value={`saved:${k}`}>{k}</option>)}

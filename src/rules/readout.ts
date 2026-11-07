@@ -1,8 +1,9 @@
 import type { MechDesign } from './types';
-import { FACING_NAMES, LOCATIONS, LOCATION_NAMES, REAR_FACING } from './types';
+import { FACING_NAMES, LOCATIONS, LOCATION_NAMES, REAR_FACING, TECH_BASE_NAMES } from './types';
+import { getEra } from './eras';
 import { getEquipment } from './equipment';
 import type { MechSummary } from './construction';
-import { computeMech, itemWeight } from './construction';
+import { computeMech, itemSlots, itemWeight } from './construction';
 
 const t = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
 const row = (label: string, mass: number | string, width = 34) =>
@@ -15,18 +16,22 @@ export function technicalReadout(design: MechDesign, summary: MechSummary = comp
   lines.push(`${design.chassis} ${design.model}`.trim());
   lines.push('');
   lines.push(`Mass: ${design.tonnage} tons (${s.weightClass ?? 'invalid'})`);
-  lines.push('Tech Base: Inner Sphere (Introductory)');
+  const era = getEra(design.era);
+  lines.push(`Tech Base: ${TECH_BASE_NAMES[design.techBase]} (${era?.rulesLevel ?? '?'})`);
+  if (era) lines.push(`Era: ${era.name} (${era.year})`);
   lines.push('');
   lines.push(row('Equipment', 'Mass'));
-  lines.push(row('Internal Structure:', s.weights.structure));
-  lines.push(row(`Engine: ${s.rating} Fusion`, s.weights.engine));
+  lines.push(row(`Internal Structure: ${design.structureType === 'endo-steel' ? 'Endo Steel' : ''}`.trimEnd(), s.weights.structure));
+  lines.push(row(`Engine: ${s.rating} ${design.engineType === 'xl' ? 'XL' : 'Fusion'}`, s.weights.engine));
   lines.push(`    Walking MP: ${design.walkMP}`);
-  lines.push(`    Running MP: ${s.runMP}`);
+  lines.push(`    Running MP: ${s.runMP}${s.mascRunMP ? ` [${s.mascRunMP}]` : ''}`);
   lines.push(`    Jumping MP: ${s.jumpMP}`);
-  lines.push(row(`Heat Sinks: ${s.heatSinks.total} [${s.heatSinks.dissipation}]`, s.weights.heatSinks));
+  const hsLabel = design.heatSinkType === 'double' ? ' Double' : '';
+  lines.push(row(`Heat Sinks:${hsLabel} ${s.heatSinks.total} [${s.heatSinks.dissipation}]`, s.weights.heatSinks));
   lines.push(row('Gyro:', s.weights.gyro));
   lines.push(row('Cockpit:', s.weights.cockpit));
-  lines.push(row(`Armor Factor: ${s.armorTotal}`, s.weights.armor));
+  const ff = design.armorType === 'ferro-fibrous' ? ' (Ferro-Fibrous)' : '';
+  lines.push(row(`Armor Factor${ff}: ${s.armorTotal}`, s.weights.armor));
   lines.push('');
   lines.push(`${''.padEnd(22)}Internal   Armor`);
   lines.push(`${''.padEnd(22)}Structure  Value`);
@@ -48,14 +53,14 @@ export function technicalReadout(design: MechDesign, summary: MechSummary = comp
     const g = groups.get(key);
     if (g) {
       g.n++;
-      g.slots += eq.slots;
-      g.tons += itemWeight(eq, design.tonnage);
+      g.slots += itemSlots(eq, design);
+      g.tons += itemWeight(eq, design);
     } else {
       groups.set(key, {
         name: eq.name + (item.rear ? ' (R)' : ''),
         loc: item.location ?? '—',
-        slots: eq.slots,
-        tons: itemWeight(eq, design.tonnage),
+        slots: itemSlots(eq, design),
+        tons: itemWeight(eq, design),
         n: 1,
       });
     }
@@ -68,6 +73,10 @@ export function technicalReadout(design: MechDesign, summary: MechSummary = comp
   if (jj.length) {
     const locs = [...new Set(jj.map((e) => e.location ?? '—'))].join('/');
     lines.push(`${'Jump Jets'.padEnd(26)}${locs.padEnd(6)}${String(jj.length).padEnd(6)}${t(s.weights.jumpJets)}`);
+  }
+  if (design.techBase === 'Clan') {
+    lines.push('');
+    lines.push('Clan CASE is built into every location.');
   }
   return lines.join('\n');
 }

@@ -1,8 +1,8 @@
 import type { Location, MechDesign } from '../rules/types';
 import { LOCATION_NAMES } from '../rules/types';
 import type { MechSummary } from '../rules/construction';
-import { allowedLocations, getEquipment } from '../rules/equipment';
-import { setItemLocation } from '../rules/edit';
+import { allowedLocations, getEquipment, itemSlots } from '../rules/equipment';
+import { autoAllocate, setItemLocation } from '../rules/edit';
 
 interface Props {
   design: MechDesign;
@@ -19,37 +19,51 @@ const AREAS: Record<Location, string> = {
 export function CritPanel({ design, summary, update, selected, setSelected }: Props) {
   const selItem = design.equipment.find((e) => e.uid === selected);
   const selEq = selItem ? getEquipment(selItem.equipmentId) : undefined;
+  const selSlots = selEq ? itemSlots(selEq, design) : 0;
   const canPlace = (loc: Location) =>
-    !!selEq && allowedLocations(selEq).includes(loc) && summary.slots[loc].free >= selEq.slots;
+    !!selEq && allowedLocations(selEq).includes(loc) && summary.slots[loc].free >= selSlots;
+
+  // One chip per kind of unallocated item (e.g. "Endo Steel ×14").
+  const groups: { id: string; items: typeof summary.unallocated }[] = [];
+  for (const item of summary.unallocated) {
+    const g = groups.find((x) => x.id === item.equipmentId);
+    if (g) g.items.push(item);
+    else groups.push({ id: item.equipmentId, items: [item] });
+  }
 
   const place = (loc: Location) => {
     if (!selItem || !selEq || !allowedLocations(selEq).includes(loc)) return;
     update((d) => setItemLocation(d, selItem.uid, loc));
-    // Move on to the next unallocated item, if any.
-    const next = design.equipment.find((e) => e.location === null && e.uid !== selItem.uid);
+    // Move on to the next unallocated item, preferring another of the same kind.
+    const rest = design.equipment.filter((e) => e.location === null && e.uid !== selItem.uid);
+    const next = rest.find((e) => e.equipmentId === selItem.equipmentId) ?? rest[0];
     setSelected(next?.uid ?? null);
   };
 
   return (
     <section className="panel">
       <h2>Critical slots</h2>
-      {summary.unallocated.length > 0 && (
+      {groups.length > 0 && (
         <div className="unallocated-bar">
           <span className="muted small">Unallocated — pick one, then click a location:</span>
-          {summary.unallocated.map((item) => {
-            const eq = getEquipment(item.equipmentId);
+          {groups.map(({ id, items }) => {
+            const eq = getEquipment(id);
+            const active = items.some((i) => i.uid === selected);
             return (
-              <button key={item.uid} className={`chip ${selected === item.uid ? 'active' : ''}`}
-                onClick={() => setSelected(selected === item.uid ? null : item.uid)}>
-                {eq?.name ?? item.equipmentId}
+              <button key={id} className={`chip ${active ? 'active' : ''}`}
+                onClick={() => setSelected(active ? null : items[0].uid)}>
+                {eq?.name ?? id}{items.length > 1 ? ` ×${items.length}` : ''}
               </button>
             );
           })}
+          <span className="spacer" />
+          <button className="small" title="Place every unallocated item in the first location with room"
+            onClick={() => { update(autoAllocate); setSelected(null); }}>Auto-allocate</button>
         </div>
       )}
       {selEq && (
         <p className="small">
-          Placing <strong>{selEq.name}</strong> ({selEq.slots} slot{selEq.slots > 1 ? 's' : ''}).{' '}
+          Placing <strong>{selEq.name}</strong> ({selSlots} slot{selSlots > 1 ? 's' : ''}).{' '}
           <button className="link" onClick={() => setSelected(null)}>Cancel</button>
         </p>
       )}
