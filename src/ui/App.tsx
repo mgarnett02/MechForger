@@ -9,6 +9,8 @@ import type { EraId } from '../rules/eras';
 import { getEra } from '../rules/eras';
 import { EraDialog } from './EraDialog';
 import { StatusLight } from './StatusLight';
+import type { ThemeChoice } from './theme';
+import { applyTheme, loadTheme } from './theme';
 import { ChassisPanel } from './ChassisPanel';
 import { ArmorPanel } from './ArmorPanel';
 import { EquipmentPanel } from './EquipmentPanel';
@@ -25,7 +27,9 @@ export function App() {
   const [notice, setNotice] = useState<string | null>(null);
   // 'startup' = required choice before the main form; 'change' = reopened, can be cancelled.
   const [eraDialog, setEraDialog] = useState<'startup' | 'change' | null>('startup');
+  const [theme, setTheme] = useState<ThemeChoice>(() => loadTheme());
   const fileRef = useRef<HTMLInputElement>(null);
+  useEffect(() => applyTheme(theme), [theme]);
 
   const summary = useMemo(() => computeMech(design), [design]);
   const issues = useMemo(() => validate(design, summary), [design, summary]);
@@ -89,13 +93,17 @@ export function App() {
           currentTechBase={design.techBase}
           onSelect={chooseEra}
           onCancel={eraDialog === 'change' ? () => setEraDialog(null) : undefined}
+          theme={theme}
+          onThemeChange={setTheme}
         />
       )}
       <header className="toolbar">
         <h1>
           MechForger{' '}
           <span className="muted small">
-            {era ? `${era.name} · ${TECH_BASE_NAMES[design.techBase]} · ${era.rulesLevel} · ${era.year}` : design.era}
+            {era
+              ? `${era.name} · ${design.mixedTech ? `Mixed tech (${TECH_BASE_NAMES[design.techBase]} chassis) · Advanced` : `${TECH_BASE_NAMES[design.techBase]} · ${era.rulesLevel}`} · ${era.year}`
+              : design.era}
           </span>{' '}
           <button className="small" onClick={() => setEraDialog('change')}>Change era</button>
         </h1>

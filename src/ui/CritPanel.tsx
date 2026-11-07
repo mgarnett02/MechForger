@@ -1,7 +1,7 @@
 import type { Location, MechDesign } from '../rules/types';
 import { LOCATION_NAMES } from '../rules/types';
 import type { MechSummary } from '../rules/construction';
-import { allowedLocations, getEquipment, itemSlots } from '../rules/equipment';
+import { allowedLocations, equipmentName, getEquipment, itemSlots } from '../rules/equipment';
 import { autoAllocate, setItemLocation } from '../rules/edit';
 
 interface Props {
@@ -52,7 +52,7 @@ export function CritPanel({ design, summary, update, selected, setSelected }: Pr
             return (
               <button key={id} className={`chip ${active ? 'active' : ''}`}
                 onClick={() => setSelected(active ? null : items[0].uid)}>
-                {eq?.name ?? id}{items.length > 1 ? ` ×${items.length}` : ''}
+                {eq ? equipmentName(eq, design) : id}{items.length > 1 ? ` ×${items.length}` : ''}
               </button>
             );
           })}
@@ -63,7 +63,7 @@ export function CritPanel({ design, summary, update, selected, setSelected }: Pr
       )}
       {selEq && (
         <p className="small">
-          Placing <strong>{selEq.name}</strong> ({selSlots} slot{selSlots > 1 ? 's' : ''}).{' '}
+          Placing <strong>{equipmentName(selEq, design)}</strong> ({selSlots} slot{selSlots > 1 ? 's' : ''}).{' '}
           <button className="link" onClick={() => setSelected(null)}>Cancel</button>
         </p>
       )}

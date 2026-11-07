@@ -4,9 +4,10 @@ import {
   FREE_HEAT_SINKS, MAX_ENGINE_RATING, MIN_ENGINE_RATING, TONNAGES,
 } from './tables';
 import {
-  ENDO_STEEL_ID, FERRO_FIBROUS_ID, HEAT_SINK_IDS, allowedLocations, canRearMount, getEquipment,
-  heatSinkIdFor, isEquipmentAvailable,
+  ENDO_STEEL_ID, FERRO_FIBROUS_ID, HEAT_SINK_IDS, TSM_ID, allowedLocations, canRearMount, getEquipment,
+  heatSinkIdFor, isDirectFire, isEquipmentAvailable,
 } from './equipment';
+import { configurationDesigns, isFixedOnly } from './omni';
 import { getEra, isAvailableIn } from './eras';
 import { TECH_BASE_NAMES } from './types';
 import { armorSlots, structureSlots } from './tables';
@@ -25,6 +26,24 @@ export interface Issue {
 const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
 
 export function validate(design: MechDesign, summary: MechSummary = computeMech(design)): Issue[] {
+  const issues = validateConfiguration(design, summary);
+  // OmniMechs: every configuration must be legal, not just the one on screen.
+  if (design.omni) {
+    for (const c of configurationDesigns(design)) {
+      if (c.active) continue;
+      const errs = validateConfiguration(c.design).filter((i) => i.severity === 'error');
+      if (errs.length) {
+        issues.push({
+          severity: 'error',
+          message: `Configuration ${c.name}: ${errs.length} error(s), e.g. ${errs[0].message}`,
+        });
+      }
+    }
+  }
+  return issues;
+}
+
+function validateConfiguration(design: MechDesign, summary: MechSummary = computeMech(design)): Issue[] {
   const issues: Issue[] = [];
   const error = (message: string) => issues.push({ severity: 'error', message });
   const warn = (message: string) => issues.push({ severity: 'warning', message });
@@ -59,8 +78,16 @@ export function validate(design: MechDesign, summary: MechSummary = computeMech(
       [design.heatSinkType === 'double', 'Double heat sinks'],
       [design.armorType === 'ferro-fibrous', 'Ferro-Fibrous armor'],
     ];
+    options.push(
+      [design.myomer === 'tsm', 'Triple-Strength Myomer'],
+      [design.mixedTech, 'Mixed tech designs'],
+      [!!design.omni, 'OmniMechs'],
+    );
     for (const [used, name] of options) {
       if (used && !isAvailableIn('3050', design.era)) error(`${name} cannot be used in the ${era.name} era.`);
+    }
+    if (design.myomer === 'tsm' && design.techBase === 'Clan' && !design.mixedTech) {
+      error('Triple-Strength Myomer is Inner Sphere technology (needs mixed tech on a Clan design).');
     }
   }
 
@@ -130,6 +157,7 @@ export function validate(design: MechDesign, summary: MechSummary = computeMech(
   const fillerCheck: [string, number, string][] = [
     [ENDO_STEEL_ID, structureSlots(design.structureType, design.techBase), 'Endo Steel'],
     [FERRO_FIBROUS_ID, armorSlots(design.armorType, design.techBase), 'Ferro-Fibrous'],
+    [TSM_ID, design.myomer === 'tsm' ? 6 : 0, 'Triple-Strength Myomer'],
   ];
   for (const [id, required, name] of fillerCheck) {
     const have = design.equipment.filter((e) => e.equipmentId === id).length;
@@ -144,7 +172,10 @@ export function validate(design: MechDesign, summary: MechSummary = computeMech(
       error(`Unknown equipment "${item.equipmentId}".`);
       continue;
     }
-    if (!eq.managed && !isEquipmentAvailable(eq, design.era, design.techBase) && !unavailable.has(eq.id)) {
+    if (item.pod && (!design.omni || isFixedOnly(eq.id))) {
+      error(design.omni ? `${eq.name} cannot be pod-mounted; it must be fixed equipment.` : `${eq.name} is marked as a pod but this is not an OmniMech.`);
+    }
+    if (!eq.managed && !isEquipmentAvailable(eq, design.era, design.techBase, design.mixedTech) && !unavailable.has(eq.id)) {
       unavailable.add(eq.id);
       const eraName = era?.name ?? design.era;
       if (eq.techBase !== 'Both' && eq.techBase !== design.techBase) {
@@ -163,6 +194,33 @@ export function validate(design: MechDesign, summary: MechSummary = computeMech(
   if (design.equipment.filter((e) => getEquipment(e.equipmentId)?.variableWeight === 'masc').length > 1) {
     error('Only one MASC system may be installed.');
   }
+  const hasMasc = design.equipment.some((e) => getEquipment(e.equipmentId)?.variableWeight === 'masc');
+  if (hasMasc && design.myomer === 'tsm') {
+    error('MASC and Triple-Strength Myomer cannot be installed together.');
+  }
+
+  // Targeting computer
+  const tcs = design.equipment.filter((e) => getEquipment(e.equipmentId)?.variableWeight === 'targetingComputer');
+  if (tcs.length > 1) error('Only one targeting computer may be installed.');
+  if (tcs.length && !design.equipment.some((e) => {
+    const w = getEquipment(e.equipmentId);
+    return w && isDirectFire(w);
+  })) {
+    warn('The targeting computer has no direct-fire energy or ballistic weapons to aim.');
+  }
+
+  // Artemis IV: one fire-control system per standard LRM/SRM launcher, in the same location.
+  for (const loc of LOCATIONS) {
+    const here = design.equipment.filter((e) => e.location === loc).map((e) => getEquipment(e.equipmentId));
+    const fcs = here.filter((e) => e?.id === 'artemis-iv' || e?.id === 'clan-artemis-iv').length;
+    const launchers = here.filter((e) => e?.artemisCapable).length;
+    if (fcs > launchers) {
+      error(
+        `${LOCATION_NAMES[loc]} has ${fcs} Artemis IV FCS but only ${launchers} LRM/SRM launcher(s); ` +
+          'each Artemis IV must share a location with its launcher.',
+      );
+    }
+  }
   if (summary.unallocated.length > 0) {
     const names = summary.unallocated.map((i) => getEquipment(i.equipmentId)?.name ?? i.equipmentId);
     error(`${names.length} item(s) not allocated to a location: ${summarizeNames(names)}.`);
@@ -176,12 +234,17 @@ export function validate(design: MechDesign, summary: MechSummary = computeMech(
 
   // Ammo sanity
   const weaponIds = new Set(design.equipment.map((e) => e.equipmentId));
+  const fedWeapons = new Set([...weaponIds].map((id) => getEquipment(id)?.ammoFor).filter(Boolean));
+  const hasArtemis = weaponIds.has('artemis-iv') || weaponIds.has('clan-artemis-iv');
   for (const id of weaponIds) {
     const eq = getEquipment(id);
     if (eq?.ammoFor && !weaponIds.has(eq.ammoFor)) {
       warn(`${eq.name} is carried but no ${getEquipment(eq.ammoFor)?.name} is mounted.`);
     }
-    if (eq?.ammoPerTon && !weaponIds.has(`ammo-${id}`)) {
+    if (eq?.artemisAmmo && !hasArtemis) {
+      warn(`${eq.name} needs an Artemis IV FCS to give any benefit.`);
+    }
+    if (eq?.ammoPerTon && !fedWeapons.has(id)) {
       warn(`${eq.name} has no ammunition.`);
     }
   }

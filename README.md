@@ -28,7 +28,17 @@ Everything above, plus:
   Streak SRMs, MRMs, Narc, Anti-Missile System, Beagle probe, Guardian ECM
 - The full Clan weapon list: ER/pulse lasers, ER PPC, Gauss, LB-X and Ultra ACs,
   LRM/SRM/Streak SRM, ATM, Narc, AMS, active probe, ECM
-- Inner Sphere and Clan equipment cannot be mixed on one design
+- **Artemis IV** fire control (one per LRM/SRM launcher, same location) and Artemis ammo
+- **Targeting computers** (Clan: 1 t per 5 t of direct-fire weapons; the IS version
+  arrives with the Civil War era)
+- **Triple-Strength Myomer** (IS; 6 slots, +1 walking MP at 9+ heat; not with MASC)
+- **C3** master computer and slave unit (IS)
+- **Half-ton machine gun ammo**
+- **OmniMechs**: a fixed base chassis with any number of pod configurations
+  (Prime, A, B, …) that can be added, copied, renamed and deleted; every
+  configuration is validated and pod space is shown
+- **Mixed tech** (Advanced rules): Inner Sphere and Clan equipment on one design;
+  otherwise the two tech bases cannot be combined
 
 ### Everywhere
 
@@ -36,6 +46,7 @@ Everything above, plus:
 - Red / amber / green status light: illegal, legal but incomplete (unused tonnage,
   unallocated armor), or fully legal
 - Technical-readout text export, JSON import/export and saving in the app
+- Light, dark or system theme, chosen in the start-up dialog
 
 ## Download (Windows)
 
@@ -77,13 +88,14 @@ npm run dist:win   # build the Windows installer + portable exe into release/
   - `edit.ts` — pure editing operations used by the UI
   - `readout.ts` — technical-readout text
 - `src/data/canonical.ts` — sample designs: 3025 canon mechs (Locust, Wasp, Hunchback, Atlas) and
-  original 3050 samples (Warden, Grimfang); also used as test fixtures
+  original 3050 samples (Warden, and the Grimfang OmniMech with Prime and A
+  configurations); also used as test fixtures
 - `src/ui/` — React interface
 - `electron/main.cjs` — desktop window wrapper; `build/icon.png` — app icon
 - `.github/workflows/windows-build.yml` — automatic Windows builds
 
 ## Not yet supported
 
-Split critical slots across locations, Battle Value, C-Bill cost, quads,
-OmniMechs, Artemis IV, targeting computers, TSM, C3, half-ton machine-gun ammo,
-mixed tech, and eras after 3061.
+Split critical slots across locations, Battle Value, C-Bill cost, quads, and
+eras after 3061. Mixed tech applies to equipment only: structure, engine, heat
+sinks and armor follow the chassis tech base.

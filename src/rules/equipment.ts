@@ -30,8 +30,14 @@ export interface Equipment {
   /** Locations this item may be mounted in (default: anywhere). */
   allowedLocations?: readonly Location[];
   isWeapon: boolean;
-  /** Weight (and for MASC, slots) depends on the mech. */
-  variableWeight?: 'jumpJet' | 'masc';
+  /** Weight (and for MASC / targeting computers, slots) depends on the mech. */
+  variableWeight?: 'jumpJet' | 'masc' | 'targetingComputer';
+  /** LRM/SRM launchers that can be linked to an Artemis IV fire-control system. */
+  artemisCapable?: boolean;
+  /** Ammo bins: Artemis IV-capable ammunition. */
+  artemisAmmo?: boolean;
+  /** Can only be fixed equipment on an OmniMech (never pod-mounted). */
+  fixedOnly?: boolean;
   /** Added/removed through chassis controls rather than the equipment catalog. */
   managed?: boolean;
   /** Which tech base can mount it ('Both' = generic, e.g. jump jets). */
@@ -160,20 +166,43 @@ const CLAN_WEAPONS: Equipment[] = [
   weapon(CLAN_3050, 'clan-ams', 'Anti-Missile System', 'Other', 0.5, 1, 1, 'defensive', null, 24),
 ];
 
-export const WEAPONS: readonly Equipment[] = [...IS_INTRO_WEAPONS, ...IS_3050_WEAPONS, ...CLAN_WEAPONS];
+const ALL_WEAPONS = [...IS_INTRO_WEAPONS, ...IS_3050_WEAPONS, ...CLAN_WEAPONS];
+// Standard LRM / SRM launchers (not Streak) can take Artemis IV.
+for (const w of ALL_WEAPONS) {
+  if (/^(clan-)?(lrm|srm)-\d+$/.test(w.id)) w.artemisCapable = true;
+}
+export const WEAPONS: readonly Equipment[] = ALL_WEAPONS;
 
-export const AMMO: readonly Equipment[] = WEAPONS.filter((w) => w.ammoPerTon).map((w) => ({
-  id: `ammo-${w.id}`,
-  name: `${w.name} Ammo (${w.ammoPerTon})`,
-  category: 'Ammo' as const,
-  tons: 1,
-  slots: 1,
-  heat: 0,
-  ammoFor: w.id,
-  isWeapon: false,
-  techBase: w.techBase,
-  firstEra: w.firstEra,
-}));
+const ammoBase = (w: Equipment) => ({
+  category: 'Ammo' as const, slots: 1, heat: 0, ammoFor: w.id, isWeapon: false, techBase: w.techBase,
+});
+
+export const AMMO: readonly Equipment[] = [
+  ...WEAPONS.filter((w) => w.ammoPerTon).map((w) => ({
+    ...ammoBase(w),
+    id: `ammo-${w.id}`,
+    name: `${w.name} Ammo (${w.ammoPerTon})`,
+    tons: 1,
+    firstEra: w.firstEra,
+  })),
+  // Artemis IV ammunition (Standard rules, from the Clan Invasion era).
+  ...WEAPONS.filter((w) => w.artemisCapable).map((w) => ({
+    ...ammoBase(w),
+    id: `ammo-${w.id}-artemis`,
+    name: `${w.name} Artemis IV Ammo (${w.ammoPerTon})`,
+    tons: 1,
+    artemisAmmo: true,
+    firstEra: '3050' as const,
+  })),
+  // Half-ton machine gun ammunition (Standard rules).
+  ...WEAPONS.filter((w) => w.id === 'machine-gun' || w.id === 'clan-machine-gun').map((w) => ({
+    ...ammoBase(w),
+    id: `ammo-${w.id}-half`,
+    name: `${w.name} Ammo, Half (${(w.ammoPerTon ?? 0) / 2})`,
+    tons: 0.5,
+    firstEra: '3050' as const,
+  })),
+];
 
 export const HEAT_SINK_ID = 'heat-sink';
 export const DOUBLE_HEAT_SINK_ID = 'double-heat-sink';
@@ -182,8 +211,9 @@ export const HEAT_SINK_IDS: readonly string[] = [HEAT_SINK_ID, DOUBLE_HEAT_SINK_
 export const JUMP_JET_ID = 'jump-jet';
 export const ENDO_STEEL_ID = 'endo-steel';
 export const FERRO_FIBROUS_ID = 'ferro-fibrous';
-/** Single-slot placeholders for spread-out structure/armor. */
-export const FILLER_IDS: readonly string[] = [ENDO_STEEL_ID, FERRO_FIBROUS_ID];
+export const TSM_ID = 'tsm';
+/** Single-slot placeholders for spread-out structure / armor / myomer. */
+export const FILLER_IDS: readonly string[] = [ENDO_STEEL_ID, FERRO_FIBROUS_ID, TSM_ID];
 
 const managed = (avail: Avail, id: string, name: string, tons: number, slots: number): Equipment => ({
   id, name, category: 'Other', tons, slots, heat: 0, isWeapon: false, managed: true, ...avail,
@@ -200,6 +230,10 @@ export const OTHER_EQUIPMENT: readonly Equipment[] = [
   },
   managed(ANY_3050, ENDO_STEEL_ID, 'Endo Steel', 0, 1),
   managed(ANY_3050, FERRO_FIBROUS_ID, 'Ferro-Fibrous', 0, 1),
+  {
+    ...managed(IS_3050, TSM_ID, 'Triple-Strength Myomer', 0, 1),
+    allowedLocations: ['CT', 'LT', 'RT', 'LA', 'RA', 'LL', 'RL'],
+  },
   // Catalog items
   {
     id: 'case', name: 'CASE', category: 'Other', tons: 0.5, slots: 1, heat: 0, isWeapon: false,
@@ -207,12 +241,25 @@ export const OTHER_EQUIPMENT: readonly Equipment[] = [
   },
   {
     id: 'masc', name: 'MASC', category: 'Other', tons: 0, slots: 0, heat: 0, isWeapon: false,
-    variableWeight: 'masc', allowedLocations: TORSO, ...IS_3050,
+    variableWeight: 'masc', allowedLocations: TORSO, fixedOnly: true, ...IS_3050,
   },
   {
     id: 'clan-masc', name: 'MASC', category: 'Other', tons: 0, slots: 0, heat: 0, isWeapon: false,
-    variableWeight: 'masc', allowedLocations: TORSO, ...CLAN_3050,
+    variableWeight: 'masc', allowedLocations: TORSO, fixedOnly: true, ...CLAN_3050,
   },
+  { id: 'artemis-iv', name: 'Artemis IV FCS', category: 'Other', tons: 1, slots: 1, heat: 0, isWeapon: false, ...IS_3050 },
+  { id: 'clan-artemis-iv', name: 'Artemis IV FCS', category: 'Other', tons: 1, slots: 1, heat: 0, isWeapon: false, ...CLAN_3050 },
+  {
+    // The Inner Sphere version arrives in the Civil War era (3062).
+    id: 'targeting-computer', name: 'Targeting Computer', category: 'Other', tons: 0, slots: 0, heat: 0,
+    isWeapon: false, variableWeight: 'targetingComputer', techBase: 'IS', firstEra: '3062',
+  },
+  {
+    id: 'clan-targeting-computer', name: 'Targeting Computer', category: 'Other', tons: 0, slots: 0, heat: 0,
+    isWeapon: false, variableWeight: 'targetingComputer', ...CLAN_3050,
+  },
+  { id: 'c3-master', name: 'C3 Master Computer', category: 'Other', tons: 5, slots: 5, heat: 0, isWeapon: false, ...IS_3050 },
+  { id: 'c3-slave', name: 'C3 Slave Unit', category: 'Other', tons: 1, slots: 1, heat: 0, isWeapon: false, ...IS_3050 },
   { id: 'beagle-active-probe', name: 'Beagle Active Probe', category: 'Other', tons: 1.5, slots: 2, heat: 0, isWeapon: false, ...IS_3050 },
   { id: 'guardian-ecm', name: 'Guardian ECM Suite', category: 'Other', tons: 1.5, slots: 2, heat: 0, isWeapon: false, ...IS_3050 },
   { id: 'clan-active-probe', name: 'Active Probe', category: 'Other', tons: 1, slots: 1, heat: 0, isWeapon: false, ...CLAN_3050 },
@@ -236,20 +283,46 @@ export function canRearMount(eq: Equipment, location: Location | null): boolean 
   return eq.isWeapon && (location === 'CT' || location === 'LT' || location === 'RT');
 }
 
-export function isEquipmentAvailable(eq: Equipment, era: EraId, techBase: TechBase): boolean {
-  return (eq.techBase === 'Both' || eq.techBase === techBase) && isAvailableIn(eq.firstEra, era);
+/** Mixed tech lets a design use equipment from either tech base. */
+export function isEquipmentAvailable(eq: Equipment, era: EraId, techBase: TechBase, mixedTech = false): boolean {
+  const baseOk = eq.techBase === 'Both' || eq.techBase === techBase || mixedTech;
+  return baseOk && isAvailableIn(eq.firstEra, era);
 }
 
-type SizingDesign = Pick<MechDesign, 'tonnage' | 'techBase'>;
+/** Display name; on mixed-tech designs Clan and IS versions are told apart. */
+export function equipmentName(eq: Equipment, d: Pick<MechDesign, 'mixedTech'>): string {
+  if (!d.mixedTech || eq.techBase === 'Both') return eq.name;
+  return `${eq.name} (${eq.techBase === 'Clan' ? 'Clan' : 'IS'})`;
+}
+
+type SizingDesign = Pick<MechDesign, 'tonnage' | 'techBase' | 'equipment'>;
+
+/** Weapons a targeting computer is sized from: direct-fire energy and ballistic weapons. */
+export function isDirectFire(eq: Equipment): boolean {
+  return eq.isWeapon && (eq.category === 'Energy' || eq.category === 'Ballistic');
+}
+
+/** Targeting computer: 1 ton per 4 (IS) or 5 (Clan) tons of direct-fire weapons, rounded up. */
+export function targetingComputerWeight(eq: Equipment, d: SizingDesign): number {
+  let tons = 0;
+  for (const m of d.equipment) {
+    const w = getEquipment(m.equipmentId);
+    if (w && isDirectFire(w)) tons += w.tons;
+  }
+  return Math.max(1, Math.ceil(tons / (eq.techBase === 'Clan' ? 5 : 4) - 1e-9));
+}
 
 export function itemWeight(eq: Equipment, d: SizingDesign): number {
   if (eq.variableWeight === 'jumpJet') return jumpJetWeight(d.tonnage);
   if (eq.variableWeight === 'masc') return mascWeight(d.tonnage, eq.techBase === 'Clan' ? 'Clan' : 'IS');
+  if (eq.variableWeight === 'targetingComputer') return targetingComputerWeight(eq, d);
   return eq.tons;
 }
 
 export function itemSlots(eq: Equipment, d: SizingDesign): number {
-  return eq.variableWeight === 'masc' ? itemWeight(eq, d) : eq.slots;
+  return eq.variableWeight === 'masc' || eq.variableWeight === 'targetingComputer'
+    ? itemWeight(eq, d)
+    : eq.slots;
 }
 
 /** Heat sink equipment id for a design's heat sink type and tech base. */

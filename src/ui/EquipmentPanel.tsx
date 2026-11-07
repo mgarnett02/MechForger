@@ -4,10 +4,12 @@ import { LOCATION_NAMES } from '../rules/types';
 import type { MechSummary } from '../rules/construction';
 import type { Equipment, EquipmentCategory } from '../rules/equipment';
 import {
-  ALL_EQUIPMENT, FILLER_IDS, allowedLocations, canRearMount, getEquipment, isEquipmentAvailable,
-  itemSlots, itemWeight,
+  ALL_EQUIPMENT, FILLER_IDS, allowedLocations, canRearMount, equipmentName, getEquipment,
+  isEquipmentAvailable, itemSlots, itemWeight,
 } from '../rules/equipment';
 import { addEquipment, removeEquipment, setItemLocation, setItemRear } from '../rules/edit';
+import { activeConfigName, isFixedOnly, setItemPod } from '../rules/omni';
+import { OmniBar } from './OmniBar';
 
 interface Props {
   design: MechDesign;
@@ -34,7 +36,7 @@ function rangeText(eq: Equipment): string {
 export function EquipmentPanel({ design, summary, update, selected, setSelected }: Props) {
   const [tab, setTab] = useState<EquipmentCategory>('Energy');
   const available = ALL_EQUIPMENT.filter(
-    (e) => !e.managed && isEquipmentAvailable(e, design.era, design.techBase),
+    (e) => !e.managed && isEquipmentAvailable(e, design.era, design.techBase, design.mixedTech),
   );
   const tabs = TABS.filter((t) => available.some((e) => e.category === t.id));
   const activeTab = tabs.some((t) => t.id === tab) ? tab : 'Energy';
@@ -51,6 +53,7 @@ export function EquipmentPanel({ design, summary, update, selected, setSelected 
   return (
     <section className="panel">
       <h2>Equipment</h2>
+      <OmniBar design={design} summary={summary} update={update} />
       <div className="tabs" role="tablist">
         {tabs.map((t) => (
           <button key={t.id} role="tab" aria-selected={activeTab === t.id}
@@ -72,7 +75,7 @@ export function EquipmentPanel({ design, summary, update, selected, setSelected 
               const tooHeavy = tons > summary.weights.free;
               return (
                 <tr key={eq.id} className={eq.ammoFor && !mountedIds.has(eq.ammoFor) ? 'dim' : ''}>
-                  <td>{eq.name}</td>
+                  <td>{equipmentName(eq, design)}</td>
                   {showCombat && (
                     <>
                       <td className="num">{eq.damage ?? '—'}</td>
@@ -97,7 +100,8 @@ export function EquipmentPanel({ design, summary, update, selected, setSelected 
       <h3>Mounted <span className="muted small">({items.length} items)</span></h3>
       {items.length === 0 && fillers.length === 0 && <p className="muted">Nothing mounted yet.</p>}
       <ul className="mounted">
-        {items.map((item) => (
+        {design.omni && <li className="mounted-heading">Fixed (all configurations)</li>}
+        {items.filter((i) => !i.pod).map((item) => (
           <MountedRow key={item.uid} item={item} design={design} summary={summary} update={update}
             selected={selected} setSelected={setSelected} />
         ))}
@@ -120,6 +124,11 @@ export function EquipmentPanel({ design, summary, update, selected, setSelected 
             </li>
           );
         })}
+        {design.omni && <li className="mounted-heading">Pods — {activeConfigName(design)} configuration</li>}
+        {items.filter((i) => i.pod).map((item) => (
+          <MountedRow key={item.uid} item={item} design={design} summary={summary} update={update}
+            selected={selected} setSelected={setSelected} />
+        ))}
       </ul>
     </section>
   );
@@ -132,11 +141,13 @@ function MountedRow({
   if (!eq) return null;
   return (
     <li className={`${item.location ? '' : 'unallocated'} ${selected === item.uid ? 'selected' : ''}`}>
-      <button className="link" title="Select, then click a location in the critical slot diagram"
-        onClick={() => setSelected(selected === item.uid ? null : item.uid)}>
-        {eq.name}
-      </button>
-      <span className="muted small">{itemWeight(eq, design)} t · {itemSlots(eq, design)} crit</span>
+      <span className="item-name">
+        <button className="link" title="Select, then click a location in the critical slot diagram"
+          onClick={() => setSelected(selected === item.uid ? null : item.uid)}>
+          {equipmentName(eq, design)}
+        </button>
+        <span className="muted small">{itemWeight(eq, design)} t · {itemSlots(eq, design)} crit</span>
+      </span>
       <span className="spacer" />
       <select aria-label={`${eq.name} location`} value={item.location ?? ''}
         onChange={(e) => update((d) => setItemLocation(d, item.uid, (e.target.value || null) as Location | null))}>
@@ -152,6 +163,13 @@ function MountedRow({
           <input type="checkbox" checked={!!item.rear}
             onChange={(e) => update((d) => setItemRear(d, item.uid, e.target.checked))} />
           Rear
+        </label>
+      )}
+      {design.omni && !isFixedOnly(eq.id) && (
+        <label className="check small" title="Pod-mounted equipment belongs to this configuration only">
+          <input type="checkbox" checked={!!item.pod}
+            onChange={(e) => update((d) => setItemPod(d, item.uid, e.target.checked))} />
+          Pod
         </label>
       )}
       <button className="small danger" aria-label={`Remove ${eq.name}`}

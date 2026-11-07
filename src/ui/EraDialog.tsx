@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { Era, EraId } from '../rules/eras';
 import { ERAS, getEra, techBasesLabel } from '../rules/eras';
 import type { TechBase } from '../rules/types';
+import type { ThemeChoice } from './theme';
 
 interface Props {
   current: EraId;
@@ -9,7 +10,15 @@ interface Props {
   onSelect: (era: EraId, techBase: TechBase) => void;
   /** When provided the dialog can be dismissed without choosing (Esc / Cancel). */
   onCancel?: () => void;
+  theme: ThemeChoice;
+  onThemeChange: (theme: ThemeChoice) => void;
 }
+
+const THEMES: { id: ThemeChoice; label: string; icon: string }[] = [
+  { id: 'light', label: 'Light', icon: '☀' },
+  { id: 'dark', label: 'Dark', icon: '☾' },
+  { id: 'system', label: 'System', icon: '◐' },
+];
 
 const TECH_BASE_INFO: Record<TechBase, { name: string; blurb: string }> = {
   IS: {
@@ -23,7 +32,7 @@ const TECH_BASE_INFO: Record<TechBase, { name: string; blurb: string }> = {
 };
 
 /** Modal asking which tech level (and, where relevant, tech base) to build for. */
-export function EraDialog({ current, currentTechBase, onSelect, onCancel }: Props) {
+export function EraDialog({ current, currentTechBase, onSelect, onCancel, theme, onThemeChange }: Props) {
   const [pending, setPending] = useState<Era | null>(null);
   const firstRef = useRef<HTMLButtonElement>(null);
   // Start keyboard focus on the current era, or the first one that can be built.
@@ -76,7 +85,10 @@ export function EraDialog({ current, currentTechBase, onSelect, onCancel }: Prop
         ) : (
           <>
             <h2 id="era-title">{pending.year} {pending.name}: choose a tech base</h2>
-            <p className="muted">Inner Sphere and Clan equipment cannot be mixed on a design at this rules level.</p>
+            <p className="muted">
+              Inner Sphere and Clan equipment can only be combined with the Mixed tech option
+              (Advanced rules), which you can switch on in the Chassis panel.
+            </p>
             <div className="era-grid two">
               {pending.techBases.map((tb, i) => (
                 <button
@@ -92,7 +104,17 @@ export function EraDialog({ current, currentTechBase, onSelect, onCancel }: Prop
             </div>
           </>
         )}
-        <div className="row" style={{ justifyContent: 'flex-end', marginTop: '1rem' }}>
+        <div className="row wrap" style={{ marginTop: '1rem' }}>
+          <span className="muted small">Theme</span>
+          <div className="segmented" role="radiogroup" aria-label="Theme">
+            {THEMES.map((t) => (
+              <button key={t.id} role="radio" aria-checked={theme === t.id}
+                className={theme === t.id ? 'active' : ''} onClick={() => onThemeChange(t.id)}>
+                <span aria-hidden="true">{t.icon}</span> {t.label}
+              </button>
+            ))}
+          </div>
+          <span className="spacer" />
           {pending && <button onClick={() => setPending(null)}>Back</button>}
           {onCancel && <button onClick={onCancel}>Cancel</button>}
         </div>

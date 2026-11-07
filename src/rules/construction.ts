@@ -6,7 +6,9 @@ import {
   weightClass,
 } from './tables';
 import type { Equipment } from './equipment';
-import { HEAT_SINK_IDS, JUMP_JET_ID, getEquipment, itemSlots, itemWeight } from './equipment';
+import { HEAT_SINK_IDS, JUMP_JET_ID, equipmentName, getEquipment, itemSlots, itemWeight } from './equipment';
+import type { OmniWeights } from './omni';
+import { omniWeights } from './omni';
 import { armorTonnage, maxArmorByLocation, maxTotalArmor, totalArmorPoints } from './armor';
 
 export { itemWeight, itemSlots };
@@ -46,6 +48,10 @@ export interface MechSummary {
   runMP: number;
   /** Running MP with MASC engaged, when MASC is fitted. */
   mascRunMP: number | null;
+  /** Walking / running MP with Triple-Strength Myomer active (at 9+ heat). */
+  tsmMP: { walk: number; run: number } | null;
+  /** OmniMech fixed weight and pod space, for OmniMechs. */
+  omni: OmniWeights | null;
   jumpMP: number;
   weightClass: WeightClass | null;
   engineWeight: number | null;
@@ -99,8 +105,9 @@ export function fixedSlots(design: MechDesign, loc: Location): (string | null)[]
   }
 }
 
-export function itemLabel(eq: Equipment, item: MountedItem): string {
-  return item.rear ? `${eq.name} (R)` : eq.name;
+export function itemLabel(eq: Equipment, item: MountedItem, design: Pick<MechDesign, 'mixedTech'>): string {
+  const name = equipmentName(eq, design);
+  return item.rear ? `${name} (R)` : name;
 }
 
 function layoutLocation(design: MechDesign, loc: Location): LocationSlots {
@@ -118,7 +125,7 @@ function layoutLocation(design: MechDesign, loc: Location): LocationSlots {
     const n = itemSlots(eq, design);
     for (let s = 0; s < n; s++) {
       if (cursor < openIdx.length) {
-        slots[openIdx[cursor]] = { label: itemLabel(eq, item), kind: 'item', uid: item.uid, first: s === 0 };
+        slots[openIdx[cursor]] = { label: itemLabel(eq, item, design), kind: 'item', uid: item.uid, first: s === 0 };
         cursor++;
       } else {
         overflow++;
@@ -175,6 +182,8 @@ export function computeMech(design: MechDesign): MechSummary {
     rating,
     runMP: runMP(walkMP),
     mascRunMP: hasMasc ? walkMP * 2 : null,
+    tsmMP: design.myomer === 'tsm' ? { walk: walkMP + 1, run: runMP(walkMP + 1) } : null,
+    omni: design.omni ? omniWeights(design, weights.total) : null,
     jumpMP,
     weightClass: weightClass(tonnage),
     engineWeight: engineWt,

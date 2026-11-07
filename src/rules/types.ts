@@ -46,6 +46,20 @@ export interface MountedItem {
   location: Location | null;
   /** Rear-firing (torso weapons only). */
   rear?: boolean;
+  /** OmniMechs: pod-mounted (belongs to the active configuration) rather than fixed. */
+  pod?: boolean;
+}
+
+/** An OmniMech configuration: the pod-mounted items that go with it. */
+export interface OmniConfiguration {
+  name: string;
+  /** Pod items for this configuration (for the active one, the live copy is in design.equipment). */
+  pod: MountedItem[];
+}
+
+export interface OmniData {
+  configurations: OmniConfiguration[];
+  active: number;
 }
 
 export interface ArmActuators {
@@ -60,6 +74,7 @@ export type StructureType = 'standard' | 'endo-steel';
 export type EngineType = 'standard' | 'xl';
 export type HeatSinkType = 'single' | 'double';
 export type ArmorType = 'standard' | 'ferro-fibrous';
+export type MyomerType = 'standard' | 'tsm';
 
 export interface MechDesign {
   schemaVersion: 1;
@@ -70,6 +85,11 @@ export interface MechDesign {
   engineType: EngineType;
   heatSinkType: HeatSinkType;
   armorType: ArmorType;
+  myomer: MyomerType;
+  /** Mixed tech (Advanced rules): equipment from either tech base on this chassis. */
+  mixedTech: boolean;
+  /** Set for OmniMechs: configurations of pod-mounted equipment. */
+  omni: OmniData | null;
   chassis: string;
   model: string;
   tonnage: number;

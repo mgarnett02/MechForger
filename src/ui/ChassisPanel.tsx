@@ -1,12 +1,13 @@
-import type { EngineType, HeatSinkType, MechDesign, StructureType, TechBase } from '../rules/types';
+import type { EngineType, HeatSinkType, MechDesign, MyomerType, StructureType, TechBase } from '../rules/types';
 import { ARM_LOCATIONS, LOCATION_NAMES, TECH_BASE_NAMES } from '../rules/types';
 import { getEra, isAvailableIn } from '../rules/eras';
 import type { MechSummary } from '../rules/construction';
 import { TONNAGES, maxWalkMP } from '../rules/tables';
 import {
   setActuator, setEngineHeatSinks, setEngineType, setHeatSinkTotal, setHeatSinkType, setJumpMP,
-  setStructureType, setTechBase, setTonnage, setWalkMP,
+  setMixedTech, setMyomer, setStructureType, setTechBase, setTonnage, setWalkMP,
 } from '../rules/edit';
+import { setOmni } from '../rules/omni';
 import { NumberField } from './NumberField';
 
 interface Props {
@@ -47,6 +48,25 @@ export function ChassisPanel({ design, summary, update }: Props) {
           </select>
         </div>
 
+        <label>Options</label>
+        <div className="row wrap">
+          <label className="check" title={advanced ? 'Mixed tech uses Advanced rules' : lockedTitle}>
+            <input type="checkbox" checked={design.mixedTech} disabled={!advanced && !design.mixedTech}
+              onChange={(e) => update((d) => setMixedTech(d, e.target.checked))} />
+            Mixed tech
+          </label>
+          <label className="check" title={advanced ? 'Fixed base chassis with swappable pod configurations' : lockedTitle}>
+            <input type="checkbox" checked={!!design.omni} disabled={!advanced && !design.omni}
+              onChange={(e) => {
+                const on = e.target.checked;
+                const many = (design.omni?.configurations.length ?? 0) > 1;
+                if (!on && many && !window.confirm('Turn off OmniMech? Only the current configuration will be kept.')) return;
+                update((d) => setOmni(d, on));
+              }} />
+            OmniMech
+          </label>
+        </div>
+
         <label>Structure</label>
         <div>
           <select aria-label="Internal structure" value={design.structureType} title={lockedTitle}
@@ -72,6 +92,21 @@ export function ChassisPanel({ design, summary, update }: Props) {
             <option value="xl" disabled={!advanced}>{summary.rating} XL ({xlSlots} slots per side torso)</option>
           </select>
           <span className="muted"> {summary.engineWeight ?? '—'} t</span>
+        </div>
+
+        <label>Myomer</label>
+        <div>
+          <select aria-label="Myomer" value={design.myomer}
+            title={advanced ? undefined : lockedTitle}
+            onChange={(e) => update((d) => setMyomer(d, e.target.value as MyomerType))}>
+            <option value="standard">Standard</option>
+            <option value="tsm" disabled={!advanced || (design.techBase === 'Clan' && !design.mixedTech)}>
+              Triple-Strength (6 slots)
+            </option>
+          </select>
+          {summary.tsmMP && (
+            <span className="muted"> {summary.tsmMP.walk}/{summary.tsmMP.run} at 9+ heat</span>
+          )}
         </div>
 
         <label>Gyro / Cockpit</label>

@@ -16,11 +16,19 @@ import { newUid } from '../rules/edit';
 
 type Mount = [equipmentId: string, location: Location, count?: number, rear?: boolean];
 
-function mounts(list: Mount[]): MountedItem[] {
+function mounts(list: Mount[], pod = false): MountedItem[] {
   return list.flatMap(([equipmentId, location, count = 1, rear]) =>
-    Array.from({ length: count }, () => ({ uid: newUid(), equipmentId, location, rear: rear || undefined })),
+    Array.from({ length: count }, () => {
+      const item: MountedItem = { uid: newUid(), equipmentId, location };
+      if (rear) item.rear = true;
+      if (pod) item.pod = true;
+      return item;
+    }),
   );
 }
+
+/** Defaults for options not used by a sample. */
+const PLAIN = { myomer: 'standard', mixedTech: false, omni: null } as const;
 
 function armor(
   hd: number, ct: number, ctr: number, side: number, sider: number, arm: number, leg: number,
@@ -32,7 +40,7 @@ const FULL_ARMS = { LA: { lowerArm: true, hand: true }, RA: { lowerArm: true, ha
 
 const INTRO_3025 = {
   era: '3025', techBase: 'IS', structureType: 'standard', engineType: 'standard',
-  heatSinkType: 'single', armorType: 'standard',
+  heatSinkType: 'single', armorType: 'standard', ...PLAIN,
 } as const;
 
 export interface Preset {
@@ -128,7 +136,7 @@ export const PRESETS: Preset[] = [
     key: 'Warden WDN-1X (sample)', era: '3050', techBase: 'IS', canon: false,
     build: () => ({
       schemaVersion: 1, era: '3050', techBase: 'IS', structureType: 'endo-steel', engineType: 'xl',
-      heatSinkType: 'double', armorType: 'standard',
+      heatSinkType: 'double', armorType: 'standard', ...PLAIN,
       chassis: 'Warden', model: 'WDN-1X', tonnage: 55, walkMP: 5,
       engineHeatSinks: 11,
       armor: { HD: 9, CT: 26, CTR: 8, LT: 20, LTR: 6, RT: 20, RTR: 6, LA: 17, RA: 17, LL: 24, RL: 23 },
@@ -155,35 +163,61 @@ export const PRESETS: Preset[] = [
     }),
   },
   {
-    key: 'Grimfang Prime (sample)', era: '3050', techBase: 'Clan', canon: false,
+    key: 'Grimfang OmniMech (sample)', era: '3050', techBase: 'Clan', canon: false,
     build: () => ({
       schemaVersion: 1, era: '3050', techBase: 'Clan', structureType: 'endo-steel', engineType: 'xl',
-      heatSinkType: 'double', armorType: 'ferro-fibrous',
-      chassis: 'Grimfang', model: 'Prime', tonnage: 65, walkMP: 5,
+      heatSinkType: 'double', armorType: 'ferro-fibrous', myomer: 'standard', mixedTech: false,
+      chassis: 'Grimfang', model: '', tonnage: 65, walkMP: 5,
       engineHeatSinks: 13,
       armor: armor(9, 31, 11, 22, 8, 20, 30),
       actuators: FULL_ARMS,
-      equipment: mounts([
-        ['clan-uac-5', 'RA'],
-        ['clan-er-large-laser', 'LA'],
-        ['clan-medium-pulse-laser', 'LA'],
-        ['clan-er-medium-laser', 'CT', 2],
-        ['clan-lrm-15', 'LT'],
-        ['ammo-clan-lrm-15', 'LT'],
-        ['clan-streak-srm-6', 'RT'],
-        ['ammo-clan-streak-srm-6', 'RT'],
-        ['ammo-clan-uac-5', 'RT', 2],
-        ['clan-double-heat-sink', 'LT', 2],
-        ['clan-double-heat-sink', 'RT'],
-        ['endo-steel', 'RA', 3],
-        ['endo-steel', 'LA', 2],
-        ['endo-steel', 'LT'],
-        ['endo-steel', 'LL'],
-        ['ferro-fibrous', 'RA', 2],
-        ['ferro-fibrous', 'LA', 2],
-        ['ferro-fibrous', 'RT', 2],
-        ['ferro-fibrous', 'HD'],
-      ]),
+      // Fixed base chassis: Endo Steel and Ferro-Fibrous slots. Everything else is podded.
+      equipment: [
+        ...mounts([
+          ['endo-steel', 'RA', 3],
+          ['endo-steel', 'LA', 2],
+          ['endo-steel', 'LT'],
+          ['endo-steel', 'LL'],
+          ['ferro-fibrous', 'RA', 2],
+          ['ferro-fibrous', 'LA', 2],
+          ['ferro-fibrous', 'RT', 2],
+          ['ferro-fibrous', 'HD'],
+        ]),
+        // Prime configuration (active)
+        ...mounts([
+          ['clan-uac-5', 'RA'],
+          ['clan-er-large-laser', 'LA'],
+          ['clan-medium-pulse-laser', 'LA'],
+          ['clan-er-medium-laser', 'CT', 2],
+          ['clan-lrm-15', 'LT'],
+          ['ammo-clan-lrm-15', 'LT'],
+          ['clan-streak-srm-6', 'RT'],
+          ['ammo-clan-streak-srm-6', 'RT'],
+          ['ammo-clan-uac-5', 'RT', 2],
+          ['clan-double-heat-sink', 'LT', 2],
+          ['clan-double-heat-sink', 'RT'],
+        ], true),
+      ],
+      omni: {
+        active: 0,
+        configurations: [
+          { name: 'Prime', pod: [] },
+          {
+            name: 'A',
+            pod: mounts([
+              ['clan-gauss-rifle', 'RT'],
+              ['ammo-clan-gauss-rifle', 'RT', 2],
+              ['clan-atm-9', 'LT'],
+              ['ammo-clan-atm-9', 'LT', 2],
+              ['clan-targeting-computer', 'LT'],
+              ['clan-er-medium-laser', 'CT', 2],
+              ['clan-double-heat-sink', 'LA'],
+              ['clan-er-small-laser', 'LA'],
+              ['clan-double-heat-sink', 'RA'],
+            ], true),
+          },
+        ],
+      },
     }),
   },
 ];

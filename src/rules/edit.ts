@@ -1,15 +1,16 @@
 import type {
   ArmLocation, ArmorFacing, ArmorType, EngineType, HeatSinkType, Location, MechDesign, MountedItem,
-  StructureType, TechBase,
+  MyomerType, OmniData, StructureType, TechBase,
 } from './types';
 import { ARMOR_FACINGS, LOCATIONS, REAR_FACING } from './types';
 import {
   FREE_HEAT_SINKS, armorPointsPerTon, armorSlots, engineHeatSinkCapacity, maxWalkMP, structureSlots,
 } from './tables';
 import {
-  ENDO_STEEL_ID, FERRO_FIBROUS_ID, HEAT_SINK_IDS, JUMP_JET_ID, allowedLocations, canRearMount,
-  getEquipment, heatSinkIdFor, itemSlots,
+  ENDO_STEEL_ID, FERRO_FIBROUS_ID, HEAT_SINK_IDS, JUMP_JET_ID, TSM_ID, allowedLocations,
+  canRearMount, getEquipment, heatSinkIdFor, itemSlots,
 } from './equipment';
+import { isFixedOnly } from './omni';
 import { computeMech } from './construction';
 import type { EraId } from './eras';
 import { DEFAULT_ERA, getEra } from './eras';
@@ -33,6 +34,9 @@ export function newDesign(era: EraId = DEFAULT_ERA, techBase: TechBase = 'IS'): 
     engineType: 'standard',
     heatSinkType: 'single',
     armorType: 'standard',
+    myomer: 'standard',
+    mixedTech: false,
+    omni: null,
     chassis: 'New Mech',
     model: 'NM-1',
     tonnage: 50,
@@ -57,8 +61,9 @@ function syncCount(d: MechDesign, equipmentId: string, count: number): MechDesig
   const existing = d.equipment.filter((e) => e.equipmentId === equipmentId);
   if (existing.length === target) return d;
   if (existing.length < target) {
+    const pod = d.omni && !isFixedOnly(equipmentId) ? true : undefined;
     const added: MountedItem[] = Array.from({ length: target - existing.length }, () => ({
-      uid: newUid(), equipmentId, location: null,
+      uid: newUid(), equipmentId, location: null, ...(pod ? { pod } : {}),
     }));
     return { ...d, equipment: [...d.equipment, ...added] };
   }
@@ -146,7 +151,9 @@ export function setArmorTonnage(d: MechDesign, tons: number): MechDesign {
 }
 
 export function addEquipment(d: MechDesign, equipmentId: string, location: Location | null = null): MechDesign {
-  return { ...d, equipment: [...d.equipment, { uid: newUid(), equipmentId, location }] };
+  const item: MountedItem = { uid: newUid(), equipmentId, location };
+  if (d.omni && !isFixedOnly(equipmentId)) item.pod = true;
+  return { ...d, equipment: [...d.equipment, item] };
 }
 
 export function removeEquipment(d: MechDesign, uid: string): MechDesign {
@@ -192,7 +199,19 @@ function normalizeHeatSinks(d: MechDesign): MechDesign {
 /** Keep Endo Steel / Ferro-Fibrous slot placeholders at the count the rules require. */
 function syncFillers(d: MechDesign): MechDesign {
   const withEndo = syncCount(d, ENDO_STEEL_ID, structureSlots(d.structureType, d.techBase));
-  return syncCount(withEndo, FERRO_FIBROUS_ID, armorSlots(d.armorType, d.techBase));
+  const withFerro = syncCount(withEndo, FERRO_FIBROUS_ID, armorSlots(d.armorType, d.techBase));
+  return syncCount(withFerro, TSM_ID, d.myomer === 'tsm' ? TSM_SLOTS : 0);
+}
+
+/** Triple-Strength Myomer occupies 6 critical slots spread over the mech. */
+export const TSM_SLOTS = 6;
+
+export function setMyomer(d: MechDesign, myomer: MyomerType): MechDesign {
+  return syncFillers({ ...d, myomer });
+}
+
+export function setMixedTech(d: MechDesign, mixedTech: boolean): MechDesign {
+  return { ...d, mixedTech };
 }
 
 export function setTechBase(d: MechDesign, techBase: TechBase): MechDesign {
@@ -217,6 +236,7 @@ export function setHeatSinkType(d: MechDesign, heatSinkType: HeatSinkType): Mech
 
 const PLACE_ORDER: Location[] = ['LT', 'RT', 'CT', 'LA', 'RA', 'LL', 'RL', 'HD'];
 const FILLER_ORDER: Location[] = ['LA', 'RA', 'LL', 'RL', 'LT', 'RT', 'CT', 'HD'];
+const FILLERS = [ENDO_STEEL_ID, FERRO_FIBROUS_ID, TSM_ID];
 
 /**
  * Place every unallocated item in the first location with room for it.
@@ -232,7 +252,7 @@ export function autoAllocate(d: MechDesign): MechDesign {
   const placed = new Map<string, Location>();
   for (const { item, eq } of pending) {
     const n = itemSlots(eq, d);
-    const order = eq.id === ENDO_STEEL_ID || eq.id === FERRO_FIBROUS_ID ? FILLER_ORDER : PLACE_ORDER;
+    const order = FILLERS.includes(eq.id) ? FILLER_ORDER : PLACE_ORDER;
     const loc = order.find((l) => allowedLocations(eq).includes(l) && free[l] >= n);
     if (loc) {
       free[loc] -= n;
@@ -263,13 +283,29 @@ export function parseDesign(raw: unknown): MechDesign {
     hand: a?.hand !== false,
   });
   if (!Array.isArray(r.equipment)) throw new Error('Missing equipment list.');
-  const equipment: MountedItem[] = r.equipment.map((e: Record<string, unknown>) => {
-    if (typeof e?.equipmentId !== 'string') throw new Error('Equipment entry without an id.');
-    const location = (LOCATIONS as readonly string[]).includes(e.location as string)
-      ? (e.location as Location)
-      : null;
-    return { uid: newUid(), equipmentId: e.equipmentId, location, rear: e.rear === true || undefined };
-  });
+  const parseItems = (list: unknown[]): MountedItem[] =>
+    list.map((raw) => {
+      const e = raw as Record<string, unknown>;
+      if (typeof e?.equipmentId !== 'string') throw new Error('Equipment entry without an id.');
+      const location = (LOCATIONS as readonly string[]).includes(e.location as string)
+        ? (e.location as Location)
+        : null;
+      const item: MountedItem = { uid: newUid(), equipmentId: e.equipmentId, location };
+      if (e.rear === true) item.rear = true;
+      if (e.pod === true) item.pod = true;
+      return item;
+    });
+  const equipment = parseItems(r.equipment);
+  let omni: OmniData | null = null;
+  const o = r.omni as { configurations?: unknown; active?: unknown } | null | undefined;
+  if (o && Array.isArray(o.configurations) && o.configurations.length > 0) {
+    const configurations = o.configurations.map((c: { name?: unknown; pod?: unknown }, i: number) => ({
+      name: typeof c?.name === 'string' && c.name ? c.name : `Config ${i + 1}`,
+      pod: Array.isArray(c?.pod) ? parseItems(c.pod).map((p) => ({ ...p, pod: true })) : [],
+    }));
+    const active = typeof o.active === 'number' && configurations[o.active] ? o.active : 0;
+    omni = { configurations, active };
+  }
   const pick = <T extends string>(v: unknown, options: readonly T[], fallback: T): T =>
     options.includes(v as T) ? (v as T) : fallback;
   return {
@@ -280,6 +316,9 @@ export function parseDesign(raw: unknown): MechDesign {
     engineType: pick(r.engineType, ['standard', 'xl'] as const, 'standard'),
     heatSinkType: pick(r.heatSinkType, ['single', 'double'] as const, 'single'),
     armorType: pick(r.armorType, ['standard', 'ferro-fibrous'] as const, 'standard'),
+    myomer: pick(r.myomer, ['standard', 'tsm'] as const, 'standard'),
+    mixedTech: r.mixedTech === true,
+    omni,
     chassis: typeof r.chassis === 'string' ? r.chassis : 'Unnamed',
     model: typeof r.model === 'string' ? r.model : '',
     tonnage: num(r.tonnage, 'tonnage'),

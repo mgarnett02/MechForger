@@ -18,8 +18,29 @@
   --lamp-green: #2fb344;
   color-scheme: light;
 }
+/* Dark theme: chosen explicitly, or following the system when set to System. */
+:root[data-theme="dark"] {
+  --bg: #15171a;
+  --panel: #1e2125;
+  --text: #e6e4df;
+  --muted: #979ba2;
+  --border: #353a40;
+  --accent: #e0703f;
+  --accent-soft: #3a2a22;
+  --ok: #6cc47a;
+  --bad: #ff6b5e;
+  --warn: #e0b04a;
+  --info: #7fb0ec;
+  --slot-fixed: #272a2f;
+  --slot-item: #3a3322;
+  --input-bg: #15171a;
+  --lamp-red: #ff4d4f;
+  --lamp-amber: #ffc53d;
+  --lamp-green: #52d36b;
+  color-scheme: dark;
+}
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #15171a;
     --panel: #1e2125;
     --text: #e6e4df;
@@ -261,3 +282,25 @@ td, th { padding: 0.2rem 0.35rem; }
 .status-light.illegal strong { color: var(--bad); }
 .status-light.warnings strong { color: var(--warn); }
 .status-light.legal strong { color: var(--ok); }
+
+/* Segmented control (theme picker) */
+.segmented { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.segmented button { border: none; border-radius: 0; padding: 0.3rem 0.75rem; background: var(--panel); }
+.segmented button + button { border-left: 1px solid var(--border); }
+.segmented button.active { background: var(--accent); color: #fff; }
+
+/* OmniMech configuration bar */
+.omni-bar {
+  border: 1px solid var(--border); border-radius: 8px; padding: 0.5rem 0.6rem;
+  margin-bottom: 0.75rem; background: color-mix(in srgb, var(--accent-soft) 45%, transparent);
+}
+.omni-bar .tabs { margin: 0; flex-wrap: wrap; }
+.omni-bar .tabs button.broken { border-color: var(--bad); }
+.pod-meter { height: 6px; border-radius: 3px; background: var(--slot-fixed); overflow: hidden; margin-top: 0.5rem; }
+.pod-meter > div { height: 100%; background: var(--accent); }
+.pod-meter.over > div { background: var(--bad); }
+.mounted li.mounted-heading { border: none; padding: 0; }
+.mounted-heading { margin: 0.6rem 0 0.25rem; font-size: 0.8rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+
+.mounted .item-name { display: flex; flex-direction: column; line-height: 1.2; min-width: 0; }
+.mounted li select { max-width: 13rem; }
