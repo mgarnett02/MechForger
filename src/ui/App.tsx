@@ -4,6 +4,9 @@ import { computeMech } from '../rules/construction';
 import { validate } from '../rules/validation';
 import { newDesign, parseDesign } from '../rules/edit';
 import { PRESETS } from '../data/canonical';
+import type { EraId } from '../rules/eras';
+import { eraLabel, getEra } from '../rules/eras';
+import { EraDialog } from './EraDialog';
 import { ChassisPanel } from './ChassisPanel';
 import { ArmorPanel } from './ArmorPanel';
 import { EquipmentPanel } from './EquipmentPanel';
@@ -18,6 +21,8 @@ export function App() {
   const [selected, setSelected] = useState<string | null>(null);
   const [saved, setSaved] = useState(() => listSaved());
   const [notice, setNotice] = useState<string | null>(null);
+  // 'startup' = required choice before the main form; 'change' = reopened, can be cancelled.
+  const [eraDialog, setEraDialog] = useState<'startup' | 'change' | null>('startup');
   const fileRef = useRef<HTMLInputElement>(null);
 
   const summary = useMemo(() => computeMech(design), [design]);
@@ -36,6 +41,12 @@ export function App() {
     setSelected(null);
   };
 
+  const chooseEra = (era: EraId) => {
+    update((d) => (d.era === era ? d : { ...d, era }));
+    setEraDialog(null);
+  };
+  const era = getEra(design.era);
+
   const onImport = async (file: File) => {
     try {
       load(parseDesign(JSON.parse(await file.text())));
@@ -47,14 +58,25 @@ export function App() {
 
   return (
     <div className="app">
+      {eraDialog && (
+        <EraDialog
+          current={design.era}
+          onSelect={chooseEra}
+          onCancel={eraDialog === 'change' ? () => setEraDialog(null) : undefined}
+        />
+      )}
       <header className="toolbar">
-        <h1>MechForger <span className="muted small">Inner Sphere · Introductory · 3025</span></h1>
+        <h1>
+          MechForger{' '}
+          <span className="muted small">{era ? `${era.name} · ${eraLabel(era)}` : design.era}</span>{' '}
+          <button className="small" onClick={() => setEraDialog('change')}>Change era</button>
+        </h1>
         <div className="row wrap">
           <input aria-label="Chassis name" value={design.chassis} placeholder="Chassis"
             onChange={(e) => update((d) => ({ ...d, chassis: e.target.value }))} />
           <input aria-label="Model" value={design.model} placeholder="Model" style={{ width: '7rem' }}
             onChange={(e) => update((d) => ({ ...d, model: e.target.value }))} />
-          <button onClick={() => load(newDesign())}>New</button>
+          <button onClick={() => load(newDesign(design.era))}>New</button>
           <select aria-label="Load a design" value="" onChange={(e) => {
             const [kind, key] = e.target.value.split(':', 2) as [string, string];
             if (kind === 'preset') load(PRESETS.find((p) => p.key === key)!.build());

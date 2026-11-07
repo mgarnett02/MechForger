@@ -2,7 +2,8 @@
 
 An application to build BattleMechs for the BattleTech game.
 
-The first milestone covers **Introductory-level, Inner Sphere, 3025-era** construction
+On launch MechForger asks which tech level (era) to build for, from 3025
+onward; it can be changed later with **Change era**. The first milestone covers **Introductory-level, Inner Sphere, 3025-era** construction
 (TechManual rules):
 
 - Biped mechs from 20 to 100 tons
@@ -47,6 +48,7 @@ npm run dist:win   # build the Windows installer + portable exe into release/
 ## Layout
 
 - `src/rules/` — framework-free rules engine
+  - `eras.ts` — tech levels offered at start-up
   - `tables.ts` — engine weights, internal structure, gyro/jump jet weights
   - `equipment.ts` — weapon, ammo and equipment catalog
   - `construction.ts` — `computeMech()` derives weights, slots, heat and movement

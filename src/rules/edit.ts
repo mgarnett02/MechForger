@@ -2,6 +2,8 @@ import type { ArmLocation, ArmorFacing, Location, MechDesign, MountedItem } from
 import { ARMOR_FACINGS, LOCATIONS, REAR_FACING } from './types';
 import { ARMOR_POINTS_PER_TON, FREE_HEAT_SINKS, engineHeatSinkCapacity, maxWalkMP } from './tables';
 import { HEAT_SINK_ID, JUMP_JET_ID, canRearMount, getEquipment } from './equipment';
+import type { EraId } from './eras';
+import { DEFAULT_ERA, getEra } from './eras';
 import { distributeArmor, emptyArmor, maxArmorByLocation, maxTotalArmor } from './armor';
 
 /** Pure editing operations: each returns a new design. */
@@ -12,10 +14,11 @@ export function newUid(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}-${uidCounter}`;
 }
 
-export function newDesign(): MechDesign {
+export function newDesign(era: EraId = DEFAULT_ERA): MechDesign {
   // 50 tons, walk 4: engine 200 holds 8 heat sinks; place the other 2 of the free 10.
   return {
     schemaVersion: 1,
+    era,
     chassis: 'New Mech',
     model: 'NM-1',
     tonnage: 50,
@@ -180,6 +183,7 @@ export function parseDesign(raw: unknown): MechDesign {
   });
   return {
     schemaVersion: 1,
+    era: getEra(String(r.era))?.id ?? DEFAULT_ERA,
     chassis: typeof r.chassis === 'string' ? r.chassis : 'Unnamed',
     model: typeof r.model === 'string' ? r.model : '',
     tonnage: num(r.tonnage, 'tonnage'),

@@ -3,7 +3,7 @@ import {
   addEquipment, computeMech, distributeArmor, gyroWeight, internalStructure, isValid,
   maxTotalArmor, newDesign, setActuator, setEngineHeatSinks, setHeatSinkTotal, setItemLocation,
   setItemRear, setJumpMP, setTonnage, setWalkMP, standardFusionEngineWeight, technicalReadout,
-  totalArmorPoints, validate, parseDesign,
+  totalArmorPoints, validate, parseDesign, ERAS, DEFAULT_ERA,
 } from './index';
 import type { MechDesign } from './types';
 import { PRESETS } from '../data/canonical';
@@ -203,5 +203,22 @@ describe('editing', () => {
     const back = parseDesign(JSON.parse(JSON.stringify(d)));
     expect(computeMech(back).weights).toEqual(computeMech(d).weights);
     expect(() => parseDesign({ tonnage: 'x' })).toThrow();
+  });
+});
+
+describe('eras', () => {
+  it('start at 3025 and progress forwards', () => {
+    expect(ERAS[0].id).toBe('3025');
+    const years = ERAS.map((e) => e.year);
+    expect([...years].sort((a, b) => a - b)).toEqual(years);
+    expect(ERAS.find((e) => e.id === DEFAULT_ERA)?.available).toBe(true);
+  });
+
+  it('designs record their era, defaulting to 3025 for older files', () => {
+    expect(newDesign().era).toBe('3025');
+    const { era: _omit, ...legacy } = preset('Atlas AS7-D');
+    expect(parseDesign(JSON.parse(JSON.stringify(legacy))).era).toBe('3025');
+    expect(parseDesign({ ...legacy, era: '3050' }).era).toBe('3050');
+    expect(parseDesign({ ...legacy, era: 'bogus' }).era).toBe('3025');
   });
 });

@@ -183,3 +183,42 @@ td, th { padding: 0.2rem 0.35rem; }
 .slot.selected { outline: 2px solid var(--accent); }
 .slot-btn { border: none; background: none; padding: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; font-weight: inherit; }
 .slot-btn:hover { text-decoration: line-through; }
+
+/* Era / tech level dialog */
+.modal-backdrop {
+  position: fixed; inset: 0; z-index: 100;
+  background: rgba(10, 11, 13, 0.55);
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px;
+}
+/* Before the main form exists for the user: hide it completely. */
+.modal-backdrop.startup { background: var(--bg); }
+.modal {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.5rem;
+  width: min(880px, 100%);
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+}
+.modal h2 { font-size: 1.3rem; margin-bottom: 0.25rem; }
+.modal > p { margin-top: 0; }
+.era-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 0.75rem; }
+.era-btn {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 0.2rem;
+  text-align: left; padding: 0.8rem; border-radius: 10px; position: relative;
+}
+.era-btn:not(:disabled):hover { background: var(--accent-soft); }
+.era-btn.current { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.era-btn:disabled { opacity: 0.5; }
+.era-year { font-size: 1.6rem; font-weight: 700; color: var(--accent); line-height: 1; }
+.era-name { font-weight: 600; }
+.era-meta { font-size: 0.75rem; color: var(--muted); }
+.era-desc { font-size: 0.8rem; }
+.era-soon {
+  position: absolute; top: 0.6rem; right: 0.6rem;
+  font-size: 0.7rem; padding: 0.05rem 0.45rem; border-radius: 999px;
+  border: 1px solid var(--border); color: var(--muted);
+}

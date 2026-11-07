@@ -1,3 +1,5 @@
+import type { EraId } from './eras';
+
 /** Mech body locations (biped). */
 export const LOCATIONS = ['HD', 'CT', 'LT', 'RT', 'LA', 'RA', 'LL', 'RL'] as const;
 export type Location = (typeof LOCATIONS)[number];
@@ -53,6 +55,8 @@ export interface ArmActuators {
 
 export interface MechDesign {
   schemaVersion: 1;
+  /** Tech level / era the design is built for. */
+  era: EraId;
   chassis: string;
   model: string;
   tonnage: number;

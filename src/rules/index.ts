@@ -1,4 +1,5 @@
 export * from './types';
+export * from './eras';
 export * from './tables';
 export * from './equipment';
 export * from './armor';

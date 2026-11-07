@@ -33,7 +33,7 @@ export const PRESETS: Preset[] = [
   {
     key: 'Locust LCT-1V',
     build: () => ({
-      schemaVersion: 1, chassis: 'Locust', model: 'LCT-1V', tonnage: 20, walkMP: 8,
+      schemaVersion: 1, era: '3025', chassis: 'Locust', model: 'LCT-1V', tonnage: 20, walkMP: 8,
       engineHeatSinks: 6,
       armor: armor(8, 10, 2, 8, 2, 4, 8),
       actuators: { LA: { lowerArm: false, hand: false }, RA: { lowerArm: false, hand: false } },
@@ -50,7 +50,7 @@ export const PRESETS: Preset[] = [
   {
     key: 'Wasp WSP-1A',
     build: () => ({
-      schemaVersion: 1, chassis: 'Wasp', model: 'WSP-1A', tonnage: 20, walkMP: 6,
+      schemaVersion: 1, era: '3025', chassis: 'Wasp', model: 'WSP-1A', tonnage: 20, walkMP: 6,
       engineHeatSinks: 4,
       armor: armor(5, 7, 2, 6, 2, 4, 5),
       actuators: FULL_ARMS,
@@ -70,7 +70,7 @@ export const PRESETS: Preset[] = [
   {
     key: 'Hunchback HBK-4G',
     build: () => ({
-      schemaVersion: 1, chassis: 'Hunchback', model: 'HBK-4G', tonnage: 50, walkMP: 4,
+      schemaVersion: 1, era: '3025', chassis: 'Hunchback', model: 'HBK-4G', tonnage: 50, walkMP: 4,
       engineHeatSinks: 8,
       armor: armor(9, 26, 5, 20, 4, 16, 20),
       actuators: FULL_ARMS,
@@ -89,7 +89,7 @@ export const PRESETS: Preset[] = [
   {
     key: 'Atlas AS7-D',
     build: () => ({
-      schemaVersion: 1, chassis: 'Atlas', model: 'AS7-D', tonnage: 100, walkMP: 3,
+      schemaVersion: 1, era: '3025', chassis: 'Atlas', model: 'AS7-D', tonnage: 100, walkMP: 3,
       engineHeatSinks: 12,
       armor: armor(9, 47, 14, 32, 10, 34, 41),
       actuators: FULL_ARMS,
