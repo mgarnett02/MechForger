@@ -83,9 +83,12 @@ label.check { display: inline-flex; align-items: center; gap: 0.3rem; margin-rig
   display: grid;
   grid-template-columns: minmax(330px, 1fr) minmax(380px, 1.25fr) minmax(320px, 1fr);
   gap: 1rem;
-  align-items: start;
+  /* Columns share the row height so panel bottoms line up. */
+  align-items: stretch;
 }
 .col { display: flex; flex-direction: column; gap: 1rem; min-width: 0; }
+/* The last panel in each column grows to fill it (e.g. Armor reaches the bottom of Summary). */
+.col > .panel:last-child { flex: 1; }
 .col.wide { grid-column: 1 / -1; }
 @media (max-width: 1150px) {
   .layout { grid-template-columns: 1fr; }
