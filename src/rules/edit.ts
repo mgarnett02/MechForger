@@ -1,6 +1,6 @@
 import type {
-  ArmLocation, ArmorFacing, ArmorType, EngineType, HeatSinkType, Location, MechDesign, MountedItem,
-  MyomerType, OmniData, StructureType, TechBase,
+  ArmLocation, ArmorFacing, ArmorType, CockpitType, EngineType, GyroType, HeatSinkType, Location,
+  MechDesign, MountedItem, MyomerType, OmniData, StructureType, TechBase,
 } from './types';
 import { ARMOR_FACINGS, LOCATIONS, REAR_FACING } from './types';
 import {
@@ -32,6 +32,8 @@ export function newDesign(era: EraId = DEFAULT_ERA, techBase: TechBase = 'IS'): 
     techBase,
     structureType: 'standard',
     engineType: 'standard',
+    gyroType: 'standard',
+    cockpitType: 'standard',
     heatSinkType: 'single',
     armorType: 'standard',
     myomer: 'standard',
@@ -230,6 +232,14 @@ export function setEngineType(d: MechDesign, engineType: EngineType): MechDesign
   return { ...d, engineType };
 }
 
+export function setGyroType(d: MechDesign, gyroType: GyroType): MechDesign {
+  return { ...d, gyroType };
+}
+
+export function setCockpitType(d: MechDesign, cockpitType: CockpitType): MechDesign {
+  return { ...d, cockpitType };
+}
+
 export function setHeatSinkType(d: MechDesign, heatSinkType: HeatSinkType): MechDesign {
   return normalizeHeatSinks({ ...d, heatSinkType });
 }
@@ -313,9 +323,11 @@ export function parseDesign(raw: unknown): MechDesign {
     era: getEra(String(r.era))?.id ?? DEFAULT_ERA,
     techBase: pick(r.techBase, ['IS', 'Clan'] as const, 'IS'),
     structureType: pick(r.structureType, ['standard', 'endo-steel'] as const, 'standard'),
-    engineType: pick(r.engineType, ['standard', 'xl'] as const, 'standard'),
+    engineType: pick(r.engineType, ['standard', 'xl', 'light'] as const, 'standard'),
+    gyroType: pick(r.gyroType, ['standard', 'xl', 'heavy-duty'] as const, 'standard'),
+    cockpitType: pick(r.cockpitType, ['standard', 'small'] as const, 'standard'),
     heatSinkType: pick(r.heatSinkType, ['single', 'double'] as const, 'single'),
-    armorType: pick(r.armorType, ['standard', 'ferro-fibrous'] as const, 'standard'),
+    armorType: pick(r.armorType, ['standard', 'ferro-fibrous', 'light-ferro'] as const, 'standard'),
     myomer: pick(r.myomer, ['standard', 'tsm'] as const, 'standard'),
     mixedTech: r.mixedTech === true,
     omni,

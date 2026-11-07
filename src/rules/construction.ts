@@ -1,8 +1,8 @@
 import type { Location, MechDesign, MountedItem, WeightClass } from './types';
 import { LOCATIONS } from './types';
 import {
-  COCKPIT_WEIGHT, FREE_HEAT_SINKS, armorPointsPerTon, engineHeatSinkCapacity, engineSideTorsoSlots,
-  engineWeight, gyroWeight, internalStructure, internalStructureWeight, jumpJetWeight, runMP,
+  FREE_HEAT_SINKS, armorPointsPerTon, cockpitWeight, engineHeatSinkCapacity, engineSideTorsoSlots,
+  engineWeight, gyroSlots, gyroWeightFor, internalStructure, internalStructureWeight, jumpJetWeight, runMP,
   weightClass,
 } from './tables';
 import type { Equipment } from './equipment';
@@ -77,19 +77,27 @@ const SLOT_COUNT: Record<Location, number> = {
   HD: 6, CT: 12, LT: 12, RT: 12, LA: 12, RA: 12, LL: 6, RL: 6,
 };
 
+const ENGINE_LABEL = { standard: 'Fusion Engine', xl: 'XL Fusion Engine', light: 'Light Fusion Engine' } as const;
+const GYRO_LABEL = { standard: 'Gyro', xl: 'XL Gyro', 'heavy-duty': 'Heavy-Duty Gyro' } as const;
+
 /** Fixed components per location; null marks a slot open for equipment. */
 export function fixedSlots(design: MechDesign, loc: Location): (string | null)[] {
   switch (loc) {
     case 'HD':
-      return ['Life Support', 'Sensors', 'Cockpit', null, 'Sensors', 'Life Support'];
+      return design.cockpitType === 'small'
+        ? ['Life Support', 'Sensors', 'Small Cockpit', 'Sensors', null, null]
+        : ['Life Support', 'Sensors', 'Cockpit', null, 'Sensors', 'Life Support'];
     case 'CT': {
-      const e = design.engineType === 'xl' ? 'XL Fusion Engine' : 'Fusion Engine';
-      return [e, e, e, 'Gyro', 'Gyro', 'Gyro', 'Gyro', e, e, e, null, null];
+      const e = ENGINE_LABEL[design.engineType];
+      const g = GYRO_LABEL[design.gyroType];
+      const gyro: string[] = Array(gyroSlots(design.gyroType)).fill(g);
+      const fixed = [e, e, e, ...gyro, e, e, e];
+      return [...fixed, ...Array(12 - fixed.length).fill(null)];
     }
     case 'LT':
     case 'RT': {
       const n = engineSideTorsoSlots(design.engineType, design.techBase);
-      return [...Array(n).fill('XL Fusion Engine'), ...Array(12 - n).fill(null)];
+      return [...Array(n).fill(ENGINE_LABEL[design.engineType]), ...Array(12 - n).fill(null)];
     }
     case 'LA':
     case 'RA': {
@@ -161,8 +169,8 @@ export function computeMech(design: MechDesign): MechSummary {
   const weights: WeightBreakdown = {
     structure: internalStructureWeight(design.structureType, tonnage),
     engine: engineWt ?? 0,
-    gyro: gyroWeight(rating),
-    cockpit: COCKPIT_WEIGHT,
+    gyro: gyroWeightFor(design.gyroType, rating),
+    cockpit: cockpitWeight(design.cockpitType),
     heatSinks: Math.max(0, totalHS - FREE_HEAT_SINKS),
     jumpJets: jumpMP * jumpJetWeight(tonnage),
     armor: armorTonnage(armorTotal, ppt),

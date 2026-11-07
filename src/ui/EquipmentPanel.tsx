@@ -30,7 +30,7 @@ const TABS: { id: EquipmentCategory; label: string }[] = [
 function rangeText(eq: Equipment): string {
   if (!eq.range) return '—';
   const { min, short, medium, long } = eq.range;
-  return `${min ? `(${min}) ` : ''}${short}/${medium}/${long}`;
+  return `${min ? `(${min}) ` : ''}${short}/${medium}/${long || '—'}`;
 }
 
 export function EquipmentPanel({ design, summary, update, selected, setSelected }: Props) {

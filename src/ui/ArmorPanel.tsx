@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { ArmorType, MechDesign } from '../rules/types';
 import { isAvailableIn } from '../rules/eras';
+import { ARMOR_OPTIONS, componentAvailable } from '../rules/tables';
 import { LOCATIONS, LOCATION_NAMES, REAR_FACING } from '../rules/types';
 import type { MechSummary } from '../rules/construction';
 import { armorPointsForTons, armorTonnage, locationArmor } from '../rules/armor';
@@ -31,6 +32,10 @@ export function ArmorPanel({ design, summary, update }: Props) {
           <option value="standard">Standard</option>
           <option value="ferro-fibrous" disabled={!advanced}>
             Ferro-Fibrous ({design.techBase === 'Clan' ? 7 : 14} slots)
+          </option>
+          <option value="light-ferro"
+            disabled={!componentAvailable(ARMOR_OPTIONS['light-ferro'], design.era, design.techBase, design.mixedTech)}>
+            Light Ferro-Fibrous (7 slots)
           </option>
         </select>{' '}
         <span className="muted small">{pptLabel} pts/ton</span>

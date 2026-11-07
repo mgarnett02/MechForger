@@ -35,8 +35,8 @@ export const ERAS: readonly Era[] = [
   {
     id: '3062', year: 3062, name: 'Civil War', years: '3062–3067',
     rulesLevel: 'Standard', techBases: ['IS', 'Clan'],
-    description: 'Light engines, rotary autocannons, MRMs, targeting computers and more mixed tech.',
-    available: false,
+    description: 'Light engines, XL and heavy-duty gyros, small cockpits, rotary autocannons, iNarc and IS targeting computers.',
+    available: true,
   },
   {
     id: '3068', year: 3068, name: 'Jihad', years: '3068–3080',

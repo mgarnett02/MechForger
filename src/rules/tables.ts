@@ -1,4 +1,9 @@
-import type { ArmorType, EngineType, Location, StructureType, TechBase, WeightClass } from './types';
+import type {
+  ArmorType, CockpitType, EngineType, GyroType, HeatSinkType, Location, MyomerType, StructureType, TechBase,
+  WeightClass,
+} from './types';
+import type { EraId } from './eras';
+import { isAvailableIn } from './eras';
 
 /**
  * Introductory-level construction tables for Inner Sphere BattleMechs
@@ -110,14 +115,39 @@ export function xlEngineWeight(rating: number): number | null {
   return std === null ? null : Math.ceil(std) / 2;
 }
 
-export function engineWeight(type: EngineType, rating: number): number | null {
-  return type === 'xl' ? xlEngineWeight(rating) : standardFusionEngineWeight(rating);
+/** Light fusion engine (IS): 75% of standard weight, rounded up to the half ton. */
+export function lightEngineWeight(rating: number): number | null {
+  const std = standardFusionEngineWeight(rating);
+  return std === null ? null : Math.ceil(std * 0.75 * 2) / 2;
 }
 
-/** Engine critical slots in each side torso (XL engines only). */
+export function engineWeight(type: EngineType, rating: number): number | null {
+  if (type === 'xl') return xlEngineWeight(rating);
+  if (type === 'light') return lightEngineWeight(rating);
+  return standardFusionEngineWeight(rating);
+}
+
+/** Engine critical slots in each side torso: XL 3 (IS) / 2 (Clan), Light 2. */
 export function engineSideTorsoSlots(type: EngineType, techBase: TechBase): number {
+  if (type === 'light') return 2;
   if (type !== 'xl') return 0;
   return techBase === 'Clan' ? 2 : 3;
+}
+
+/** Gyro weight: standard = rating/100 rounded up; XL half that (to the half ton); heavy-duty double. */
+export function gyroWeightFor(type: GyroType, rating: number): number {
+  const base = gyroWeight(rating);
+  if (type === 'xl') return Math.ceil(base) / 2;
+  if (type === 'heavy-duty') return base * 2;
+  return base;
+}
+
+export function gyroSlots(type: GyroType): number {
+  return type === 'xl' ? 6 : 4;
+}
+
+export function cockpitWeight(type: CockpitType): number {
+  return type === 'small' ? 2 : COCKPIT_WEIGHT;
 }
 
 /** Endo Steel weighs 5% of tonnage, rounded up to the half ton. */
@@ -132,12 +162,14 @@ export function structureSlots(type: StructureType, techBase: TechBase): number 
 }
 
 export function armorSlots(type: ArmorType, techBase: TechBase): number {
+  if (type === 'light-ferro') return 7;
   if (type !== 'ferro-fibrous') return 0;
   return techBase === 'Clan' ? 7 : 14;
 }
 
-/** Armor points per ton: standard 16; Ferro-Fibrous ×1.12 (IS) or ×1.2 (Clan). */
+/** Armor points per ton: standard 16; Ferro-Fibrous ×1.12 (IS) / ×1.2 (Clan); Light Ferro ×1.06. */
 export function armorPointsPerTon(type: ArmorType, techBase: TechBase): number {
+  if (type === 'light-ferro') return ARMOR_POINTS_PER_TON * 1.06;
   if (type !== 'ferro-fibrous') return ARMOR_POINTS_PER_TON;
   return ARMOR_POINTS_PER_TON * (techBase === 'Clan' ? 1.2 : 1.12);
 }
@@ -145,4 +177,61 @@ export function armorPointsPerTon(type: ArmorType, techBase: TechBase): number {
 /** MASC: IS 1 ton per 20 tons of mech, Clan 1 per 25, rounded to the nearest ton. Slots = tons. */
 export function mascWeight(tonnage: number, techBase: TechBase): number {
   return Math.round(tonnage / (techBase === 'Clan' ? 25 : 20));
+}
+
+// ---------------------------------------------------------------------------
+// Availability of construction options by era and tech base
+// ---------------------------------------------------------------------------
+
+export interface ComponentOption {
+  /** Name used in messages, e.g. "XL engines". */
+  label: string;
+  techBase: TechBase | 'Both';
+  firstEra: EraId;
+}
+
+const opt = (label: string, techBase: TechBase | 'Both', firstEra: EraId): ComponentOption => ({ label, techBase, firstEra });
+
+export const STRUCTURE_OPTIONS: Record<StructureType, ComponentOption> = {
+  standard: opt('Standard structure', 'Both', '3025'),
+  'endo-steel': opt('Endo Steel structure', 'Both', '3050'),
+};
+export const ENGINE_OPTIONS: Record<EngineType, ComponentOption> = {
+  standard: opt('Standard fusion engines', 'Both', '3025'),
+  xl: opt('XL engines', 'Both', '3050'),
+  light: opt('Light engines', 'IS', '3062'),
+};
+export const GYRO_OPTIONS: Record<GyroType, ComponentOption> = {
+  standard: opt('Standard gyros', 'Both', '3025'),
+  xl: opt('XL gyros', 'IS', '3062'),
+  'heavy-duty': opt('Heavy-duty gyros', 'IS', '3062'),
+};
+export const COCKPIT_OPTIONS: Record<CockpitType, ComponentOption> = {
+  standard: opt('Standard cockpits', 'Both', '3025'),
+  small: opt('Small cockpits', 'IS', '3062'),
+};
+export const HEAT_SINK_OPTIONS: Record<HeatSinkType, ComponentOption> = {
+  single: opt('Single heat sinks', 'Both', '3025'),
+  double: opt('Double heat sinks', 'Both', '3050'),
+};
+export const ARMOR_OPTIONS: Record<ArmorType, ComponentOption> = {
+  standard: opt('Standard armor', 'Both', '3025'),
+  'ferro-fibrous': opt('Ferro-Fibrous armor', 'Both', '3050'),
+  'light-ferro': opt('Light Ferro-Fibrous armor', 'IS', '3062'),
+};
+export const MYOMER_OPTIONS: Record<MyomerType, ComponentOption> = {
+  standard: opt('Standard myomer', 'Both', '3025'),
+  tsm: opt('Triple-Strength Myomer', 'IS', '3050'),
+};
+
+export function componentEraOk(o: ComponentOption, era: EraId): boolean {
+  return isAvailableIn(o.firstEra, era);
+}
+
+export function componentTechOk(o: ComponentOption, techBase: TechBase, mixedTech: boolean): boolean {
+  return o.techBase === 'Both' || o.techBase === techBase || mixedTech;
+}
+
+export function componentAvailable(o: ComponentOption, era: EraId, techBase: TechBase, mixedTech: boolean): boolean {
+  return componentEraOk(o, era) && componentTechOk(o, techBase, mixedTech);
 }

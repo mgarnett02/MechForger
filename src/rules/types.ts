@@ -71,9 +71,11 @@ export type TechBase = 'IS' | 'Clan';
 export const TECH_BASE_NAMES: Record<TechBase, string> = { IS: 'Inner Sphere', Clan: 'Clan' };
 
 export type StructureType = 'standard' | 'endo-steel';
-export type EngineType = 'standard' | 'xl';
+export type EngineType = 'standard' | 'xl' | 'light';
+export type GyroType = 'standard' | 'xl' | 'heavy-duty';
+export type CockpitType = 'standard' | 'small';
 export type HeatSinkType = 'single' | 'double';
-export type ArmorType = 'standard' | 'ferro-fibrous';
+export type ArmorType = 'standard' | 'ferro-fibrous' | 'light-ferro';
 export type MyomerType = 'standard' | 'tsm';
 
 export interface MechDesign {
@@ -83,6 +85,8 @@ export interface MechDesign {
   techBase: TechBase;
   structureType: StructureType;
   engineType: EngineType;
+  gyroType: GyroType;
+  cockpitType: CockpitType;
   heatSinkType: HeatSinkType;
   armorType: ArmorType;
   myomer: MyomerType;

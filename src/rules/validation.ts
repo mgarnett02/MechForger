@@ -10,7 +10,11 @@ import {
 import { configurationDesigns, isFixedOnly } from './omni';
 import { getEra, isAvailableIn } from './eras';
 import { TECH_BASE_NAMES } from './types';
-import { armorSlots, structureSlots } from './tables';
+import type { ComponentOption } from './tables';
+import {
+  ARMOR_OPTIONS, COCKPIT_OPTIONS, ENGINE_OPTIONS, GYRO_OPTIONS, HEAT_SINK_OPTIONS, MYOMER_OPTIONS,
+  STRUCTURE_OPTIONS, armorSlots, componentEraOk, componentTechOk, structureSlots,
+} from './tables';
 import { armorPointsForTons } from './armor';
 import { locationArmor } from './armor';
 import type { MechSummary } from './construction';
@@ -72,22 +76,28 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
     if (!era.techBases.includes(design.techBase)) {
       error(`${TECH_BASE_NAMES[design.techBase]} designs cannot be built in the ${era.name} era.`);
     }
-    const options: [boolean, string][] = [
-      [design.structureType === 'endo-steel', 'Endo Steel structure'],
-      [design.engineType === 'xl', 'XL engines'],
-      [design.heatSinkType === 'double', 'Double heat sinks'],
-      [design.armorType === 'ferro-fibrous', 'Ferro-Fibrous armor'],
+    const chosen: ComponentOption[] = [
+      STRUCTURE_OPTIONS[design.structureType],
+      ENGINE_OPTIONS[design.engineType],
+      GYRO_OPTIONS[design.gyroType],
+      COCKPIT_OPTIONS[design.cockpitType],
+      HEAT_SINK_OPTIONS[design.heatSinkType],
+      ARMOR_OPTIONS[design.armorType],
+      MYOMER_OPTIONS[design.myomer],
     ];
-    options.push(
-      [design.myomer === 'tsm', 'Triple-Strength Myomer'],
+    for (const o of chosen) {
+      if (!componentEraOk(o, design.era)) {
+        error(`${o.label} cannot be used in the ${era.name} era.`);
+      } else if (!componentTechOk(o, design.techBase, design.mixedTech)) {
+        error(`${o.label}: ${TECH_BASE_NAMES[o.techBase as 'IS' | 'Clan']} technology only (needs mixed tech on a ${TECH_BASE_NAMES[design.techBase]} design).`);
+      }
+    }
+    const extras: [boolean, string][] = [
       [design.mixedTech, 'Mixed tech designs'],
       [!!design.omni, 'OmniMechs'],
-    );
-    for (const [used, name] of options) {
+    ];
+    for (const [used, name] of extras) {
       if (used && !isAvailableIn('3050', design.era)) error(`${name} cannot be used in the ${era.name} era.`);
-    }
-    if (design.myomer === 'tsm' && design.techBase === 'Clan' && !design.mixedTech) {
-      error('Triple-Strength Myomer is Inner Sphere technology (needs mixed tech on a Clan design).');
     }
   }
 

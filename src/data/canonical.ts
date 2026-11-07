@@ -10,8 +10,8 @@ import { newUid } from '../rules/edit';
  * and per-location armor are legal but may differ in detail from the
  * official record sheets.
  *
- * 3050: original MechForger designs (not canon mechs) that exercise the
- * Standard-level construction options.
+ * 3050 / 3062: original MechForger designs (not canon mechs) that exercise
+ * the Standard-level construction options.
  */
 
 type Mount = [equipmentId: string, location: Location, count?: number, rear?: boolean];
@@ -28,7 +28,9 @@ function mounts(list: Mount[], pod = false): MountedItem[] {
 }
 
 /** Defaults for options not used by a sample. */
-const PLAIN = { myomer: 'standard', mixedTech: false, omni: null } as const;
+const PLAIN = {
+  gyroType: 'standard', cockpitType: 'standard', myomer: 'standard', mixedTech: false, omni: null,
+} as const;
 
 function armor(
   hd: number, ct: number, ctr: number, side: number, sider: number, arm: number, leg: number,
@@ -167,6 +169,7 @@ export const PRESETS: Preset[] = [
     build: () => ({
       schemaVersion: 1, era: '3050', techBase: 'Clan', structureType: 'endo-steel', engineType: 'xl',
       heatSinkType: 'double', armorType: 'ferro-fibrous', myomer: 'standard', mixedTech: false,
+      gyroType: 'standard', cockpitType: 'standard',
       chassis: 'Grimfang', model: '', tonnage: 65, walkMP: 5,
       engineHeatSinks: 13,
       armor: armor(9, 31, 11, 22, 8, 20, 30),
@@ -218,6 +221,71 @@ export const PRESETS: Preset[] = [
           },
         ],
       },
+    }),
+  },
+  {
+    key: 'Bulwark BWK-2X (sample)', era: '3062', techBase: 'IS', canon: false,
+    build: () => ({
+      schemaVersion: 1, era: '3062', techBase: 'IS', structureType: 'endo-steel', engineType: 'light',
+      heatSinkType: 'double', armorType: 'standard', ...PLAIN, gyroType: 'xl',
+      chassis: 'Bulwark', model: 'BWK-2X', tonnage: 60, walkMP: 5,
+      engineHeatSinks: 12,
+      armor: { HD: 9, CT: 30, CTR: 9, LT: 21, LTR: 6, RT: 21, RTR: 6, LA: 19, RA: 19, LL: 26, RL: 26 },
+      actuators: FULL_ARMS,
+      equipment: mounts([
+        ['rac-5', 'RA'],
+        ['endo-steel', 'RA', 2],
+        ['er-large-laser', 'LA'],
+        ['er-medium-laser', 'LA'],
+        ['endo-steel', 'LA', 5],
+        ['ammo-rac-5', 'RT', 2],
+        ['targeting-computer', 'RT'],
+        ['er-medium-laser', 'RT'],
+        ['endo-steel', 'RT', 2],
+        ['endo-steel', 'LT', 4],
+        ['endo-steel', 'HD'],
+      ]),
+    }),
+  },
+  {
+    key: 'Emberclaw Prime (sample)', era: '3062', techBase: 'Clan', canon: false,
+    build: () => ({
+      schemaVersion: 1, era: '3062', techBase: 'Clan', structureType: 'endo-steel', engineType: 'xl',
+      heatSinkType: 'double', armorType: 'ferro-fibrous', ...PLAIN,
+      chassis: 'Emberclaw', model: 'Prime', tonnage: 35, walkMP: 7,
+      engineHeatSinks: 9,
+      armor: { HD: 9, CT: 16, CTR: 5, LT: 12, LTR: 3, RT: 12, RTR: 3, LA: 12, RA: 11, LL: 16, RL: 16 },
+      actuators: FULL_ARMS,
+      equipment: mounts([
+        ['clan-medium-heavy-laser', 'LA'],
+        ['clan-er-micro-laser', 'LA'],
+        ['clan-micro-pulse-laser', 'LA'],
+        ['endo-steel', 'LA', 2],
+        ['ferro-fibrous', 'LA', 2],
+        ['clan-medium-heavy-laser', 'RA'],
+        ['clan-er-micro-laser', 'RA'],
+        ['clan-micro-pulse-laser', 'RA'],
+        ['endo-steel', 'RA', 2],
+        ['ferro-fibrous', 'RA', 2],
+        ['jump-jet', 'LT'],
+        ['clan-double-heat-sink', 'LT', 2],
+        ['clan-heavy-machine-gun', 'LT'],
+        ['ammo-clan-heavy-machine-gun-half', 'LT'],
+        ['endo-steel', 'LT', 2],
+        ['ferro-fibrous', 'LT'],
+        ['jump-jet', 'RT'],
+        ['clan-double-heat-sink', 'RT', 2],
+        ['clan-heavy-machine-gun', 'RT'],
+        ['clan-streak-srm-4', 'RT'],
+        ['ammo-clan-streak-srm-4', 'RT'],
+        ['clan-light-tag', 'RT'],
+        ['endo-steel', 'RT'],
+        ['jump-jet', 'CT'],
+        ['ferro-fibrous', 'CT'],
+        ['ferro-fibrous', 'HD'],
+        ['jump-jet', 'LL', 2],
+        ['jump-jet', 'RL', 2],
+      ]),
     }),
   },
 ];

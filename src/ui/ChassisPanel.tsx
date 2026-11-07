@@ -1,10 +1,18 @@
-import type { EngineType, HeatSinkType, MechDesign, MyomerType, StructureType, TechBase } from '../rules/types';
+import type {
+  CockpitType, EngineType, GyroType, HeatSinkType, MechDesign, MyomerType, StructureType, TechBase,
+} from '../rules/types';
+import type { ComponentOption } from '../rules/tables';
+import {
+  COCKPIT_OPTIONS, ENGINE_OPTIONS, GYRO_OPTIONS, HEAT_SINK_OPTIONS, MYOMER_OPTIONS, STRUCTURE_OPTIONS,
+  componentAvailable, componentEraOk,
+} from '../rules/tables';
 import { ARM_LOCATIONS, LOCATION_NAMES, TECH_BASE_NAMES } from '../rules/types';
-import { getEra, isAvailableIn } from '../rules/eras';
+import { ERAS, getEra, isAvailableIn } from '../rules/eras';
 import type { MechSummary } from '../rules/construction';
 import { TONNAGES, maxWalkMP } from '../rules/tables';
 import {
-  setActuator, setEngineHeatSinks, setEngineType, setHeatSinkTotal, setHeatSinkType, setJumpMP,
+  setActuator, setCockpitType, setEngineHeatSinks, setEngineType, setGyroType, setHeatSinkTotal,
+  setHeatSinkType, setJumpMP,
   setMixedTech, setMyomer, setStructureType, setTechBase, setTonnage, setWalkMP,
 } from '../rules/edit';
 import { setOmni } from '../rules/omni';
@@ -25,6 +33,16 @@ export function ChassisPanel({ design, summary, update }: Props) {
   const advanced = isAvailableIn(ADVANCED_ERA, design.era);
   const lockedTitle = advanced ? undefined : 'Available from the Clan Invasion era (3050)';
   const xlSlots = design.techBase === 'Clan' ? 2 : 3;
+  /** Whether a construction option can be chosen, and why not when it can't. */
+  const ok = (o: ComponentOption) => componentAvailable(o, design.era, design.techBase, design.mixedTech);
+  const why = (o: ComponentOption) => {
+    if (!componentEraOk(o, design.era)) {
+      const first = ERAS.find((e) => e.id === o.firstEra);
+      return `Available from the ${first?.name} era (${first?.year})`;
+    }
+    if (!ok(o)) return 'Inner Sphere technology: needs mixed tech on a Clan design';
+    return undefined;
+  };
   const fillerSlots = design.techBase === 'Clan' ? 7 : 14;
   return (
     <section className="panel">
@@ -72,7 +90,8 @@ export function ChassisPanel({ design, summary, update }: Props) {
           <select aria-label="Internal structure" value={design.structureType} title={lockedTitle}
             onChange={(e) => update((d) => setStructureType(d, e.target.value as StructureType))}>
             <option value="standard">Standard</option>
-            <option value="endo-steel" disabled={!advanced}>Endo Steel ({fillerSlots} slots)</option>
+            <option value="endo-steel" disabled={!ok(STRUCTURE_OPTIONS['endo-steel'])}
+              title={why(STRUCTURE_OPTIONS['endo-steel'])}>Endo Steel ({fillerSlots} slots)</option>
           </select>
           <span className="muted"> {summary.weights.structure} t</span>
         </div>
@@ -86,10 +105,15 @@ export function ChassisPanel({ design, summary, update }: Props) {
 
         <label>Engine</label>
         <div>
-          <select aria-label="Engine type" value={design.engineType} title={lockedTitle}
+          <select aria-label="Engine type" value={design.engineType}
             onChange={(e) => update((d) => setEngineType(d, e.target.value as EngineType))}>
             <option value="standard">{summary.rating} Fusion</option>
-            <option value="xl" disabled={!advanced}>{summary.rating} XL ({xlSlots} slots per side torso)</option>
+            <option value="xl" disabled={!ok(ENGINE_OPTIONS.xl)} title={why(ENGINE_OPTIONS.xl)}>
+              {summary.rating} XL ({xlSlots} slots per side torso)
+            </option>
+            <option value="light" disabled={!ok(ENGINE_OPTIONS.light)} title={why(ENGINE_OPTIONS.light)}>
+              {summary.rating} Light (2 slots per side torso)
+            </option>
           </select>
           <span className="muted"> {summary.engineWeight ?? '—'} t</span>
         </div>
@@ -100,7 +124,7 @@ export function ChassisPanel({ design, summary, update }: Props) {
             title={advanced ? undefined : lockedTitle}
             onChange={(e) => update((d) => setMyomer(d, e.target.value as MyomerType))}>
             <option value="standard">Standard</option>
-            <option value="tsm" disabled={!advanced || (design.techBase === 'Clan' && !design.mixedTech)}>
+            <option value="tsm" disabled={!ok(MYOMER_OPTIONS.tsm)} title={why(MYOMER_OPTIONS.tsm)}>
               Triple-Strength (6 slots)
             </option>
           </select>
@@ -109,8 +133,30 @@ export function ChassisPanel({ design, summary, update }: Props) {
           )}
         </div>
 
-        <label>Gyro / Cockpit</label>
-        <div>Standard <span className="muted">({summary.weights.gyro} t / {summary.weights.cockpit} t)</span></div>
+        <label>Gyro</label>
+        <div>
+          <select aria-label="Gyro type" value={design.gyroType}
+            onChange={(e) => update((d) => setGyroType(d, e.target.value as GyroType))}>
+            <option value="standard">Standard (4 slots)</option>
+            <option value="xl" disabled={!ok(GYRO_OPTIONS.xl)} title={why(GYRO_OPTIONS.xl)}>XL (6 slots)</option>
+            <option value="heavy-duty" disabled={!ok(GYRO_OPTIONS['heavy-duty'])} title={why(GYRO_OPTIONS['heavy-duty'])}>
+              Heavy-duty (4 slots)
+            </option>
+          </select>
+          <span className="muted"> {summary.weights.gyro} t</span>
+        </div>
+
+        <label>Cockpit</label>
+        <div>
+          <select aria-label="Cockpit type" value={design.cockpitType}
+            onChange={(e) => update((d) => setCockpitType(d, e.target.value as CockpitType))}>
+            <option value="standard">Standard</option>
+            <option value="small" disabled={!ok(COCKPIT_OPTIONS.small)} title={why(COCKPIT_OPTIONS.small)}>
+              Small (+1 piloting)
+            </option>
+          </select>
+          <span className="muted"> {summary.weights.cockpit} t</span>
+        </div>
 
         <label>Jumping MP</label>
         <div>
@@ -125,10 +171,10 @@ export function ChassisPanel({ design, summary, update }: Props) {
           <NumberField label="Total heat sinks" value={hs.total} min={10}
             invalid={hs.total < 10}
             onChange={(n) => update((d) => setHeatSinkTotal(d, n))} />
-          <select aria-label="Heat sink type" value={design.heatSinkType} title={lockedTitle}
+          <select aria-label="Heat sink type" value={design.heatSinkType}
             onChange={(e) => update((d) => setHeatSinkType(d, e.target.value as HeatSinkType))}>
             <option value="single">Single</option>
-            <option value="double" disabled={!advanced}>Double</option>
+            <option value="double" disabled={!ok(HEAT_SINK_OPTIONS.double)} title={why(HEAT_SINK_OPTIONS.double)}>Double</option>
           </select>
           <span className="muted"> {summary.weights.heatSinks} t · dissipates {hs.dissipation}</span>
         </div>

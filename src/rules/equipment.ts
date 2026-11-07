@@ -53,6 +53,7 @@ interface Avail {
 const IS_3025: Avail = { techBase: 'IS', firstEra: '3025' };
 const IS_3050: Avail = { techBase: 'IS', firstEra: '3050' };
 const CLAN_3050: Avail = { techBase: 'Clan', firstEra: '3050' };
+const IS_3062: Avail = { techBase: 'IS', firstEra: '3062' };
 const ANY_3025: Avail = { techBase: 'Both', firstEra: '3025' };
 const ANY_3050: Avail = { techBase: 'Both', firstEra: '3050' };
 
@@ -126,6 +127,17 @@ const IS_3050_WEAPONS: Equipment[] = [
   weapon(IS_3050, 'mrm-40', 'MRM 40', 'Missile', 12, 7, 12, '1/missile', [0, 3, 8, 15], 6),
   weapon(IS_3050, 'narc', 'Narc Missile Beacon', 'Missile', 3, 2, 0, 'beacon', [0, 3, 6, 9], 6),
   weapon(IS_3050, 'ams', 'Anti-Missile System', 'Other', 0.5, 1, 1, 'defensive', null, 12),
+  // Introduced 3056–3061, so available by the end of the Clan Invasion era.
+  weapon(IS_3050, 'light-gauss-rifle', 'Light Gauss Rifle', 'Ballistic', 12, 5, 1, '8', [3, 8, 17, 25], 16),
+  weapon(IS_3050, 'heavy-gauss-rifle', 'Heavy Gauss Rifle', 'Ballistic', 18, 11, 2, '25/20/10', [4, 6, 13, 20], 4),
+  weapon(IS_3050, 'tag', 'TAG', 'Other', 1, 1, 0, 'designator', [0, 5, 9, 15]),
+];
+
+/** Inner Sphere weapons of the Civil War era (3062–3067). */
+const IS_3062_WEAPONS: Equipment[] = [
+  weapon(IS_3062, 'rac-2', 'Rotary AC/2', 'Ballistic', 8, 3, 1, '2 (×6)', [0, 6, 12, 18], 45),
+  weapon(IS_3062, 'rac-5', 'Rotary AC/5', 'Ballistic', 10, 6, 1, '5 (×6)', [0, 5, 10, 15], 20),
+  weapon(IS_3062, 'inarc', 'iNarc Launcher', 'Missile', 5, 3, 0, 'beacon', [0, 4, 9, 15], 4),
 ];
 
 /** Clan weapons (Clan Invasion era). */
@@ -164,9 +176,19 @@ const CLAN_WEAPONS: Equipment[] = [
   weapon(CLAN_3050, 'clan-atm-12', 'ATM 12', 'Missile', 7, 5, 8, '2/missile', [4, 5, 10, 15], 5),
   weapon(CLAN_3050, 'clan-narc', 'Narc Missile Beacon', 'Missile', 2, 1, 0, 'beacon', [0, 4, 8, 12], 6),
   weapon(CLAN_3050, 'clan-ams', 'Anti-Missile System', 'Other', 0.5, 1, 1, 'defensive', null, 24),
+  // Introduced 3054–3060, so available by the end of the Clan Invasion era.
+  weapon(CLAN_3050, 'clan-er-micro-laser', 'ER Micro Laser', 'Energy', 0.25, 1, 1, '2', [0, 1, 2, 4]),
+  weapon(CLAN_3050, 'clan-micro-pulse-laser', 'Micro Pulse Laser', 'Energy', 0.5, 1, 1, '3', [0, 1, 2, 3]),
+  weapon(CLAN_3050, 'clan-small-heavy-laser', 'Small Heavy Laser', 'Energy', 0.5, 1, 3, '6', [0, 1, 2, 3]),
+  weapon(CLAN_3050, 'clan-medium-heavy-laser', 'Medium Heavy Laser', 'Energy', 1, 2, 7, '10', [0, 3, 6, 9]),
+  weapon(CLAN_3050, 'clan-large-heavy-laser', 'Large Heavy Laser', 'Energy', 4, 3, 18, '16', [0, 5, 10, 15]),
+  weapon(CLAN_3050, 'clan-light-machine-gun', 'Light Machine Gun', 'Ballistic', 0.25, 1, 0, '1', [0, 2, 4, 6], 200),
+  weapon(CLAN_3050, 'clan-heavy-machine-gun', 'Heavy Machine Gun', 'Ballistic', 0.5, 1, 0, '3', [0, 1, 2, 0], 100),
+  weapon(CLAN_3050, 'clan-tag', 'TAG', 'Other', 1, 1, 0, 'designator', [0, 5, 9, 15]),
+  weapon(CLAN_3050, 'clan-light-tag', 'Light TAG', 'Other', 0.5, 1, 0, 'designator', [0, 3, 6, 9]),
 ];
 
-const ALL_WEAPONS = [...IS_INTRO_WEAPONS, ...IS_3050_WEAPONS, ...CLAN_WEAPONS];
+const ALL_WEAPONS = [...IS_INTRO_WEAPONS, ...IS_3050_WEAPONS, ...IS_3062_WEAPONS, ...CLAN_WEAPONS];
 // Standard LRM / SRM launchers (not Streak) can take Artemis IV.
 for (const w of ALL_WEAPONS) {
   if (/^(clan-)?(lrm|srm)-\d+$/.test(w.id)) w.artemisCapable = true;
@@ -195,7 +217,7 @@ export const AMMO: readonly Equipment[] = [
     firstEra: '3050' as const,
   })),
   // Half-ton machine gun ammunition (Standard rules).
-  ...WEAPONS.filter((w) => w.id === 'machine-gun' || w.id === 'clan-machine-gun').map((w) => ({
+  ...WEAPONS.filter((w) => w.id.endsWith('machine-gun')).map((w) => ({
     ...ammoBase(w),
     id: `ammo-${w.id}-half`,
     name: `${w.name} Ammo, Half (${(w.ammoPerTon ?? 0) / 2})`,
@@ -260,6 +282,7 @@ export const OTHER_EQUIPMENT: readonly Equipment[] = [
   },
   { id: 'c3-master', name: 'C3 Master Computer', category: 'Other', tons: 5, slots: 5, heat: 0, isWeapon: false, ...IS_3050 },
   { id: 'c3-slave', name: 'C3 Slave Unit', category: 'Other', tons: 1, slots: 1, heat: 0, isWeapon: false, ...IS_3050 },
+  { id: 'improved-c3', name: 'Improved C3 Computer', category: 'Other', tons: 2.5, slots: 2, heat: 0, isWeapon: false, ...IS_3062 },
   { id: 'beagle-active-probe', name: 'Beagle Active Probe', category: 'Other', tons: 1.5, slots: 2, heat: 0, isWeapon: false, ...IS_3050 },
   { id: 'guardian-ecm', name: 'Guardian ECM Suite', category: 'Other', tons: 1.5, slots: 2, heat: 0, isWeapon: false, ...IS_3050 },
   { id: 'clan-active-probe', name: 'Active Probe', category: 'Other', tons: 1, slots: 1, heat: 0, isWeapon: false, ...CLAN_3050 },

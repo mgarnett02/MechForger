@@ -3,7 +3,7 @@
 An application to build BattleMechs for the BattleTech game.
 
 On launch MechForger asks which tech level (era) to build for, from 3025
-onward; it can be changed later with **Change era**. Two eras are supported so far.
+onward; it can be changed later with **Change era**. Three eras are supported so far.
 
 ### 3025 Succession Wars — Inner Sphere, Introductory rules
 
@@ -39,6 +39,20 @@ Everything above, plus:
   configuration is validated and pod space is shown
 - **Mixed tech** (Advanced rules): Inner Sphere and Clan equipment on one design;
   otherwise the two tech bases cannot be combined
+
+Equipment introduced late in the era (3054–3061) is included too: Light and
+Heavy Gauss rifles, TAG, and the Clan ER micro, micro pulse and heavy lasers,
+light and heavy machine guns and light TAG.
+
+### 3062 Civil War — Inner Sphere or Clan, Standard rules
+
+Everything above, plus (Inner Sphere technology; Clan designs need mixed tech):
+
+- **Light engines** (75% of standard weight; 2 slots per side torso)
+- **XL gyros** (half weight, 6 slots) and **heavy-duty gyros** (double weight, 4 slots)
+- **Small cockpits** (2 tons, frees two head slots)
+- **Light Ferro-Fibrous** armor (×1.06 points/ton, 7 slots)
+- Rotary AC/2 and AC/5, iNarc, Improved C3 and the Inner Sphere targeting computer
 
 ### Everywhere
 
@@ -88,8 +102,8 @@ npm run dist:win   # build the Windows installer + portable exe into release/
   - `edit.ts` — pure editing operations used by the UI
   - `readout.ts` — technical-readout text
 - `src/data/canonical.ts` — sample designs: 3025 canon mechs (Locust, Wasp, Hunchback, Atlas) and
-  original 3050 samples (Warden, and the Grimfang OmniMech with Prime and A
-  configurations); also used as test fixtures
+  original samples for 3050 (Warden; the Grimfang OmniMech with Prime and A
+  configurations) and 3062 (Bulwark, Emberclaw); also used as test fixtures
 - `src/ui/` — React interface
 - `electron/main.cjs` — desktop window wrapper; `build/icon.png` — app icon
 - `.github/workflows/windows-build.yml` — automatic Windows builds
@@ -97,5 +111,5 @@ npm run dist:win   # build the Windows installer + portable exe into release/
 ## Not yet supported
 
 Split critical slots across locations, Battle Value, C-Bill cost, quads, and
-eras after 3061. Mixed tech applies to equipment only: structure, engine, heat
+eras after 3067. Mixed tech applies to equipment only: structure, engine, heat
 sinks and armor follow the chassis tech base.
