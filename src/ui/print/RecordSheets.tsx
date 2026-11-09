@@ -195,7 +195,10 @@ export function MechRecordSheet({ design }: { design: MechDesign }) {
         <h4>{LOCATION_NAMES[loc]}</h4>
         {groups.map((g, gi) => (
           <div key={gi} className="rs-crit-group">
-            {groups.length > 1 && <span className="rs-crit-roll">{gi === 0 ? '1-3' : '4-6'}</span>}
+            {/* Every location gets the margin line; only 12-slot locations need the 1-3 / 4-6 labels. */}
+            <span className="rs-crit-roll" aria-hidden={groups.length === 1}>
+              {groups.length > 1 ? (gi === 0 ? '1-3' : '4-6') : ''}
+            </span>
             <ol>
               {g.map((slot, i) => (
                 <li key={i} className={slot.kind}>

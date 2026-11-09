@@ -435,14 +435,20 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 .rs-crit-roll {
   writing-mode: vertical-rl; transform: rotate(180deg); font-size: 6pt; font-weight: 700;
   border-left: 1px solid #111; padding: 0 1px; text-align: center;
+  /* Fixed width so the margin line sits in the same place in every location. */
+  flex: none; width: 9px; box-sizing: border-box;
 }
 .rs-crit-group ol { list-style: none; margin: 0; padding: 0; flex: 1; min-width: 0; font-size: 6.3pt; letter-spacing: -0.01em; }
 .rs-crit-group li { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.25; }
 .rs-crit-group li.empty { color: #777; }
 .rs-crit-group li.item { font-weight: 700; }
 .rs-slot-no { display: inline-block; width: 10px; }
-.rs-crit-damage { display: flex; flex-direction: column; justify-content: center; gap: 3px; font-size: 7pt; }
-.rs-crit-damage > div { display: flex; justify-content: space-between; align-items: center; gap: 4px; }
+.rs-crit-damage {
+  display: grid; grid-template-columns: max-content max-content; column-gap: 6px; row-gap: 4px;
+  align-items: center; align-self: start; justify-self: center;
+  border: 1.5px solid #111; border-radius: 6px; padding: 5px 7px; margin-top: 18px; font-size: 7pt;
+}
+.rs-crit-damage > div { display: contents; }
 .rs-crit-damage span:first-child { font-weight: 700; }
 
 /* Heat */
