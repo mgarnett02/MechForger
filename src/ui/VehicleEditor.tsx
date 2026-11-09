@@ -19,6 +19,8 @@ import {
   vehicleStructureSlots,
 } from '../rules/vehicle';
 import { NumberField } from './NumberField';
+import { vehicleBV, vehicleCost } from '../rules/battleValue';
+import { ValueCard } from './ValueCard';
 
 interface Props {
   design: VehicleDesign;
@@ -350,7 +352,9 @@ function VehicleSummaryPanel({ design, summary, issues }: Props) {
   ];
   const pct = Math.min(100, (w.total / Math.max(1, design.tonnage)) * 100);
   const errors = issues.filter((i) => i.severity === 'error');
-  const readout = vehicleReadout(design, summary);
+  const bv = vehicleBV(design);
+  const cost = vehicleCost(design);
+  const readout = vehicleReadout(design, summary, { bv: bv.total, cost: cost.total });
   return (
     <section className="panel">
       <h2>Summary</h2>
@@ -372,6 +376,7 @@ function VehicleSummaryPanel({ design, summary, issues }: Props) {
         <div><span className="muted">Energy heat</span> {summary.energyHeat}/{design.heatSinks}</div>
         <div><span className="muted">Armor</span> {summary.armorTotal}/{summary.armorMax}</div>
       </div>
+      <ValueCard bv={bv} cost={cost} />
       <h3 id="validation">
         Validation{' '}
         {errors.length === 0

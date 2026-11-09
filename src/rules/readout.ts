@@ -4,6 +4,7 @@ import { getEra } from './eras';
 import type { MountedItem } from './types';
 import { equipmentName, getEquipment } from './equipment';
 import { activeConfigName } from './omni';
+import { mechBV, mechCost } from './battleValue';
 import type { MechSummary } from './construction';
 import { computeMech, itemSlots, itemWeight } from './construction';
 
@@ -26,6 +27,8 @@ export function technicalReadout(design: MechDesign, summary: MechSummary = comp
   }
   if (design.omni) lines.push(`Config: OmniMech — ${activeConfigName(design)} configuration`);
   if (era) lines.push(`Era: ${era.name} (${era.year})`);
+  lines.push(`Battle Value: ${mechBV(design).total.toLocaleString('en-US')}`);
+  lines.push(`Cost: ${mechCost(design).total.toLocaleString('en-US')} C-bills`);
   lines.push('');
   lines.push(row('Equipment', 'Mass'));
   lines.push(row(`Internal Structure: ${design.structureType === 'endo-steel' ? 'Endo Steel' : ''}`.trimEnd(), s.weights.structure));

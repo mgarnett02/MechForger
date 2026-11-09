@@ -4,6 +4,7 @@ import { LOCATION_NAMES, TECH_BASE_NAMES } from '../../rules/types';
 import { computeMech } from '../../rules/construction';
 import { getEra } from '../../rules/eras';
 import { activeConfigName } from '../../rules/omni';
+import { mechBV, mechCost, vehicleBV, vehicleCost } from '../../rules/battleValue';
 import type { AmmoRow, EquipmentRow, WeaponRow } from '../../rules/recordSheet';
 import { CONSCIOUSNESS, HEAT_SCALE, mechSheetData, vehicleSheetData } from '../../rules/recordSheet';
 import type { VehicleArmorLocation, VehicleDesign } from '../../rules/vehicle';
@@ -218,6 +219,8 @@ export function MechRecordSheet({ design }: { design: MechDesign }) {
             <Field label="Tech Base" value={techBase(design)} />
             <Field label="Rules Level" value={rulesLevel(design)} />
             <Field label="Era" value={eraName(design)} />
+            <Field label="Battle Value" value={mechBV(design).total.toLocaleString('en-US')} />
+            <Field label="Cost" value={`${mechCost(design).total.toLocaleString('en-US')} C-bills`} />
             <Field label="Engine" value={`${s.rating} ${engine}`} />
             {design.omni && <Field label="Config" value={`OmniMech — ${config}`} />}
           </div>
@@ -334,6 +337,8 @@ export function VehicleRecordSheet({ design }: { design: VehicleDesign }) {
             <Field label="Tech Base" value={techBase(design)} />
             <Field label="Rules Level" value={rulesLevel(design)} />
             <Field label="Era" value={eraName(design)} />
+            <Field label="Battle Value" value={`≈${vehicleBV(design).total.toLocaleString('en-US')}`} />
+            <Field label="Cost" value={`≈${vehicleCost(design).total.toLocaleString('en-US')} C-bills`} />
             {design.heatSinks > 0 && <Field label="Heat Sinks" value={`${design.heatSinks} (energy weapons)`} />}
           </div>
           <Inventory rows={data.weapons} equipment={data.equipment} showHeat={false} />

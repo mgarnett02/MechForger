@@ -607,7 +607,9 @@ export function parseVehicle(raw: unknown): VehicleDesign {
 // Readout
 // ---------------------------------------------------------------------------
 
-export function vehicleReadout(d: VehicleDesign, s: VehicleSummary = computeVehicle(d)): string {
+export function vehicleReadout(
+  d: VehicleDesign, s: VehicleSummary = computeVehicle(d), values?: { bv: number; cost: number },
+): string {
   const t = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
   const row = (label: string, mass: number | string) => `${label.padEnd(34)}${typeof mass === 'number' ? t(mass) : mass}`;
   const era = getEra(d.era);
@@ -620,6 +622,10 @@ export function vehicleReadout(d: VehicleDesign, s: VehicleSummary = computeVehi
     ? `Tech Base: Mixed (${TECH_BASE_NAMES[d.techBase]} chassis) (Advanced)`
     : `Tech Base: ${TECH_BASE_NAMES[d.techBase]} (${era?.rulesLevel ?? '?'})`);
   if (era) lines.push(`Era: ${era.name} (${era.year})`);
+  if (values) {
+    lines.push(`Battle Value: ≈${values.bv.toLocaleString('en-US')} (approx.)`);
+    lines.push(`Cost: ≈${values.cost.toLocaleString('en-US')} C-bills (approx.)`);
+  }
   lines.push('');
   lines.push(row('Equipment', 'Mass'));
   lines.push(row(`Internal Structure:${d.structureType === 'endo-steel' ? ' Endo Steel' : ''}`, s.weights.structure));

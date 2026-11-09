@@ -528,3 +528,13 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
   .print-pages.paper-a4 .record-sheet { min-height: calc(297mm - 22mm) !important; }
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
+
+/* Battle Value / cost card */
+.value-card { margin-top: 0.75rem; border: 1px solid var(--border); border-radius: 8px; padding: 0.5rem 0.6rem; }
+.value-row { display: flex; gap: 1.25rem; flex-wrap: wrap; }
+.value-row > div { display: flex; flex-direction: column; }
+.value-big { font-size: 1.2rem; font-variant-numeric: tabular-nums; }
+.value-card details { margin-top: 0.35rem; }
+.value-card summary { cursor: pointer; color: var(--accent); }
+.value-detail { display: grid; gap: 0.5rem; margin-top: 0.35rem; }
+.value-detail caption { text-align: left; padding-bottom: 2px; }

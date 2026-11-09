@@ -10,3 +10,4 @@ export * from './readout';
 export * from './omni';
 export * from './vehicle';
 export * from './recordSheet';
+export * from './battleValue';

@@ -95,6 +95,9 @@ Advanced or Experimental level and is not modeled yet.
 - Critical slot allocation (click to place, or **Auto-allocate**) with live validation
 - Red / amber / green status light: illegal, legal but incomplete (unused tonnage,
   unallocated armor), or fully legal
+- **Battle Value (BV 2.0) and C-bill cost**, with the working shown; mech values
+  reproduce published canon figures (e.g. Atlas AS7-D: BV 1,897, 9,626,000 C-bills).
+  Vehicle values are marked as approximate
 - **Printable record sheets** for BattleMechs (including every OmniMech configuration)
   and all vehicle types: weapons table, armor and structure boxes, critical slots,
   heat scale, warrior / crew and vehicle damage tracks, ammo counters; US Letter or
@@ -143,6 +146,7 @@ npm run dist:win   # build the Windows installer + portable exe into release/
   - `readout.ts` — technical-readout text
 - `src/rules/vehicle.ts` — combat vehicle construction, validation and readout
 - `src/data/vehicles.ts` — sample vehicles
+- `src/rules/battleValue.ts` + `src/rules/values.ts` — BV 2.0 and C-bill cost
 - `src/rules/recordSheet.ts` + `src/ui/print/` — record sheet data and printable layout
 - `src/data/canonical.ts` — sample designs: 3025 canon mechs (Locust, Wasp, Hunchback, Atlas) and
   original samples for 3050 (Warden; the Grimfang OmniMech with Prime and A
@@ -154,7 +158,7 @@ npm run dist:win   # build the Windows installer + portable exe into release/
 
 ## Not yet supported
 
-Split critical slots across locations, Battle Value, C-Bill cost, quads,
+Split critical slots across locations, quads,
 Advanced / Experimental equipment (e.g. XXL engines, stealth and reactive armor,
 composite and reinforced structure, rifles, VSP lasers), and physical weapons.
 Mixed tech applies to equipment only: structure, engine, heat

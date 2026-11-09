@@ -3,6 +3,8 @@ import type { MechDesign } from '../rules/types';
 import type { MechSummary } from '../rules/construction';
 import type { Issue } from '../rules/validation';
 import { technicalReadout } from '../rules/readout';
+import { mechBV, mechCost } from '../rules/battleValue';
+import { ValueCard } from './ValueCard';
 
 interface Props {
   design: MechDesign;
@@ -55,6 +57,7 @@ export function SummaryPanel({ design, summary, issues }: Props) {
         <div><span className="muted">Weapon heat</span> {summary.heat.weapons}</div>
         <div><span className="muted">Armor</span> {summary.armorTotal}/{summary.armorMaxTotal}</div>
       </div>
+      <ValueCard bv={mechBV(design)} cost={mechCost(design)} />
 
       <h3 id="validation">
         Validation{' '}
