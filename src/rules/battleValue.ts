@@ -203,8 +203,9 @@ export function mechBV(d: MechDesign): BVBreakdown {
   let heat = 0;
   let weaponBV = 0;
   for (const w of weapons) {
-    // Weapons count in full until the running heat total reaches the mech's heat efficiency.
-    weaponBV += heat < heatEfficiency ? w.bv : w.bv / 2;
+    // Weapons count in full until the running heat total reaches the mech's heat efficiency;
+    // weapons that generate no heat always count in full.
+    weaponBV += heat < heatEfficiency || w.heat === 0 ? w.bv : w.bv / 2;
     heat += w.heat;
   }
   const ammo = ammoBV(d.equipment, weapons);
@@ -320,6 +321,7 @@ export function vehicleCost(d: VehicleDesign): CostBreakdown {
     ['Heat sinks', 2000 * Math.max(0, d.heatSinks - s.freeHeatSinks)],
     ['Armor', ARMOR_COST[d.armorType] * w.armor],
     ['Weapons & equipment', equipmentCost(d.equipment, (eq) => vehicleItemWeight(eq, d), s.rating)],
+    ['Troop / cargo space', 5000 * w.cargo],
   ].filter(([, v]) => v !== 0) as [string, number][];
   const subtotal = lines.reduce((a, [, v]) => a + v, 0);
   const multiplier = 1 + d.tonnage / VEHICLE_COST_DIVISOR[d.motive];

@@ -104,6 +104,9 @@ Advanced or Experimental level and is not modeled yet.
 - Critical slot allocation (click to place, or **Auto-allocate**) with live validation
 - Red / amber / green status light: illegal, legal but incomplete (unused tonnage,
   unallocated armor), or fully legal
+- **Canon units**: about 1,800 canon BattleMechs (OmniMechs with all their
+  configurations) and 600 canon vehicles, searchable by name, era, tech base,
+  weight and type, ready to load, modify and print (see *Canon unit data* below)
 - **Battle Value (BV 2.0) and C-bill cost**, with the working shown; mech values
   reproduce published canon figures (e.g. Atlas AS7-D: BV 1,897, 9,626,000 C-bills).
   Vehicle values are marked as approximate
@@ -113,6 +116,30 @@ Advanced or Experimental level and is not modeled yet.
   A4, printed or saved as PDF from the print dialog
 - Technical-readout text export, JSON import/export and saving in the app
 - Light, dark or system theme, chosen in the start-up dialog
+
+## Canon unit data
+
+The bundled canon designs (`src/data/canon/`) are converted from
+**[MegaMek Data](https://github.com/MegaMek/mm-data)** by the MegaMek Development
+Team, licensed under
+[CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/). The
+converted data is shared under the same license and may not be used
+commercially; see `src/data/canon/LICENSE.md`.
+
+Only units MechForger can represent are included: biped mechs and tracked,
+wheeled, hover, VTOL and naval vehicles using modeled equipment. Quads, LAMs,
+superheavies, OmniVehicles, support vehicles and units with Advanced or
+Experimental equipment (stealth armor, CASE II, physical weapons, …) are
+skipped. Of the converted mechs, 99% weigh exactly their published tonnage
+under MechForger's tables, and Battle Values match the Master Unit List for
+the checked designs. Vehicle weights match for about 89% of vehicles; in the
+browser, ⚖ marks a weight difference and ⚠ a failed construction check.
+
+To regenerate the data from a checkout of mm-data:
+
+```bash
+npm run convert-canon -- /path/to/mm-data
+```
 
 ## Download (Windows)
 

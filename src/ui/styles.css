@@ -542,3 +542,15 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 .legal-note { margin: 0.9rem 0 0; font-size: 0.75rem; color: var(--muted); border-top: 1px solid var(--border); padding-top: 0.6rem; }
 .modal.about { width: min(640px, 100%); }
 .modal.about h3 { margin-top: 1rem; }
+
+/* Canon unit browser */
+.modal.canon { width: min(1100px, 100%); height: min(860px, calc(100vh - 32px)); display: flex; flex-direction: column; }
+.canon-filters { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin: 0.75rem 0 0.25rem; }
+.canon-filters input[type=search] { flex: 1 1 260px; }
+.canon-list { flex: 1; overflow: auto; border: 1px solid var(--border); border-radius: 8px; min-height: 0; }
+.canon-list table { width: 100%; }
+.canon-list thead th { position: sticky; top: 0; background: var(--panel); z-index: 1; }
+.canon-list tbody tr { cursor: default; }
+.canon-list tbody tr:hover td { background: var(--accent-soft); }
+.canon-flag { color: var(--warn); cursor: help; }
+.canon-more { margin: 0.5rem; }

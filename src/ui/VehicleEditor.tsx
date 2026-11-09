@@ -148,6 +148,13 @@ function VehicleChassisPanel({ design, summary, update }: Props) {
           {design.turret && <span className="muted"> {summary.weights.turret} t (10% of turret weapons)</span>}
         </div>
 
+        <label>Troop / cargo</label>
+        <div>
+          <NumberField label="Troop and cargo space" value={design.cargo ?? 0} min={0} step={0.5}
+            onChange={(n) => update((d) => ({ ...d, cargo: n > 0 ? Math.round(n * 2) / 2 : undefined }))} />
+          <span className="muted"> tons{(design.cargo ?? 0) > 0 ? ' · 1 item slot' : ''}</span>
+        </div>
+
         <label>Heat sinks</label>
         <div>
           <NumberField label="Heat sinks" value={design.heatSinks} min={summary.freeHeatSinks}
@@ -346,6 +353,7 @@ function VehicleSummaryPanel({ design, summary, issues }: Props) {
     ['Control equipment', w.controls],
     ...(design.turret ? [[turretName(design), w.turret] as [string, number]] : []),
     ...(w.powerAmplifiers ? [['Power amplifiers', w.powerAmplifiers] as [string, number]] : []),
+    ...(w.cargo ? [['Troop / cargo space', w.cargo] as [string, number]] : []),
     ['Heat sinks', w.heatSinks],
     ['Armor', w.armor],
     ['Weapons & equipment', w.equipment],

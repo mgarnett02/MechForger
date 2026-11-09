@@ -61,6 +61,7 @@ const ANY_3025: Avail = { techBase: 'Both', firstEra: '3025' };
 const ANY_3050: Avail = { techBase: 'Both', firstEra: '3050' };
 
 const TORSO: readonly Location[] = ['CT', 'LT', 'RT'];
+const NOT_HEAD: readonly Location[] = ['CT', 'LT', 'RT', 'LA', 'RA', 'LL', 'RL'];
 
 function weapon(
   avail: Avail,
@@ -227,7 +228,7 @@ const CLAN_WEAPONS: Equipment[] = [
 const ALL_WEAPONS = [...IS_INTRO_WEAPONS, ...IS_3050_WEAPONS, ...IS_3062_WEAPONS, ...JIHAD_WEAPONS, ...CLAN_WEAPONS];
 // Standard LRM / SRM launchers (not Streak) can take Artemis IV.
 for (const w of ALL_WEAPONS) {
-  if (/^(clan-)?(lrm|srm)-\d+$/.test(w.id)) w.artemisCapable = true;
+  if (/^(clan-)?(lrm|srm|mml)-\d+$/.test(w.id)) w.artemisCapable = true;
 }
 export const WEAPONS: readonly Equipment[] = ALL_WEAPONS;
 
@@ -244,7 +245,7 @@ export const AMMO: readonly Equipment[] = [
     firstEra: w.firstEra,
   })),
   // Artemis IV ammunition (Standard rules, from the Clan Invasion era).
-  ...WEAPONS.filter((w) => w.artemisCapable).map((w) => ({
+  ...WEAPONS.filter((w) => w.artemisCapable && !w.id.includes('mml')).map((w) => ({
     ...ammoBase(w),
     id: `ammo-${w.id}-artemis`,
     name: `${w.name} Artemis IV Ammo (${w.ammoPerTon})`,
@@ -304,7 +305,6 @@ export const OTHER_EQUIPMENT: readonly Equipment[] = [
   managed(ANY_3050, FERRO_FIBROUS_ID, 'Ferro-Fibrous', 0, 1),
   {
     ...managed(IS_3050, TSM_ID, 'Triple-Strength Myomer', 0, 1),
-    allowedLocations: ['CT', 'LT', 'RT', 'LA', 'RA', 'LL', 'RL'],
   },
   // Catalog items
   {
@@ -313,11 +313,11 @@ export const OTHER_EQUIPMENT: readonly Equipment[] = [
   },
   {
     id: 'masc', name: 'MASC', category: 'Other', tons: 0, slots: 0, heat: 0, isWeapon: false,
-    variableWeight: 'masc', allowedLocations: TORSO, fixedOnly: true, ...IS_3050,
+    variableWeight: 'masc', allowedLocations: NOT_HEAD, fixedOnly: true, ...IS_3050,
   },
   {
     id: 'clan-masc', name: 'MASC', category: 'Other', tons: 0, slots: 0, heat: 0, isWeapon: false,
-    variableWeight: 'masc', allowedLocations: TORSO, fixedOnly: true, ...CLAN_3050,
+    variableWeight: 'masc', allowedLocations: NOT_HEAD, fixedOnly: true, ...CLAN_3050,
   },
   { id: 'artemis-iv', name: 'Artemis IV FCS', category: 'Other', tons: 1, slots: 1, heat: 0, isWeapon: false, ...IS_3050 },
   { id: 'clan-artemis-iv', name: 'Artemis IV FCS', category: 'Other', tons: 1, slots: 1, heat: 0, isWeapon: false, ...CLAN_3050 },

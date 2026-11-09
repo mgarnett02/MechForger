@@ -61,6 +61,8 @@ export interface VehicleDesign {
   turret: boolean;
   /** Total single heat sinks (fusion engines include 10 for free). */
   heatSinks: number;
+  /** Troop compartment and cargo bay space, in tons. */
+  cargo?: number;
   armor: Record<VehicleArmorLocation, number>;
   equipment: VehicleItem[];
 }
@@ -258,6 +260,7 @@ export interface VehicleWeights {
   heatSinks: number;
   armor: number;
   equipment: number;
+  cargo: number;
   total: number;
   free: number;
 }
@@ -302,7 +305,7 @@ export function vehicleSlotsUsed(d: VehicleDesign): number {
     if (eq.category === 'Ammo') ammoTypes.add(eq.id);
     else used++;
   }
-  return used + ammoTypes.size;
+  return used + ammoTypes.size + ((d.cargo ?? 0) > 0 ? 1 : 0);
 }
 
 export function computeVehicle(d: VehicleDesign): VehicleSummary {
@@ -340,11 +343,12 @@ export function computeVehicle(d: VehicleDesign): VehicleSummary {
     heatSinks: Math.max(0, d.heatSinks - freeHeatSinks),
     armor: armorTonnage(armorTotal, ppt),
     equipment,
+    cargo: d.cargo ?? 0,
     total: 0,
     free: 0,
   };
   weights.total = weights.structure + weights.engine + weights.lift + weights.controls + weights.turret +
-    weights.powerAmplifiers + weights.heatSinks + weights.armor + weights.equipment;
+    weights.powerAmplifiers + weights.heatSinks + weights.armor + weights.equipment + weights.cargo;
   weights.free = d.tonnage - weights.total;
 
   return {
@@ -430,6 +434,7 @@ export function validateVehicle(d: VehicleDesign, s: VehicleSummary = computeVeh
 
   // Heat: only energy weapons generate heat on vehicles.
   if (d.heatSinks < 0 || !Number.isInteger(d.heatSinks)) error('Heat sinks must be a non-negative whole number.');
+  if ((d.cargo ?? 0) < 0 || ((d.cargo ?? 0) * 2) % 1 !== 0) error('Troop / cargo space must be a non-negative number of half tons.');
   if (s.freeHeatSinks > 0 && d.heatSinks < s.freeHeatSinks) {
     error(`Fusion engines come with ${s.freeHeatSinks} heat sinks; the total cannot be lower.`);
   }
@@ -598,6 +603,7 @@ export function parseVehicle(raw: unknown): VehicleDesign {
     armorType: pick(r.armorType, ['standard', 'ferro-fibrous', 'light-ferro', 'heavy-ferro'] as const, 'standard'),
     turret: r.turret === true,
     heatSinks: typeof r.heatSinks === 'number' ? r.heatSinks : 0,
+    cargo: typeof r.cargo === 'number' && r.cargo > 0 ? r.cargo : undefined,
     armor,
     equipment,
   };
@@ -637,6 +643,7 @@ export function vehicleReadout(
   if (motive.liftName) lines.push(row(`${motive.liftName}:`, s.weights.lift));
   if (s.weights.powerAmplifiers) lines.push(row('Power Amplifiers:', s.weights.powerAmplifiers));
   if (d.turret) lines.push(row(`${turretName(d)}:`, s.weights.turret));
+  if (s.weights.cargo) lines.push(row('Troop / Cargo Space:', s.weights.cargo));
   const armorLabel = { standard: '', 'ferro-fibrous': ' (Ferro-Fibrous)', 'light-ferro': ' (Light Ferro-Fibrous)', 'heavy-ferro': ' (Heavy Ferro-Fibrous)' }[d.armorType];
   lines.push(row(`Armor Factor${armorLabel}: ${s.armorTotal}`, s.weights.armor));
   lines.push('');

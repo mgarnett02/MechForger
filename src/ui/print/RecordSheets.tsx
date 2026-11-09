@@ -340,6 +340,7 @@ export function VehicleRecordSheet({ design }: { design: VehicleDesign }) {
             <Field label="Battle Value" value={`≈${vehicleBV(design).total.toLocaleString('en-US')}`} />
             <Field label="Cost" value={`≈${vehicleCost(design).total.toLocaleString('en-US')} C-bills`} />
             {design.heatSinks > 0 && <Field label="Heat Sinks" value={`${design.heatSinks} (energy weapons)`} />}
+            {(design.cargo ?? 0) > 0 && <Field label="Troop / Cargo" value={`${design.cargo} tons`} />}
           </div>
           <Inventory rows={data.weapons} equipment={data.equipment} showHeat={false} />
         </Panel>

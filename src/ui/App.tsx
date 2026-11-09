@@ -22,6 +22,7 @@ import { SummaryPanel } from './SummaryPanel';
 import { VehicleEditor } from './VehicleEditor';
 import { PrintPreview } from './print/PrintPreview';
 import { AboutDialog } from './AboutDialog';
+import { CanonBrowser } from './CanonBrowser';
 import type { AnyDesign, UnitType } from './storage';
 import {
   deleteSaved, designKey, downloadJson, listSaved, loadCurrent, loadCurrentVehicle, loadUnit, parseAny,
@@ -40,6 +41,7 @@ export function App() {
   const [theme, setTheme] = useState<ThemeChoice>(() => loadTheme());
   const [printing, setPrinting] = useState(false);
   const [about, setAbout] = useState(false);
+  const [canon, setCanon] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   useEffect(() => applyTheme(theme), [theme]);
 
@@ -138,6 +140,7 @@ export function App() {
   return (
     <div className="app">
       {about && <AboutDialog onClose={() => setAbout(false)} />}
+      {canon && <CanonBrowser unit={unit} onLoad={load} onClose={() => setCanon(false)} />}
       {printing && <PrintPreview design={active} onClose={() => setPrinting(false)} />}
       {eraDialog && (
         <EraDialog
@@ -170,6 +173,7 @@ export function App() {
           <button onClick={() => load(unit === 'vehicle'
             ? newVehicle(vehicle.era, vehicle.techBase)
             : newDesign(design.era, design.techBase))}>New</button>
+          <button onClick={() => setCanon(true)} title="Browse and load canon BattleMechs and vehicles">Canon units…</button>
           <select aria-label="Load a design" value="" onChange={(e) => {
             const [kind, key] = e.target.value.split(':', 2) as [string, string];
             if (kind === 'preset') loadPreset(key);
