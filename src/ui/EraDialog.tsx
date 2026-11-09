@@ -8,7 +8,7 @@ import { DISCLAIMER_SHORT } from './legal';
 interface Props {
   current: EraId;
   currentTechBase: TechBase;
-  onSelect: (era: EraId, techBase: TechBase, unit: 'mech' | 'vehicle') => void;
+  onSelect: (era: EraId, techBase: TechBase, unit: 'mech' | 'vehicle' | 'support') => void;
   /** When provided the dialog can be dismissed without choosing (Esc / Cancel). */
   onCancel?: () => void;
   theme: ThemeChoice;
@@ -66,8 +66,8 @@ export function EraDialog({ current, currentTechBase, onSelect, onCancel, theme,
     setPending(era);
     setStep('unit');
   };
-  const [unit, setUnit] = useState<'mech' | 'vehicle'>('mech');
-  const pickUnit = (u: 'mech' | 'vehicle') => {
+  const [unit, setUnit] = useState<'mech' | 'vehicle' | 'support'>('mech');
+  const pickUnit = (u: 'mech' | 'vehicle' | 'support') => {
     if (!pending) return;
     setUnit(u);
     if (pending.techBases.length === 1) onSelect(pending.id, pending.techBases[0], u);
@@ -81,7 +81,7 @@ export function EraDialog({ current, currentTechBase, onSelect, onCancel, theme,
           <>
             <h2 id="era-title">{pending.year} {pending.name}: what are you building?</h2>
             <p className="muted">Both use the {pending.name} era&apos;s technology.</p>
-            <div className="era-grid two">
+            <div className="era-grid">
               <button ref={firstRef} className="era-btn" onClick={() => pickUnit('mech')}>
                 <span className="unit-icon" aria-hidden="true">
                   <svg viewBox="0 0 48 48" width="40" height="40"><path d="M18 6h12v8h6v14h-4v14h-6V30h-4v12h-6V28h-4V14h6z" fill="currentColor" /></svg>
@@ -95,6 +95,13 @@ export function EraDialog({ current, currentTechBase, onSelect, onCancel, theme,
                 </span>
                 <span className="era-year">Combat Vehicle</span>
                 <span className="era-desc">Tracked, wheeled, hover, VTOL and naval vehicles.</span>
+              </button>
+              <button className="era-btn" onClick={() => pickUnit('support')}>
+                <span className="unit-icon" aria-hidden="true">
+                  <svg viewBox="0 0 48 48" width="40" height="40"><path d="M4 16h26v16H4zM30 22h8l6 6v4H30zM8 34a4 4 0 1 0 8 0 4 4 0 1 0-8 0M32 34a4 4 0 1 0 8 0 4 4 0 1 0-8 0" fill="currentColor" /></svg>
+                </span>
+                <span className="era-year">Support Vehicle</span>
+                <span className="era-desc">Trucks, transports, trains, airships and aircraft built with support vehicle rules.</span>
               </button>
             </div>
           </>

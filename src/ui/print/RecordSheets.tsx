@@ -5,6 +5,11 @@ import { computeMech } from '../../rules/construction';
 import { getEra } from '../../rules/eras';
 import { activeConfigName } from '../../rules/omni';
 import { mechBV, mechCost, vehicleBV, vehicleCost } from '../../rules/battleValue';
+import type { SupportVehicleDesign } from '../../rules/support';
+import {
+  CHASSIS_MODS, SV_ENGINE_NAMES, SV_LOCATION_NAMES, SV_TYPES, computeSupport, svItemWeight,
+} from '../../rules/support';
+import { equipmentName, getEquipment } from '../../rules/equipment';
 import type { AmmoRow, EquipmentRow, WeaponRow } from '../../rules/recordSheet';
 import { CONSCIOUSNESS, HEAT_SCALE, mechSheetData, vehicleSheetData } from '../../rules/recordSheet';
 import type { VehicleArmorLocation, VehicleDesign } from '../../rules/vehicle';
@@ -395,6 +400,127 @@ export function VehicleRecordSheet({ design }: { design: VehicleDesign }) {
 
         <Panel title="Ammunition" className="area-ammo">
           <AmmoTrack rows={data.ammo} />
+        </Panel>
+
+        <Panel title="Notes" className="area-notes">
+          <div className="rs-lines" />
+        </Panel>
+      </div>
+      <Footer />
+    </article>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Support vehicles
+// ---------------------------------------------------------------------------
+
+export function SupportRecordSheet({ design }: { design: SupportVehicleDesign }) {
+  const s = computeSupport(design);
+  const info = SV_TYPES[design.svType];
+  const name = `${design.chassis} ${design.model}`.trim() || 'Unnamed';
+  const weapons: WeaponRow[] = [];
+  const equipment: EquipmentRow[] = [];
+  const ammo: AmmoRow[] = [];
+  const groups = new Map<string, { qty: number; loc: string; id: string }>();
+  for (const item of design.equipment) {
+    const k = `${item.equipmentId}|${item.location}`;
+    const g = groups.get(k);
+    if (g) g.qty++; else groups.set(k, { qty: 1, loc: item.location ? SV_LOCATION_NAMES[item.location] : '—', id: item.equipmentId });
+  }
+  for (const g of groups.values()) {
+    const eq = getEquipment(g.id);
+    if (!eq) continue;
+    if (eq.category === 'Ammo') {
+      const shots = Number(/\((\d+)\)\s*$/.exec(eq.name)?.[1] ?? 0);
+      for (let i = 0; i < g.qty; i++) ammo.push({ name: equipmentName(eq, design), location: g.loc, shots });
+    } else if (eq.isWeapon) {
+      const r = eq.range;
+      weapons.push({
+        qty: g.qty, name: equipmentName(eq, design), location: g.loc, heat: '', damage: eq.damage ?? '—',
+        min: r?.min ? String(r.min) : '—', short: r ? String(r.short) : '—', medium: r ? String(r.medium) : '—', long: r?.long ? String(r.long) : '—',
+      });
+    } else {
+      equipment.push({ qty: g.qty, name: equipmentName(eq, design), location: g.loc, tons: svItemWeight(eq, design) * g.qty });
+    }
+  }
+  const tr = design.transport;
+  const seats = tr.seats + tr.pillionSeats + tr.ejectionSeats;
+  const quarters = Math.floor(tr.steerage / 5) + Math.floor((tr.secondClass + tr.crewQuarters) / 7) + Math.floor(tr.firstClass / 10);
+  const kind = `${info.name} Support Vehicle Record Sheet`;
+  const flies = info.aero || design.svType === 'vtol';
+  const fmt = (n: number) => (Number.isInteger(n) ? String(n) : String(Math.round(n * 1000) / 1000));
+  return (
+    <article className="record-sheet vehicle">
+      <SheetHeader kind={kind} name={name} />
+      <div className="rs-grid-vehicle">
+        <Panel title="Vehicle Data" className="area-data">
+          <div className="rs-fields">
+            <Field label="Type" value={name} wide />
+            <div className="rs-move">
+              <span className="rs-label">{info.aero ? 'Thrust:' : 'Movement Points:'}</span>
+              <Field label={info.aero ? 'Safe' : 'Cruising'} value={design.cruiseMP} />
+              <Field label={info.aero ? 'Max' : 'Flanking'} value={s.flankMP} />
+            </div>
+            <Field label="Tonnage" value={`${fmt(design.tonnage)} (${s.size})`} />
+            <Field label="Engine" value={SV_ENGINE_NAMES[design.engineType]} />
+            <Field label="Tech Ratings" value={`Str ${design.structureTech} / Eng ${design.engineTech} / Arm ${design.armorTech}`} />
+            <Field label="Tech Base" value={techBase(design)} />
+            <Field label="Era" value={eraName(design)} />
+            <Field label="Armor" value={`BAR ${design.bar}`} />
+            {design.fuel > 0 && <Field label="Fuel" value={`${fmt(design.fuel)} t`} />}
+            {design.fireControl !== 'none' && <Field label="Fire Control" value={design.fireControl === 'basic' ? 'Basic' : 'Advanced'} />}
+            {design.chassisMods.length > 0 && (
+              <Field label="Chassis Mods" value={design.chassisMods.map((id) => CHASSIS_MODS.find((m) => m.id === id)?.name ?? id).join(', ')} wide />
+            )}
+          </div>
+          <Inventory rows={weapons} equipment={equipment} showHeat={false} />
+        </Panel>
+
+        <Panel title="Armor Diagram" className="area-armor">
+          <div className={`rs-vehicle-figure ${info.aero ? 'aero' : ''} ${design.turret ? 'with-turret' : ''} ${design.svType === 'vtol' ? 'vtol' : ''}`}>
+            {s.armorLocations.map((l) => (
+              <div key={l} className={`rs-plate vplate-${l.toLowerCase()}`} style={{ gridArea: l.toLowerCase() }}>
+                <div className="rs-plate-label">{SV_LOCATION_NAMES[l]} <b>({design.armor[l] ?? 0})</b></div>
+                <Pips count={design.armor[l] ?? 0} kind="armor" />
+              </div>
+            ))}
+            {!design.turret && <div className="rs-vehicle-body" style={{ gridArea: 'body' }}>{info.name}</div>}
+          </div>
+          <div className="rs-armor-total">Armor: <b>{s.armorTotal}</b> (BAR {design.bar})</div>
+        </Panel>
+
+        <Panel title="Crew & Cargo" className="area-crew">
+          <div className="rs-fields">
+            <Field label="Crew" wide />
+            <Field label="Gunnery Skill" />
+            <Field label={flies ? 'Piloting Skill' : 'Driving Skill'} />
+          </div>
+          <div className="rs-fields">
+            {seats > 0 && <Field label="Seats" value={seats} />}
+            {quarters > 0 && <Field label="Quarters" value={`${quarters} people`} />}
+            {tr.cargo > 0 && <Field label="Cargo" value={`${fmt(tr.cargo)} t`} />}
+            {tr.troops > 0 && <Field label="Troops" value={`${fmt(tr.troops)} t`} />}
+          </div>
+          <div className="rs-crit-boxes">
+            <div><span>Commander Hit</span><span className="rs-check" /><i>+1</i></div>
+            <div><span>{flies ? 'Pilot' : 'Driver'} Hit</span><span className="rs-check" /><i>+2</i></div>
+          </div>
+        </Panel>
+
+        <Panel title="Critical Damage" className="area-crit">
+          <div className="rs-crit-boxes">
+            <div><span>Engine Hit</span><span className="rs-check" /></div>
+            <div><span>Sensor Hits</span><span className="rs-check" /><i>+1</i><span className="rs-check" /><i>+2</i><span className="rs-check" /><i>+3</i><span className="rs-check" /><i>D</i></div>
+            {design.svType === 'vtol' && <div><span>Rotor Hits</span><span className="rs-check" /><span className="rs-check" /><span className="rs-check" /></div>}
+            {!flies && <div><span>Motive System Hits</span><span className="rs-check" /><i>+1</i><span className="rs-check" /><i>+2</i><span className="rs-check" /><i>+3</i></div>}
+            {info.aero && <div><span>Avionics / Thrust</span><span className="rs-check" /><span className="rs-check" /><span className="rs-check" /></div>}
+            {design.turret && <div><span>Turret Locked</span><span className="rs-check" /></div>}
+          </div>
+        </Panel>
+
+        <Panel title="Ammunition" className="area-ammo">
+          <AmmoTrack rows={ammo} />
         </Panel>
 
         <Panel title="Notes" className="area-notes">

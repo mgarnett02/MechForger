@@ -237,6 +237,7 @@ const TABS: { id: EquipmentCategory; label: string }[] = [
   { id: 'Missile', label: 'Missile' },
   { id: 'Ammo', label: 'Ammo' },
   { id: 'Other', label: 'Equipment' },
+  { id: 'Utility', label: 'Utility' },
 ];
 
 function rangeText(eq: Equipment): string {

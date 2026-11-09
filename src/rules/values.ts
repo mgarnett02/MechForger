@@ -148,6 +148,16 @@ export const ITEM_VALUES: Record<string, ItemValue> = {
   'guardian-ecm': v(61, 200000),
   'clan-active-probe': v(12, 200000),
   'clan-ecm': v(61, 200000),
+
+  // Utility equipment (vehicles only)
+  searchlight: v(0, 2000), 'searchlight-handheld': v(0, 500), 'lift-hoist': v(0, 50000),
+  'paramedic-equipment': v(0, 7500), 'cargo-container': v(0, 0), 'communications-equipment': v(0, 10000),
+  bulldozer: v(0, 50000), backhoe: v(0, 50000), chainsaw: v(0, 100000), 'dual-saw': v(0, 100000),
+  'rock-cutter': v(0, 100000), combine: v(0, 75000), 'salvage-arm': v(0, 50000), 'spot-welder': v(0, 75000),
+  'pile-driver': v(0, 100000), 'field-kitchen': v(0, 25000), 'mobile-field-base': v(0, 150000),
+  'lifeboat-maritime': v(0, 5000), 'lifeboat-atmospheric': v(0, 6000), 'refueling-drogue': v(0, 25000),
+  'mast-mount': v(0, 50000), 'trailer-hitch': v(0, 0), 'mine-dispenser': v(0, 20000), 'mine-sweeper': v(0, 40000),
+  'remote-sensor-dispenser': v(0, 51000), manipulator: v(0, 7500), 'recon-camera': v(0, 20000),
 };
 
 /** MML ammo values: [LRM ammo BV, SRM ammo BV] per ton; costs as LRM / SRM ammo. */

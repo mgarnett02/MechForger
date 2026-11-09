@@ -554,3 +554,10 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 .canon-list tbody tr:hover td { background: var(--accent-soft); }
 .canon-flag { color: var(--warn); cursor: help; }
 .canon-more { margin: 0.5rem; }
+
+.rs-vehicle-figure.aero { grid-template-areas: "no no no" "lw body rw" "af af af" !important; }
+.vplate-no { border-radius: 50% 50% 6px 6px / 60% 60% 6px 6px; padding-top: 10px; }
+.vplate-lw { border-radius: 30px 4px 4px 6px; }
+.vplate-rw { border-radius: 4px 30px 6px 4px; }
+.vplate-af { border-radius: 6px 6px 14px 14px; }
+.mods { display: flex; flex-wrap: wrap; gap: 0.25rem 0.75rem; }

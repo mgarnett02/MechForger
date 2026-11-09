@@ -4,7 +4,7 @@ import type { EraId } from './eras';
 import { isAvailableIn } from './eras';
 import { jumpJetWeight, mascWeight } from './tables';
 
-export type EquipmentCategory = 'Energy' | 'Ballistic' | 'Missile' | 'Ammo' | 'Other';
+export type EquipmentCategory = 'Energy' | 'Ballistic' | 'Missile' | 'Ammo' | 'Other' | 'Utility';
 
 export interface RangeBrackets {
   min: number;
@@ -339,7 +339,41 @@ export const OTHER_EQUIPMENT: readonly Equipment[] = [
   { id: 'clan-ecm', name: 'ECM Suite', category: 'Other', tons: 1, slots: 1, heat: 0, isWeapon: false, ...CLAN_3050 },
 ];
 
-export const ALL_EQUIPMENT: readonly Equipment[] = [...WEAPONS, ...AMMO, ...OTHER_EQUIPMENT];
+/** Industrial and utility equipment carried by combat and support vehicles (not BattleMechs). */
+const utility = (id: string, name: string, tons: number): Equipment => ({
+  id, name, category: 'Utility', tons, slots: 1, heat: 0, isWeapon: false, techBase: 'Both', firstEra: '3025',
+});
+export const UTILITY_EQUIPMENT: readonly Equipment[] = [
+  utility('searchlight', 'Searchlight (Mounted)', 0.5),
+  utility('searchlight-handheld', 'Searchlight (Handheld)', 0.005),
+  utility('lift-hoist', 'Lift Hoist / Arresting Hoist', 3),
+  utility('paramedic-equipment', 'Paramedic Equipment', 0.25),
+  utility('cargo-container', 'Cargo Container (10 tons)', 10),
+  utility('communications-equipment', 'Communications Equipment (1 ton)', 1),
+  utility('bulldozer', 'Bulldozer', 2),
+  utility('backhoe', 'Backhoe', 5),
+  utility('chainsaw', 'Chainsaw', 5),
+  utility('dual-saw', 'Dual Saw', 7),
+  utility('rock-cutter', 'Rock Cutter', 5),
+  utility('combine', 'Combine', 2.5),
+  utility('salvage-arm', 'Salvage Arm', 3),
+  utility('spot-welder', 'Spot Welder', 2),
+  utility('pile-driver', 'Heavy-Duty Pile Driver', 10),
+  utility('field-kitchen', 'Field Kitchen', 3),
+  utility('mobile-field-base', 'Mobile Field Base', 20),
+  utility('lifeboat-maritime', 'Lifeboat (Maritime)', 1),
+  utility('lifeboat-atmospheric', 'Lifeboat (Atmospheric)', 1),
+  utility('refueling-drogue', 'Refueling Drogue', 1),
+  utility('mast-mount', 'Mast Mount', 0.5),
+  utility('trailer-hitch', 'Trailer Hitch', 0),
+  utility('mine-dispenser', 'Vehicular Mine Dispenser', 0.5),
+  utility('mine-sweeper', 'Mine Sweeper', 3),
+  utility('remote-sensor-dispenser', 'Remote Sensors / Dispenser', 0.5),
+  utility('manipulator', 'Manipulator (industrial)', 0.01),
+  utility('recon-camera', 'Recon Camera', 0.5),
+];
+
+export const ALL_EQUIPMENT: readonly Equipment[] = [...WEAPONS, ...AMMO, ...OTHER_EQUIPMENT, ...UTILITY_EQUIPMENT];
 
 const BY_ID = new Map(ALL_EQUIPMENT.map((e) => [e.id, e]));
 const AMMO_FED = new Set(AMMO.map((a) => a.ammoFor));

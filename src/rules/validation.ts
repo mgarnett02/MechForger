@@ -191,6 +191,10 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
       error(`Unknown equipment "${item.equipmentId}".`);
       continue;
     }
+    if (eq.category === 'Utility' && !unavailable.has(`u-${eq.id}`)) {
+      unavailable.add(`u-${eq.id}`);
+      error(`${eq.name} is vehicle equipment and cannot be mounted on a BattleMech.`);
+    }
     if (item.pod && (!design.omni || isFixedOnly(eq.id))) {
       error(design.omni ? `${eq.name} cannot be pod-mounted; it must be fixed equipment.` : `${eq.name} is marked as a pod but this is not an OmniMech.`);
     }

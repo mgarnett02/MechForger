@@ -25,7 +25,9 @@ import { mechBV, mechCost, vehicleBV, vehicleCost } from '../src/rules/battleVal
 import type { MotiveType, VehicleDesign, VehicleEngineType, VehicleLocation } from '../src/rules/vehicle';
 import { computeVehicle, emptyVehicleArmor, validateVehicle } from '../src/rules/vehicle';
 import { armorPointsPerTon } from '../src/rules/tables';
-import { encodeMech, encodeVehicle } from '../src/data/canonFormat';
+import { encodeMech, encodeSupport, encodeVehicle } from '../src/data/canonFormat';
+import type { SVItem, SVLocation, SVType, SupportVehicleDesign, TechRating } from '../src/rules/support';
+import { TECH_RATINGS, computeSupport, emptyTransport, kgPerFuelPoint, validateSupport } from '../src/rules/support';
 import type { CanonEntry } from '../src/data/canonFormat';
 
 class Unsupported extends Error {}
@@ -48,6 +50,20 @@ const ALIASES: Record<string, string> = {
   c3masterunit: 'c3mastercomputer', c3iunit: 'improvedc3computer', artemisiv: 'artemisivfcs',
   ams: 'antimissilesystem', ecmsuite: 'ecmsuite', guardianecm: 'guardianecmsuite',
   flamervehicle: 'flamer', erflamer: 'erflamer',
+};
+
+/** MegaMek names (normalized, tech prefix removed) of utility equipment. */
+const UTILITY_NAMES: Record<string, string> = {
+  searchlight: 'searchlight', searchlightmounted: 'searchlight', hhsearchlight: 'searchlight-handheld',
+  lifthoistarrestinghoist: 'lift-hoist', lifthoist: 'lift-hoist', paramedicequipment: 'paramedic-equipment',
+  cargocontainer10tons: 'cargo-container', communicationsequipment: 'communications-equipment', commsgear: 'communications-equipment',
+  bulldozer: 'bulldozer', backhoe: 'backhoe', chainsaw: 'chainsaw', dualsaw: 'dual-saw', rockcutter: 'rock-cutter',
+  combine: 'combine', salvagearm: 'salvage-arm', spotwelder: 'spot-welder', heavydutypiledriver: 'pile-driver',
+  fieldkitchen: 'field-kitchen', mobilefieldbase: 'mobile-field-base', lifeboatmaritime: 'lifeboat-maritime',
+  lifeboatatmospheric: 'lifeboat-atmospheric', refuelingdrogue: 'refueling-drogue', mastmount: 'mast-mount',
+  trailerhitch: 'trailer-hitch', hitch: 'trailer-hitch', vehicularminedispenser: 'mine-dispenser',
+  minesweeper: 'mine-sweeper', remotesensordispenser: 'remote-sensor-dispenser',
+  manipulatornonmechnonbattlearmor: 'manipulator', reconcamera: 'recon-camera',
 };
 
 /** Structural crit names handled outside the equipment list. */
@@ -141,6 +157,7 @@ function resolveName(raw: string, unitTech: TechBase): Resolved {
     jumpjet: 'jump-jet', improvedjumpjet: 'improved-jump-jet', case: 'case',
   };
   if (structural[b]) return { kind: 'item', id: structural[b] };
+  if (UTILITY_NAMES[b]) return { kind: 'item', id: UTILITY_NAMES[b] };
   if (b === 'doubleheatsink') {
     return { kind: 'item', id: (tech ?? unitTech) === 'Clan' ? 'clan-double-heat-sink' : 'double-heat-sink' };
   }
@@ -391,6 +408,126 @@ function parseBlk(text: string): { design: VehicleDesign; year: number; rulesLev
   return { design, year: Number(one('year')) || 3025, rulesLevel: Number(/Level (\d)/.exec(typeStr)?.[1]) || 0, mulId: Number(one('mul id:')) || undefined, source: one('source') };
 }
 
+
+// ---------------------------------------------------------------------------
+// BLK support vehicles
+// ---------------------------------------------------------------------------
+
+const SV_MOTION: Record<string, SVType> = {
+  Wheeled: 'wheeled', Tracked: 'tracked', Hover: 'hover', VTOL: 'vtol', Naval: 'naval', Hydrofoil: 'naval',
+  Submarine: 'naval', Rail: 'rail', Maglev: 'rail', Aerodyne: 'fixed-wing', Airship: 'airship',
+};
+const SV_ENGINES: Record<string, SupportVehicleDesign['engineType']> = {
+  0: 'fusion', 1: 'ice', 6: 'fuel-cell', 7: 'fission', 8: 'none', 9: 'maglev', 10: 'steam', 11: 'battery', 12: 'solar', 13: 'external',
+};
+const CHASSIS_MOD_NAMES: [RegExp, string][] = [
+  [/armored/i, 'armored'], [/off-?road/i, 'off-road'], [/tractor/i, 'tractor'], [/trailer\]|trailerchassis|\[trailer/i, 'trailer'],
+  [/amphibious/i, 'amphibious'], [/environmental sealing/i, 'environmental-sealing'], [/bicycle/i, 'bicycle'],
+  [/ultra-?light/i, 'ultra-light'], [/vstol/i, 'vstol'], [/stol/i, 'stol'], [/submersible/i, 'submersible'], [/hydrofoil/i, 'hydrofoil'],
+  [/prop/i, 'prop'], [/dune ?buggy/i, 'dune-buggy'], [/convertible/i, 'convertible'], [/snowmobile/i, 'snowmobile'],
+  [/monocycle/i, 'monocycle'], [/external ?power/i, 'external-power-pickup'],
+];
+
+function parseSupportBlk(text: string): { design: SupportVehicleDesign; year: number; mulId?: number; source: string } {
+  const tags = new Map<string, string[]>();
+  const re = /<([^/>]+)>\s*\n([\s\S]*?)\n<\/\1>/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text))) tags.set(m[1], m[2].split(/\r?\n/).map((s) => s.trim()).filter(Boolean));
+  const one = (k: string) => tags.get(k)?.[0] ?? '';
+  const unitType = one('UnitType');
+  if (!['SupportTank', 'SupportVTOL', 'FixedWingSupport', 'LargeSupportTank'].includes(unitType)) fail(`unit type ${unitType}`);
+  if (tags.has('omni')) fail('Omni support vehicle');
+  const svType = SV_MOTION[one('motion_type')] ?? fail(`motion ${one('motion_type')}`);
+  const typeStr = one('type');
+  const techBase: TechBase = /^Clan|Clan Chassis/.test(typeStr) ? 'Clan' : 'IS';
+  const tonnage = Number(one('tonnage'));
+  const engineType = SV_ENGINES[one('engine_type')] ?? fail(`engine ${one('engine_type')}`);
+  const armorCode = Number(one('armor_type'));
+  if (!(armorCode >= 43 && armorCode <= 51) && tags.has('armor')) fail(`non-BAR armor ${armorCode}`);
+  const bar = Number(one('barrating')) || (armorCode - 41);
+  const rating = (k: string): TechRating => TECH_RATINGS[Number(one(k))] ?? fail(`tech rating ${k}`);
+  const aero = svType === 'fixed-wing' || svType === 'airship';
+  for (const k of ['Front Turret Equipment', 'Rear Turret Equipment', 'Front Right Equipment', 'Front Left Equipment', 'Rear Right Equipment', 'Rear Left Equipment', 'Wings Equipment']) {
+    if ((tags.get(k) ?? []).length) fail(k);
+  }
+  const turret = tags.has('Turret Equipment');
+  const armorVals = (tags.get('armor') ?? []).map(Number);
+  const armor: SupportVehicleDesign['armor'] = {};
+  if (aero) [armor.NO, armor.LW, armor.RW, armor.AF] = armorVals;
+  else {
+    [armor.FR, armor.RS, armor.LS, armor.RR] = armorVals;
+    if (svType === 'vtol') armor.RO = armorVals[4] ?? 0;
+    else if (turret) armor.TU = armorVals[4] ?? 0;
+  }
+  const blocks: [string, SVLocation][] = aero
+    ? [['Nose Equipment', 'NO'], ['Left Wing Equipment', 'LW'], ['Right Wing Equipment', 'RW'], ['Aft Equipment', 'AF'], ['Body Equipment', 'BD']]
+    : [['Front Equipment', 'FR'], ['Right Equipment', 'RS'], ['Left Equipment', 'LS'], ['Rear Equipment', 'RR'], ['Turret Equipment', 'TU'], ['Body Equipment', 'BD']];
+  const equipment: SVItem[] = [];
+  const chassisMods = new Set<string>();
+  if (one('motion_type') === 'Hydrofoil') chassisMods.add('hydrofoil');
+  if (one('motion_type') === 'Submarine') chassisMods.add('submersible');
+  let fireControl: SupportVehicleDesign['fireControl'] = 'none';
+  let uid = 0;
+  for (const [tag, loc] of blocks) {
+    for (const rawLine of tags.get(tag) ?? []) {
+      if (/:OMNI/.test(rawLine)) fail('pod-mounted equipment');
+      const size = Number(/:SIZE:([\d.]+)/.exec(rawLine)?.[1] ?? 1);
+      const raw = rawLine.replace(/:SIZE:[\d.]+/, '');
+      if (/chassis|environmental sealing$/i.test(raw) && !/\(mech\)/i.test(raw)) {
+        const mod = CHASSIS_MOD_NAMES.find(([r]) => r.test(raw));
+        if (!mod) fail(`chassis mod "${raw}"`);
+        chassisMods.add(mod![1]);
+        continue;
+      }
+      if (/^Basic Fire Control$/i.test(raw)) { fireControl = 'basic'; continue; }
+      if (/^Advanced Fire Control$/i.test(raw)) { fireControl = 'advanced'; continue; }
+      const r = resolveName(raw, techBase);
+      if (r.kind === 'fixed') continue;
+      if (r.kind === 'unknown') fail(`unknown item "${r.name}"`);
+      const id = (r as { id: string }).id;
+      const eq = getEquipment(id)!;
+      if (id === 'heat-sink') continue;
+      if (id === 'case' && techBase === 'Clan') continue;
+      if (eq.managed) fail(`mech-only item ${id}`);
+      const count = id === 'communications-equipment' ? Math.round(size) : 1;
+      for (let n = 0; n < count; n++) equipment.push({ uid: `s${uid++}`, equipmentId: id, location: eq.isWeapon ? loc : 'BD' });
+    }
+  }
+  const transport = emptyTransport();
+  for (const t of tags.get('transporters') ?? []) {
+    const [kind, amount] = t.split(':');
+    const n = Number(amount);
+    switch (kind.toLowerCase()) {
+      case 'standardseats': transport.seats += n; break;
+      case 'pillionseats': transport.pillionSeats += n; break;
+      case 'ejectionseats': transport.ejectionSeats += n; break;
+      case 'steeragequarters': transport.steerage += n; break;
+      case '2ndclassquarters': transport.secondClass += n; break;
+      case '1stclassquarters': transport.firstClass += n; break;
+      case 'crewquarters': transport.crewQuarters += n; break;
+      // Special cargo bays weigh more than their capacity.
+      case 'cargobay': transport.cargo += n; break;
+      case 'liquidcargobay': transport.cargo += Math.round((n / 0.91) * 1000) / 1000; break;
+      case 'insulatedcargobay': case 'refrigeratedcargobay': transport.cargo += Math.round((n / 0.87) * 1000) / 1000; break;
+      case 'troopspace': transport.troops += n; break;
+      case 'battlearmorhandles - troopers': break;
+      default: fail(`transporter ${kind}`);
+    }
+  }
+  const design: SupportVehicleDesign = {
+    schemaVersion: 1, unitType: 'support', era: '3025', techBase, mixedTech: /^Mixed/.test(typeStr),
+    chassis: one('Name'), model: one('Model'), svType, tonnage,
+    cruiseMP: Number(aero ? one('SafeThrust') : one('cruiseMP')) || 0,
+    structureTech: rating('structural_tech_rating'), engineTech: rating('engine_tech_rating'), armorTech: rating('armor_tech_rating'),
+    engineType, bar, chassisMods: [...chassisMods], fuel: 0, turret, fireControl, armor, transport, equipment,
+  };
+  const fuel = Number(one('fuel')) || 0;
+  design.fuel = aero ? Math.ceil((fuel * kgPerFuelPoint(design)) / 1000 * 2 - 1e-9) / 2 : fuel;
+  if (aero && tonnage < 5) design.fuel = Math.ceil(fuel * kgPerFuelPoint(design)) / 1000;
+  fixAmmoTech(design.equipment);
+  return { design, year: Number(one('year')) || 3025, mulId: Number(one('mul id:')) || undefined, source: one('source') };
+}
+
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
@@ -483,6 +620,38 @@ function main() {
     }
   }
 
+  // --- Support vehicles
+  const supports: CanonEntry[] = [];
+  let svSkipped = 0;
+  const sseen = new Set<string>();
+  for (const f of blks) {
+    const text = fs.readFileSync(f, 'utf8');
+    if (!/<UnitType>\s*\n(SupportTank|SupportVTOL|FixedWingSupport|LargeSupportTank)\n/.test(text)) continue;
+    try {
+      const p = parseSupportBlk(text);
+      const key = `${p.design.chassis} ${p.design.model}`;
+      if (sseen.has(key)) continue;
+      sseen.add(key);
+      const d = settleEra(p.design, p.year, (x) => validateSupport(x).map((i) => i.message));
+      const s = computeSupport(d);
+      const issues = validateSupport(d, s);
+      supports.push({
+        n: `${d.chassis} ${d.model}`.trim(), t: d.tonnage, tb: d.techBase, era: d.era, y: p.year, k: d.svType,
+        bv: 0, ok: issues.every((i) => i.severity !== 'error'), w: Math.abs(s.weights.total - d.tonnage) < 1e-6,
+        src: p.source, mul: p.mulId, d: encodeSupport(d),
+      });
+    } catch (e) {
+      if (!(e instanceof Unsupported)) throw new Error(`${f}: ${(e as Error).stack}`);
+      svSkipped++;
+      note(`support: ${e.message}`);
+    }
+  }
+  supports.sort((a, b) => a.n.localeCompare(b.n));
+  fs.writeFileSync(path.join(outDir, 'support.json'), JSON.stringify(supports));
+  const sOk = supports.filter((e) => e.ok).length;
+  const sW = supports.filter((e) => e.w).length;
+  console.log(`Support vehicles: ${supports.length} converted, ${svSkipped} skipped; exact tonnage ${sW}, fully legal ${sOk}`);
+
   plain.sort((a, b) => a.n.localeCompare(b.n));
   vehicles.sort((a, b) => a.n.localeCompare(b.n));
   fs.writeFileSync(path.join(outDir, 'mechs.json'), JSON.stringify(plain));
@@ -498,7 +667,7 @@ function main() {
   console.log(`Vehicles: ${vehicles.length} converted, ${vehSkipped} skipped`);
   console.log(`  exact tonnage ${vW} (${pct(vW, vehicles.length)}), fully legal ${vOk} (${pct(vOk, vehicles.length)})`);
   console.log('Top skip reasons:');
-  for (const [k, c] of [...reasons].sort((a, b) => b[1] - a[1]).slice(0, 40)) console.log(`  ${c}  ${k}`);
+  for (const [k, c] of [...reasons].sort((a, b) => b[1] - a[1]).slice(0, 400)) console.log(`  ${c}  ${k}`);
 }
 
 function mechEntry(d: MechDesign, p: ParsedMech, configs = 1): CanonEntry {

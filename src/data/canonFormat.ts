@@ -6,6 +6,8 @@ import type { Location, MechDesign, MountedItem } from '../rules/types';
 import type { VehicleDesign, VehicleLocation } from '../rules/vehicle';
 import { newUid } from '../rules/edit';
 import { newVehicleUid } from '../rules/vehicle';
+import type { SupportVehicleDesign, SVLocation } from '../rules/support';
+import { newSupportUid } from '../rules/support';
 
 /** One catalog entry: summary fields for browsing plus the encoded design. */
 export interface CanonEntry {
@@ -83,6 +85,20 @@ export function decodeVehicle(raw: unknown): VehicleDesign {
     ...r,
     equipment: r.equipment.map(([equipmentId, location]) => ({
       uid: newVehicleUid(), equipmentId, location: location as VehicleLocation | null,
+    })),
+  };
+}
+
+export function encodeSupport(d: SupportVehicleDesign): unknown {
+  return { ...d, equipment: d.equipment.map(encItem) };
+}
+
+export function decodeSupport(raw: unknown): SupportVehicleDesign {
+  const r = raw as Omit<SupportVehicleDesign, 'equipment'> & { equipment: EncodedItem[] };
+  return {
+    ...r,
+    equipment: r.equipment.map(([equipmentId, location]) => ({
+      uid: newSupportUid(), equipmentId, location: location as SVLocation | null,
     })),
   };
 }

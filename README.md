@@ -99,13 +99,36 @@ Advanced or Experimental level and is not modeled yet.
 - Weapons go in the front, sides, rear or turret; ammo and equipment in the body
 - Original sample vehicles for each ground, air and naval type, plus a Clan tank
 
+### Support vehicles (every era)
+
+Built with the TechManual support vehicle rules: wheeled, tracked, hover, VTOL,
+naval (with hydrofoil / submersible modifications), rail, airship and
+fixed-wing.
+
+- Small / medium / large size classes; chassis and engine weights from the
+  base values for each type, scaled by structure and engine **tech ratings (A–F)**
+- Engines: internal combustion, fusion, fission, fuel cell, battery, solar,
+  steam, maglev, external power, or none (trailers); fuel by weight (fuel points
+  shown for aircraft and airships)
+- **BAR 2–10 armor** with weight per point by armor tech rating; nose / wing /
+  aft armor for aircraft and airships
+- **Chassis modifications** (armored, off-road, amphibious, tractor, trailer,
+  environmental sealing, STOL, VSTOL, prop, hydrofoil, submersible, …)
+- Basic / advanced fire control, turrets, power amplifiers and heat sinks for
+  energy weapons
+- Crew and passenger accommodations (seats, quarters) and cargo / troop space
+- **Utility equipment** (searchlights, lift hoists, cargo containers, field
+  kitchens, bulldozers, …), also available to combat vehicles
+- Battle Value and cost are not calculated for support vehicles, and item
+  slots are not checked
+
 ### Everywhere
 
 - Critical slot allocation (click to place, or **Auto-allocate**) with live validation
 - Red / amber / green status light: illegal, legal but incomplete (unused tonnage,
   unallocated armor), or fully legal
 - **Canon units**: about 1,800 canon BattleMechs (OmniMechs with all their
-  configurations) and 600 canon vehicles, searchable by name, era, tech base,
+  configurations), 630 canon combat vehicles and 120 support vehicles, searchable by name, era, tech base,
   weight and type, ready to load, modify and print (see *Canon unit data* below)
 - **Battle Value (BV 2.0) and C-bill cost**, with the working shown; mech values
   reproduce published canon figures (e.g. Atlas AS7-D: BV 1,897, 9,626,000 C-bills).
@@ -126,13 +149,14 @@ Team, licensed under
 converted data is shared under the same license and may not be used
 commercially; see `src/data/canon/LICENSE.md`.
 
-Only units MechForger can represent are included: biped mechs and tracked,
-wheeled, hover, VTOL and naval vehicles using modeled equipment. Quads, LAMs,
-superheavies, OmniVehicles, support vehicles and units with Advanced or
+Only units MechForger can represent are included: biped mechs, combat
+vehicles and support vehicles using modeled equipment. Quads, LAMs,
+superheavies, OmniVehicles, Omni support vehicles, WiGE craft and units with Advanced or
 Experimental equipment (stealth armor, CASE II, physical weapons, …) are
 skipped. Of the converted mechs, 99% weigh exactly their published tonnage
 under MechForger's tables, and Battle Values match the Master Unit List for
-the checked designs. Vehicle weights match for about 89% of vehicles; in the
+the checked designs. Weights match for about 92% of combat vehicles and 69% of
+support vehicles (most others within half a ton); in the
 browser, ⚖ marks a weight difference and ⚠ a failed construction check.
 
 To regenerate the data from a checkout of mm-data:
@@ -181,6 +205,7 @@ npm run dist:win   # build the Windows installer + portable exe into release/
   - `edit.ts` — pure editing operations used by the UI
   - `readout.ts` — technical-readout text
 - `src/rules/vehicle.ts` — combat vehicle construction, validation and readout
+- `src/rules/support.ts` — support vehicle construction, validation and readout
 - `src/data/vehicles.ts` — sample vehicles
 - `src/rules/battleValue.ts` + `src/rules/values.ts` — BV 2.0 and C-bill cost
 - `src/rules/recordSheet.ts` + `src/ui/print/` — record sheet data and printable layout

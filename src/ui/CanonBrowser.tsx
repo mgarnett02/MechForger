@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CanonEntry } from '../data/canonFormat';
-import { decodeMech, decodeVehicle } from '../data/canonFormat';
+import { decodeMech, decodeSupport, decodeVehicle } from '../data/canonFormat';
+import { SV_TYPES, sizeClass } from '../rules/support';
+import type { SVType } from '../rules/support';
 import { ERAS } from '../rules/eras';
 import { MOTIVE_TYPES } from '../rules/vehicle';
 import type { AnyDesign, UnitType } from './storage';
@@ -13,7 +15,11 @@ interface Props {
 
 const PAGE = 150;
 
-function weightClass(t: number, unit: UnitType): string {
+function weightClass(t: number, unit: UnitType, k = ''): string {
+  if (unit === 'support') {
+    const size = sizeClass({ svType: (k in SV_TYPES ? k : 'wheeled') as SVType, tonnage: t });
+    return size[0].toUpperCase() + size.slice(1);
+  }
   if (unit === 'mech') return t <= 35 ? 'Light' : t <= 55 ? 'Medium' : t <= 75 ? 'Heavy' : 'Assault';
   return t < 40 ? 'Light' : t < 60 ? 'Medium' : t < 80 ? 'Heavy' : t <= 100 ? 'Assault' : 'Super-heavy';
 }
@@ -21,6 +27,7 @@ function weightClass(t: number, unit: UnitType): string {
 function kindLabel(k: string): string {
   if (k === 'mech') return 'BattleMech';
   if (k.startsWith('omni:')) return `OmniMech (${k.slice(5)} configs)`;
+  if (k in SV_TYPES) return `${SV_TYPES[k as SVType].name} support`;
   return MOTIVE_TYPES[k as keyof typeof MOTIVE_TYPES]?.name ?? k;
 }
 
@@ -41,7 +48,8 @@ export function CanonBrowser({ unit, onLoad, onClose }: Props) {
   useEffect(() => {
     setEntries(null);
     setSub('');
-    const load = kind === 'vehicle' ? import('../data/canon/vehicles.json') : import('../data/canon/mechs.json');
+    const load = kind === 'support' ? import('../data/canon/support.json')
+      : kind === 'vehicle' ? import('../data/canon/vehicles.json') : import('../data/canon/mechs.json');
     load.then((m) => setEntries(m.default as CanonEntry[]), (e) => setError(String(e)));
   }, [kind]);
 
@@ -62,7 +70,7 @@ export function CanonBrowser({ unit, onLoad, onClose }: Props) {
     return entries.filter((e) => {
       if (tech && e.tb !== tech) return false;
       if (era && e.era !== era) return false;
-      if (cls && weightClass(e.t, kind) !== cls) return false;
+      if (cls && weightClass(e.t, kind, e.k) !== cls) return false;
       if (sub && (sub === 'omni' ? !e.k.startsWith('omni') : e.k !== sub)) return false;
       if (legalOnly && !e.ok) return false;
       const name = e.n.toLowerCase();
@@ -71,7 +79,7 @@ export function CanonBrowser({ unit, onLoad, onClose }: Props) {
   }, [entries, query, tech, era, cls, sub, legalOnly, kind]);
 
   const open = (e: CanonEntry) => {
-    onLoad(kind === 'vehicle' ? decodeVehicle(e.d) : decodeMech(e.d));
+    onLoad(kind === 'support' ? decodeSupport(e.d) : kind === 'vehicle' ? decodeVehicle(e.d) : decodeMech(e.d));
     onClose();
   };
 
@@ -83,6 +91,7 @@ export function CanonBrowser({ unit, onLoad, onClose }: Props) {
           <div className="segmented" role="radiogroup" aria-label="Unit type">
             <button role="radio" aria-checked={kind === 'mech'} className={kind === 'mech' ? 'active' : ''} onClick={() => setKind('mech')}>BattleMechs</button>
             <button role="radio" aria-checked={kind === 'vehicle'} className={kind === 'vehicle' ? 'active' : ''} onClick={() => setKind('vehicle')}>Vehicles</button>
+            <button role="radio" aria-checked={kind === 'support'} className={kind === 'support' ? 'active' : ''} onClick={() => setKind('support')}>Support vehicles</button>
           </div>
           <span className="spacer" />
           <button onClick={onClose}>Close</button>
@@ -100,7 +109,7 @@ export function CanonBrowser({ unit, onLoad, onClose }: Props) {
           </select>
           <select aria-label="Weight class" value={cls} onChange={(e) => setCls(e.target.value)}>
             <option value="">All weights</option>
-            {['Light', 'Medium', 'Heavy', 'Assault', ...(kind === 'vehicle' ? ['Super-heavy'] : [])].map((c) => <option key={c}>{c}</option>)}
+            {(kind === 'support' ? ['Small', 'Medium', 'Large'] : ['Light', 'Medium', 'Heavy', 'Assault', ...(kind === 'vehicle' ? ['Super-heavy'] : [])]).map((c) => <option key={c}>{c}</option>)}
           </select>
           <select aria-label="Type" value={sub} onChange={(e) => setSub(e.target.value)}>
             <option value="">All types</option>
@@ -133,7 +142,7 @@ export function CanonBrowser({ unit, onLoad, onClose }: Props) {
                       <td className="num">{e.t}</td>
                       <td>{e.tb === 'IS' ? 'IS' : 'Clan'}</td>
                       <td className="small">{e.y}</td>
-                      <td className="num">{e.bv.toLocaleString()}</td>
+                      <td className="num">{kind === 'support' ? '—' : e.bv.toLocaleString()}</td>
                       <td><button className="small" onClick={() => open(e)}>Load</button></td>
                     </tr>
                   ))}

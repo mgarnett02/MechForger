@@ -311,7 +311,10 @@ export function vehicleSlotsUsed(d: VehicleDesign): number {
 export function computeVehicle(d: VehicleDesign): VehicleSummary {
   const motive = MOTIVE_TYPES[d.motive];
   const rating = vehicleEngineRating(d.motive, d.tonnage, d.cruiseMP);
-  const engineWt = vehicleEngineWeight(d.engineType, rating);
+  // Hovercraft engines weigh at least 20% of the vehicle (TechManual).
+  const baseEngine = vehicleEngineWeight(d.engineType, rating);
+  const engineWt = baseEngine === null ? null
+    : d.motive === 'hover' ? Math.max(baseEngine, halfUp(d.tonnage * 0.2)) : baseEngine;
   const ppt = armorPointsPerTon(d.armorType, d.techBase);
   const armorLocations = vehicleArmorLocations(d);
   const armorTotal = armorLocations.reduce((a, l) => a + (d.armor[l] ?? 0), 0);

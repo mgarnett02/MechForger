@@ -52,7 +52,7 @@ export const VEHICLE_PRESETS: VehiclePreset[] = [
     build: () => ({
       ...BASE, era: '3025', techBase: 'IS', chassis: 'Skimmer', model: 'Hovercraft',
       motive: 'hover', tonnage: 20, cruiseMP: 8, engineType: 'standard', turret: false, heatSinks: 10,
-      armor: { FR: 32, LS: 24, RS: 24, RR: 24, TU: 0, RO: 0 },
+      armor: { FR: 28, LS: 20, RS: 20, RR: 20, TU: 0, RO: 0 },
       equipment: items([
         ['medium-laser', 'FR', 2], ['small-laser', 'FR'], ['srm-4', 'FR'], ['ammo-srm-4', 'BD'],
       ]),

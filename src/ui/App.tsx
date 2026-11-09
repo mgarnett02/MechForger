@@ -20,19 +20,23 @@ import { EquipmentPanel } from './EquipmentPanel';
 import { CritPanel } from './CritPanel';
 import { SummaryPanel } from './SummaryPanel';
 import { VehicleEditor } from './VehicleEditor';
+import { SupportEditor } from './SupportEditor';
+import type { SupportVehicleDesign } from '../rules/support';
+import { computeSupport, newSupportVehicle, validateSupport } from '../rules/support';
 import { PrintPreview } from './print/PrintPreview';
 import { AboutDialog } from './AboutDialog';
 import { CanonBrowser } from './CanonBrowser';
 import type { AnyDesign, UnitType } from './storage';
 import {
-  deleteSaved, designKey, downloadJson, listSaved, loadCurrent, loadCurrentVehicle, loadUnit, parseAny,
-  saveCurrent, saveCurrentVehicle, saveDesign, saveUnit,
+  deleteSaved, designKey, downloadJson, listSaved, loadCurrent, loadCurrentSupport, loadCurrentVehicle, loadUnit,
+  parseAny, saveCurrent, saveCurrentSupport, saveCurrentVehicle, saveDesign, saveUnit, unitTypeOf,
 } from './storage';
 
 export function App() {
   const [unit, setUnit] = useState<UnitType>(() => loadUnit());
   const [design, setDesign] = useState<MechDesign>(() => loadCurrent() ?? newDesign());
   const [vehicle, setVehicle] = useState<VehicleDesign>(() => loadCurrentVehicle() ?? newVehicle());
+  const [support, setSupport] = useState<SupportVehicleDesign>(() => loadCurrentSupport() ?? newSupportVehicle());
   const [selected, setSelected] = useState<string | null>(null);
   const [saved, setSaved] = useState(() => listSaved());
   const [notice, setNotice] = useState<string | null>(null);
@@ -49,9 +53,12 @@ export function App() {
   const mechIssues = useMemo(() => validate(design, summary), [design, summary]);
   const vSummary = useMemo(() => computeVehicle(vehicle), [vehicle]);
   const vIssues = useMemo(() => validateVehicle(vehicle, vSummary), [vehicle, vSummary]);
+  const sSummary = useMemo(() => computeSupport(support), [support]);
+  const sIssues = useMemo(() => validateSupport(support, sSummary), [support, sSummary]);
 
   useEffect(() => saveCurrent(design), [design]);
   useEffect(() => saveCurrentVehicle(vehicle), [vehicle]);
+  useEffect(() => saveCurrentSupport(support), [support]);
   useEffect(() => saveUnit(unit), [unit]);
   useEffect(() => {
     if (!notice) return;
@@ -61,19 +68,27 @@ export function App() {
 
   const update = useCallback((fn: (d: MechDesign) => MechDesign) => setDesign((d) => fn(d)), []);
   const updateVehicle = useCallback((fn: (d: VehicleDesign) => VehicleDesign) => setVehicle((d) => fn(d)), []);
+  const updateSupport = useCallback((fn: (d: SupportVehicleDesign) => SupportVehicleDesign) => setSupport((d) => fn(d)), []);
 
   /** The design being edited, whichever kind it is. */
-  const active: AnyDesign = unit === 'vehicle' ? vehicle : design;
-  const issues = unit === 'vehicle' ? vIssues : mechIssues;
+  const active: AnyDesign = unit === 'support' ? support : unit === 'vehicle' ? vehicle : design;
+  const issues = unit === 'support' ? sIssues : unit === 'vehicle' ? vIssues : mechIssues;
   const setName = (patch: { chassis?: string; model?: string }) =>
-    unit === 'vehicle' ? updateVehicle((d) => ({ ...d, ...patch })) : update((d) => ({ ...d, ...patch }));
+    unit === 'support' ? updateSupport((d) => ({ ...d, ...patch }))
+      : unit === 'vehicle' ? updateVehicle((d) => ({ ...d, ...patch })) : update((d) => ({ ...d, ...patch }));
+  const newOf = (u: UnitType, era: EraId, tb: TechBase): AnyDesign =>
+    u === 'support' ? newSupportVehicle(era, tb) : u === 'vehicle' ? newVehicle(era, tb) : newDesign(era, tb);
 
   const load = (d: AnyDesign) => {
-    if (isVehicle(d)) {
+    const kind = unitTypeOf(d);
+    if (kind === 'support') {
+      setSupport(d as SupportVehicleDesign);
+      setUnit('support');
+    } else if (isVehicle(d)) {
       setVehicle(d);
       setUnit('vehicle');
     } else {
-      setDesign(d);
+      setDesign(d as MechDesign);
       setUnit('mech');
     }
     setSelected(null);
@@ -83,9 +98,10 @@ export function App() {
     d.equipment.some((e) => e.equipmentId !== 'heat-sink') || Object.values(d.armor).some((v) => v > 0);
 
   const chooseEra = (era: EraId, techBase: TechBase, chosen: UnitType) => {
-    const current: AnyDesign = chosen === 'vehicle' ? vehicle : design;
+    const current: AnyDesign = chosen === 'support' ? support : chosen === 'vehicle' ? vehicle : design;
     if (techBase === current.techBase) {
-      if (chosen === 'vehicle') updateVehicle((d) => (d.era === era ? d : { ...d, era }));
+      if (chosen === 'support') updateSupport((d) => (d.era === era ? d : { ...d, era }));
+      else if (chosen === 'vehicle') updateVehicle((d) => (d.era === era ? d : { ...d, era }));
       else update((d) => (d.era === era ? d : { ...d, era }));
       setUnit(chosen);
     } else {
@@ -93,7 +109,7 @@ export function App() {
       const ok = !hasWork(current) || eraDialog === 'startup' ||
         window.confirm(`Switching to ${TECH_BASE_NAMES[techBase]} starts a new design. Save the current one first if you want to keep it. Continue?`);
       if (!ok) return;
-      load(chosen === 'vehicle' ? newVehicle(era, techBase) : newDesign(era, techBase));
+      load(newOf(chosen, era, techBase));
     }
     setEraDialog(null);
   };
@@ -102,7 +118,8 @@ export function App() {
   // Samples for the current unit type, era and tech base first.
   const presetGroups = useMemo(() => {
     type Entry = { key: string; era: EraId; techBase: TechBase; label: string };
-    const list: Entry[] = unit === 'vehicle'
+    const list: Entry[] = unit === 'support' ? []
+      : unit === 'vehicle'
       ? VEHICLE_PRESETS.map((p) => ({ ...p, label: 'original sample vehicles' }))
       : PRESETS.map((p) => ({ ...p, label: p.canon ? 'canon' : 'original samples' }));
     const groups = new Map<string, Entry[]>();
@@ -134,7 +151,7 @@ export function App() {
   };
 
   const savedKeys = Object.keys(saved).sort();
-  const savedOfKind = savedKeys.filter((k) => (unit === 'vehicle') === isVehicle(saved[k]));
+  const savedOfKind = savedKeys.filter((k) => unitTypeOf(saved[k]) === unit);
   const savedOther = savedKeys.filter((k) => !savedOfKind.includes(k));
 
   return (
@@ -156,7 +173,7 @@ export function App() {
         <h1>
           MechForger{' '}
           <span className="muted small">
-            {unit === 'vehicle' ? 'Vehicle · ' : ''}
+            {unit === 'vehicle' ? 'Vehicle · ' : unit === 'support' ? 'Support Vehicle · ' : ''}
             {era
               ? `${era.name} · ${active.mixedTech ? `Mixed tech (${TECH_BASE_NAMES[active.techBase]} chassis) · Advanced` : `${TECH_BASE_NAMES[active.techBase]} · ${era.rulesLevel}`} · ${era.year}`
               : active.era}
@@ -170,9 +187,7 @@ export function App() {
             onChange={(e) => setName({ chassis: e.target.value })} />
           <input aria-label="Model" value={active.model} placeholder="Model" style={{ width: '7rem' }}
             onChange={(e) => setName({ model: e.target.value })} />
-          <button onClick={() => load(unit === 'vehicle'
-            ? newVehicle(vehicle.era, vehicle.techBase)
-            : newDesign(design.era, design.techBase))}>New</button>
+          <button onClick={() => load(newOf(unit, active.era, active.techBase))}>New</button>
           <button onClick={() => setCanon(true)} title="Browse and load canon BattleMechs and vehicles">Canon units…</button>
           <select aria-label="Load a design" value="" onChange={(e) => {
             const [kind, key] = e.target.value.split(':', 2) as [string, string];
@@ -186,12 +201,12 @@ export function App() {
               </optgroup>
             ))}
             {savedOfKind.length > 0 && (
-              <optgroup label={unit === 'vehicle' ? 'Saved vehicles' : 'Saved mechs'}>
+              <optgroup label={unit === 'support' ? 'Saved support vehicles' : unit === 'vehicle' ? 'Saved vehicles' : 'Saved mechs'}>
                 {savedOfKind.map((k) => <option key={k} value={`saved:${k}`}>{k}</option>)}
               </optgroup>
             )}
             {savedOther.length > 0 && (
-              <optgroup label={unit === 'vehicle' ? 'Saved mechs' : 'Saved vehicles'}>
+              <optgroup label="Saved designs of other unit types">
                 {savedOther.map((k) => <option key={k} value={`saved:${k}`}>{k}</option>)}
               </optgroup>
             )}
@@ -222,7 +237,9 @@ export function App() {
         {notice && <div className="notice" role="status">{notice}</div>}
       </header>
 
-      {unit === 'vehicle' ? (
+      {unit === 'support' ? (
+        <SupportEditor design={support} summary={sSummary} issues={sIssues} update={updateSupport} />
+      ) : unit === 'vehicle' ? (
         <VehicleEditor design={vehicle} summary={vSummary} issues={vIssues} update={updateVehicle} />
       ) : (
         <main className="layout">
