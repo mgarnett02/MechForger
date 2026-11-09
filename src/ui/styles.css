@@ -307,3 +307,119 @@ td, th { padding: 0.2rem 0.35rem; }
 
 .unit-icon { color: var(--accent); display: block; margin-bottom: 0.25rem; }
 .era-btn:disabled .unit-icon { color: var(--muted); }
+
+/* ------------------------------------------------------------------------ */
+/* Record sheets (always black on white, like paper)                        */
+/* ------------------------------------------------------------------------ */
+.print-overlay {
+  position: fixed; inset: 0; z-index: 200; overflow: auto;
+  background: color-mix(in srgb, var(--bg) 70%, #000 30%);
+}
+.print-controls {
+  position: sticky; top: 0; z-index: 1;
+  display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center;
+  padding: 0.6rem 1rem; background: var(--panel); border-bottom: 1px solid var(--border);
+}
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.print-pages { display: flex; flex-direction: column; align-items: center; gap: 1.5rem; padding: 1.5rem 16px; }
+.print-pages.paper-letter .record-sheet { width: 8.5in; min-height: 11in; }
+.print-pages.paper-a4 .record-sheet { width: 210mm; min-height: 297mm; }
+.record-sheet {
+  max-width: 100%;
+  background: #fff; color: #111; padding: 8mm; box-sizing: border-box;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.3);
+  font: 8.5pt/1.25 system-ui, -apple-system, 'Segoe UI', sans-serif;
+  display: flex; flex-direction: column;
+}
+.record-sheet h2 { font-size: 15pt; margin: 0; }
+.record-sheet h3 {
+  font-size: 7.5pt; text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 3px;
+  background: #222; color: #fff; padding: 2px 5px; border-radius: 2px;
+}
+.record-sheet h4 { font-size: 7.5pt; margin: 0 0 2px; font-weight: 700; }
+.record-sheet h4 span { font-weight: 400; color: #555; }
+.record-sheet p { margin: 2px 0; }
+.rs-header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #111; padding-bottom: 4px; margin-bottom: 6px; gap: 1rem; }
+.rs-kind { font-size: 7.5pt; text-transform: uppercase; letter-spacing: 0.12em; color: #555; }
+.rs-meta { text-align: right; }
+.rs-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; flex: 1; }
+.rs-col { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.rs-box { border: 1px solid #111; border-radius: 3px; padding: 4px; break-inside: avoid; }
+.rs-muted { color: #666; }
+.rs-empty { color: #666; font-style: italic; }
+.rs-dl { display: grid; grid-template-columns: max-content 1fr; gap: 1px 8px; margin: 0 0 4px; }
+.rs-dl dt { font-weight: 700; }
+.rs-dl dd { margin: 0; }
+.rs-table { width: 100%; border-collapse: collapse; font-size: 7.5pt; margin-top: 3px; }
+.rs-table th, .rs-table td { border-bottom: 1px solid #ccc; padding: 1px 3px; text-align: center; color: #111; }
+.rs-table th { font-weight: 700; border-bottom: 1px solid #111; }
+.rs-table .left { text-align: left; }
+.rs-fields { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 2px 0 4px; }
+.rs-hits th { text-align: left; }
+.rs-check { display: inline-block; width: 8px; height: 8px; border: 1px solid #111; vertical-align: middle; margin-right: 2px; }
+.rs-checks { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.rs-checks-grid { flex-direction: column; gap: 3px; }
+.pips { display: flex; flex-wrap: wrap; gap: 2px; }
+.pips > span { width: 7px; height: 7px; border: 1px solid #111; box-sizing: border-box; }
+.pips.armor > span { border-radius: 50%; }
+.rs-mech-armor {
+  display: grid; gap: 4px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-areas:
+    "la lt hd rt ra"
+    "la lt ct rt ra"
+    "ll ltr ctr rtr rl";
+}
+.rs-armor-loc { border: 1px dashed #999; border-radius: 3px; padding: 2px 3px; min-width: 0; }
+.rs-vehicle-armor {
+  display: grid; gap: 4px; grid-template-columns: 1fr 0.8fr 1fr;
+  grid-template-areas: "fr fr fr" "ls body rs" "rr rr rr";
+}
+.rs-vehicle-armor.with-turret { grid-template-areas: "fr fr fr" "ls tu rs" "rr rr rr"; }
+.rs-vehicle-armor.vtol { grid-template-areas: "ro ro ro" "fr fr fr" "ls body rs" "rr rr rr"; }
+.rs-vehicle-armor.vtol.with-turret { grid-template-areas: "ro ro ro" "fr fr fr" "ls tu rs" "rr rr rr"; }
+.rs-vehicle-body {
+  display: flex; align-items: center; justify-content: center; text-align: center;
+  border: 1px solid #bbb; border-radius: 3px; color: #888; font-size: 7pt; text-transform: uppercase; letter-spacing: 0.08em;
+}
+.record-sheet.vehicle .pips { gap: 3px; }
+.record-sheet.vehicle .pips > span { width: 10px; height: 10px; }
+.record-sheet.vehicle .rs-col:last-child { display: flex; flex-direction: column; }
+.rs-notes { flex: 1; display: flex; flex-direction: column; min-height: 2in; }
+.rs-lines { flex: 1; background: repeating-linear-gradient(#fff 0 17px, #ccc 17px 18px); }
+.rs-structure { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+.rs-crits { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px 6px; }
+.rs-crit-loc ol { list-style: none; margin: 0; padding: 0; font-size: 7pt; }
+.rs-crit-loc li { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-bottom: 1px solid #e3e3e3; }
+.rs-crit-loc li:nth-child(6) { border-bottom: 1px solid #111; }
+.rs-crit-loc li.empty { color: #888; font-style: italic; }
+.rs-crit-loc li.fixed { color: #444; }
+.rs-slot-no { display: inline-block; width: 9px; color: #888; }
+.rs-pair { display: grid; grid-template-columns: 0.9fr 1.1fr; gap: 6px; align-items: start; }
+.rs-pair > div { display: flex; flex-direction: column; gap: 6px; }
+.rs-heat-scale { list-style: none; margin: 0; padding: 0; font-size: 6.5pt; }
+.rs-heat-scale li { display: flex; gap: 4px; border-bottom: 1px solid #e3e3e3; line-height: 1.2; }
+.rs-heat-scale li.effect { font-weight: 600; }
+.rs-heat-no { width: 14px; text-align: right; border-right: 1px solid #111; padding-right: 3px; }
+.rs-ammo { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+.rs-ammo-name { display: block; font-size: 7.5pt; }
+.rs-write-in { font-size: 7.5pt; }
+.rs-footer { margin-top: 6px; font-size: 6.5pt; color: #777; text-align: right; }
+
+@media print {
+  html, body { background: #fff !important; margin: 0 !important; }
+  .app { padding: 0 !important; margin: 0 !important; max-width: none !important; }
+  .app > :not(.print-overlay) { display: none !important; }
+  .print-overlay { position: static; overflow: visible; background: none; }
+  .print-controls { display: none; }
+  .print-pages { padding: 0; gap: 0; display: block; }
+  .print-pages .record-sheet {
+    width: auto !important; min-height: 0 !important; box-shadow: none; padding: 0;
+    break-after: page; page-break-after: always;
+  }
+  .print-pages .record-sheet:last-child { break-after: auto; page-break-after: auto; }
+  /* Fill the printable area (paper minus the 8 mm margins, less a little slack). */
+  .print-pages.paper-letter .record-sheet { min-height: calc(11in - 22mm) !important; }
+  .print-pages.paper-a4 .record-sheet { min-height: calc(297mm - 22mm) !important; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}

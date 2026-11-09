@@ -95,6 +95,10 @@ Advanced or Experimental level and is not modeled yet.
 - Critical slot allocation (click to place, or **Auto-allocate**) with live validation
 - Red / amber / green status light: illegal, legal but incomplete (unused tonnage,
   unallocated armor), or fully legal
+- **Printable record sheets** for BattleMechs (including every OmniMech configuration)
+  and all vehicle types: weapons table, armor and structure boxes, critical slots,
+  heat scale, warrior / crew and vehicle damage tracks, ammo counters; US Letter or
+  A4, printed or saved as PDF from the print dialog
 - Technical-readout text export, JSON import/export and saving in the app
 - Light, dark or system theme, chosen in the start-up dialog
 
@@ -139,6 +143,7 @@ npm run dist:win   # build the Windows installer + portable exe into release/
   - `readout.ts` — technical-readout text
 - `src/rules/vehicle.ts` — combat vehicle construction, validation and readout
 - `src/data/vehicles.ts` — sample vehicles
+- `src/rules/recordSheet.ts` + `src/ui/print/` — record sheet data and printable layout
 - `src/data/canonical.ts` — sample designs: 3025 canon mechs (Locust, Wasp, Hunchback, Atlas) and
   original samples for 3050 (Warden; the Grimfang OmniMech with Prime and A
   configurations), 3062 (Bulwark, Emberclaw) and 3068 (Rampart, Cindermaw); also used

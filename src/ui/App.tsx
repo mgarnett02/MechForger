@@ -20,6 +20,7 @@ import { EquipmentPanel } from './EquipmentPanel';
 import { CritPanel } from './CritPanel';
 import { SummaryPanel } from './SummaryPanel';
 import { VehicleEditor } from './VehicleEditor';
+import { PrintPreview } from './print/PrintPreview';
 import type { AnyDesign, UnitType } from './storage';
 import {
   deleteSaved, designKey, downloadJson, listSaved, loadCurrent, loadCurrentVehicle, loadUnit, parseAny,
@@ -36,6 +37,7 @@ export function App() {
   // 'startup' = required choice before the main form; 'change' = reopened, can be cancelled.
   const [eraDialog, setEraDialog] = useState<'startup' | 'change' | null>('startup');
   const [theme, setTheme] = useState<ThemeChoice>(() => loadTheme());
+  const [printing, setPrinting] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   useEffect(() => applyTheme(theme), [theme]);
 
@@ -133,6 +135,7 @@ export function App() {
 
   return (
     <div className="app">
+      {printing && <PrintPreview design={active} onClose={() => setPrinting(false)} />}
       {eraDialog && (
         <EraDialog
           current={active.era}
@@ -197,6 +200,8 @@ export function App() {
               setNotice(`Deleted saved "${designKey(active)}"`);
             }}>Delete saved</button>
           )}
+          <button onClick={() => setPrinting(true)}
+            title="Preview and print a record sheet (or save it as PDF)">Print record sheet</button>
           <button onClick={() => downloadJson(active)}>Export JSON</button>
           <button onClick={() => fileRef.current?.click()}>Import JSON</button>
           <input ref={fileRef} type="file" accept=".json,application/json" hidden
