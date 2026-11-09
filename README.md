@@ -3,8 +3,7 @@
 An application to build BattleMechs for the BattleTech game.
 
 On launch MechForger asks which tech level (era) to build for, from 3025
-onward, then whether to build a BattleMech or a combat vehicle (vehicles are
-coming soon); it can be changed later with **Change era**. All eight eras are selectable.
+onward, then whether to build a BattleMech or a combat vehicle; it can be changed later with **Change era**. All eight eras are selectable.
 
 ### 3025 Succession Wars — Inner Sphere, Introductory rules
 
@@ -75,6 +74,22 @@ Selectable, with all of the Standard-level technology above. The Standard
 construction rules add little after the Jihad; most newer equipment is
 Advanced or Experimental level and is not modeled yet.
 
+### Combat vehicles (every era)
+
+- Motive types: tracked (up to 100 t), wheeled (80 t), hover (50 t), VTOL (30 t),
+  naval displacement hull (300 t), hydrofoil (100 t) and submarine (300 t)
+- Engine rating = cruising MP × tonnage − suspension factor (rounded up to 5);
+  ICE engines (2× standard weight, power amplifiers for energy weapons) or fusion,
+  XL, Light and Compact engines with 50% extra shielding weight
+- Structure (standard or Endo Steel), lift / rotor / dive equipment, control
+  equipment (5%), optional turret (chin turret on VTOLs, 10% of its weapons)
+- Armor up to 3.5 × tonnage + 40 points (VTOL rotor max 2), all armor types
+- Item slots (5 + tonnage ÷ 5): one per weapon or item, one per ammunition type,
+  plus Endo Steel / Ferro-Fibrous slots
+- Only energy weapons generate heat; fusion engines include 10 heat sinks
+- Weapons go in the front, sides, rear or turret; ammo and equipment in the body
+- Original sample vehicles for each ground, air and naval type, plus a Clan tank
+
 ### Everywhere
 
 - Critical slot allocation (click to place, or **Auto-allocate**) with live validation
@@ -122,6 +137,8 @@ npm run dist:win   # build the Windows installer + portable exe into release/
   - `validation.ts` — `validate()` reports construction-rule errors and warnings
   - `edit.ts` — pure editing operations used by the UI
   - `readout.ts` — technical-readout text
+- `src/rules/vehicle.ts` — combat vehicle construction, validation and readout
+- `src/data/vehicles.ts` — sample vehicles
 - `src/data/canonical.ts` — sample designs: 3025 canon mechs (Locust, Wasp, Hunchback, Atlas) and
   original samples for 3050 (Warden; the Grimfang OmniMech with Prime and A
   configurations), 3062 (Bulwark, Emberclaw) and 3068 (Rampart, Cindermaw); also used

@@ -7,7 +7,7 @@ import type { ThemeChoice } from './theme';
 interface Props {
   current: EraId;
   currentTechBase: TechBase;
-  onSelect: (era: EraId, techBase: TechBase) => void;
+  onSelect: (era: EraId, techBase: TechBase, unit: 'mech' | 'vehicle') => void;
   /** When provided the dialog can be dismissed without choosing (Esc / Cancel). */
   onCancel?: () => void;
   theme: ThemeChoice;
@@ -65,9 +65,11 @@ export function EraDialog({ current, currentTechBase, onSelect, onCancel, theme,
     setPending(era);
     setStep('unit');
   };
-  const pickMech = () => {
+  const [unit, setUnit] = useState<'mech' | 'vehicle'>('mech');
+  const pickUnit = (u: 'mech' | 'vehicle') => {
     if (!pending) return;
-    if (pending.techBases.length === 1) onSelect(pending.id, pending.techBases[0]);
+    setUnit(u);
+    if (pending.techBases.length === 1) onSelect(pending.id, pending.techBases[0], u);
     else setStep('techbase');
   };
 
@@ -79,20 +81,19 @@ export function EraDialog({ current, currentTechBase, onSelect, onCancel, theme,
             <h2 id="era-title">{pending.year} {pending.name}: what are you building?</h2>
             <p className="muted">Both use the {pending.name} era&apos;s technology.</p>
             <div className="era-grid two">
-              <button ref={firstRef} className="era-btn" onClick={pickMech}>
+              <button ref={firstRef} className="era-btn" onClick={() => pickUnit('mech')}>
                 <span className="unit-icon" aria-hidden="true">
                   <svg viewBox="0 0 48 48" width="40" height="40"><path d="M18 6h12v8h6v14h-4v14h-6V30h-4v12h-6V28h-4V14h6z" fill="currentColor" /></svg>
                 </span>
                 <span className="era-year">BattleMech</span>
                 <span className="era-desc">A walking war machine: tonnage, engine, armor, weapons and critical slots.</span>
               </button>
-              <button className="era-btn" disabled title="Vehicle construction is not available yet">
+              <button className="era-btn" onClick={() => pickUnit('vehicle')}>
                 <span className="unit-icon" aria-hidden="true">
                   <svg viewBox="0 0 48 48" width="40" height="40"><path d="M10 20h18l4-6h8v6h4v10H4V24zM8 32h32v6H8z" fill="currentColor" /></svg>
                 </span>
                 <span className="era-year">Combat Vehicle</span>
-                <span className="era-desc">Tracked, wheeled, hover and VTOL vehicles.</span>
-                <span className="era-soon">Coming soon</span>
+                <span className="era-desc">Tracked, wheeled, hover, VTOL and naval vehicles.</span>
               </button>
             </div>
           </>
@@ -131,7 +132,7 @@ export function EraDialog({ current, currentTechBase, onSelect, onCancel, theme,
                   key={tb}
                   ref={(tb === currentTechBase || (i === 0 && !pending.techBases.includes(currentTechBase))) ? firstRef : undefined}
                   className={`era-btn ${getEra(current)?.id === pending.id && tb === currentTechBase ? 'current' : ''}`}
-                  onClick={() => onSelect(pending.id, tb)}
+                  onClick={() => onSelect(pending.id, tb, unit)}
                 >
                   <span className="era-year">{TECH_BASE_INFO[tb].name}</span>
                   <span className="era-desc">{TECH_BASE_INFO[tb].blurb}</span>

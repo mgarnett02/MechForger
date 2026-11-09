@@ -8,3 +8,4 @@ export * from './validation';
 export * from './edit';
 export * from './readout';
 export * from './omni';
+export * from './vehicle';

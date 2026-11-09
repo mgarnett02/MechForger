@@ -3,10 +3,13 @@ import type { MechDesign, TechBase } from '../rules/types';
 import { TECH_BASE_NAMES } from '../rules/types';
 import { computeMech } from '../rules/construction';
 import { validate } from '../rules/validation';
-import { newDesign, parseDesign } from '../rules/edit';
+import { newDesign } from '../rules/edit';
 import { PRESETS } from '../data/canonical';
+import { VEHICLE_PRESETS } from '../data/vehicles';
 import type { EraId } from '../rules/eras';
 import { getEra } from '../rules/eras';
+import type { VehicleDesign } from '../rules/vehicle';
+import { computeVehicle, isVehicle, newVehicle, validateVehicle } from '../rules/vehicle';
 import { EraDialog } from './EraDialog';
 import { StatusLight } from './StatusLight';
 import type { ThemeChoice } from './theme';
@@ -16,12 +19,17 @@ import { ArmorPanel } from './ArmorPanel';
 import { EquipmentPanel } from './EquipmentPanel';
 import { CritPanel } from './CritPanel';
 import { SummaryPanel } from './SummaryPanel';
+import { VehicleEditor } from './VehicleEditor';
+import type { AnyDesign, UnitType } from './storage';
 import {
-  deleteSaved, designKey, downloadJson, listSaved, loadCurrent, saveCurrent, saveDesign,
+  deleteSaved, designKey, downloadJson, listSaved, loadCurrent, loadCurrentVehicle, loadUnit, parseAny,
+  saveCurrent, saveCurrentVehicle, saveDesign, saveUnit,
 } from './storage';
 
 export function App() {
+  const [unit, setUnit] = useState<UnitType>(() => loadUnit());
   const [design, setDesign] = useState<MechDesign>(() => loadCurrent() ?? newDesign());
+  const [vehicle, setVehicle] = useState<VehicleDesign>(() => loadCurrentVehicle() ?? newVehicle());
   const [selected, setSelected] = useState<string | null>(null);
   const [saved, setSaved] = useState(() => listSaved());
   const [notice, setNotice] = useState<string | null>(null);
@@ -32,9 +40,13 @@ export function App() {
   useEffect(() => applyTheme(theme), [theme]);
 
   const summary = useMemo(() => computeMech(design), [design]);
-  const issues = useMemo(() => validate(design, summary), [design, summary]);
+  const mechIssues = useMemo(() => validate(design, summary), [design, summary]);
+  const vSummary = useMemo(() => computeVehicle(vehicle), [vehicle]);
+  const vIssues = useMemo(() => validateVehicle(vehicle, vSummary), [vehicle, vSummary]);
 
   useEffect(() => saveCurrent(design), [design]);
+  useEffect(() => saveCurrentVehicle(vehicle), [vehicle]);
+  useEffect(() => saveUnit(unit), [unit]);
   useEffect(() => {
     if (!notice) return;
     const id = setTimeout(() => setNotice(null), 2500);
@@ -42,55 +54,89 @@ export function App() {
   }, [notice]);
 
   const update = useCallback((fn: (d: MechDesign) => MechDesign) => setDesign((d) => fn(d)), []);
-  const load = (d: MechDesign) => {
-    setDesign(d);
+  const updateVehicle = useCallback((fn: (d: VehicleDesign) => VehicleDesign) => setVehicle((d) => fn(d)), []);
+
+  /** The design being edited, whichever kind it is. */
+  const active: AnyDesign = unit === 'vehicle' ? vehicle : design;
+  const issues = unit === 'vehicle' ? vIssues : mechIssues;
+  const setName = (patch: { chassis?: string; model?: string }) =>
+    unit === 'vehicle' ? updateVehicle((d) => ({ ...d, ...patch })) : update((d) => ({ ...d, ...patch }));
+
+  const load = (d: AnyDesign) => {
+    if (isVehicle(d)) {
+      setVehicle(d);
+      setUnit('vehicle');
+    } else {
+      setDesign(d);
+      setUnit('mech');
+    }
     setSelected(null);
   };
 
-  const chooseEra = (era: EraId, techBase: TechBase) => {
-    if (techBase === design.techBase) {
-      update((d) => (d.era === era ? d : { ...d, era }));
+  const hasWork = (d: AnyDesign) =>
+    d.equipment.some((e) => e.equipmentId !== 'heat-sink') || Object.values(d.armor).some((v) => v > 0);
+
+  const chooseEra = (era: EraId, techBase: TechBase, chosen: UnitType) => {
+    const current: AnyDesign = chosen === 'vehicle' ? vehicle : design;
+    if (techBase === current.techBase) {
+      if (chosen === 'vehicle') updateVehicle((d) => (d.era === era ? d : { ...d, era }));
+      else update((d) => (d.era === era ? d : { ...d, era }));
+      setUnit(chosen);
     } else {
       // Inner Sphere and Clan equipment can't be mixed, so switching tech base starts afresh.
-      const hasWork = design.equipment.some((e) => e.equipmentId !== 'heat-sink') ||
-        Object.values(design.armor).some((v) => v > 0);
-      const ok = !hasWork || eraDialog === 'startup' ||
+      const ok = !hasWork(current) || eraDialog === 'startup' ||
         window.confirm(`Switching to ${TECH_BASE_NAMES[techBase]} starts a new design. Save the current one first if you want to keep it. Continue?`);
       if (!ok) return;
-      load(newDesign(era, techBase));
+      load(chosen === 'vehicle' ? newVehicle(era, techBase) : newDesign(era, techBase));
     }
     setEraDialog(null);
   };
-  const era = getEra(design.era);
+  const era = getEra(active.era);
 
-  // Samples for the current era / tech base first, then the rest.
+  // Samples for the current unit type, era and tech base first.
   const presetGroups = useMemo(() => {
-    const groups = new Map<string, typeof PRESETS>();
-    const sorted = [...PRESETS].sort((a, b) =>
-      Number(b.era === design.era && b.techBase === design.techBase) -
-      Number(a.era === design.era && a.techBase === design.techBase));
-    for (const p of sorted) {
-      const label = `${p.era} ${TECH_BASE_NAMES[p.techBase]} — ${p.canon ? 'canon' : 'original samples'}`;
+    type Entry = { key: string; era: EraId; techBase: TechBase; label: string };
+    const list: Entry[] = unit === 'vehicle'
+      ? VEHICLE_PRESETS.map((p) => ({ ...p, label: 'original sample vehicles' }))
+      : PRESETS.map((p) => ({ ...p, label: p.canon ? 'canon' : 'original samples' }));
+    const groups = new Map<string, Entry[]>();
+    const matches = (p: Entry) => Number(p.era === active.era && p.techBase === active.techBase);
+    for (const p of [...list].sort((a, b) => matches(b) - matches(a))) {
+      const label = `${p.era} ${TECH_BASE_NAMES[p.techBase]} — ${p.label}`;
       groups.set(label, [...(groups.get(label) ?? []), p]);
     }
     return [...groups];
-  }, [design.era, design.techBase]);
+  }, [unit, active.era, active.techBase]);
+
+  const loadPreset = (key: string) => {
+    if (unit === 'vehicle') {
+      const p = VEHICLE_PRESETS.find((x) => x.key === key);
+      if (p) load(p.build());
+    } else {
+      const p = PRESETS.find((x) => x.key === key);
+      if (p) load(p.build());
+    }
+  };
 
   const onImport = async (file: File) => {
     try {
-      load(parseDesign(JSON.parse(await file.text())));
+      load(parseAny(JSON.parse(await file.text())));
       setNotice(`Imported ${file.name}`);
     } catch (e) {
       setNotice(`Import failed: ${(e as Error).message}`);
     }
   };
 
+  const savedKeys = Object.keys(saved).sort();
+  const savedOfKind = savedKeys.filter((k) => (unit === 'vehicle') === isVehicle(saved[k]));
+  const savedOther = savedKeys.filter((k) => !savedOfKind.includes(k));
+
   return (
     <div className="app">
       {eraDialog && (
         <EraDialog
-          current={design.era}
-          currentTechBase={design.techBase}
+          current={active.era}
+          currentTechBase={active.techBase}
           onSelect={chooseEra}
           onCancel={eraDialog === 'change' ? () => setEraDialog(null) : undefined}
           theme={theme}
@@ -101,23 +147,26 @@ export function App() {
         <h1>
           MechForger{' '}
           <span className="muted small">
+            {unit === 'vehicle' ? 'Vehicle · ' : ''}
             {era
-              ? `${era.name} · ${design.mixedTech ? `Mixed tech (${TECH_BASE_NAMES[design.techBase]} chassis) · Advanced` : `${TECH_BASE_NAMES[design.techBase]} · ${era.rulesLevel}`} · ${era.year}`
-              : design.era}
+              ? `${era.name} · ${active.mixedTech ? `Mixed tech (${TECH_BASE_NAMES[active.techBase]} chassis) · Advanced` : `${TECH_BASE_NAMES[active.techBase]} · ${era.rulesLevel}`} · ${era.year}`
+              : active.era}
           </span>{' '}
-          <button className="small" onClick={() => setEraDialog('change')}>Change era</button>
+          <button className="small" onClick={() => setEraDialog('change')}>Change era / unit</button>
         </h1>
         <div className="row wrap">
           <StatusLight issues={issues} />
-          <input aria-label="Chassis name" value={design.chassis} placeholder="Chassis"
-            onChange={(e) => update((d) => ({ ...d, chassis: e.target.value }))} />
-          <input aria-label="Model" value={design.model} placeholder="Model" style={{ width: '7rem' }}
-            onChange={(e) => update((d) => ({ ...d, model: e.target.value }))} />
-          <button onClick={() => load(newDesign(design.era, design.techBase))}>New</button>
+          <input aria-label="Chassis name" value={active.chassis} placeholder="Chassis"
+            onChange={(e) => setName({ chassis: e.target.value })} />
+          <input aria-label="Model" value={active.model} placeholder="Model" style={{ width: '7rem' }}
+            onChange={(e) => setName({ model: e.target.value })} />
+          <button onClick={() => load(unit === 'vehicle'
+            ? newVehicle(vehicle.era, vehicle.techBase)
+            : newDesign(design.era, design.techBase))}>New</button>
           <select aria-label="Load a design" value="" onChange={(e) => {
             const [kind, key] = e.target.value.split(':', 2) as [string, string];
-            if (kind === 'preset') load(PRESETS.find((p) => p.key === key)!.build());
-            if (kind === 'saved' && saved[key]) load(parseDesign(saved[key]));
+            if (kind === 'preset') loadPreset(key);
+            if (kind === 'saved' && saved[key]) load(parseAny(saved[key]));
           }}>
             <option value="">Load…</option>
             {presetGroups.map(([label, presets]) => (
@@ -125,25 +174,30 @@ export function App() {
                 {presets.map((p) => <option key={p.key} value={`preset:${p.key}`}>{p.key}</option>)}
               </optgroup>
             ))}
-            {Object.keys(saved).length > 0 && (
-              <optgroup label="Saved">
-                {Object.keys(saved).sort().map((k) => <option key={k} value={`saved:${k}`}>{k}</option>)}
+            {savedOfKind.length > 0 && (
+              <optgroup label={unit === 'vehicle' ? 'Saved vehicles' : 'Saved mechs'}>
+                {savedOfKind.map((k) => <option key={k} value={`saved:${k}`}>{k}</option>)}
+              </optgroup>
+            )}
+            {savedOther.length > 0 && (
+              <optgroup label={unit === 'vehicle' ? 'Saved mechs' : 'Saved vehicles'}>
+                {savedOther.map((k) => <option key={k} value={`saved:${k}`}>{k}</option>)}
               </optgroup>
             )}
           </select>
           <button onClick={() => {
-            saveDesign(design);
+            saveDesign(active);
             setSaved(listSaved());
-            setNotice(`Saved "${designKey(design)}" in this browser`);
+            setNotice(`Saved "${designKey(active)}" in this browser`);
           }}>Save</button>
-          {saved[designKey(design)] && (
+          {saved[designKey(active)] && (
             <button onClick={() => {
-              deleteSaved(designKey(design));
+              deleteSaved(designKey(active));
               setSaved(listSaved());
-              setNotice(`Deleted saved "${designKey(design)}"`);
+              setNotice(`Deleted saved "${designKey(active)}"`);
             }}>Delete saved</button>
           )}
-          <button onClick={() => downloadJson(design)}>Export JSON</button>
+          <button onClick={() => downloadJson(active)}>Export JSON</button>
           <button onClick={() => fileRef.current?.click()}>Import JSON</button>
           <input ref={fileRef} type="file" accept=".json,application/json" hidden
             onChange={(e) => {
@@ -155,23 +209,27 @@ export function App() {
         {notice && <div className="notice" role="status">{notice}</div>}
       </header>
 
-      <main className="layout">
-        <div className="col">
-          <ChassisPanel design={design} summary={summary} update={update} />
-          <ArmorPanel design={design} summary={summary} update={update} />
-        </div>
-        <div className="col">
-          <EquipmentPanel design={design} summary={summary} update={update}
-            selected={selected} setSelected={setSelected} />
-        </div>
-        <div className="col">
-          <SummaryPanel design={design} summary={summary} issues={issues} />
-        </div>
-        <div className="col wide">
-          <CritPanel design={design} summary={summary} update={update}
-            selected={selected} setSelected={setSelected} />
-        </div>
-      </main>
+      {unit === 'vehicle' ? (
+        <VehicleEditor design={vehicle} summary={vSummary} issues={vIssues} update={updateVehicle} />
+      ) : (
+        <main className="layout">
+          <div className="col">
+            <ChassisPanel design={design} summary={summary} update={update} />
+            <ArmorPanel design={design} summary={summary} update={update} />
+          </div>
+          <div className="col">
+            <EquipmentPanel design={design} summary={summary} update={update}
+              selected={selected} setSelected={setSelected} />
+          </div>
+          <div className="col">
+            <SummaryPanel design={design} summary={summary} issues={mechIssues} />
+          </div>
+          <div className="col wide">
+            <CritPanel design={design} summary={summary} update={update}
+              selected={selected} setSelected={setSelected} />
+          </div>
+        </main>
+      )}
     </div>
   );
 }
