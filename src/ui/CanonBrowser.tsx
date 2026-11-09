@@ -26,7 +26,9 @@ function weightClass(t: number, unit: UnitType, k = ''): string {
 
 function kindLabel(k: string): string {
   if (k === 'mech') return 'BattleMech';
+  if (k === 'quad') return 'Quad BattleMech';
   if (k.startsWith('omni:')) return `OmniMech (${k.slice(5)} configs)`;
+  if (k.startsWith('quadomni:')) return `Quad OmniMech (${k.slice(9)} configs)`;
   if (k in SV_TYPES) return `${SV_TYPES[k as SVType].name} support`;
   return MOTIVE_TYPES[k as keyof typeof MOTIVE_TYPES]?.name ?? k;
 }
@@ -62,7 +64,9 @@ export function CanonBrowser({ unit, onLoad, onClose }: Props) {
 
   useEffect(() => setLimit(PAGE), [query, tech, era, cls, sub, legalOnly, kind]);
 
-  const subKinds = useMemo(() => [...new Set((entries ?? []).map((e) => (e.k.startsWith('omni') ? 'omni' : e.k)))], [entries]);
+  /** Filter group for an entry: OmniMechs are grouped regardless of how many configurations they have. */
+  const group = (k: string) => (k.startsWith('omni:') ? 'omni' : k.startsWith('quadomni:') ? 'quadomni' : k);
+  const subKinds = useMemo(() => [...new Set((entries ?? []).map((e) => group(e.k)))], [entries]);
 
   const filtered = useMemo(() => {
     if (!entries) return [];
@@ -71,7 +75,7 @@ export function CanonBrowser({ unit, onLoad, onClose }: Props) {
       if (tech && e.tb !== tech) return false;
       if (era && e.era !== era) return false;
       if (cls && weightClass(e.t, kind, e.k) !== cls) return false;
-      if (sub && (sub === 'omni' ? !e.k.startsWith('omni') : e.k !== sub)) return false;
+      if (sub && group(e.k) !== sub) return false;
       if (legalOnly && !e.ok) return false;
       const name = e.n.toLowerCase();
       return words.every((w) => name.includes(w));
@@ -113,7 +117,7 @@ export function CanonBrowser({ unit, onLoad, onClose }: Props) {
           </select>
           <select aria-label="Type" value={sub} onChange={(e) => setSub(e.target.value)}>
             <option value="">All types</option>
-            {subKinds.map((k) => <option key={k} value={k}>{k === 'omni' ? 'OmniMechs' : kindLabel(k)}</option>)}
+            {subKinds.map((k) => <option key={k} value={k}>{k === 'omni' ? 'OmniMechs' : k === 'quadomni' ? 'Quad OmniMechs' : k === 'quad' ? 'Quad BattleMechs' : kindLabel(k)}</option>)}
           </select>
           <label className="check small"><input type="checkbox" checked={legalOnly} onChange={(e) => setLegalOnly(e.target.checked)} /> Legal in MechForger only</label>
         </div>

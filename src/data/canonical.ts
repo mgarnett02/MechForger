@@ -29,7 +29,7 @@ function mounts(list: Mount[], pod = false): MountedItem[] {
 
 /** Defaults for options not used by a sample. */
 const PLAIN = {
-  gyroType: 'standard', cockpitType: 'standard', jumpJetType: 'standard', myomer: 'standard', mixedTech: false,
+  gyroType: 'standard', cockpitType: 'standard', jumpJetType: 'standard', myomer: 'standard', mixedTech: false, config: 'biped',
   omni: null,
 } as const;
 
@@ -170,7 +170,7 @@ export const PRESETS: Preset[] = [
     build: () => ({
       schemaVersion: 1, era: '3050', techBase: 'Clan', structureType: 'endo-steel', engineType: 'xl',
       heatSinkType: 'double', armorType: 'ferro-fibrous', myomer: 'standard', mixedTech: false,
-      gyroType: 'standard', cockpitType: 'standard', jumpJetType: 'standard',
+      gyroType: 'standard', cockpitType: 'standard', jumpJetType: 'standard', config: 'biped',
       chassis: 'Grimfang', model: '', tonnage: 65, walkMP: 5,
       engineHeatSinks: 13,
       armor: armor(9, 31, 11, 22, 8, 20, 30),

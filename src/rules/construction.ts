@@ -1,5 +1,5 @@
 import type { Location, MechDesign, MountedItem, WeightClass } from './types';
-import { LOCATIONS } from './types';
+import { LOCATIONS, isQuad } from './types';
 import {
   FREE_HEAT_SINKS, armorPointsPerTon, cockpitWeight, engineCenterSlots, engineHeatSinkCapacity,
   engineSideTorsoSlots, engineWeight, gyroSlots, gyroWeightFor, internalStructure, internalStructureWeight,
@@ -78,6 +78,13 @@ const SLOT_COUNT: Record<Location, number> = {
   HD: 6, CT: 12, LT: 12, RT: 12, LA: 12, RA: 12, LL: 6, RL: 6,
 };
 
+/** Critical slots in a location; a quad's front legs have 6, like any leg. */
+export function slotCount(design: Pick<MechDesign, 'config'>, loc: Location): number {
+  return isQuad(design) && (loc === 'LA' || loc === 'RA') ? 6 : SLOT_COUNT[loc];
+}
+
+const LEG_SLOTS = ['Hip', 'Upper Leg Actuator', 'Lower Leg Actuator', 'Foot Actuator', null, null];
+
 const ENGINE_LABEL = {
   standard: 'Fusion Engine', xl: 'XL Fusion Engine', light: 'Light Fusion Engine', compact: 'Compact Fusion Engine',
 } as const;
@@ -106,6 +113,7 @@ export function fixedSlots(design: MechDesign, loc: Location): (string | null)[]
     }
     case 'LA':
     case 'RA': {
+      if (isQuad(design)) return [...LEG_SLOTS];
       const a = design.actuators[loc];
       const fixed = ['Shoulder', 'Upper Arm Actuator'];
       if (a.lowerArm) fixed.push('Lower Arm Actuator');
@@ -114,7 +122,7 @@ export function fixedSlots(design: MechDesign, loc: Location): (string | null)[]
     }
     case 'LL':
     case 'RL':
-      return ['Hip', 'Upper Leg Actuator', 'Lower Leg Actuator', 'Foot Actuator', null, null];
+      return [...LEG_SLOTS];
   }
 }
 
@@ -145,14 +153,15 @@ function layoutLocation(design: MechDesign, loc: Location): LocationSlots {
       }
     }
   }
-  return { location: loc, capacity: SLOT_COUNT[loc], slots, free: openIdx.length - cursor, overflow };
+  return { location: loc, capacity: slotCount(design, loc), slots, free: openIdx.length - cursor, overflow };
 }
 
 export function computeMech(design: MechDesign): MechSummary {
   const { tonnage, walkMP } = design;
   const rating = tonnage * walkMP;
   const engineWt = engineWeight(design.engineType, rating);
-  const structure = internalStructure(tonnage);
+  const quad = isQuad(design);
+  const structure = internalStructure(tonnage, quad);
 
   const count = (pred: (id: string) => boolean) => design.equipment.filter((e) => pred(e.equipmentId)).length;
   const jumpMP = count((id) => JUMP_JET_IDS.includes(id));
@@ -201,9 +210,9 @@ export function computeMech(design: MechDesign): MechSummary {
     weightClass: weightClass(tonnage),
     engineWeight: engineWt,
     structure,
-    armorMax: maxArmorByLocation(tonnage),
+    armorMax: maxArmorByLocation(tonnage, quad),
     armorTotal,
-    armorMaxTotal: maxTotalArmor(tonnage),
+    armorMaxTotal: maxTotalArmor(tonnage, quad),
     armorPointsPerTon: ppt,
     heatSinks: {
       total: totalHS,

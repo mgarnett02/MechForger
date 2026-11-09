@@ -15,6 +15,36 @@ export const LOCATION_NAMES: Record<Location, string> = {
   RL: 'Right Leg',
 };
 
+/** Biped or four-legged. A quad uses the same location codes: LA/RA are its front legs, LL/RL its rear legs. */
+export type MechConfig = 'biped' | 'quad';
+
+const QUAD_LOCATION_NAMES: Record<Location, string> = {
+  ...LOCATION_NAMES,
+  LA: 'Front Left Leg',
+  RA: 'Front Right Leg',
+  LL: 'Rear Left Leg',
+  RL: 'Rear Right Leg',
+};
+
+export const isQuad = (d: { config?: MechConfig }) => d.config === 'quad';
+
+/** Location name for this design's configuration. */
+export function locationName(d: { config?: MechConfig }, loc: Location): string {
+  return (isQuad(d) ? QUAD_LOCATION_NAMES : LOCATION_NAMES)[loc];
+}
+
+const QUAD_ABBR: Partial<Record<Location, string>> = { LA: 'FLL', RA: 'FRL', LL: 'RLL', RL: 'RRL' };
+
+/** Short location code as printed on sheets: LA, RT… (FLL, RRL… for a quad's legs). */
+export function locationAbbr(d: { config?: MechConfig }, loc: Location): string {
+  return (isQuad(d) && QUAD_ABBR[loc]) || loc;
+}
+
+/** Locations that are legs for this configuration. */
+export function legLocations(d: { config?: MechConfig }): readonly Location[] {
+  return isQuad(d) ? ['LA', 'RA', 'LL', 'RL'] : ['LL', 'RL'];
+}
+
 export const TORSO_LOCATIONS: readonly Location[] = ['CT', 'LT', 'RT'];
 export const ARM_LOCATIONS = ['LA', 'RA'] as const;
 export type ArmLocation = (typeof ARM_LOCATIONS)[number];
@@ -35,6 +65,10 @@ export const FACING_NAMES: Record<ArmorFacing, string> = {
   LTR: 'Left Torso (rear)',
   RTR: 'Right Torso (rear)',
 };
+
+export function facingName(d: { config?: MechConfig }, f: ArmorFacing): string {
+  return f in LOCATION_NAMES ? locationName(d, f as Location) : FACING_NAMES[f];
+}
 
 export type ArmorAllocation = Record<ArmorFacing, number>;
 
@@ -94,6 +128,8 @@ export interface MechDesign {
   myomer: MyomerType;
   /** Mixed tech (Advanced rules): equipment from either tech base on this chassis. */
   mixedTech: boolean;
+  /** Biped (two legs, two arms) or quad (four legs). */
+  config: MechConfig;
   /** Set for OmniMechs: configurations of pod-mounted equipment. */
   omni: OmniData | null;
   chassis: string;
@@ -103,6 +139,7 @@ export interface MechDesign {
   /** Heat sinks carried inside the engine (no critical slots). */
   engineHeatSinks: number;
   armor: ArmorAllocation;
+  /** Arm actuators (bipeds only; a quad's front legs always have full leg actuators). */
   actuators: Record<ArmLocation, ArmActuators>;
   /** Weapons, ammo, plus heat sinks / jump jets that need critical slots. */
   equipment: MountedItem[];

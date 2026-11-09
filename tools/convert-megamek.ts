@@ -207,6 +207,8 @@ function settleEra<T extends { era: EraId }>(d: T, year: number, check: (d: T) =
 const LOC_HEADERS: Record<string, Location> = {
   'Left Arm:': 'LA', 'Right Arm:': 'RA', 'Left Torso:': 'LT', 'Right Torso:': 'RT',
   'Center Torso:': 'CT', 'Head:': 'HD', 'Left Leg:': 'LL', 'Right Leg:': 'RL',
+  // Quads: front legs use the arm codes, rear legs the leg codes (as in MegaMek).
+  'Front Left Leg:': 'LA', 'Front Right Leg:': 'RA', 'Rear Left Leg:': 'LL', 'Rear Right Leg:': 'RL',
 };
 
 interface ParsedMech {
@@ -237,7 +239,8 @@ function parseMtf(text: string): ParsedMech {
   const get = (k: string) => kv.get(k) ?? '';
 
   const config = get('config');
-  if (config !== 'Biped' && config !== 'Biped OmniMek') fail(`config ${config}`);
+  if (!['Biped', 'Biped OmniMek', 'Quad', 'Quad OmniMek'].includes(config)) fail(`config ${config}`);
+  const quad = config.startsWith('Quad');
   const tbRaw = get('techbase');
   const techBase: TechBase = /^Clan|Clan Chassis/.test(tbRaw) ? 'Clan' : 'IS';
   const mixedTech = /^Mixed/.test(tbRaw);
@@ -271,7 +274,8 @@ function parseMtf(text: string): ParsedMech {
   const armor: ArmorAllocation = {
     HD: Number(get('hd armor')), CT: Number(get('ct armor')), CTR: Number(get('rtc armor')),
     LT: Number(get('lt armor')), LTR: Number(get('rtl armor')), RT: Number(get('rt armor')), RTR: Number(get('rtr armor')),
-    LA: Number(get('la armor')), RA: Number(get('ra armor')), LL: Number(get('ll armor')), RL: Number(get('rl armor')),
+    LA: Number(get(quad ? 'fll armor' : 'la armor')), RA: Number(get(quad ? 'frl armor' : 'ra armor')),
+    LL: Number(get(quad ? 'rll armor' : 'll armor')), RL: Number(get(quad ? 'rrl armor' : 'rl armor')),
   };
   for (const [k, v] of Object.entries(armor)) if (!Number.isFinite(v)) fail(`armor value ${k}`);
 
@@ -316,15 +320,16 @@ function parseMtf(text: string): ParsedMech {
     schemaVersion: 1, era: '3025', techBase, mixedTech,
     structureType, engineType, gyroType, cockpitType, heatSinkType,
     jumpJetType: jets.some((e) => e.equipmentId === 'improved-jump-jet') ? 'improved' : 'standard',
-    armorType, myomer, omni: null,
+    armorType, myomer, config: quad ? 'quad' : 'biped', omni: null,
     chassis: get('clanname') ? `${get('clanname')} (${get('chassis')})` : get('chassis'),
     model: get('model'), tonnage, walkMP,
     engineHeatSinks: hsTotal - externalHS, armor,
-    actuators: { LA: arm('LA'), RA: arm('RA') }, equipment,
+    actuators: quad ? { LA: { lowerArm: true, hand: true }, RA: { lowerArm: true, hand: true } } : { LA: arm('LA'), RA: arm('RA') },
+    equipment,
   };
   return {
     design, year: Number(get('era')) || 3025, rulesLevel: Number(get('rules level')) || 0,
-    omni: config === 'Biped OmniMek', mulId: Number(get('mul id')) || undefined,
+    omni: config.endsWith('OmniMek'), mulId: Number(get('mul id')) || undefined,
     source: get('source'), pods,
   };
 }
@@ -565,7 +570,7 @@ function main() {
       if (seen.has(key)) continue; // duplicates across sourcebooks
       seen.add(key);
       if (p.omni) {
-        const g = `${p.design.chassis}|${p.design.techBase}|${p.design.tonnage}`;
+        const g = `${p.design.chassis}|${p.design.techBase}|${p.design.tonnage}|${p.design.config}`;
         omniGroups.set(g, [...(omniGroups.get(g) ?? []), p]);
         continue;
       }
@@ -675,7 +680,7 @@ function mechEntry(d: MechDesign, p: ParsedMech, configs = 1): CanonEntry {
   const issues = validate(d, s);
   return {
     n: `${d.chassis} ${d.model}`.trim(), t: d.tonnage, tb: d.techBase, era: d.era, y: p.year,
-    k: d.omni ? `omni:${configs}` : 'mech', bv: mechBV(d).total, ok: issues.every((i) => i.severity !== 'error'),
+    k: d.config === 'quad' ? (d.omni ? `quadomni:${configs}` : 'quad') : d.omni ? `omni:${configs}` : 'mech', bv: mechBV(d).total, ok: issues.every((i) => i.severity !== 'error'),
     w: s.weights.total === d.tonnage, src: p.source, mul: p.mulId, d: encodeMech(d),
   };
 }

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import type { ArmorType, MechDesign } from '../rules/types';
 import { isAvailableIn } from '../rules/eras';
 import { ARMOR_OPTIONS, componentAvailable } from '../rules/tables';
-import { LOCATIONS, LOCATION_NAMES, REAR_FACING } from '../rules/types';
+import { LOCATIONS, locationName, REAR_FACING } from '../rules/types';
 import type { MechSummary } from '../rules/construction';
 import { armorPointsForTons, armorTonnage, locationArmor } from '../rules/armor';
 import { clearArmor, maximizeArmor, setArmor, setArmorTonnage, setArmorType } from '../rules/edit';
@@ -56,16 +56,16 @@ export function ArmorPanel({ design, summary, update }: Props) {
             const over = total > max;
             return (
               <tr key={loc}>
-                <td>{LOCATION_NAMES[loc]}</td>
+                <td>{locationName(design, loc)}</td>
                 <td className="num muted">{summary.structure?.[loc] ?? '—'}</td>
                 <td>
-                  <NumberField label={`${LOCATION_NAMES[loc]} armor`} value={design.armor[loc]} min={0}
+                  <NumberField label={`${locationName(design, loc)} armor`} value={design.armor[loc]} min={0}
                     max={max} width="3.5rem" invalid={over}
                     onChange={(n) => update((d) => setArmor(d, loc, n))} />
                 </td>
                 <td>
                   {rear && (
-                    <NumberField label={`${LOCATION_NAMES[loc]} rear armor`} value={design.armor[rear]} min={0}
+                    <NumberField label={`${locationName(design, loc)} rear armor`} value={design.armor[rear]} min={0}
                       max={max} width="3.5rem" invalid={over}
                       onChange={(n) => update((d) => setArmor(d, rear, n))} />
                   )}

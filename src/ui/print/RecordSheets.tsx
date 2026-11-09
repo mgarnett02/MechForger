@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import type { ArmorFacing, Location, MechDesign } from '../../rules/types';
-import { LOCATION_NAMES, TECH_BASE_NAMES } from '../../rules/types';
+import { TECH_BASE_NAMES, isQuad, locationName } from '../../rules/types';
 import { computeMech } from '../../rules/construction';
 import { getEra } from '../../rules/eras';
 import { activeConfigName } from '../../rules/omni';
@@ -140,18 +140,15 @@ const BODY: { loc: Location; area: string }[] = [
   { loc: 'RT', area: 'rt' }, { loc: 'RA', area: 'ra' }, { loc: 'LL', area: 'll' }, { loc: 'RL', area: 'rl' },
 ];
 
-const SHORT: Record<Location, string> = {
-  HD: 'Head', CT: 'Center Torso', LT: 'Left Torso', RT: 'Right Torso',
-  LA: 'Left Arm', RA: 'Right Arm', LL: 'Left Leg', RL: 'Right Leg',
-};
-
-/** A humanoid figure of pip clusters, one plate per location. */
-function MechFigure({ values, kind }: { values: Record<Location, number>; kind: 'armor' | 'structure' }) {
+/** A humanoid (or four-legged) figure of pip clusters, one plate per location. */
+function MechFigure({ design, values, kind }: {
+  design: MechDesign; values: Record<Location, number>; kind: 'armor' | 'structure';
+}) {
   return (
-    <div className={`rs-mech-figure ${kind}`}>
+    <div className={`rs-mech-figure ${kind} ${isQuad(design) ? 'quad' : ''}`}>
       {BODY.map(({ loc, area }) => (
         <div key={loc} className={`rs-plate plate-${area}`} style={{ gridArea: area }}>
-          <div className="rs-plate-label">{SHORT[loc]} <b>({values[loc]})</b></div>
+          <div className="rs-plate-label">{locationName(design, loc)} <b>({values[loc]})</b></div>
           <Pips count={values[loc]} kind={kind} />
         </div>
       ))}
@@ -192,7 +189,7 @@ export function MechRecordSheet({ design }: { design: MechDesign }) {
     const groups = slots.length > 6 ? [slots.slice(0, 6), slots.slice(6)] : [slots];
     return (
       <div className="rs-crit-loc">
-        <h4>{LOCATION_NAMES[loc]}</h4>
+        <h4>{locationName(design, loc)}</h4>
         {groups.map((g, gi) => (
           <div key={gi} className="rs-crit-group">
             {/* Every location gets the margin line; only 12-slot locations need the 1-3 / 4-6 labels. */}
@@ -233,6 +230,7 @@ export function MechRecordSheet({ design }: { design: MechDesign }) {
             <Field label="Battle Value" value={mechBV(design).total.toLocaleString('en-US')} />
             <Field label="Cost" value={`${mechCost(design).total.toLocaleString('en-US')} C-bills`} />
             <Field label="Engine" value={`${s.rating} ${engine}`} />
+            {isQuad(design) && <Field label="Configuration" value="Quad" />}
             {design.omni && <Field label="Config" value={`OmniMech — ${config}`} />}
           </div>
           {s.tsmMP && <p className="rs-note">Triple-Strength Myomer: {s.tsmMP.walk}/{s.tsmMP.run} at 9+ heat</p>}
@@ -240,7 +238,7 @@ export function MechRecordSheet({ design }: { design: MechDesign }) {
         </Panel>
 
         <Panel title="Armor Diagram" className="area-armor">
-          <MechFigure values={design.armor as unknown as Record<Location, number>} kind="armor" />
+          <MechFigure design={design} values={design.armor as unknown as Record<Location, number>} kind="armor" />
           <RearFigure armor={design.armor} />
           <div className="rs-armor-total">
             Armor: <b>{s.armorTotal}</b>
@@ -263,7 +261,7 @@ export function MechRecordSheet({ design }: { design: MechDesign }) {
         </Panel>
 
         <Panel title="Internal Structure Diagram" className="area-structure">
-          <MechFigure values={structure} kind="structure" />
+          <MechFigure design={design} values={structure} kind="structure" />
         </Panel>
 
         <Panel title="Critical Hit Table" className="area-crits">

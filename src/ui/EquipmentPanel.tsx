@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { Location, MechDesign, MountedItem } from '../rules/types';
-import { LOCATION_NAMES } from '../rules/types';
+import { locationName } from '../rules/types';
 import type { MechSummary } from '../rules/construction';
 import type { Equipment, EquipmentCategory } from '../rules/equipment';
 import {
@@ -152,13 +152,13 @@ function MountedRow({
       <select aria-label={`${eq.name} location`} value={item.location ?? ''}
         onChange={(e) => update((d) => setItemLocation(d, item.uid, (e.target.value || null) as Location | null))}>
         <option value="">— unallocated —</option>
-        {allowedLocations(eq).map((loc) => (
+        {allowedLocations(eq, design).map((loc) => (
           <option key={loc} value={loc}>
-            {LOCATION_NAMES[loc]} ({summary.slots[loc].free} free)
+            {locationName(design, loc)} ({summary.slots[loc].free} free)
           </option>
         ))}
       </select>
-      {canRearMount(eq, item.location) && (
+      {canRearMount(eq, item.location, design) && (
         <label className="check small">
           <input type="checkbox" checked={!!item.rear}
             onChange={(e) => update((d) => setItemRear(d, item.uid, e.target.checked))} />

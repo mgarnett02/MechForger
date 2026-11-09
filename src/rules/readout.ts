@@ -1,5 +1,5 @@
 import type { MechDesign } from './types';
-import { FACING_NAMES, LOCATIONS, LOCATION_NAMES, REAR_FACING, TECH_BASE_NAMES } from './types';
+import { LOCATIONS, REAR_FACING, TECH_BASE_NAMES, facingName, isQuad, locationAbbr, locationName } from './types';
 import { getEra } from './eras';
 import type { MountedItem } from './types';
 import { equipmentName, getEquipment } from './equipment';
@@ -19,6 +19,7 @@ export function technicalReadout(design: MechDesign, summary: MechSummary = comp
   lines.push(`${design.chassis} ${design.model}`.trim());
   lines.push('');
   lines.push(`Mass: ${design.tonnage} tons (${s.weightClass ?? 'invalid'})`);
+  if (isQuad(design)) lines.push('Configuration: Quad');
   const era = getEra(design.era);
   if (design.mixedTech) {
     lines.push(`Tech Base: Mixed (${TECH_BASE_NAMES[design.techBase]} chassis) (Advanced)`);
@@ -53,9 +54,9 @@ export function technicalReadout(design: MechDesign, summary: MechSummary = comp
   lines.push(`${''.padEnd(22)}Structure  Value`);
   for (const loc of LOCATIONS) {
     const is = s.structure?.[loc] ?? 0;
-    lines.push(`    ${LOCATION_NAMES[loc].padEnd(18)}${String(is).padStart(5)}${String(design.armor[loc]).padStart(9)}`);
+    lines.push(`    ${locationName(design, loc).padEnd(18)}${String(is).padStart(5)}${String(design.armor[loc]).padStart(9)}`);
     const rear = REAR_FACING[loc];
-    if (rear) lines.push(`    ${FACING_NAMES[rear].padEnd(18)}${''.padStart(5)}${String(design.armor[rear]).padStart(9)}`);
+    if (rear) lines.push(`    ${facingName(design, rear).padEnd(18)}${''.padStart(5)}${String(design.armor[rear]).padStart(9)}`);
   }
   lines.push('');
   const header = (title: string) =>
@@ -93,7 +94,7 @@ export function technicalReadout(design: MechDesign, summary: MechSummary = comp
     } else {
       groups.set(key, {
         name: equipmentName(eq, design) + (item.rear ? ' (R)' : ''),
-        loc: item.location ?? '—',
+        loc: item.location ? locationAbbr(design, item.location) : '—',
         slots: itemSlots(eq, design),
         tons: itemWeight(eq, design),
         n: 1,
@@ -106,13 +107,13 @@ export function technicalReadout(design: MechDesign, summary: MechSummary = comp
   }
   const jj = items.filter((e) => e.equipmentId.endsWith('jump-jet'));
   if (jj.length) {
-    const locs = [...new Set(jj.map((e) => e.location ?? '—'))].join('/');
+    const locs = [...new Set(jj.map((e) => (e.location ? locationAbbr(design, e.location) : '—')))].join('/');
     const tons = (s.weights.jumpJets / Math.max(1, s.jumpMP)) * jj.length;
     lines.push(`${(design.jumpJetType === 'improved' ? 'Improved Jump Jets' : 'Jump Jets').padEnd(26)}${locs.padEnd(6)}${String(jj.length).padEnd(6)}${t(tons)}`);
   }
   const hs = items.filter((e) => getEquipment(e.equipmentId)?.id.includes('heat-sink'));
   if (hs.length && design.omni) {
-    const locs = [...new Set(hs.map((e) => e.location ?? '—'))].join('/');
+    const locs = [...new Set(hs.map((e) => (e.location ? locationAbbr(design, e.location) : '—')))].join('/');
     lines.push(`${'Heat Sinks'.padEnd(26)}${locs.padEnd(6)}${String(hs.length).padEnd(6)}`);
   }
   }

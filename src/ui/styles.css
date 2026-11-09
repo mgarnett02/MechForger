@@ -194,8 +194,14 @@ td, th { padding: 0.2rem 0.35rem; }
     "ll ll ct rl rl";
   gap: 0.6rem;
 }
+/* Quads: front legs (la/ra) on top at the sides, rear legs (ll/rl) beneath them. */
+.crit-grid.quad {
+  grid-template-areas:
+    "la lt hd rt ra"
+    "ll lt ct rt rl";
+}
 @media (max-width: 900px) {
-  .crit-grid {
+  .crit-grid, .crit-grid.quad {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     grid-template-areas: "hd ct" "lt rt" "la ra" "ll rl";
   }
@@ -411,6 +417,14 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
     "la lt ct rt ra"
     "la ll ct rl ra";
 }
+/* Quad: front legs beside the torso, rear legs beneath them. */
+.rs-mech-figure.quad {
+  grid-template-areas:
+    ".  .  hd .  ."
+    "la lt ct rt ra"
+    "ll lt ct rt rl";
+}
+.rs-mech-figure.quad .plate-la, .rs-mech-figure.quad .plate-ra { border-radius: 4px 4px 12px 12px; }
 .rs-plate {
   border: 1.5px solid #111; border-radius: 6px; padding: 2px; min-width: 0;
   display: flex; flex-direction: column; gap: 2px; background: #fafafa;

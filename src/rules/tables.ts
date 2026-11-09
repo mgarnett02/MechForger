@@ -59,11 +59,13 @@ const INTERNAL_STRUCTURE: Record<number, [number, number, number, number]> = {
   100: [31, 21, 17, 21],
 };
 
-export function internalStructure(tonnage: number): Record<Location, number> | null {
+/** Internal structure per location. On a quad, the front legs (LA/RA) use the leg value. */
+export function internalStructure(tonnage: number, quad = false): Record<Location, number> | null {
   const row = INTERNAL_STRUCTURE[tonnage];
   if (!row) return null;
   const [ct, st, arm, leg] = row;
-  return { HD: 3, CT: ct, LT: st, RT: st, LA: arm, RA: arm, LL: leg, RL: leg };
+  const front = quad ? leg : arm;
+  return { HD: 3, CT: ct, LT: st, RT: st, LA: front, RA: front, LL: leg, RL: leg };
 }
 
 /** Standard internal structure is 10% of the mech's tonnage, rounded up to the half ton. */

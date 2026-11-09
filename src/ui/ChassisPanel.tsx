@@ -1,17 +1,17 @@
 import type {
-  CockpitType, EngineType, GyroType, HeatSinkType, JumpJetType, MechDesign, MyomerType, StructureType, TechBase,
+  CockpitType, EngineType, GyroType, HeatSinkType, JumpJetType, MechConfig, MechDesign, MyomerType, StructureType, TechBase,
 } from '../rules/types';
 import type { ComponentOption } from '../rules/tables';
 import {
   COCKPIT_OPTIONS, ENGINE_OPTIONS, GYRO_OPTIONS, HEAT_SINK_OPTIONS, JUMP_JET_OPTIONS, MYOMER_OPTIONS,
   STRUCTURE_OPTIONS, componentAvailable, componentEraOk, componentFirstEra,
 } from '../rules/tables';
-import { ARM_LOCATIONS, LOCATION_NAMES, TECH_BASE_NAMES } from '../rules/types';
+import { ARM_LOCATIONS, LOCATION_NAMES, TECH_BASE_NAMES, isQuad } from '../rules/types';
 import { ERAS, getEra, isAvailableIn } from '../rules/eras';
 import type { MechSummary } from '../rules/construction';
 import { TONNAGES, maxWalkMP } from '../rules/tables';
 import {
-  setActuator, setCockpitType, setEngineHeatSinks, setEngineType, setGyroType, setHeatSinkTotal,
+  setActuator, setCockpitType, setConfig, setEngineHeatSinks, setEngineType, setGyroType, setHeatSinkTotal,
   setHeatSinkType, setJumpJetType, setJumpMP,
   setMixedTech, setMyomer, setStructureType, setTechBase, setTonnage, setWalkMP,
 } from '../rules/edit';
@@ -57,6 +57,15 @@ export function ChassisPanel({ design, summary, update }: Props) {
             ))}
           </select>
           <span className="muted"> {summary.weightClass}</span>
+        </div>
+
+        <label>Configuration</label>
+        <div>
+          <select aria-label="Configuration" value={design.config}
+            onChange={(e) => update((d) => setConfig(d, e.target.value as MechConfig))}>
+            <option value="biped">Biped (two legs, two arms)</option>
+            <option value="quad">Quad (four legs)</option>
+          </select>
         </div>
 
         <label>Tech base</label>
@@ -201,6 +210,12 @@ export function ChassisPanel({ design, summary, update }: Props) {
         </div>
       </div>
 
+      {isQuad(design) ? (
+        <p className="small muted">
+          A quad has four legs, each with a hip, upper and lower leg, and foot actuator, and no arms.
+          Its legs can carry weapons, which may face forward or to the rear.
+        </p>
+      ) : (<>
       <h3>Arm actuators</h3>
       <div className="actuators">
         {ARM_LOCATIONS.map((arm) => (
@@ -219,6 +234,7 @@ export function ChassisPanel({ design, summary, update }: Props) {
           </div>
         ))}
       </div>
+      </>)}
     </section>
   );
 }

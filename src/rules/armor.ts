@@ -3,8 +3,8 @@ import { LOCATIONS, REAR_FACING } from './types';
 import { ARMOR_POINTS_PER_TON, HEAD_ARMOR_MAX, internalStructure } from './tables';
 
 /** Maximum armor per location (torso values cover front + rear combined). */
-export function maxArmorByLocation(tonnage: number): Record<Location, number> {
-  const is = internalStructure(tonnage);
+export function maxArmorByLocation(tonnage: number, quad = false): Record<Location, number> {
+  const is = internalStructure(tonnage, quad);
   const out = {} as Record<Location, number>;
   for (const loc of LOCATIONS) {
     out[loc] = !is ? 0 : loc === 'HD' ? HEAD_ARMOR_MAX : is[loc] * 2;
@@ -12,8 +12,8 @@ export function maxArmorByLocation(tonnage: number): Record<Location, number> {
   return out;
 }
 
-export function maxTotalArmor(tonnage: number): number {
-  return Object.values(maxArmorByLocation(tonnage)).reduce((a, b) => a + b, 0);
+export function maxTotalArmor(tonnage: number, quad = false): number {
+  return Object.values(maxArmorByLocation(tonnage, quad)).reduce((a, b) => a + b, 0);
 }
 
 export function emptyArmor(): ArmorAllocation {
@@ -49,9 +49,9 @@ const FILL_ORDER: Location[] = ['CT', 'LT', 'RT', 'LL', 'RL', 'LA', 'RA', 'HD'];
  * Spread `points` of armor across the mech in proportion to each location's
  * maximum. Torso armor is split roughly 3:1 front/rear.
  */
-export function distributeArmor(tonnage: number, points: number): ArmorAllocation {
-  const max = maxArmorByLocation(tonnage);
-  const maxTotal = maxTotalArmor(tonnage);
+export function distributeArmor(tonnage: number, points: number, quad = false): ArmorAllocation {
+  const max = maxArmorByLocation(tonnage, quad);
+  const maxTotal = maxTotalArmor(tonnage, quad);
   const target = Math.max(0, Math.min(Math.floor(points), maxTotal));
   const perLoc = {} as Record<Location, number>;
   let used = 0;

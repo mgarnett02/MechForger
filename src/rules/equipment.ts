@@ -1,4 +1,4 @@
-import type { Location, MechDesign, TechBase } from './types';
+import type { Location, MechDesign, TechBase, MechConfig } from './types';
 import { LOCATIONS } from './types';
 import type { EraId } from './eras';
 import { isAvailableIn } from './eras';
@@ -387,13 +387,23 @@ export function getEquipment(id: string): Equipment | undefined {
   return BY_ID.get(id);
 }
 
-export function allowedLocations(eq: Equipment): readonly Location[] {
-  return eq.allowedLocations ?? LOCATIONS;
+/**
+ * Locations an item may go in. Leg-mountable items (jump jets) may use all four legs of a quad,
+ * whose front legs share the arm location codes.
+ */
+export function allowedLocations(eq: Equipment, design?: { config?: MechConfig }): readonly Location[] {
+  const locs = eq.allowedLocations ?? LOCATIONS;
+  if (design?.config === 'quad' && locs.includes('LL')) {
+    return LOCATIONS.filter((l) => locs.includes(l) || l === 'LA' || l === 'RA');
+  }
+  return locs;
 }
 
-/** Only weapons in a torso location may be mounted rear-facing. */
-export function canRearMount(eq: Equipment, location: Location | null): boolean {
-  return eq.isWeapon && (location === 'CT' || location === 'LT' || location === 'RT');
+/** Weapons in a torso location (or in any leg of a quad) may be mounted rear-facing. */
+export function canRearMount(eq: Equipment, location: Location | null, design?: { config?: MechConfig }): boolean {
+  if (!eq.isWeapon || !location) return false;
+  if (location === 'CT' || location === 'LT' || location === 'RT') return true;
+  return design?.config === 'quad' && location !== 'HD';
 }
 
 /** Mixed tech lets a design use equipment from either tech base. */

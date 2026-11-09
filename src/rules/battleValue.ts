@@ -7,7 +7,7 @@
  * approximate.
  */
 import type { Location, MechDesign } from './types';
-import { LOCATIONS } from './types';
+import { LOCATIONS, isQuad, legLocations } from './types';
 import type { Equipment } from './equipment';
 import { getEquipment, isDirectFire, itemWeight } from './equipment';
 import { computeMech } from './construction';
@@ -165,7 +165,7 @@ export function mechBV(d: MechDesign): BVBreakdown {
   const caseIn = new Set(d.equipment.filter((e) => e.equipmentId === 'case').map((e) => e.location));
   const isXL = d.engineType === 'xl' && !isClan;
   const protectedLoc = (loc: Location): boolean => {
-    if (loc === 'CT' || loc === 'HD' || loc === 'LL' || loc === 'RL') return false;
+    if (loc === 'CT' || loc === 'HD' || legLocations(d).includes(loc)) return false;
     if (isClan) return true; // Clan CASE is built into every location
     if (isXL) return false; // losing the side torso destroys an IS XL engine anyway
     if (loc === 'LT' || loc === 'RT') return caseIn.has(loc);
@@ -246,7 +246,8 @@ function equipmentCost<T extends { equipmentId: string }>(
 export function mechCost(d: MechDesign): CostBreakdown {
   const s = computeMech(d);
   const t = d.tonnage;
-  const arms = (['LA', 'RA'] as const).reduce((a, arm) => {
+  const quad = isQuad(d);
+  const arms = quad ? 0 : (['LA', 'RA'] as const).reduce((a, arm) => {
     const act = d.actuators[arm];
     return a + 100 * t + (act.lowerArm ? 50 * t : 0) + (act.lowerArm && act.hand ? 80 * t : 0);
   }, 0);
@@ -258,8 +259,8 @@ export function mechCost(d: MechDesign): CostBreakdown {
     ['Sensors', 2000 * t],
     ['Musculature', (d.myomer === 'tsm' ? 16000 : 2000) * t],
     ['Internal structure', (d.structureType === 'endo-steel' ? 1600 : 400) * t],
-    ['Arm actuators', arms],
-    ['Leg actuators', 2 * (150 + 80 + 120) * t],
+    ...(quad ? [] : [['Arm actuators', arms] as [string, number]]),
+    ['Leg actuators', (quad ? 4 : 2) * (150 + 80 + 120) * t],
     ['Engine', (ENGINE_COST[d.engineType] * s.rating * t) / 75],
     ['Gyro', GYRO_COST[d.gyroType] * s.weights.gyro],
     ['Jump jets', jumpCost],

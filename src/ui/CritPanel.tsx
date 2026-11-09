@@ -1,5 +1,5 @@
 import type { Location, MechDesign } from '../rules/types';
-import { LOCATION_NAMES } from '../rules/types';
+import { isQuad, locationName } from '../rules/types';
 import type { MechSummary } from '../rules/construction';
 import { allowedLocations, equipmentName, getEquipment, itemSlots } from '../rules/equipment';
 import { autoAllocate, setItemLocation } from '../rules/edit';
@@ -21,7 +21,7 @@ export function CritPanel({ design, summary, update, selected, setSelected }: Pr
   const selEq = selItem ? getEquipment(selItem.equipmentId) : undefined;
   const selSlots = selEq ? itemSlots(selEq, design) : 0;
   const canPlace = (loc: Location) =>
-    !!selEq && allowedLocations(selEq).includes(loc) && summary.slots[loc].free >= selSlots;
+    !!selEq && allowedLocations(selEq, design).includes(loc) && summary.slots[loc].free >= selSlots;
 
   // One chip per kind of unallocated item (e.g. "Endo Steel ×14").
   const groups: { id: string; items: typeof summary.unallocated }[] = [];
@@ -32,7 +32,7 @@ export function CritPanel({ design, summary, update, selected, setSelected }: Pr
   }
 
   const place = (loc: Location) => {
-    if (!selItem || !selEq || !allowedLocations(selEq).includes(loc)) return;
+    if (!selItem || !selEq || !allowedLocations(selEq, design).includes(loc)) return;
     update((d) => setItemLocation(d, selItem.uid, loc));
     // Move on to the next unallocated item, preferring another of the same kind.
     const rest = design.equipment.filter((e) => e.location === null && e.uid !== selItem.uid);
@@ -67,7 +67,7 @@ export function CritPanel({ design, summary, update, selected, setSelected }: Pr
           <button className="link" onClick={() => setSelected(null)}>Cancel</button>
         </p>
       )}
-      <div className="crit-grid">
+      <div className={`crit-grid ${isQuad(design) ? 'quad' : ''}`}>
         {(Object.keys(AREAS) as Location[]).map((loc) => {
           const s = summary.slots[loc];
           const placeable = canPlace(loc);
@@ -77,7 +77,7 @@ export function CritPanel({ design, summary, update, selected, setSelected }: Pr
               className={`crit-loc ${placeable ? 'placeable' : ''} ${blocked ? 'blocked' : ''} ${s.overflow ? 'over' : ''}`}
               onClick={() => placeable && place(loc)}>
               <div className="crit-head">
-                <span>{LOCATION_NAMES[loc]}</span>
+                <span>{locationName(design, loc)}</span>
                 <span className="muted small">{s.overflow ? `+${s.overflow} over` : `${s.free} free`}</span>
               </div>
               <ol className="slots">

@@ -1,8 +1,8 @@
 import type {
-  ArmLocation, ArmorFacing, ArmorType, CockpitType, EngineType, GyroType, HeatSinkType, JumpJetType, Location,
-  MechDesign, MountedItem, MyomerType, OmniData, StructureType, TechBase,
+  ArmLocation, ArmorAllocation, ArmorFacing, ArmorType, CockpitType, EngineType, GyroType, HeatSinkType, JumpJetType, Location,
+  MechConfig, MechDesign, MountedItem, MyomerType, OmniData, StructureType, TechBase,
 } from './types';
-import { ARMOR_FACINGS, LOCATIONS, REAR_FACING } from './types';
+import { ARMOR_FACINGS, LOCATIONS, REAR_FACING, isQuad } from './types';
 import {
   FREE_HEAT_SINKS, armorPointsPerTon, armorSlots, engineHeatSinkCapacity, maxWalkMP, structureSlots,
 } from './tables';
@@ -39,6 +39,7 @@ export function newDesign(era: EraId = DEFAULT_ERA, techBase: TechBase = 'IS'): 
     armorType: 'standard',
     myomer: 'standard',
     mixedTech: false,
+    config: 'biped',
     omni: null,
     chassis: 'New Mech',
     model: 'NM-1',
@@ -94,10 +95,10 @@ export function setEngineHeatSinks(d: MechDesign, inEngine: number): MechDesign 
   return refitHeatSinks(d, totalHeatSinks(d), Math.floor(inEngine));
 }
 
-export function setTonnage(d: MechDesign, tonnage: number): MechDesign {
-  const walkMP = Math.max(1, Math.min(d.walkMP, maxWalkMP(tonnage)));
-  const max = maxArmorByLocation(tonnage);
-  const armor = { ...d.armor };
+/** Trim armor that exceeds the per-location maximums for this tonnage and configuration. */
+function clampArmor(armorIn: ArmorAllocation, tonnage: number, quad: boolean): ArmorAllocation {
+  const max = maxArmorByLocation(tonnage, quad);
+  const armor = { ...armorIn };
   for (const loc of LOCATIONS) {
     const rear = REAR_FACING[loc];
     if (rear) {
@@ -107,6 +108,12 @@ export function setTonnage(d: MechDesign, tonnage: number): MechDesign {
       armor[loc] = Math.min(armor[loc], max[loc]);
     }
   }
+  return armor;
+}
+
+export function setTonnage(d: MechDesign, tonnage: number): MechDesign {
+  const walkMP = Math.max(1, Math.min(d.walkMP, maxWalkMP(tonnage)));
+  const armor = clampArmor(d.armor, tonnage, isQuad(d));
   const next = { ...d, tonnage, walkMP, armor };
   return refitHeatSinks(next, totalHeatSinks(d), d.engineHeatSinks);
 }
@@ -125,6 +132,30 @@ export function setJumpMP(d: MechDesign, jumpMP: number): MechDesign {
   return syncCount(d, jumpJetIdFor(d), jumpMP);
 }
 
+/**
+ * Switch between biped and quad. The arm locations become front legs (or back), so items there
+ * that are no longer allowed, or no longer fit, are unallocated; armor is trimmed to the new maximums.
+ */
+export function setConfig(d: MechDesign, config: MechConfig): MechDesign {
+  if (d.config === config) return d;
+  const next: MechDesign = { ...d, config, armor: clampArmor(d.armor, d.tonnage, config === 'quad') };
+  const limbs: Location[] = ['LA', 'RA'];
+  const allowed = (item: MountedItem) => {
+    const eq = getEquipment(item.equipmentId);
+    return !item.location || !limbs.includes(item.location) || !eq || allowedLocations(eq, next).includes(item.location);
+  };
+  const free = (item: MountedItem): MountedItem => ({ ...item, location: null, rear: undefined });
+  let equipment = next.equipment.map((e) => (allowed(e) ? e : free(e)));
+  const slots = computeMech({ ...next, equipment }).slots;
+  const overfull = limbs.filter((l) => slots[l].overflow > 0);
+  equipment = equipment.map((e) => (e.location && overfull.includes(e.location) ? free(e) : e));
+  const omni = next.omni && {
+    ...next.omni,
+    configurations: next.omni.configurations.map((c) => ({ ...c, pod: c.pod.map((p) => (allowed(p) ? p : free(p))) })),
+  };
+  return { ...next, equipment, omni };
+}
+
 export function setActuator(
   d: MechDesign, arm: ArmLocation, actuator: 'lowerArm' | 'hand', value: boolean,
 ): MechDesign {
@@ -141,7 +172,7 @@ export function setArmor(d: MechDesign, facing: ArmorFacing, points: number): Me
 }
 
 export function maximizeArmor(d: MechDesign): MechDesign {
-  return { ...d, armor: distributeArmor(d.tonnage, maxTotalArmor(d.tonnage)) };
+  return { ...d, armor: distributeArmor(d.tonnage, maxTotalArmor(d.tonnage, isQuad(d)), isQuad(d)) };
 }
 
 export function clearArmor(d: MechDesign): MechDesign {
@@ -150,7 +181,7 @@ export function clearArmor(d: MechDesign): MechDesign {
 
 export function setArmorTonnage(d: MechDesign, tons: number): MechDesign {
   const ppt = armorPointsPerTon(d.armorType, d.techBase);
-  return { ...d, armor: distributeArmor(d.tonnage, armorPointsForTons(Math.round(tons * 2) / 2, ppt)) };
+  return { ...d, armor: distributeArmor(d.tonnage, armorPointsForTons(Math.round(tons * 2) / 2, ppt), isQuad(d)) };
 }
 
 export function addEquipment(d: MechDesign, equipmentId: string, location: Location | null = null): MechDesign {
@@ -169,7 +200,7 @@ export function setItemLocation(d: MechDesign, uid: string, location: Location |
     equipment: d.equipment.map((e) => {
       if (e.uid !== uid) return e;
       const eq = getEquipment(e.equipmentId);
-      const rear = e.rear && eq && canRearMount(eq, location) ? true : undefined;
+      const rear = e.rear && eq && canRearMount(eq, location, d) ? true : undefined;
       return { ...e, location, rear };
     }),
   };
@@ -276,7 +307,7 @@ export function autoAllocate(d: MechDesign): MechDesign {
   for (const { item, eq } of pending) {
     const n = itemSlots(eq, d);
     const order = FILLERS.includes(eq.id) ? FILLER_ORDER : PLACE_ORDER;
-    const loc = order.find((l) => allowedLocations(eq).includes(l) && free[l] >= n);
+    const loc = order.find((l) => allowedLocations(eq, d).includes(l) && free[l] >= n);
     if (loc) {
       free[loc] -= n;
       placed.set(item.uid, loc);
@@ -344,6 +375,7 @@ export function parseDesign(raw: unknown): MechDesign {
     armorType: pick(r.armorType, ['standard', 'ferro-fibrous', 'light-ferro', 'heavy-ferro'] as const, 'standard'),
     myomer: pick(r.myomer, ['standard', 'tsm'] as const, 'standard'),
     mixedTech: r.mixedTech === true,
+    config: pick(r.config, ['biped', 'quad'] as const, 'biped'),
     omni,
     chassis: typeof r.chassis === 'string' ? r.chassis : 'Unnamed',
     model: typeof r.model === 'string' ? r.model : '',

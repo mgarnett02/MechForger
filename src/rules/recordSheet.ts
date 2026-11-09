@@ -3,7 +3,7 @@
  * React so the rows can be unit-tested.
  */
 import type { MechDesign } from './types';
-import { LOCATIONS } from './types';
+import { LOCATIONS, locationAbbr } from './types';
 import type { Equipment } from './equipment';
 import { equipmentName, getEquipment, itemWeight } from './equipment';
 import type { VehicleDesign } from './vehicle';
@@ -100,7 +100,7 @@ export function mechSheetData(d: MechDesign): SheetData {
     return eq && !eq.managed;
   });
   const groups = group(placed, (e) => ({
-    label: e.location ?? '—',
+    label: e.location ? locationAbbr(d, e.location) : '—',
     order: e.location ? MECH_ORDER[e.location] : 99,
     rear: !!e.rear,
   }));
@@ -112,7 +112,7 @@ export function mechSheetData(d: MechDesign): SheetData {
     .map((e) => ({ e, eq: getEquipment(e.equipmentId)! }))
     .filter(({ eq }) => eq.category === 'Ammo')
     .sort((a, b) => (MECH_ORDER[a.e.location ?? ''] ?? 99) - (MECH_ORDER[b.e.location ?? ''] ?? 99))
-    .map(({ e, eq }) => ({ name: equipmentName(eq, d), location: e.location ?? '—', shots: ammoShots(eq) }));
+    .map(({ e, eq }) => ({ name: equipmentName(eq, d), location: e.location ? locationAbbr(d, e.location) : '—', shots: ammoShots(eq) }));
   return { weapons, equipment, ammo };
 }
 

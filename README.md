@@ -43,6 +43,8 @@ Everything above, plus:
 - **Triple-Strength Myomer** (IS; 6 slots, +1 walking MP at 9+ heat; not with MASC)
 - **C3** master computer and slave unit (IS)
 - **Half-ton machine gun ammo**
+- **Quad BattleMechs**: four legs (front legs use leg structure and armor), leg actuators, weapons
+  and jump jets in any leg, rear-facing leg weapons
 - **OmniMechs**: a fixed base chassis with any number of pod configurations
   (Prime, A, B, …) that can be added, copied, renamed and deleted; every
   configuration is validated and pod space is shown
@@ -127,7 +129,7 @@ fixed-wing.
 - Critical slot allocation (click to place, or **Auto-allocate**) with live validation
 - Red / amber / green status light: illegal, legal but incomplete (unused tonnage,
   unallocated armor), or fully legal
-- **Canon units**: about 1,800 canon BattleMechs (OmniMechs with all their
+- **Canon units**: about 1,900 canon BattleMechs, including 47 quads (OmniMechs with all their
   configurations), 630 canon combat vehicles and 120 support vehicles, searchable by name, era, tech base,
   weight and type, ready to load, modify and print (see *Canon unit data* below)
 - **Battle Value (BV 2.0) and C-bill cost**, with the working shown; mech values

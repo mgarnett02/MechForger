@@ -1,5 +1,5 @@
 import type { MechDesign } from './types';
-import { ARM_LOCATIONS, ARMOR_FACINGS, FACING_NAMES, LOCATIONS, LOCATION_NAMES } from './types';
+import { ARM_LOCATIONS, ARMOR_FACINGS, LOCATIONS, facingName, isQuad, locationName } from './types';
 import {
   FREE_HEAT_SINKS, MAX_ENGINE_RATING, MIN_ENGINE_RATING, TONNAGES,
 } from './tables';
@@ -112,13 +112,13 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
   // Armor
   for (const f of ARMOR_FACINGS) {
     const v = design.armor[f];
-    if (!Number.isInteger(v) || v < 0) error(`${FACING_NAMES[f]} armor must be a non-negative whole number.`);
+    if (!Number.isInteger(v) || v < 0) error(`${facingName(design, f)} armor must be a non-negative whole number.`);
   }
   for (const loc of LOCATIONS) {
     const pts = locationArmor(design.armor, loc);
     const max = summary.armorMax[loc];
     if (pts > max) {
-      error(`${LOCATION_NAMES[loc]} has ${pts} armor points; the maximum is ${max}.`);
+      error(`${locationName(design, loc)} has ${pts} armor points; the maximum is ${max}.`);
     }
   }
   if (summary.armorTotal === 0) {
@@ -165,10 +165,10 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
   }
 
   // Actuators
-  for (const arm of ARM_LOCATIONS) {
+  for (const arm of isQuad(design) ? [] : ARM_LOCATIONS) {
     const a = design.actuators[arm];
     if (a.hand && !a.lowerArm) {
-      error(`${LOCATION_NAMES[arm]}: a hand actuator requires a lower arm actuator.`);
+      error(`${locationName(design, arm)}: a hand actuator requires a lower arm actuator.`);
     }
   }
 
@@ -207,11 +207,11 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
         error(`${eq.name} is not available in the ${eraName} era.`);
       }
     }
-    if (item.location !== null && !allowedLocations(eq).includes(item.location)) {
-      error(`${eq.name} cannot be mounted in the ${LOCATION_NAMES[item.location]}.`);
+    if (item.location !== null && !allowedLocations(eq, design).includes(item.location)) {
+      error(`${eq.name} cannot be mounted in the ${locationName(design, item.location)}.`);
     }
-    if (item.rear && !canRearMount(eq, item.location)) {
-      error(`${eq.name} cannot be rear-mounted there; only torso weapons can face rear.`);
+    if (item.rear && !canRearMount(eq, item.location, design)) {
+      error(`${eq.name} cannot be rear-mounted there; only torso weapons${isQuad(design) ? ' and leg weapons' : ''} can face rear.`);
     }
   }
   if (design.equipment.filter((e) => getEquipment(e.equipmentId)?.variableWeight === 'masc').length > 1) {
@@ -239,7 +239,7 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
     const launchers = here.filter((e) => e?.artemisCapable).length;
     if (fcs > launchers) {
       error(
-        `${LOCATION_NAMES[loc]} has ${fcs} Artemis IV FCS but only ${launchers} LRM/SRM launcher(s); ` +
+        `${locationName(design, loc)} has ${fcs} Artemis IV FCS but only ${launchers} LRM/SRM launcher(s); ` +
           'each Artemis IV must share a location with its launcher.',
       );
     }
@@ -251,7 +251,7 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
   for (const loc of LOCATIONS) {
     const s = summary.slots[loc];
     if (s.overflow > 0) {
-      error(`${LOCATION_NAMES[loc]} needs ${s.overflow} more critical slot(s) than it has.`);
+      error(`${locationName(design, loc)} needs ${s.overflow} more critical slot(s) than it has.`);
     }
   }
 
