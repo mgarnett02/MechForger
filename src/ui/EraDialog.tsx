@@ -3,6 +3,7 @@ import type { Era, EraId } from '../rules/eras';
 import { ERAS, getEra, techBasesLabel } from '../rules/eras';
 import type { TechBase } from '../rules/types';
 import type { ThemeChoice } from './theme';
+import { DISCLAIMER_SHORT } from './legal';
 
 interface Props {
   current: EraId;
@@ -155,6 +156,7 @@ export function EraDialog({ current, currentTechBase, onSelect, onCancel, theme,
           {step !== 'era' && <button onClick={back}>Back</button>}
           {onCancel && <button onClick={onCancel}>Cancel</button>}
         </div>
+        <p className="legal-note">{DISCLAIMER_SHORT} Free, non-commercial, made under the Microsoft Game Content Usage Rules.</p>
       </div>
     </div>
   );

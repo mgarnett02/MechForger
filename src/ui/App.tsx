@@ -21,6 +21,7 @@ import { CritPanel } from './CritPanel';
 import { SummaryPanel } from './SummaryPanel';
 import { VehicleEditor } from './VehicleEditor';
 import { PrintPreview } from './print/PrintPreview';
+import { AboutDialog } from './AboutDialog';
 import type { AnyDesign, UnitType } from './storage';
 import {
   deleteSaved, designKey, downloadJson, listSaved, loadCurrent, loadCurrentVehicle, loadUnit, parseAny,
@@ -38,6 +39,7 @@ export function App() {
   const [eraDialog, setEraDialog] = useState<'startup' | 'change' | null>('startup');
   const [theme, setTheme] = useState<ThemeChoice>(() => loadTheme());
   const [printing, setPrinting] = useState(false);
+  const [about, setAbout] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   useEffect(() => applyTheme(theme), [theme]);
 
@@ -135,6 +137,7 @@ export function App() {
 
   return (
     <div className="app">
+      {about && <AboutDialog onClose={() => setAbout(false)} />}
       {printing && <PrintPreview design={active} onClose={() => setPrinting(false)} />}
       {eraDialog && (
         <EraDialog
@@ -155,7 +158,8 @@ export function App() {
               ? `${era.name} · ${active.mixedTech ? `Mixed tech (${TECH_BASE_NAMES[active.techBase]} chassis) · Advanced` : `${TECH_BASE_NAMES[active.techBase]} · ${era.rulesLevel}`} · ${era.year}`
               : active.era}
           </span>{' '}
-          <button className="small" onClick={() => setEraDialog('change')}>Change era / unit</button>
+          <button className="small" onClick={() => setEraDialog('change')}>Change era / unit</button>{' '}
+          <button className="small" onClick={() => setAbout(true)}>About / Legal</button>
         </h1>
         <div className="row wrap">
           <StatusLight issues={issues} />

@@ -538,3 +538,7 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 .value-card summary { cursor: pointer; color: var(--accent); }
 .value-detail { display: grid; gap: 0.5rem; margin-top: 0.35rem; }
 .value-detail caption { text-align: left; padding-bottom: 2px; }
+
+.legal-note { margin: 0.9rem 0 0; font-size: 0.75rem; color: var(--muted); border-top: 1px solid var(--border); padding-top: 0.6rem; }
+.modal.about { width: min(640px, 100%); }
+.modal.about h3 { margin-top: 1rem; }
