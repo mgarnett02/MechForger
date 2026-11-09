@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { MechDesign, TechBase } from '../rules/types';
 import { TECH_BASE_NAMES } from '../rules/types';
 import { computeMech } from '../rules/construction';
@@ -26,9 +26,10 @@ import { AboutDialog } from './AboutDialog';
 import { CanonBrowser } from './CanonBrowser';
 import type { AnyDesign, UnitType } from './storage';
 import {
-  deleteSaved, designKey, downloadJson, listSaved, loadCurrent, loadCurrentSupport, loadCurrentVehicle, loadUnit,
-  parseAny, saveCurrent, saveCurrentSupport, saveCurrentVehicle, saveDesign, saveUnit, unitTypeOf,
+  clearLegacySaved, listLegacySaved, loadCurrent, loadCurrentSupport, loadCurrentVehicle, loadUnit,
+  saveCurrent, saveCurrentSupport, saveCurrentVehicle, saveUnit, unitTypeOf,
 } from './storage';
+import { loadDesignFile, saveDesignFile, saveDesignFiles } from './designFiles';
 
 export function App() {
   const [unit, setUnit] = useState<UnitType>(() => loadUnit());
@@ -36,7 +37,7 @@ export function App() {
   const [vehicle, setVehicle] = useState<VehicleDesign>(() => loadCurrentVehicle() ?? newVehicle());
   const [support, setSupport] = useState<SupportVehicleDesign>(() => loadCurrentSupport() ?? newSupportVehicle());
   const [selected, setSelected] = useState<string | null>(null);
-  const [saved, setSaved] = useState(() => listSaved());
+  const [legacy, setLegacy] = useState(() => Object.values(listLegacySaved()));
   const [notice, setNotice] = useState<string | null>(null);
   // 'startup' = required choice before the main form; 'change' = reopened, can be cancelled.
   const [eraDialog, setEraDialog] = useState<'startup' | 'change' | null>('startup');
@@ -44,7 +45,6 @@ export function App() {
   const [printing, setPrinting] = useState(false);
   const [about, setAbout] = useState(false);
   const [canon, setCanon] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
   useEffect(() => applyTheme(theme), [theme]);
 
   const summary = useMemo(() => computeMech(design), [design]);
@@ -113,18 +113,37 @@ export function App() {
   };
   const era = getEra(active.era);
 
-  const onImport = async (file: File) => {
+  const onSave = async () => {
     try {
-      load(parseAny(JSON.parse(await file.text())));
-      setNotice(`Imported ${file.name}`);
+      const name = await saveDesignFile(active);
+      if (name) setNotice(`Saved ${name}`);
     } catch (e) {
-      setNotice(`Import failed: ${(e as Error).message}`);
+      setNotice(`Save failed: ${(e as Error).message}`);
     }
   };
 
-  const savedKeys = Object.keys(saved).sort();
-  const savedOfKind = savedKeys.filter((k) => unitTypeOf(saved[k]) === unit);
-  const savedOther = savedKeys.filter((k) => !savedOfKind.includes(k));
+  const onLoad = async () => {
+    try {
+      const picked = await loadDesignFile();
+      if (!picked) return;
+      load(picked.design);
+      setNotice(`Loaded ${picked.name}`);
+    } catch (e) {
+      setNotice(`Load failed: ${(e as Error).message}`);
+    }
+  };
+
+  // Designs saved in browser storage by older versions: offer to write them out as files once.
+  const onMoveLegacy = async () => {
+    try {
+      if (!(await saveDesignFiles(legacy))) return;
+      clearLegacySaved();
+      setNotice(`Saved ${legacy.length} older design${legacy.length === 1 ? '' : 's'} as files`);
+      setLegacy([]);
+    } catch (e) {
+      setNotice(`Could not save older designs: ${(e as Error).message}`);
+    }
+  };
 
   return (
     <div className="app">
@@ -161,44 +180,16 @@ export function App() {
             onChange={(e) => setName({ model: e.target.value })} />
           <button onClick={() => load(newOf(unit, active.era, active.techBase))}>New</button>
           <button onClick={() => setCanon(true)} title="Browse and load canon BattleMechs and vehicles">Canon units…</button>
-          <select aria-label="Load a design" value="" onChange={(e) => {
-            const [kind, key] = e.target.value.split(':', 2) as [string, string];
-            if (kind === 'saved' && saved[key]) load(parseAny(saved[key]));
-          }}>
-            <option value="">Load…</option>
-            {savedOfKind.length > 0 && (
-              <optgroup label={unit === 'support' ? 'Saved support vehicles' : unit === 'vehicle' ? 'Saved vehicles' : 'Saved mechs'}>
-                {savedOfKind.map((k) => <option key={k} value={`saved:${k}`}>{k}</option>)}
-              </optgroup>
-            )}
-            {savedOther.length > 0 && (
-              <optgroup label="Saved designs of other unit types">
-                {savedOther.map((k) => <option key={k} value={`saved:${k}`}>{k}</option>)}
-              </optgroup>
-            )}
-          </select>
-          <button onClick={() => {
-            saveDesign(active);
-            setSaved(listSaved());
-            setNotice(`Saved "${designKey(active)}" in this browser`);
-          }}>Save</button>
-          {saved[designKey(active)] && (
-            <button onClick={() => {
-              deleteSaved(designKey(active));
-              setSaved(listSaved());
-              setNotice(`Deleted saved "${designKey(active)}"`);
-            }}>Delete saved</button>
+          <button onClick={() => void onLoad()} title="Open a design file (.json)">Load…</button>
+          <button onClick={() => void onSave()} title="Save this design as its own .json file">Save…</button>
+          {legacy.length > 0 && (
+            <button onClick={() => void onMoveLegacy()}
+              title="Designs saved inside the app by an earlier version. Save them as .json files so they can be loaded again.">
+              Save older designs as files ({legacy.length})
+            </button>
           )}
           <button onClick={() => setPrinting(true)}
             title="Preview and print a record sheet (or save it as PDF)">Print record sheet</button>
-          <button onClick={() => downloadJson(active)}>Export JSON</button>
-          <button onClick={() => fileRef.current?.click()}>Import JSON</button>
-          <input ref={fileRef} type="file" accept=".json,application/json" hidden
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) void onImport(f);
-              e.target.value = '';
-            }} />
         </div>
         {notice && <div className="notice" role="status">{notice}</div>}
       </header>

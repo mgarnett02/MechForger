@@ -45,7 +45,8 @@ export function designKey(d: AnyDesign): string {
   return `${d.chassis} ${d.model}`.trim() || 'Unnamed';
 }
 
-export function listSaved(): Record<string, AnyDesign> {
+/** Designs saved in browser storage by older versions, before designs were saved as files. */
+export function listLegacySaved(): Record<string, AnyDesign> {
   const raw = read(KEY);
   if (!raw || typeof raw !== 'object') return {};
   const out: Record<string, AnyDesign> = {};
@@ -59,15 +60,12 @@ export function listSaved(): Record<string, AnyDesign> {
   return out;
 }
 
-export function saveDesign(d: AnyDesign) {
-  const raw = (read(KEY) as Record<string, unknown>) ?? {};
-  write(KEY, { ...raw, [designKey(d)]: d });
-}
-
-export function deleteSaved(key: string) {
-  const raw = { ...((read(KEY) as Record<string, unknown>) ?? {}) };
-  delete raw[key];
-  write(KEY, raw);
+export function clearLegacySaved() {
+  try {
+    localStorage.removeItem(KEY);
+  } catch {
+    /* storage unavailable: ignore */
+  }
 }
 
 export function loadCurrent(): MechDesign | null {
@@ -82,16 +80,6 @@ export function loadCurrent(): MechDesign | null {
 
 export function saveCurrent(d: MechDesign) {
   write(CURRENT, d);
-}
-
-export function downloadJson(d: AnyDesign) {
-  const blob = new Blob([JSON.stringify(d, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${designKey(d).replace(/[^\w-]+/g, '_')}.${unitTypeOf(d)}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
 }
 
 export function loadCurrentVehicle(): VehicleDesign | null {

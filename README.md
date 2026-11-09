@@ -137,7 +137,8 @@ fixed-wing.
   and all vehicle types: weapons table, armor and structure boxes, critical slots,
   heat scale, warrior / crew and vehicle damage tracks, ammo counters; US Letter or
   A4, printed or saved as PDF from the print dialog
-- Technical-readout text export, JSON import/export and saving in the app
+- Technical-readout text export
+- Designs are saved and loaded as individual `.json` files (in the Windows app, Documents\MechForger by default), so they can be copied, moved or shared
 - Light, dark or system theme, chosen in the start-up dialog
 
 ## Canon unit data
