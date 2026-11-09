@@ -97,7 +97,7 @@ Advanced or Experimental level and is not modeled yet.
   plus Endo Steel / Ferro-Fibrous slots
 - Only energy weapons generate heat; fusion engines include 10 heat sinks
 - Weapons go in the front, sides, rear or turret; ammo and equipment in the body
-- Original sample vehicles for each ground, air and naval type, plus a Clan tank
+- Original sample vehicles for each ground, air and naval type, plus a Clan tank (used by the test suite; not shown in the Load menu)
 
 ### Support vehicles (every era)
 

@@ -4,8 +4,6 @@ import { TECH_BASE_NAMES } from '../rules/types';
 import { computeMech } from '../rules/construction';
 import { validate } from '../rules/validation';
 import { newDesign } from '../rules/edit';
-import { PRESETS } from '../data/canonical';
-import { VEHICLE_PRESETS } from '../data/vehicles';
 import type { EraId } from '../rules/eras';
 import { getEra } from '../rules/eras';
 import type { VehicleDesign } from '../rules/vehicle';
@@ -115,32 +113,6 @@ export function App() {
   };
   const era = getEra(active.era);
 
-  // Samples for the current unit type, era and tech base first.
-  const presetGroups = useMemo(() => {
-    type Entry = { key: string; era: EraId; techBase: TechBase; label: string };
-    const list: Entry[] = unit === 'support' ? []
-      : unit === 'vehicle'
-      ? VEHICLE_PRESETS.map((p) => ({ ...p, label: 'original sample vehicles' }))
-      : PRESETS.map((p) => ({ ...p, label: p.canon ? 'canon' : 'original samples' }));
-    const groups = new Map<string, Entry[]>();
-    const matches = (p: Entry) => Number(p.era === active.era && p.techBase === active.techBase);
-    for (const p of [...list].sort((a, b) => matches(b) - matches(a))) {
-      const label = `${p.era} ${TECH_BASE_NAMES[p.techBase]} — ${p.label}`;
-      groups.set(label, [...(groups.get(label) ?? []), p]);
-    }
-    return [...groups];
-  }, [unit, active.era, active.techBase]);
-
-  const loadPreset = (key: string) => {
-    if (unit === 'vehicle') {
-      const p = VEHICLE_PRESETS.find((x) => x.key === key);
-      if (p) load(p.build());
-    } else {
-      const p = PRESETS.find((x) => x.key === key);
-      if (p) load(p.build());
-    }
-  };
-
   const onImport = async (file: File) => {
     try {
       load(parseAny(JSON.parse(await file.text())));
@@ -191,15 +163,9 @@ export function App() {
           <button onClick={() => setCanon(true)} title="Browse and load canon BattleMechs and vehicles">Canon units…</button>
           <select aria-label="Load a design" value="" onChange={(e) => {
             const [kind, key] = e.target.value.split(':', 2) as [string, string];
-            if (kind === 'preset') loadPreset(key);
             if (kind === 'saved' && saved[key]) load(parseAny(saved[key]));
           }}>
             <option value="">Load…</option>
-            {presetGroups.map(([label, presets]) => (
-              <optgroup key={label} label={label}>
-                {presets.map((p) => <option key={p.key} value={`preset:${p.key}`}>{p.key}</option>)}
-              </optgroup>
-            ))}
             {savedOfKind.length > 0 && (
               <optgroup label={unit === 'support' ? 'Saved support vehicles' : unit === 'vehicle' ? 'Saved vehicles' : 'Saved mechs'}>
                 {savedOfKind.map((k) => <option key={k} value={`saved:${k}`}>{k}</option>)}
