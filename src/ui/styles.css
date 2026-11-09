@@ -322,89 +322,194 @@ td, th { padding: 0.2rem 0.35rem; }
 }
 button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 .print-pages { display: flex; flex-direction: column; align-items: center; gap: 1.5rem; padding: 1.5rem 16px; }
-.print-pages.paper-letter .record-sheet { width: 8.5in; min-height: 11in; }
-.print-pages.paper-a4 .record-sheet { width: 210mm; min-height: 297mm; }
-.record-sheet {
+.print-pages.paper-letter .record-sheet {
   max-width: 100%;
-  background: #fff; color: #111; padding: 8mm; box-sizing: border-box;
+  background: #fff; color: #111; padding: 7mm; box-sizing: border-box;
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.3);
-  font: 8.5pt/1.25 system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font: 8pt/1.2 'Arial Narrow', 'Roboto Condensed', 'Helvetica Neue', Arial, sans-serif;
   display: flex; flex-direction: column;
 }
-.record-sheet h2 { font-size: 15pt; margin: 0; }
-.record-sheet h3 {
-  font-size: 7.5pt; text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 3px;
-  background: #222; color: #fff; padding: 2px 5px; border-radius: 2px;
-}
-.record-sheet h4 { font-size: 7.5pt; margin: 0 0 2px; font-weight: 700; }
-.record-sheet h4 span { font-weight: 400; color: #555; }
-.record-sheet p { margin: 2px 0; }
-.rs-header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #111; padding-bottom: 4px; margin-bottom: 6px; gap: 1rem; }
-.rs-kind { font-size: 7.5pt; text-transform: uppercase; letter-spacing: 0.12em; color: #555; }
-.rs-meta { text-align: right; }
-.rs-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; flex: 1; }
-.rs-col { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.rs-box { border: 1px solid #111; border-radius: 3px; padding: 4px; break-inside: avoid; }
+.record-sheet b { font-weight: 700; }
+.record-sheet th, .record-sheet td { color: #111; font-size: inherit; }
 .rs-muted { color: #666; }
-.rs-empty { color: #666; font-style: italic; }
-.rs-dl { display: grid; grid-template-columns: max-content 1fr; gap: 1px 8px; margin: 0 0 4px; }
-.rs-dl dt { font-weight: 700; }
-.rs-dl dd { margin: 0; }
-.rs-table { width: 100%; border-collapse: collapse; font-size: 7.5pt; margin-top: 3px; }
-.rs-table th, .rs-table td { border-bottom: 1px solid #ccc; padding: 1px 3px; text-align: center; color: #111; }
-.rs-table th { font-weight: 700; border-bottom: 1px solid #111; }
-.rs-table .left { text-align: left; }
-.rs-fields { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 2px 0 4px; }
-.rs-hits th { text-align: left; }
-.rs-check { display: inline-block; width: 8px; height: 8px; border: 1px solid #111; vertical-align: middle; margin-right: 2px; }
-.rs-checks { display: flex; flex-wrap: wrap; gap: 4px 14px; }
-.rs-checks-grid { flex-direction: column; gap: 3px; }
-.pips { display: flex; flex-wrap: wrap; gap: 2px; }
-.pips > span { width: 7px; height: 7px; border: 1px solid #111; box-sizing: border-box; }
-.pips.armor > span { border-radius: 50%; }
-.rs-mech-armor {
-  display: grid; gap: 4px;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  grid-template-areas:
-    "la lt hd rt ra"
-    "la lt ct rt ra"
-    "ll ltr ctr rtr rl";
+.rs-empty { color: #666; font-style: italic; text-align: center; }
+.rs-note { font-size: 6.8pt; color: #333; margin: 3px 0 0; }
+.rs-note.left { text-align: left; }
+
+/* Header bar */
+.rs-header {
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  background: #111; color: #fff; border-radius: 6px; padding: 4px 10px; margin-bottom: 7px;
 }
-.rs-armor-loc { border: 1px dashed #999; border-radius: 3px; padding: 2px 3px; min-width: 0; }
-.rs-vehicle-armor {
-  display: grid; gap: 4px; grid-template-columns: 1fr 0.8fr 1fr;
+.rs-title { font: 900 15pt/1 Impact, 'Arial Black', 'Arial Narrow', sans-serif; letter-spacing: 0.06em; text-transform: uppercase; }
+.rs-name { font-size: 10pt; font-weight: 700; text-align: right; }
+
+/* Panels with the title set into the top border */
+.rs-panel {
+  position: relative; border: 2px solid #111; border-radius: 9px;
+  padding: 10px 6px 5px; margin-top: 6px; break-inside: avoid; min-width: 0;
+}
+.rs-panel-title {
+  position: absolute; top: -8px; left: 10px; margin: 0;
+  background: #fff; padding: 0 5px;
+  font: 900 9pt/14px Impact, 'Arial Black', 'Arial Narrow', sans-serif; text-transform: uppercase; letter-spacing: 0.05em;
+}
+
+/* Data fields */
+.rs-fields { display: flex; flex-wrap: wrap; gap: 2px 10px; margin-bottom: 4px; }
+.rs-field { display: flex; gap: 3px; align-items: baseline; min-width: 30%; }
+.rs-field.wide { flex-basis: 100%; }
+.rs-label { font-weight: 700; white-space: nowrap; }
+.rs-value { flex: 1; border-bottom: 1px solid #111; min-width: 2.2em; padding: 0 2px; }
+.rs-move { flex-basis: 100%; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.rs-move .rs-field { min-width: 0; }
+.rs-move .rs-value { min-width: 1.6em; text-align: center; }
+.rs-subtitle { font-weight: 700; text-transform: uppercase; font-size: 7.5pt; border-bottom: 1.5px solid #111; margin-top: 4px; }
+.rs-subtitle span { font-weight: 400; text-transform: none; }
+
+.rs-table { width: 100%; border-collapse: collapse; font-size: 7.5pt; }
+.rs-table th, .rs-table td { padding: 1px 3px; text-align: center; color: #111; }
+.rs-table th { font-weight: 700; border-bottom: 1px solid #111; }
+.rs-table tbody tr:nth-child(even) td { background: #eee; }
+.rs-table .left { text-align: left; }
+
+.rs-hits { border-collapse: collapse; width: 100%; font-size: 7.5pt; margin-top: 2px; }
+.rs-hits th { text-align: left; padding: 1px 4px 1px 0; white-space: nowrap; }
+.rs-hits td { border: 1.5px solid #111; text-align: center; padding: 1px 2px; width: 13%; }
+.rs-crew-hits td { width: auto; }
+.rs-check { display: inline-block; width: 9px; height: 9px; border: 1.5px solid #111; vertical-align: middle; margin: 0 2px; }
+.rs-circles { display: inline-flex; flex-wrap: wrap; gap: 2px; vertical-align: middle; }
+.rs-circles > span { width: 9px; height: 9px; border: 1.5px solid #111; border-radius: 50%; box-sizing: border-box; }
+
+/* Pips */
+.pips { display: flex; flex-wrap: wrap; gap: 1.5px; justify-content: center; }
+.pips > span { width: 7px; height: 7px; border: 1px solid #111; box-sizing: border-box; background: #fff; }
+.pips.armor > span { border-radius: 50%; }
+
+/* BattleMech page grid */
+.rs-grid-mech {
+  flex: 1; display: grid; gap: 4px 7px;
+  grid-template-columns: 1.12fr 1fr 34px;
+  grid-template-rows: auto auto 1fr auto;
+  grid-template-areas:
+    "data armor armor"
+    "warrior structure structure"
+    "crits heat scale"
+    "crits ammo scale";
+}
+.area-data { grid-area: data; } .area-armor { grid-area: armor; } .area-warrior { grid-area: warrior; }
+.area-structure { grid-area: structure; } .area-crits { grid-area: crits; } .area-heat { grid-area: heat; }
+.area-scale { grid-area: scale; } .area-ammo { grid-area: ammo; } .area-crew { grid-area: crew; }
+.area-crit { grid-area: crit; } .area-notes { grid-area: notes; }
+
+/* Humanoid armor / structure figure */
+.rs-mech-figure {
+  display: grid; gap: 3px;
+  grid-template-columns: 1fr 1.25fr 1.3fr 1.25fr 1fr;
+  grid-template-areas:
+    ".  .  hd .  ."
+    "la lt ct rt ra"
+    "la ll ct rl ra";
+}
+.rs-plate {
+  border: 1.5px solid #111; border-radius: 6px; padding: 2px; min-width: 0;
+  display: flex; flex-direction: column; gap: 2px; background: #fafafa;
+}
+.rs-plate-label { font-size: 6.5pt; text-align: center; line-height: 1.1; }
+.plate-hd { border-radius: 14px 14px 5px 5px; width: 75%; justify-self: center; }
+.plate-la, .plate-ra { border-radius: 12px 12px 18px 18px; }
+.plate-lt { border-radius: 14px 4px 4px 6px; }
+.plate-rt { border-radius: 4px 14px 6px 4px; }
+.plate-ct { border-radius: 6px 6px 14px 14px; }
+.plate-ll, .plate-rl { border-radius: 4px 4px 12px 12px; }
+.rs-mech-figure.structure .rs-plate { background: #fff; }
+.rs-rear-figure { display: grid; grid-template-columns: 1.25fr 1.3fr 1.25fr; gap: 3px; margin: 5px 13% 0; }
+.rs-armor-total { text-align: right; font-size: 7pt; margin-top: 3px; }
+
+/* Critical hit table */
+.rs-crit-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px 6px; }
+.rs-crit-loc h4 { margin: 0 0 1px; font-size: 7.5pt; font-weight: 700; text-transform: uppercase; border-bottom: 1.5px solid #111; }
+.rs-crit-group { display: flex; gap: 2px; margin-bottom: 2px; }
+.rs-crit-roll {
+  writing-mode: vertical-rl; transform: rotate(180deg); font-size: 6pt; font-weight: 700;
+  border-left: 1px solid #111; padding: 0 1px; text-align: center;
+}
+.rs-crit-group ol { list-style: none; margin: 0; padding: 0; flex: 1; min-width: 0; font-size: 6.3pt; letter-spacing: -0.01em; }
+.rs-crit-group li { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.25; }
+.rs-crit-group li.empty { color: #777; }
+.rs-crit-group li.item { font-weight: 700; }
+.rs-slot-no { display: inline-block; width: 10px; }
+.rs-crit-damage { display: flex; flex-direction: column; justify-content: center; gap: 3px; font-size: 7pt; }
+.rs-crit-damage > div { display: flex; justify-content: space-between; align-items: center; gap: 4px; }
+.rs-crit-damage span:first-child { font-weight: 700; }
+
+/* Heat */
+.rs-heat-table { width: 100%; border-collapse: collapse; font-size: 6.8pt; }
+.rs-heat-table th { border-bottom: 1px solid #111; text-align: center; }
+.rs-heat-table td { text-align: center; padding: 0 2px; line-height: 1.2; }
+.rs-heat-table .left { text-align: left; }
+.rs-heat-table tbody tr:nth-child(even) td { background: #eee; }
+.rs-heat-sinks { border-top: 1.5px solid #111; margin-top: 3px; padding-top: 3px; display: flex; flex-direction: column; gap: 2px; }
+.rs-heat-scale {
+  border: 2px solid #111; border-radius: 9px; display: flex; flex-direction: column; align-items: stretch;
+  overflow: hidden; margin-top: 6px; break-inside: avoid;
+}
+.rs-scale-title { writing-mode: vertical-rl; transform: rotate(180deg); align-self: center; font: 900 7pt Impact, 'Arial Black', sans-serif; text-transform: uppercase; padding: 3px 0; }
+.rs-scale-overflow { background: #111; color: #fff; font-size: 4.6pt; letter-spacing: -0.02em; text-align: center; padding: 2px 0; text-transform: uppercase; }
+.rs-scale-cell { flex: 1; border-top: 1px solid #111; font-size: 6.5pt; font-weight: 700; display: flex; align-items: center; justify-content: center; min-height: 11px; }
+.rs-scale-cell.effect { background: #ddd; }
+
+.rs-ammo { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+.rs-ammo .pips { justify-content: flex-start; }
+.rs-ammo-name { display: block; font-size: 7pt; }
+.rs-write-in { font-size: 7pt; }
+.rs-footer { margin-top: 5px; font-size: 6pt; color: #777; text-align: right; }
+
+/* Vehicle page grid */
+.rs-grid-vehicle {
+  flex: 1; display: grid; gap: 4px 7px;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto auto auto auto 1fr;
+  grid-template-areas:
+    "data armor"
+    "crew armor"
+    "crit armor"
+    "ammo armor"
+    "notes notes";
+}
+.rs-vehicle-figure {
+  display: grid; gap: 4px; grid-template-columns: 1fr 1.15fr 1fr;
   grid-template-areas: "fr fr fr" "ls body rs" "rr rr rr";
 }
-.rs-vehicle-armor.with-turret { grid-template-areas: "fr fr fr" "ls tu rs" "rr rr rr"; }
-.rs-vehicle-armor.vtol { grid-template-areas: "ro ro ro" "fr fr fr" "ls body rs" "rr rr rr"; }
-.rs-vehicle-armor.vtol.with-turret { grid-template-areas: "ro ro ro" "fr fr fr" "ls tu rs" "rr rr rr"; }
+.rs-vehicle-figure.with-turret { grid-template-areas: "fr fr fr" "ls tu rs" "rr rr rr"; }
+.rs-vehicle-figure.vtol { grid-template-areas: ". ro ." "fr fr fr" "ls body rs" "rr rr rr"; }
+.rs-vehicle-figure.vtol.with-turret { grid-template-areas: ". ro ." "fr fr fr" "ls tu rs" "rr rr rr"; }
+.record-sheet.vehicle .area-armor { display: flex; flex-direction: column; }
+.record-sheet.vehicle .rs-vehicle-figure { flex: 1; grid-template-rows: 1fr 1.5fr 1fr; }
+.record-sheet.vehicle .rs-vehicle-figure.vtol { grid-template-rows: 0.8fr 1fr 1.5fr 1fr; }
+.rs-vehicle-figure .rs-plate { justify-content: center; }
+.rs-vehicle-figure .pips { gap: 3px; }
+.rs-vehicle-figure .pips > span { width: 12px; height: 12px; border-width: 1.5px; }
+.vplate-fr { border-radius: 40px 40px 6px 6px; padding-top: 6px; }
+.motive-naval .vplate-fr, .motive-hydrofoil .vplate-fr, .motive-submarine .vplate-fr { border-radius: 50% 50% 6px 6px / 70% 70% 6px 6px; padding-top: 12px; }
+.vplate-ls { border-radius: 12px 4px 4px 12px; }
+.vplate-rs { border-radius: 4px 12px 12px 4px; }
+.vplate-rr { border-radius: 6px 6px 16px 16px; }
+.vplate-tu { border-radius: 50%; padding: 10px 6px; align-self: center; }
+.vplate-ro { border-radius: 50%; padding: 8px 4px; }
+.rs-plate-is { display: flex; align-items: center; gap: 3px; justify-content: center; font-size: 6pt; border-top: 1px dotted #999; padding-top: 2px; }
+.rs-plate-is .pips > span { width: 8px !important; height: 8px !important; border-width: 1px !important; }
 .rs-vehicle-body {
   display: flex; align-items: center; justify-content: center; text-align: center;
-  border: 1px solid #bbb; border-radius: 3px; color: #888; font-size: 7pt; text-transform: uppercase; letter-spacing: 0.08em;
+  border: 1.5px dashed #999; border-radius: 6px; color: #888; font-size: 7pt; text-transform: uppercase; letter-spacing: 0.08em;
 }
-.record-sheet.vehicle .pips { gap: 3px; }
-.record-sheet.vehicle .pips > span { width: 10px; height: 10px; }
-.record-sheet.vehicle .rs-col:last-child { display: flex; flex-direction: column; }
-.rs-notes { flex: 1; display: flex; flex-direction: column; min-height: 2in; }
-.rs-lines { flex: 1; background: repeating-linear-gradient(#fff 0 17px, #ccc 17px 18px); }
-.rs-structure { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
-.rs-crits { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px 6px; }
-.rs-crit-loc ol { list-style: none; margin: 0; padding: 0; font-size: 7pt; }
-.rs-crit-loc li { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-bottom: 1px solid #e3e3e3; }
-.rs-crit-loc li:nth-child(6) { border-bottom: 1px solid #111; }
-.rs-crit-loc li.empty { color: #888; font-style: italic; }
-.rs-crit-loc li.fixed { color: #444; }
-.rs-slot-no { display: inline-block; width: 9px; color: #888; }
-.rs-pair { display: grid; grid-template-columns: 0.9fr 1.1fr; gap: 6px; align-items: start; }
-.rs-pair > div { display: flex; flex-direction: column; gap: 6px; }
-.rs-heat-scale { list-style: none; margin: 0; padding: 0; font-size: 6.5pt; }
-.rs-heat-scale li { display: flex; gap: 4px; border-bottom: 1px solid #e3e3e3; line-height: 1.2; }
-.rs-heat-scale li.effect { font-weight: 600; }
-.rs-heat-no { width: 14px; text-align: right; border-right: 1px solid #111; padding-right: 3px; }
-.rs-ammo { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
-.rs-ammo-name { display: block; font-size: 7.5pt; }
-.rs-write-in { font-size: 7.5pt; }
-.rs-footer { margin-top: 6px; font-size: 6.5pt; color: #777; text-align: right; }
+.rs-crit-boxes { display: flex; flex-direction: column; gap: 4px; font-size: 7.5pt; }
+.rs-crit-boxes > div { display: flex; align-items: center; gap: 2px; flex-wrap: wrap; }
+.rs-crit-boxes > div > span:first-child { font-weight: 700; min-width: 8.5em; }
+.rs-crit-boxes i { font-style: normal; margin-right: 6px; }
+.rs-stabilizers label { margin-right: 6px; white-space: nowrap; }
+.area-notes { display: flex; flex-direction: column; }
+.rs-lines { flex: 1; min-height: 1in; background: repeating-linear-gradient(#fff 0 15px, #bbb 15px 16px); }
 
 @media print {
   html, body { background: #fff !important; margin: 0 !important; }

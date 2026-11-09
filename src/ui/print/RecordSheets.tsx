@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
-import type { Location, MechDesign } from '../../rules/types';
-import { LOCATION_NAMES, REAR_FACING, TECH_BASE_NAMES } from '../../rules/types';
+import type { ArmorFacing, Location, MechDesign } from '../../rules/types';
+import { LOCATION_NAMES, TECH_BASE_NAMES } from '../../rules/types';
 import { computeMech } from '../../rules/construction';
 import { getEra } from '../../rules/eras';
 import { activeConfigName } from '../../rules/omni';
@@ -11,9 +11,13 @@ import {
   MOTIVE_TYPES, VEHICLE_ENGINE_LABELS, VEHICLE_LOCATION_NAMES, computeVehicle, turretName,
 } from '../../rules/vehicle';
 
-const t = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
+/*
+ * Record sheets follow the familiar tabletop layout (data and weapons top left,
+ * armor diagram top right, warrior data, critical hit table, heat data and heat
+ * scale), drawn in MechForger's own style: no publisher artwork or logos.
+ */
 
-/** A row of tick boxes: circles for armor, squares for internal structure. */
+/** Tick boxes: circles for armor, squares for internal structure. */
 function Pips({ count, kind }: { count: number; kind: 'armor' | 'structure' }) {
   return (
     <span className={`pips ${kind}`} aria-label={`${count} ${kind} points`}>
@@ -22,61 +26,78 @@ function Pips({ count, kind }: { count: number; kind: 'armor' | 'structure' }) {
   );
 }
 
-function Box({ title, children, className = '' }: { title: string; children: ReactNode; className?: string }) {
+function Circles({ n }: { n: number }) {
+  return <span className="rs-circles">{Array.from({ length: n }, (_, i) => <span key={i} />)}</span>;
+}
+
+/** A rounded, black-ruled panel with its title set into the top border. */
+function Panel({ title, children, className = '' }: { title: string; children: ReactNode; className?: string }) {
   return (
-    <section className={`rs-box ${className}`}>
-      <h3>{title}</h3>
+    <section className={`rs-panel ${className}`}>
+      <h3 className="rs-panel-title">{title}</h3>
       {children}
     </section>
   );
 }
 
-function techLine(d: { era: MechDesign['era']; techBase: MechDesign['techBase']; mixedTech: boolean }): string {
-  const era = getEra(d.era);
-  const base = d.mixedTech ? `Mixed (${TECH_BASE_NAMES[d.techBase]} chassis)` : TECH_BASE_NAMES[d.techBase];
-  const level = d.mixedTech ? 'Advanced' : era?.rulesLevel ?? '';
-  return `${base} · ${level} · ${era ? `${era.name} (${era.year})` : d.era}`;
-}
-
-function WeaponTable({ rows, showHeat }: { rows: WeaponRow[]; showHeat: boolean }) {
-  if (!rows.length) return <p className="rs-empty">No weapons.</p>;
+function Field({ label, value, wide }: { label: string; value?: ReactNode; wide?: boolean }) {
   return (
-    <table className="rs-table">
-      <thead>
-        <tr>
-          <th>Qty</th><th className="left">Type</th><th>Loc</th>{showHeat && <th>Ht</th>}
-          <th>Dmg</th><th>Min</th><th>Sht</th><th>Med</th><th>Lng</th>
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((r, i) => (
-          <tr key={i}>
-            <td>{r.qty}</td><td className="left">{r.name}</td><td>{r.location}</td>{showHeat && <td>{r.heat}</td>}
-            <td>{r.damage}</td><td>{r.min}</td><td>{r.short}</td><td>{r.medium}</td><td>{r.long}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <div className={`rs-field ${wide ? 'wide' : ''}`}>
+      <span className="rs-label">{label}:</span>
+      <span className="rs-value">{value ?? ''}</span>
+    </div>
   );
 }
 
-function EquipmentList({ rows }: { rows: EquipmentRow[] }) {
-  if (!rows.length) return null;
+function rulesLevel(d: { era: MechDesign['era']; mixedTech: boolean }): string {
+  return d.mixedTech ? 'Advanced' : getEra(d.era)?.rulesLevel ?? '';
+}
+
+function techBase(d: { techBase: MechDesign['techBase']; mixedTech: boolean }): string {
+  return d.mixedTech ? `Mixed (${TECH_BASE_NAMES[d.techBase]})` : TECH_BASE_NAMES[d.techBase];
+}
+
+function eraName(d: { era: MechDesign['era'] }): string {
+  const e = getEra(d.era);
+  return e ? `${e.name} (${e.year})` : d.era;
+}
+
+function Inventory({ rows, equipment, showHeat }: { rows: WeaponRow[]; equipment: EquipmentRow[]; showHeat: boolean }) {
   return (
-    <table className="rs-table">
-      <thead><tr><th>Qty</th><th className="left">Equipment</th><th>Loc</th><th>Tons</th></tr></thead>
-      <tbody>
-        {rows.map((r, i) => (
-          <tr key={i}><td>{r.qty}</td><td className="left">{r.name}</td><td>{r.location}</td><td>{t(r.tons)}</td></tr>
-        ))}
-      </tbody>
-    </table>
+    <div className="rs-inventory">
+      <div className="rs-subtitle">Weapons &amp; Equipment Inventory <span>(hexes)</span></div>
+      <table className="rs-table">
+        <thead>
+          <tr>
+            <th>Qty</th><th className="left">Type</th><th>Loc</th>{showHeat && <th>Ht</th>}
+            <th>Dmg</th><th>Min</th><th>Sht</th><th>Med</th><th>Lng</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r, i) => (
+            <tr key={i}>
+              <td>{r.qty}</td><td className="left">{r.name}</td><td>{r.location}</td>{showHeat && <td>{r.heat}</td>}
+              <td>{r.damage}</td><td>{r.min}</td><td>{r.short}</td><td>{r.medium}</td><td>{r.long}</td>
+            </tr>
+          ))}
+          {equipment.map((r, i) => (
+            <tr key={`e${i}`}>
+              <td>{r.qty}</td><td className="left">{r.name}</td><td>{r.location}</td>{showHeat && <td>—</td>}
+              <td>[E]</td><td>—</td><td>—</td><td>—</td><td>—</td>
+            </tr>
+          ))}
+          {rows.length + equipment.length === 0 && (
+            <tr><td colSpan={showHeat ? 9 : 8} className="rs-empty">No weapons or equipment</td></tr>
+          )}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
 /** Ammo bins: tick boxes for small bins, a write-in counter for large ones. */
 function AmmoTrack({ rows }: { rows: AmmoRow[] }) {
-  if (!rows.length) return <p className="rs-empty">No ammunition.</p>;
+  if (!rows.length) return <p className="rs-empty">No ammunition carried.</p>;
   return (
     <ul className="rs-ammo">
       {rows.map((r, i) => (
@@ -84,10 +105,19 @@ function AmmoTrack({ rows }: { rows: AmmoRow[] }) {
           <span className="rs-ammo-name">{r.name} <span className="rs-muted">[{r.location}]</span></span>
           {r.shots <= 40
             ? <span className="pips structure">{Array.from({ length: r.shots }, (_, j) => <span key={j} />)}</span>
-            : <span className="rs-write-in">Shots left: ______ / {r.shots}</span>}
+            : <span className="rs-write-in">Shots: ______ / {r.shots}</span>}
         </li>
       ))}
     </ul>
+  );
+}
+
+function SheetHeader({ kind, name }: { kind: string; name: string }) {
+  return (
+    <header className="rs-header">
+      <div className="rs-title">{kind}</div>
+      <div className="rs-name">{name}</div>
+    </header>
   );
 }
 
@@ -99,140 +129,172 @@ function Footer() {
 // BattleMech
 // ---------------------------------------------------------------------------
 
-const MECH_GRID: { loc: Location; area: string }[] = [
+const BODY: { loc: Location; area: string }[] = [
   { loc: 'HD', area: 'hd' }, { loc: 'LA', area: 'la' }, { loc: 'LT', area: 'lt' }, { loc: 'CT', area: 'ct' },
   { loc: 'RT', area: 'rt' }, { loc: 'RA', area: 'ra' }, { loc: 'LL', area: 'll' }, { loc: 'RL', area: 'rl' },
 ];
+
+const SHORT: Record<Location, string> = {
+  HD: 'Head', CT: 'Center Torso', LT: 'Left Torso', RT: 'Right Torso',
+  LA: 'Left Arm', RA: 'Right Arm', LL: 'Left Leg', RL: 'Right Leg',
+};
+
+/** A humanoid figure of pip clusters, one plate per location. */
+function MechFigure({ values, kind }: { values: Record<Location, number>; kind: 'armor' | 'structure' }) {
+  return (
+    <div className={`rs-mech-figure ${kind}`}>
+      {BODY.map(({ loc, area }) => (
+        <div key={loc} className={`rs-plate plate-${area}`} style={{ gridArea: area }}>
+          <div className="rs-plate-label">{SHORT[loc]} <b>({values[loc]})</b></div>
+          <Pips count={values[loc]} kind={kind} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function RearFigure({ armor }: { armor: Record<ArmorFacing, number> }) {
+  const rear: [string, ArmorFacing][] = [['Left Torso Rear', 'LTR'], ['Center Torso Rear', 'CTR'], ['Right Torso Rear', 'RTR']];
+  return (
+    <div className="rs-rear-figure">
+      {rear.map(([label, f]) => (
+        <div key={f} className={`rs-plate plate-${f.toLowerCase()}`}>
+          <div className="rs-plate-label">{label} <b>({armor[f]})</b></div>
+          <Pips count={armor[f]} kind="armor" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+const CRIT_ORDER: Location[][] = [['LA', 'HD', 'RA'], ['LT', 'CT', 'RT'], ['LL', '' as Location, 'RL']];
 
 export function MechRecordSheet({ design }: { design: MechDesign }) {
   const s = computeMech(design);
   const data = mechSheetData(design);
   const config = activeConfigName(design);
-  const hsLabel = design.heatSinkType === 'double' ? 'Double' : 'Single';
-  const move = [
-    `Walking ${design.walkMP}`,
-    `Running ${s.runMP}${s.mascRunMP ? ` [MASC ${s.mascRunMP}]` : ''}`,
-    `Jumping ${s.jumpMP}${design.jumpJetType === 'improved' && s.jumpMP ? ' (improved)' : ''}`,
-  ];
-  if (s.tsmMP) move.push(`TSM at 9+ heat: ${s.tsmMP.walk}/${s.tsmMP.run}`);
+  const hsType = design.heatSinkType === 'double' ? 'Double' : 'Single';
+  const engine = { standard: 'Fusion', xl: 'XL Fusion', light: 'Light Fusion', compact: 'Compact Fusion' }[design.engineType];
+  const name = `${design.chassis} ${design.model}`.trim() || 'Unnamed';
+  const structure = s.structure ?? { HD: 0, CT: 0, LT: 0, RT: 0, LA: 0, RA: 0, LL: 0, RL: 0 };
+
+  const crit = (loc: Location) => {
+    const slots = s.slots[loc].slots;
+    const groups = slots.length > 6 ? [slots.slice(0, 6), slots.slice(6)] : [slots];
+    return (
+      <div className="rs-crit-loc">
+        <h4>{LOCATION_NAMES[loc]}</h4>
+        {groups.map((g, gi) => (
+          <div key={gi} className="rs-crit-group">
+            {groups.length > 1 && <span className="rs-crit-roll">{gi === 0 ? '1-3' : '4-6'}</span>}
+            <ol>
+              {g.map((slot, i) => (
+                <li key={i} className={slot.kind}>
+                  <span className="rs-slot-no">{i + 1}.</span>
+                  {slot.kind === 'empty' ? 'Roll Again' : slot.label}
+                </li>
+              ))}
+            </ol>
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   return (
-    <article className="record-sheet">
-      <header className="rs-header">
-        <div>
-          <div className="rs-kind">BattleMech Record Sheet</div>
-          <h2>{`${design.chassis} ${design.model}`.trim() || 'Unnamed'}{config ? ` — ${config}` : ''}</h2>
-        </div>
-        <div className="rs-meta">
-          <div><b>{design.tonnage} tons</b> · {s.weightClass}{design.omni ? ' OmniMech' : ''}</div>
-          <div>{techLine(design)}</div>
-        </div>
-      </header>
-
-      <div className="rs-columns">
-        <div className="rs-col">
-          <Box title="Mech data">
-            <dl className="rs-dl">
-              <dt>Movement</dt><dd>{move.join(' · ')}</dd>
-              <dt>Engine</dt><dd>{s.rating} {{ standard: 'Fusion', xl: 'XL', light: 'Light', compact: 'Compact' }[design.engineType]}</dd>
-              <dt>Heat sinks</dt><dd>{s.heatSinks.total} {hsLabel} (dissipate {s.heatSinks.dissipation})</dd>
-              <dt>Armor</dt><dd>{s.armorTotal} points{design.armorType !== 'standard' ? ` (${{ 'ferro-fibrous': 'Ferro-Fibrous', 'light-ferro': 'Light Ferro-Fibrous', 'heavy-ferro': 'Heavy Ferro-Fibrous' }[design.armorType]})` : ''}</dd>
-            </dl>
-            <WeaponTable rows={data.weapons} showHeat />
-            <EquipmentList rows={data.equipment} />
-          </Box>
-
-          <Box title="Warrior data">
-            <div className="rs-fields">
-              <span>Name: ________________________</span>
-              <span>Gunnery: ____</span>
-              <span>Piloting: ____</span>
+    <article className="record-sheet mech">
+      <SheetHeader kind="BattleMech Record Sheet" name={config ? `${name} (${config})` : name} />
+      <div className="rs-grid-mech">
+        <Panel title="'Mech Data" className="area-data">
+          <div className="rs-fields">
+            <Field label="Type" value={config ? `${name} ${config}` : name} wide />
+            <div className="rs-move">
+              <span className="rs-label">Movement Points:</span>
+              <Field label="Walking" value={design.walkMP} />
+              <Field label="Running" value={s.mascRunMP ? `${s.runMP} [${s.mascRunMP}]` : s.runMP} />
+              <Field label="Jumping" value={s.jumpMP} />
             </div>
-            <table className="rs-table rs-hits">
-              <tbody>
-                <tr><th>Hits taken</th>{CONSCIOUSNESS.map((_, i) => <td key={i}><span className="rs-check" /> {i + 1}</td>)}</tr>
-                <tr><th>Consciousness #</th>{CONSCIOUSNESS.map((c) => <td key={c}>{c}</td>)}</tr>
-              </tbody>
-            </table>
-          </Box>
-
-          <Box title="Critical hit table">
-            <div className="rs-crits">
-              {(['LA', 'HD', 'RA', 'LT', 'CT', 'RT', 'LL', 'RL'] as Location[]).map((loc) => (
-                <div key={loc} className="rs-crit-loc">
-                  <h4>{LOCATION_NAMES[loc]}</h4>
-                  <ol>
-                    {s.slots[loc].slots.map((slot, i) => (
-                      <li key={i} className={slot.kind === 'empty' ? 'empty' : slot.kind === 'fixed' ? 'fixed' : ''}>
-                        <span className="rs-slot-no">{(i % 6) + 1}</span>
-                        {slot.kind === 'empty' ? 'Roll Again' : slot.label}
-                      </li>
-                    ))}
-                  </ol>
-                </div>
-              ))}
-            </div>
-          </Box>
-        </div>
-
-        <div className="rs-col">
-          <Box title="Armor diagram">
-            <div className="rs-mech-armor">
-              {MECH_GRID.map(({ loc, area }) => (
-                <div key={loc} className="rs-armor-loc" style={{ gridArea: area }}>
-                  <h4>{LOCATION_NAMES[loc]} <span>({design.armor[loc]})</span></h4>
-                  <Pips count={design.armor[loc]} kind="armor" />
-                </div>
-              ))}
-              {(['LT', 'CT', 'RT'] as Location[]).map((loc) => {
-                const rear = REAR_FACING[loc]!;
-                return (
-                  <div key={rear} className="rs-armor-loc" style={{ gridArea: `${loc.toLowerCase()}r` }}>
-                    <h4>{LOCATION_NAMES[loc]} rear <span>({design.armor[rear]})</span></h4>
-                    <Pips count={design.armor[rear]} kind="armor" />
-                  </div>
-                );
-              })}
-            </div>
-          </Box>
-
-          <Box title="Internal structure">
-            <div className="rs-structure">
-              {(['HD', 'CT', 'LT', 'RT', 'LA', 'RA', 'LL', 'RL'] as Location[]).map((loc) => (
-                <div key={loc}>
-                  <h4>{LOCATION_NAMES[loc]} <span>({s.structure?.[loc] ?? 0})</span></h4>
-                  <Pips count={s.structure?.[loc] ?? 0} kind="structure" />
-                </div>
-              ))}
-            </div>
-          </Box>
-
-          <div className="rs-pair">
-            <Box title="Heat scale" className="rs-heat">
-              <ol className="rs-heat-scale">
-                {Array.from({ length: 31 }, (_, i) => 30 - i).map((h) => (
-                  <li key={h} className={HEAT_SCALE[h] ? 'effect' : ''}>
-                    <span className="rs-heat-no">{h}</span>
-                    <span className="rs-heat-effect">{HEAT_SCALE[h] ?? ''}</span>
-                  </li>
-                ))}
-              </ol>
-            </Box>
-            <div>
-              <Box title="Heat data">
-                <p>Heat sinks: <b>{s.heatSinks.total}</b> ({hsLabel})</p>
-                <p>Dissipation: <b>{s.heatSinks.dissipation}</b></p>
-                <p className="rs-muted">
-                  All weapons: {s.heat.weapons} heat · walking +1 · running +2{s.jumpMP ? ` · jumping +${Math.max(3, s.jumpMP)}` : ''}
-                </p>
-                <div className="rs-hs-pips"><Pips count={s.heatSinks.total} kind="structure" /></div>
-              </Box>
-              <Box title="Ammunition">
-                <AmmoTrack rows={data.ammo} />
-              </Box>
-            </div>
+            <Field label="Tonnage" value={design.tonnage} />
+            <Field label="Tech Base" value={techBase(design)} />
+            <Field label="Rules Level" value={rulesLevel(design)} />
+            <Field label="Era" value={eraName(design)} />
+            <Field label="Engine" value={`${s.rating} ${engine}`} />
+            {design.omni && <Field label="Config" value={`OmniMech — ${config}`} />}
           </div>
+          {s.tsmMP && <p className="rs-note">Triple-Strength Myomer: {s.tsmMP.walk}/{s.tsmMP.run} at 9+ heat</p>}
+          <Inventory rows={data.weapons} equipment={data.equipment} showHeat />
+        </Panel>
+
+        <Panel title="Armor Diagram" className="area-armor">
+          <MechFigure values={design.armor as unknown as Record<Location, number>} kind="armor" />
+          <RearFigure armor={design.armor} />
+          <div className="rs-armor-total">
+            Armor: <b>{s.armorTotal}</b>
+            {design.armorType !== 'standard' && ` (${{ 'ferro-fibrous': 'Ferro-Fibrous', 'light-ferro': 'Light Ferro-Fibrous', 'heavy-ferro': 'Heavy Ferro-Fibrous' }[design.armorType]})`}
+          </div>
+        </Panel>
+
+        <Panel title="Warrior Data" className="area-warrior">
+          <div className="rs-fields">
+            <Field label="Name" wide />
+            <Field label="Gunnery Skill" />
+            <Field label="Piloting Skill" />
+          </div>
+          <table className="rs-hits">
+            <tbody>
+              <tr><th>Hits Taken</th>{CONSCIOUSNESS.map((_, i) => <td key={i}>{i + 1}</td>)}</tr>
+              <tr><th>Consciousness #</th>{CONSCIOUSNESS.map((c) => <td key={c}>{c}</td>)}</tr>
+            </tbody>
+          </table>
+        </Panel>
+
+        <Panel title="Internal Structure Diagram" className="area-structure">
+          <MechFigure values={structure} kind="structure" />
+        </Panel>
+
+        <Panel title="Critical Hit Table" className="area-crits">
+          <div className="rs-crit-grid">
+            {CRIT_ORDER.flat().map((loc, i) =>
+              loc ? <div key={loc}>{crit(loc)}</div> : (
+                <div key={`dmg${i}`} className="rs-crit-damage">
+                  <div><span>Engine Hits</span><Circles n={3} /></div>
+                  <div><span>Gyro Hits</span><Circles n={design.gyroType === 'heavy-duty' ? 3 : 2} /></div>
+                  <div><span>Sensor Hits</span><Circles n={2} /></div>
+                  <div><span>Life Support</span><Circles n={1} /></div>
+                </div>
+              ),
+            )}
+          </div>
+        </Panel>
+
+        <Panel title="Heat Data" className="area-heat">
+          <table className="rs-heat-table">
+            <thead><tr><th>Heat Level*</th><th className="left">Effects</th></tr></thead>
+            <tbody>
+              {Object.keys(HEAT_SCALE).map(Number).sort((a, b) => b - a).map((h) => (
+                <tr key={h}><td>{h}</td><td className="left">{HEAT_SCALE[h]}</td></tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="rs-heat-sinks">
+            <div className="rs-hs-label">Heat Sinks: <b>{s.heatSinks.total}</b> ({hsType})</div>
+            <div className="rs-hs-label">Dissipation: <b>{s.heatSinks.dissipation}</b></div>
+            <Circles n={s.heatSinks.total} />
+          </div>
+          <p className="rs-note">* All weapons: {s.heat.weapons} heat · walk +1 · run +2{s.jumpMP ? ` · jump +${Math.max(3, s.jumpMP)}` : ''}</p>
+        </Panel>
+
+        <div className="rs-heat-scale area-scale" aria-label="Heat scale">
+          <div className="rs-scale-title">Heat Scale</div>
+          <div className="rs-scale-overflow">Overflow</div>
+          {Array.from({ length: 31 }, (_, i) => 30 - i).map((h) => (
+            <div key={h} className={`rs-scale-cell ${HEAT_SCALE[h] ? 'effect' : ''}`}>{h}</div>
+          ))}
         </div>
+
+        <Panel title="Ammunition" className="area-ammo">
+          <AmmoTrack rows={data.ammo} />
+        </Panel>
       </div>
       <Footer />
     </article>
@@ -250,91 +312,88 @@ export function VehicleRecordSheet({ design }: { design: VehicleDesign }) {
   const isVtol = design.motive === 'vtol';
   const naval = ['naval', 'hydrofoil', 'submarine'].includes(design.motive);
   const locName = (l: VehicleArmorLocation) => (l === 'TU' ? turretName(design) : VEHICLE_LOCATION_NAMES[l]);
-  const kindTitle = isVtol ? 'VTOL Record Sheet' : naval ? 'Naval Vehicle Record Sheet' : 'Combat Vehicle Record Sheet';
-  const sideLocs = s.armorLocations.filter((l) => l !== 'RO' && l !== 'TU');
+  const kind = isVtol ? 'VTOL Record Sheet' : naval ? 'Naval Vehicle Record Sheet' : 'Ground Vehicle Record Sheet';
+  const name = `${design.chassis} ${design.model}`.trim() || 'Unnamed';
+  const sides = s.armorLocations.filter((l) => l !== 'RO' && l !== 'TU');
 
   return (
     <article className="record-sheet vehicle">
-      <header className="rs-header">
-        <div>
-          <div className="rs-kind">{kindTitle}</div>
-          <h2>{`${design.chassis} ${design.model}`.trim() || 'Unnamed'}</h2>
-        </div>
-        <div className="rs-meta">
-          <div><b>{design.tonnage} tons</b> · {s.weightClass} · {motive.name}</div>
-          <div>{techLine(design)}</div>
-        </div>
-      </header>
-
-      <div className="rs-columns">
-        <div className="rs-col">
-          <Box title="Vehicle data">
-            <dl className="rs-dl">
-              <dt>Movement</dt><dd>Cruising {design.cruiseMP} · Flanking {s.flankMP}{isVtol ? ' (VTOL)' : ''}</dd>
-              <dt>Engine</dt><dd>{s.rating} {VEHICLE_ENGINE_LABELS[design.engineType]}</dd>
-              <dt>Armor</dt><dd>{s.armorTotal} points</dd>
-              {design.heatSinks > 0 && <><dt>Heat sinks</dt><dd>{design.heatSinks} (energy weapons only)</dd></>}
-            </dl>
-            <WeaponTable rows={data.weapons} showHeat={false} />
-            <EquipmentList rows={data.equipment} />
-          </Box>
-
-          <Box title="Crew data">
-            <div className="rs-fields">
-              <span>Crew: ________________________</span>
-              <span>Gunnery: ____</span>
-              <span>{isVtol ? 'Piloting' : 'Driving'}: ____</span>
+      <SheetHeader kind={kind} name={name} />
+      <div className="rs-grid-vehicle">
+        <Panel title="Vehicle Data" className="area-data">
+          <div className="rs-fields">
+            <Field label="Type" value={name} wide />
+            <div className="rs-move">
+              <span className="rs-label">Movement Points:</span>
+              <Field label="Cruising" value={design.cruiseMP} />
+              <Field label="Flanking" value={s.flankMP} />
             </div>
-            <div className="rs-checks">
-              <span><span className="rs-check" /> Commander hit (+1)</span>
-              <span><span className="rs-check" /> {isVtol ? 'Pilot' : 'Driver'} hit (+2)</span>
-              <span><span className="rs-check" /> Crew stunned</span>
-            </div>
-          </Box>
+            <Field label="Movement Type" value={motive.name} />
+            <Field label="Engine Type" value={`${s.rating} ${VEHICLE_ENGINE_LABELS[design.engineType]}`} />
+            <Field label="Tonnage" value={design.tonnage} />
+            <Field label="Tech Base" value={techBase(design)} />
+            <Field label="Rules Level" value={rulesLevel(design)} />
+            <Field label="Era" value={eraName(design)} />
+            {design.heatSinks > 0 && <Field label="Heat Sinks" value={`${design.heatSinks} (energy weapons)`} />}
+          </div>
+          <Inventory rows={data.weapons} equipment={data.equipment} showHeat={false} />
+        </Panel>
 
-          <Box title="Critical damage">
-            <div className="rs-checks rs-checks-grid">
-              <span>Engine hit <span className="rs-check" /></span>
-              <span>Sensor hits <span className="rs-check" />+1 <span className="rs-check" />+2 <span className="rs-check" />+3 <span className="rs-check" />D</span>
-              {!isVtol && !naval && <span>Motive system hits <span className="rs-check" />+1 <span className="rs-check" />+2 <span className="rs-check" />+3</span>}
-              {isVtol && <span>Rotor damage <span className="rs-check" /> <span className="rs-check" /> <span className="rs-check" /></span>}
-              {naval && <span>Propulsion hits <span className="rs-check" />+1 <span className="rs-check" />+2 <span className="rs-check" />+3</span>}
-              <span>Stabilizers {sideLocs.map((l) => <span key={l}>{VEHICLE_LOCATION_NAMES[l]} <span className="rs-check" /> </span>)}</span>
-              {design.turret && <span>{turretName(design)} locked <span className="rs-check" /></span>}
-            </div>
-          </Box>
-
-          <Box title="Ammunition">
-            <AmmoTrack rows={data.ammo} />
-          </Box>
-        </div>
-
-        <div className="rs-col">
-          <Box title="Armor diagram">
-            <div className={`rs-vehicle-armor ${design.turret ? 'with-turret' : ''} ${isVtol ? 'vtol' : ''}`}>
-              {s.armorLocations.map((l) => (
-                <div key={l} className="rs-armor-loc" style={{ gridArea: l.toLowerCase() }}>
-                  <h4>{locName(l)} <span>({design.armor[l]})</span></h4>
-                  <Pips count={design.armor[l]} kind="armor" />
+        <Panel title="Armor Diagram" className="area-armor">
+          <div className={`rs-vehicle-figure motive-${design.motive} ${design.turret ? 'with-turret' : ''} ${isVtol ? 'vtol' : ''}`}>
+            {s.armorLocations.map((l) => (
+              <div key={l} className={`rs-plate vplate-${l.toLowerCase()}`} style={{ gridArea: l.toLowerCase() }}>
+                <div className="rs-plate-label">{locName(l)} <b>({design.armor[l]})</b></div>
+                <Pips count={design.armor[l]} kind="armor" />
+                <div className="rs-plate-is">
+                  <span>IS</span> <Pips count={s.structurePoints} kind="structure" />
                 </div>
-              ))}
-              {!design.turret && <div className="rs-vehicle-body" style={{ gridArea: 'body' }}>{motive.name}</div>}
+              </div>
+            ))}
+            {!design.turret && <div className="rs-vehicle-body" style={{ gridArea: 'body' }}>{motive.name}</div>}
+          </div>
+          <div className="rs-armor-total">Armor: <b>{s.armorTotal}</b> · Internal structure: <b>{s.structurePoints}</b> per location</div>
+        </Panel>
+
+        <Panel title="Crew Data" className="area-crew">
+          <div className="rs-fields">
+            <Field label="Crew" wide />
+            <Field label="Gunnery Skill" />
+            <Field label={isVtol ? 'Piloting Skill' : 'Driving Skill'} />
+          </div>
+          <table className="rs-hits rs-crew-hits">
+            <tbody>
+              <tr>
+                <th>Commander Hit</th><td><span className="rs-check" /></td><td>+1</td>
+                <th>{isVtol ? 'Pilot' : 'Driver'} Hit</th><td><span className="rs-check" /></td><td>+2</td>
+              </tr>
+              <tr><td colSpan={6} className="rs-note left">Modifier to all skill rolls</td></tr>
+            </tbody>
+          </table>
+        </Panel>
+
+        <Panel title="Critical Damage" className="area-crit">
+          <div className="rs-crit-boxes">
+            {design.turret && <div><span>{turretName(design)} Locked</span><span className="rs-check" /></div>}
+            <div><span>Engine Hit</span><span className="rs-check" /></div>
+            <div><span>Sensor Hits</span><span className="rs-check" /><i>+1</i><span className="rs-check" /><i>+2</i><span className="rs-check" /><i>+3</i><span className="rs-check" /><i>D</i></div>
+            {!isVtol && <div><span>{naval ? 'Propulsion Hits' : 'Motive System Hits'}</span><span className="rs-check" /><i>+1</i><span className="rs-check" /><i>+2</i><span className="rs-check" /><i>+3</i></div>}
+            {isVtol && <div><span>Rotor Hits</span><span className="rs-check" /><span className="rs-check" /><span className="rs-check" /></div>}
+            <div className="rs-stabilizers">
+              <span>Stabilizers</span>
+              {sides.map((l) => <label key={l}>{VEHICLE_LOCATION_NAMES[l]} <span className="rs-check" /></label>)}
+              {design.turret && <label>{turretName(design)} <span className="rs-check" /></label>}
             </div>
-          </Box>
-          <Box title="Internal structure">
-            <div className="rs-structure">
-              {s.armorLocations.map((l) => (
-                <div key={l}>
-                  <h4>{locName(l)} <span>({s.structurePoints})</span></h4>
-                  <Pips count={s.structurePoints} kind="structure" />
-                </div>
-              ))}
-            </div>
-          </Box>
-          <Box title="Notes" className="rs-notes">
-            <div className="rs-lines" />
-          </Box>
-        </div>
+          </div>
+        </Panel>
+
+        <Panel title="Ammunition" className="area-ammo">
+          <AmmoTrack rows={data.ammo} />
+        </Panel>
+
+        <Panel title="Notes" className="area-notes">
+          <div className="rs-lines" />
+        </Panel>
       </div>
       <Footer />
     </article>
