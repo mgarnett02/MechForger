@@ -423,7 +423,9 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 .plate-ct { border-radius: 6px 6px 14px 14px; }
 .plate-ll, .plate-rl { border-radius: 4px 4px 12px 12px; }
 .rs-mech-figure.structure .rs-plate { background: #fff; }
-.rs-rear-figure { display: grid; grid-template-columns: 1.25fr 1.3fr 1.25fr; gap: 3px; margin: 5px 13% 0; }
+.rs-mech-figure, .rs-rear-figure { --mech-columns: 1fr 1.25fr 1.3fr 1.25fr 1fr; }
+/* Same columns as the figure above, so each rear plate sits under its torso and leg. */
+.rs-rear-figure { display: grid; grid-template-columns: var(--mech-columns); gap: 3px; margin-top: 5px; }
 .rs-armor-total { text-align: right; font-size: 7pt; margin-top: 3px; }
 
 /* Critical hit table */

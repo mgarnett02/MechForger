@@ -160,11 +160,14 @@ function MechFigure({ values, kind }: { values: Record<Location, number>; kind: 
 }
 
 function RearFigure({ armor }: { armor: Record<ArmorFacing, number> }) {
-  const rear: [string, ArmorFacing][] = [['Left Torso Rear', 'LTR'], ['Center Torso Rear', 'CTR'], ['Right Torso Rear', 'RTR']];
+  // Columns 2–4 of the figure grid: under the left torso / left leg, center torso, right torso / right leg.
+  const rear: [string, ArmorFacing, number][] = [
+    ['Left Torso Rear', 'LTR', 2], ['Center Torso Rear', 'CTR', 3], ['Right Torso Rear', 'RTR', 4],
+  ];
   return (
     <div className="rs-rear-figure">
-      {rear.map(([label, f]) => (
-        <div key={f} className={`rs-plate plate-${f.toLowerCase()}`}>
+      {rear.map(([label, f, column]) => (
+        <div key={f} className={`rs-plate plate-${f.toLowerCase()}`} style={{ gridColumn: column }}>
           <div className="rs-plate-label">{label} <b>({armor[f]})</b></div>
           <Pips count={armor[f]} kind="armor" />
         </div>
