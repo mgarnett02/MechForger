@@ -6,12 +6,14 @@ import type { SupportVehicleDesign } from '../rules/support';
 import { isSupport, parseSupport } from '../rules/support';
 import type { FighterDesign } from '../rules/fighter';
 import { isFighter, parseFighter } from '../rules/fighter';
+import type { VesselDesign } from '../rules/vessel';
+import { isVessel, parseVessel } from '../rules/vessel';
 
-export type AnyDesign = MechDesign | VehicleDesign | SupportVehicleDesign | FighterDesign;
-export type UnitType = 'mech' | 'vehicle' | 'support' | 'fighter';
+export type AnyDesign = MechDesign | VehicleDesign | SupportVehicleDesign | FighterDesign | VesselDesign;
+export type UnitType = 'mech' | 'vehicle' | 'support' | 'fighter' | 'vessel';
 
 export function unitTypeOf(d: AnyDesign): UnitType {
-  return isFighter(d) ? 'fighter' : isSupport(d) ? 'support' : isVehicle(d) ? 'vehicle' : 'mech';
+  return isVessel(d) ? 'vessel' : isFighter(d) ? 'fighter' : isSupport(d) ? 'support' : isVehicle(d) ? 'vehicle' : 'mech';
 }
 
 const KEY = 'mechforger.designs.v1';
@@ -19,10 +21,12 @@ const CURRENT = 'mechforger.current.v1';
 const CURRENT_VEHICLE = 'mechforger.currentVehicle.v1';
 const CURRENT_SUPPORT = 'mechforger.currentSupport.v1';
 const CURRENT_FIGHTER = 'mechforger.currentFighter.v1';
+const CURRENT_VESSEL = 'mechforger.currentVessel.v1';
 const UNIT = 'mechforger.unit.v1';
 
 /** Parse a saved or imported file as whichever kind of design it is. */
 export function parseAny(raw: unknown): AnyDesign {
+  if (isVessel(raw)) return parseVessel(raw);
   if (isFighter(raw)) return parseFighter(raw);
   if (isSupport(raw)) return parseSupport(raw);
   return isVehicle(raw) ? parseVehicle(raw) : parseDesign(raw);
@@ -102,7 +106,7 @@ export function saveCurrentVehicle(d: VehicleDesign) {
 
 export function loadUnit(): UnitType {
   const u = read(UNIT);
-  return u === 'vehicle' || u === 'support' || u === 'fighter' ? u : 'mech';
+  return u === 'vehicle' || u === 'support' || u === 'fighter' || u === 'vessel' ? u : 'mech';
 }
 
 export function loadCurrentSupport(): SupportVehicleDesign | null {
@@ -131,6 +135,20 @@ export function loadCurrentFighter(): FighterDesign | null {
 
 export function saveCurrentFighter(d: FighterDesign) {
   write(CURRENT_FIGHTER, d);
+}
+
+export function loadCurrentVessel(): VesselDesign | null {
+  const raw = read(CURRENT_VESSEL);
+  if (!raw) return null;
+  try {
+    return parseVessel(raw);
+  } catch {
+    return null;
+  }
+}
+
+export function saveCurrentVessel(d: VesselDesign) {
+  write(CURRENT_VESSEL, d);
 }
 
 export function saveUnit(unit: UnitType) {

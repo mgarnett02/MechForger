@@ -8,7 +8,7 @@ import { DISCLAIMER_SHORT } from './legal';
 interface Props {
   current: EraId;
   currentTechBase: TechBase;
-  onSelect: (era: EraId, techBase: TechBase, unit: 'mech' | 'vehicle' | 'support' | 'fighter') => void;
+  onSelect: (era: EraId, techBase: TechBase, unit: 'mech' | 'vehicle' | 'support' | 'fighter' | 'vessel') => void;
   /** When provided the dialog can be dismissed without choosing (Esc / Cancel). */
   onCancel?: () => void;
   theme: ThemeChoice;
@@ -66,8 +66,8 @@ export function EraDialog({ current, currentTechBase, onSelect, onCancel, theme,
     setPending(era);
     setStep('unit');
   };
-  const [unit, setUnit] = useState<'mech' | 'vehicle' | 'support' | 'fighter'>('mech');
-  const pickUnit = (u: 'mech' | 'vehicle' | 'support' | 'fighter') => {
+  const [unit, setUnit] = useState<'mech' | 'vehicle' | 'support' | 'fighter' | 'vessel'>('mech');
+  const pickUnit = (u: 'mech' | 'vehicle' | 'support' | 'fighter' | 'vessel') => {
     if (!pending) return;
     setUnit(u);
     if (pending.techBases.length === 1) onSelect(pending.id, pending.techBases[0], u);
@@ -109,6 +109,13 @@ export function EraDialog({ current, currentTechBase, onSelect, onCancel, theme,
                 </span>
                 <span className="era-year">Fighter</span>
                 <span className="era-desc">Aerospace fighters (incl. OmniFighters) and conventional fighters.</span>
+              </button>
+              <button className="era-btn" onClick={() => pickUnit('vessel')}>
+                <span className="unit-icon" aria-hidden="true">
+                  <svg viewBox="0 0 48 48" width="40" height="40"><path d="M24 3c8 0 14 9 14 20v12l5 8H5l5-8V23C10 12 16 3 24 3zm0 9a5 5 0 1 0 0 10 5 5 0 1 0 0-10z" fill="currentColor" /></svg>
+                </span>
+                <span className="era-year">Small Craft / DropShip</span>
+                <span className="era-desc">Shuttles, assault boats and DropShips, with weapon bays, transport bays and crew.</span>
               </button>
             </div>
           </>

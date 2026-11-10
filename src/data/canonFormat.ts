@@ -5,6 +5,8 @@
 import type { Location, MechDesign, MountedItem, OmniConfiguration } from '../rules/types';
 import type { FighterDesign, FighterLocation } from '../rules/fighter';
 import { newFighterUid } from '../rules/fighter';
+import type { VesselDesign, VesselItem } from '../rules/vessel';
+import { newVesselUid } from '../rules/vessel';
 import type { VehicleDesign, VehicleLocation } from '../rules/vehicle';
 import { newUid } from '../rules/edit';
 import { newVehicleUid } from '../rules/vehicle';
@@ -117,4 +119,13 @@ export function decodeFighter(raw: unknown): FighterDesign {
       uid: newFighterUid(), equipmentId, location: location as FighterLocation | null, ...(flags.includes('R') ? { rear: true } : {}),
     })),
   };
+}
+
+export function encodeVessel(d: VesselDesign): unknown {
+  return { ...d, equipment: d.equipment.map(({ uid: _uid, ...e }) => e) };
+}
+
+export function decodeVessel(raw: unknown): VesselDesign {
+  const r = raw as Omit<VesselDesign, 'equipment'> & { equipment: Omit<VesselItem, 'uid'>[] };
+  return { ...r, equipment: r.equipment.map((e) => ({ ...e, uid: newVesselUid() })) };
 }

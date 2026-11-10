@@ -618,3 +618,17 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 .rs-velocity td { border: 1px solid #111; height: 14px; text-align: center; }
 .record-sheet.fighter .vplate-lw { border-radius: 14px 4px 4px 6px; }
 .record-sheet.fighter .vplate-rw { border-radius: 4px 14px 6px 4px; }
+.quarters-grid { display: flex; flex-direction: column; gap: 0.3rem; }
+.rs-ammo-line { display: flex; justify-content: space-between; font-size: 7pt; border-bottom: 1px dotted #999; padding: 2px 0; }
+.rs-cargo td { font-size: 7pt; }
+.record-sheet.vessel .rs-vehicle-figure .pips > span { width: 7px; height: 7px; border-width: 1px; }
+.record-sheet.vessel .rs-vehicle-figure .pips { gap: 1.5px; }
+.rs-grid-vessel {
+  grid-template-rows: auto auto auto auto;
+  grid-template-areas:
+    "data armor"
+    "crew armor"
+    "crit heat"
+    "notes notes";
+}
+.record-sheet.vessel .rs-table td, .record-sheet.vessel .rs-table th { padding-top: 0; padding-bottom: 0; }

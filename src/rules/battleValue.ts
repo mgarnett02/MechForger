@@ -15,6 +15,8 @@ import { runMP } from './tables';
 import { meleeBV, meleeCost } from './melee';
 import type { FighterDesign } from './fighter';
 import { computeFighter, fighterItemWeight } from './fighter';
+import type { VesselDesign, VesselItem } from './vessel';
+import { BAY_INFO, VESSEL_ARMOR_COST, computeVessel, shotsPerBin, vesselItemWeight } from './vessel';
 import type { VehicleDesign } from './vehicle';
 import { computeVehicle, vehicleItemWeight } from './vehicle';
 import { DEFENSIVE_IDS, ITEM_VALUES, MML_AMMO_BV, isGaussType } from './values';
@@ -454,5 +456,155 @@ export function fighterCost(d: FighterDesign): CostBreakdown {
   const subtotal = lines.reduce((a, [, v]) => a + v, 0);
   const multiplier = (1 + t / 200) * (d.omni ? 1.25 : 1);
   lines.push([d.omni ? '× (1 + tonnage/200) × 1.25 OmniFighter' : '× (1 + tonnage/200)', multiplier]);
+  return { total: round(subtotal * multiplier), lines, approximate: false };
+}
+
+// ---------------------------------------------------------------------------
+// Small craft and DropShips (MegaMek's AeroBVCalculator / DropShipBVCalculator and cost calculators)
+// ---------------------------------------------------------------------------
+
+/** BV arcs: nose, left, left-rear, aft, right-rear, right (in MegaMek's order). */
+function bvArc(item: VesselItem): number {
+  switch (item.location) {
+    case 'NOS': return 0;
+    case 'LS': return item.rear ? 2 : 1;
+    case 'AFT': return 3;
+    case 'RS': return item.rear ? 4 : 5;
+    default: return -1;
+  }
+}
+
+export function vesselBV(d: VesselDesign): BVBreakdown {
+  const s = computeVessel(d);
+  const lines: [string, number][] = [];
+  const dropship = d.vesselType === 'dropship';
+
+  // Defensive: armor, SI, defensive equipment; small craft lose BV for unprotected explosives.
+  const armor = s.armorTotal * 2.5;
+  const structure = d.si * 2;
+  const defEquip = defensiveEquipmentBV(d.equipment);
+  let explosive = 0;
+  if (!dropship && d.techBase !== 'Clan' && !d.equipment.some((e) => e.equipmentId === 'case')) {
+    const ammoTypes = new Set<string>();
+    for (const item of d.equipment) {
+      const eq = getEquipment(item.equipmentId);
+      if (!eq) continue;
+      if (eq.category === 'Ammo' && eq.ammoFor && !isGaussType(eq.ammoFor) && !/plasma/.test(eq.ammoFor)) ammoTypes.add(eq.id);
+      else if ((eq.isWeapon && isGaussType(eq.id)) || eq.explosive) explosive += 1;
+    }
+    explosive += 15 * ammoTypes.size;
+  }
+  const defensive = Math.max(1, armor + structure + defEquip - explosive);
+  lines.push(['Armor', armor], ['Structural integrity', structure]);
+  if (defEquip) lines.push(['Defensive equipment', defEquip]);
+  if (explosive) lines.push(['Explosive ammo / components', -explosive]);
+
+  const ammoBin = (item: VesselItem, eq: Equipment) => ammoValue(eq).bv * Math.max(1, Math.floor((item.shots ?? shotsPerBin(eq)) / shotsPerBin(eq)));
+  const tc = d.equipment.filter((e) => getEquipment(e.equipmentId)?.variableWeight === 'targetingComputer');
+  const offEquip = d.equipment.reduce((a, i) => {
+    const eq = getEquipment(i.equipmentId);
+    return eq && !eq.isWeapon && eq.category !== 'Ammo' && !DEFENSIVE_IDS.has(eq.id) ? a + (value(eq.id)?.bv ?? 0) : a;
+  }, 0);
+  let weaponBV = 0;
+  let ammo = 0;
+
+  if (!dropship) {
+    // Small craft are rated like fighters: aft and rear-facing weapons are the rear arc,
+    // and weapons are heat-tracked against 6 + dissipation.
+    const items = d.equipment.map((e) => ({ ...e, rear: e.rear || e.location === 'AFT' }));
+    const weapons = weaponEntries(items);
+    const frontBV = weapons.filter((w) => !w.rear).reduce((a, w) => a + w.bv, 0);
+    const rearBV = weapons.filter((w) => w.rear).reduce((a, w) => a + w.bv, 0);
+    for (const w of weapons) if (rearBV > frontBV ? !w.rear : w.rear) w.bv /= 2;
+    const heatEfficiency = 6 + s.heatSinks.dissipation;
+    weapons.sort((a, b) => ((a.heat === 0) !== (b.heat === 0) ? (a.heat === 0 ? -1 : 1) : b.bv - a.bv || a.heat - b.heat));
+    let heat = 0;
+    for (const w of weapons) { weaponBV += heat < heatEfficiency || w.heat === 0 ? w.bv : w.bv / 2; heat += w.heat; }
+    const perWeapon = new Map<string, number>();
+    for (const item of d.equipment) {
+      const eq = getEquipment(item.equipmentId);
+      if (eq?.ammoFor && !DEFENSIVE_IDS.has(eq.ammoFor)) perWeapon.set(eq.ammoFor, (perWeapon.get(eq.ammoFor) ?? 0) + ammoBin(item, eq));
+    }
+    for (const [id, bv] of perWeapon) ammo += Math.min(bv, weapons.filter((w) => w.id === id).reduce((a, w) => a + w.bv, 0));
+  } else {
+    // DropShips: six arcs. The strongest arc counts in full; its neighbours count full and half
+    // (dropping to half and quarter once heat efficiency is exceeded); the rest count a quarter.
+    const arcItems: VesselItem[][] = [[], [], [], [], [], []];
+    for (const item of d.equipment) { const a = bvArc(item); if (a >= 0) arcItems[a].push(item); }
+    const arcWeapons = arcItems.map((items) => weaponEntries([...items, ...tc]));
+    const arcBV = arcWeapons.map((ws) => ws.reduce((a, w) => a + w.bv, 0));
+    const arcHeat = arcWeapons.map((ws) => ws.reduce((a, w) => a + w.heat, 0));
+    const max = Math.max(...arcBV);
+    const nose = arcBV.indexOf(max);
+    const ccw = (nose + 1) % 6;
+    const cw = (nose + 5) % 6;
+    const [left, right] = arcBV[ccw] > arcBV[cw] ? [ccw, cw] : [cw, ccw];
+    const heatEfficiency = s.heatSinks.dissipation;
+    const factor: number[] = [0.25, 0.25, 0.25, 0.25, 0.25, 0.25];
+    factor[nose] = 1;
+    let heat = arcHeat[nose];
+    factor[left] = heat > heatEfficiency ? 0.5 : 1;
+    heat += arcHeat[left];
+    factor[right] = heat > heatEfficiency ? 0.25 : 0.5;
+    for (let a = 0; a < 6; a++) {
+      weaponBV += arcBV[a] * factor[a];
+      // Ammo counts in the arc it feeds, up to the BV of that arc's weapons of the type.
+      const perWeapon = new Map<string, number>();
+      for (const item of arcItems[a]) {
+        const eq = getEquipment(item.equipmentId);
+        if (eq?.ammoFor && !DEFENSIVE_IDS.has(eq.ammoFor)) perWeapon.set(eq.ammoFor, (perWeapon.get(eq.ammoFor) ?? 0) + ammoBin(item, eq));
+      }
+      for (const [id, bv] of perWeapon) {
+        const cap = arcWeapons[a].filter((w) => w.id === id).reduce((x, w) => x + w.bv, 0);
+        ammo += Math.min(bv, cap) * factor[a];
+      }
+    }
+    const names = ['nose', 'left', 'left rear', 'aft', 'right rear', 'right'];
+    lines.push([`Primary arc: ${names[nose]}`, arcBV[nose]]);
+  }
+  const sf = speedFactor(s.maxThrust);
+  const offensive = (weaponBV + ammo + offEquip) * sf;
+  lines.push(['Weapons', weaponBV], ['Ammunition', ammo]);
+  if (offEquip) lines.push(['Offensive equipment', offEquip]);
+  lines.push([`Speed factor (max thrust ${s.maxThrust})`, sf]);
+  return { total: round(defensive + offensive), defensive, offensive, lines, approximate: false };
+}
+
+export function vesselCost(d: VesselDesign): CostBreakdown {
+  const s = computeVessel(d);
+  const t = d.tonnage;
+  const arcsWithGuns = new Set(d.equipment.filter((e) => getEquipment(e.equipmentId)?.isWeapon && e.location && e.location !== 'HULL').map((e) => e.location)).size;
+  const people = d.crew.crew + d.crew.passengers;
+  const equipment = d.equipment.reduce((a, item) => {
+    const eq = getEquipment(item.equipmentId);
+    if (!eq) return a;
+    if (eq.category === 'Ammo') return a + ammoValue(eq).cost * Math.ceil((item.shots ?? shotsPerBin(eq)) / shotsPerBin(eq));
+    return a + equipmentCost([item], (e) => vesselItemWeight(e, d, item), 0);
+  }, 0);
+  const lines: [string, number][] = [
+    ['Bridge', 200000 + 10 * t],
+    ['Computer', 200000],
+    ['Life support', 5000 * people],
+    ['Sensors', 80000],
+    ['Fire control computer', 100000],
+    ['Gunnery control systems', 10000 * arcsWithGuns],
+    ['Structural integrity', 100000 * d.si],
+    ['Attitude thrusters', 25000],
+    ['Landing gear', 10 * t],
+    ['Engine', s.weights.engine * 1000],
+    ['Drive unit', (500 * d.safeThrust * t) / 100],
+    ['Fuel tanks', 200 * s.weights.fuel],
+    ['Armor', VESSEL_ARMOR_COST[d.armorType] * s.weights.armor],
+    ['Heat sinks', (d.heatSinkType === 'double' ? 6000 : 2000) * d.heatSinks],
+    ['Weapons & equipment', equipment],
+  ];
+  let multiplier = 1 + t / 50;
+  if (d.vesselType === 'dropship') {
+    const bays = d.bays.reduce((a, b) => a + BAY_INFO[b.kind].cost * Math.ceil(BAY_INFO[b.kind].cargo ? BAY_INFO[b.kind].tons * b.size : b.size), 0);
+    lines.push(['Docking collar', 10000], ['Bays and doors', bays + 1000 * s.bayDoors], ['Life boats / escape pods', 5000 * (d.lifeboats + d.escapePods)]);
+    multiplier = d.shape === 'spheroid' ? 28 : 36;
+  }
+  const subtotal = lines.reduce((a, [, v]) => a + v, 0);
+  lines.push([d.vesselType === 'dropship' ? `× ${multiplier} (${d.shape} DropShip)` : '× (1 + tonnage/50)', multiplier]);
   return { total: round(subtotal * multiplier), lines, approximate: false };
 }

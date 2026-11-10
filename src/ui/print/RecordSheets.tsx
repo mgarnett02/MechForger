@@ -15,6 +15,10 @@ import { FIGHTER_ARMOR_NAMES, FIGHTER_ENGINE_LABELS, FIGHTER_LOCATION_NAMES, arm
 import type { FighterWeaponRow } from '../../rules/recordSheet';
 import { fighterSheetData } from '../../rules/recordSheet';
 import { fighterBV, fighterCost } from '../../rules/battleValue';
+import type { VesselArc, VesselDesign } from '../../rules/vessel';
+import { BAY_INFO, VESSEL_ARMOR_NAMES, VESSEL_LOCATION_NAMES, armorThreshold as vesselThreshold, computeVessel } from '../../rules/vessel';
+import { vesselSheetData } from '../../rules/recordSheet';
+import { vesselBV, vesselCost } from '../../rules/battleValue';
 import type { AmmoRow, EquipmentRow, WeaponRow } from '../../rules/recordSheet';
 import { CONSCIOUSNESS, HEAT_SCALE, mechSheetData, vehicleSheetData } from '../../rules/recordSheet';
 import type { VehicleArmorLocation, VehicleDesign } from '../../rules/vehicle';
@@ -681,6 +685,133 @@ export function FighterRecordSheet({ design }: { design: FighterDesign }) {
 
         <Panel title="Ammunition" className="area-ammo">
           <AmmoTrack rows={data.ammo} />
+        </Panel>
+
+        <Panel title="Velocity Record" className="area-notes">
+          <table className="rs-velocity">
+            <tbody>
+              <tr><th>Turn #</th>{Array.from({ length: 10 }, (_, i) => <td key={i}>{i + 1}</td>)}</tr>
+              <tr><th>Thrust</th>{Array.from({ length: 10 }, (_, i) => <td key={i} />)}</tr>
+              <tr><th>Velocity</th>{Array.from({ length: 10 }, (_, i) => <td key={i} />)}</tr>
+              <tr><th>Altitude</th>{Array.from({ length: 10 }, (_, i) => <td key={i} />)}</tr>
+            </tbody>
+          </table>
+        </Panel>
+      </div>
+      <Footer />
+    </article>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Small craft and DropShips
+// ---------------------------------------------------------------------------
+
+const VESSEL_PLATES: [VesselArc, string][] = [['NOS', 'no'], ['LS', 'lw'], ['RS', 'rw'], ['AFT', 'af']];
+
+export function VesselRecordSheet({ design }: { design: VesselDesign }) {
+  const s = computeVessel(design);
+  const data = vesselSheetData(design);
+  const dropship = design.vesselType === 'dropship';
+  const name = `${design.chassis} ${design.model}`.trim() || 'Unnamed';
+  const kind = dropship ? 'DropShip Record Sheet' : 'Small Craft Record Sheet';
+  const capped = (n: number) => Math.min(n, 120);
+  return (
+    <article className="record-sheet vehicle fighter vessel">
+      <SheetHeader kind={kind} name={name} />
+      <div className="rs-grid-fighter rs-grid-vessel">
+        <Panel title="Craft Data" className="area-data">
+          <div className="rs-fields">
+            <Field label="Type" value={`${name} (${design.military ? 'military' : 'civilian'} ${design.shape})`} wide />
+            <div className="rs-move">
+              <span className="rs-label">Thrust:</span>
+              <Field label="Safe" value={design.safeThrust} />
+              <Field label="Maximum" value={s.maxThrust} />
+            </div>
+            <Field label="Tonnage" value={design.tonnage.toLocaleString('en-US')} />
+            <Field label="Tech Base" value={techBase(design)} />
+            <Field label="Era" value={eraName(design)} />
+            <Field label="Rules Level" value={rulesLevel(design)} />
+            <Field label="Battle Value" value={vesselBV(design).total.toLocaleString('en-US')} />
+            <Field label="Cost" value={`${vesselCost(design).total.toLocaleString('en-US')} C-bills`} />
+            <Field label="Fuel" value={`${s.fuelPoints.toLocaleString('en-US')} points`} />
+            <Field label="Crew" value={`${design.crew.crew} (${design.crew.officers} off., ${design.crew.gunners} gun.)`} />
+          </div>
+          <div className="rs-inventory">
+            <div className="rs-subtitle">{dropship ? 'Weapon Bays' : 'Weapons'} <span>(attack values by range bracket)</span></div>
+            <table className="rs-table">
+              <thead><tr><th className="left">{dropship ? 'Bay' : 'Type'}</th><th>Loc</th><th>Ht</th><th>SRV</th><th>MRV</th><th>LRV</th><th>ERV</th></tr></thead>
+              <tbody>
+                {data.bays.map((r, i) => (
+                  <tr key={i}><td className="left">{r.name}</td><td>{r.location}</td><td>{r.heat}</td>{r.av.map((v, j) => <td key={j}>{v}</td>)}</tr>
+                ))}
+                {data.equipment.map((r, i) => (
+                  <tr key={`e${i}`}><td className="left">{r.qty > 1 ? `${r.qty} ${r.name}` : r.name}</td><td>{r.location}</td><td>—</td><td>[E]</td><td>—</td><td>—</td><td>—</td></tr>
+                ))}
+                {data.bays.length + data.equipment.length === 0 && <tr><td colSpan={7} className="rs-empty">No weapons or equipment</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </Panel>
+
+        <Panel title="Armor Diagram" className="area-armor">
+          <div className="rs-vehicle-figure aero">
+            {VESSEL_PLATES.map(([arc, area]) => (
+              <div key={arc} className={`rs-plate vplate-${area}`} style={{ gridArea: area }}>
+                <div className="rs-plate-label">{VESSEL_LOCATION_NAMES[arc]} <b>({design.armor[arc]})</b> · TH {vesselThreshold(design.armor[arc])}</div>
+                <Pips count={capped(design.armor[arc])} kind="armor" />
+                {design.armor[arc] > 120 && <div className="rs-plate-label">+ {design.armor[arc] - 120} more (write in)</div>}
+              </div>
+            ))}
+            <div className="rs-vehicle-body rs-fighter-si" style={{ gridArea: 'body' }}>
+              <span>Structural Integrity ({design.si})</span>
+              <Pips count={capped(design.si)} kind="structure" />
+            </div>
+          </div>
+          <div className="rs-armor-total">Armor: <b>{s.armorTotal.toLocaleString('en-US')}</b> ({VESSEL_ARMOR_NAMES[design.armorType]}) · SI: <b>{design.si}</b></div>
+        </Panel>
+
+        <Panel title="Crew & Cargo" className="area-crew">
+          <table className="rs-table rs-cargo">
+            <tbody>
+              {design.bays.map((b, i) => (
+                <tr key={i}><td className="left">{BAY_INFO[b.kind].name}</td><td>{b.size} {BAY_INFO[b.kind].unit}</td><td>{b.doors} door{b.doors === 1 ? '' : 's'}</td></tr>
+              ))}
+              <tr><td className="left">Passengers / marines / BA</td><td colSpan={2}>{design.crew.passengers} / {design.crew.marines} / {design.crew.battleArmor}</td></tr>
+              <tr><td className="left">Life boats / escape pods</td><td colSpan={2}>{design.lifeboats} / {design.escapePods}</td></tr>
+            </tbody>
+          </table>
+          <div className="rs-fields" style={{ marginTop: 4 }}>
+            <Field label="Gunnery Skill" /><Field label="Piloting Skill" />
+          </div>
+        </Panel>
+
+        <Panel title="Critical Damage" className="area-crit">
+          <div className="rs-crit-boxes">
+            <div><span>Avionics</span><span className="rs-check" /><i>+1</i><span className="rs-check" /><i>+2</i><span className="rs-check" /><i>+5</i></div>
+            <div><span>FCS</span><span className="rs-check" /><i>+2</i><span className="rs-check" /><i>+4</i><span className="rs-check" /><i>D</i></div>
+            <div><span>Sensors</span><span className="rs-check" /><i>+1</i><span className="rs-check" /><i>+2</i><span className="rs-check" /><i>+5</i></div>
+            <div><span>Engine</span><span className="rs-check" /><span className="rs-check" /><span className="rs-check" /><span className="rs-check" /><span className="rs-check" /><span className="rs-check" /></div>
+            <div><span>Crew</span><span className="rs-check" /><i>+1</i><span className="rs-check" /><i>+2</i><span className="rs-check" /><i>+3</i><span className="rs-check" /><i>+4</i></div>
+            <div><span>Thrusters</span><label>Left <span className="rs-check" /></label><label>Right <span className="rs-check" /></label></div>
+            <div><span>Life Support</span><span className="rs-check" /></div>
+            <div><span>Landing Gear</span><span className="rs-check" /></div>
+            {dropship && <div><span>Docking Collar</span><span className="rs-check" /></div>}
+            {dropship && <div><span>K-F Boom</span><span className="rs-check" /></div>}
+          </div>
+        </Panel>
+
+        <Panel title="Heat Data" className="area-heat">
+          <div className="rs-heat-sinks">
+            <div className="rs-hs-label">Heat Sinks: <b>{design.heatSinks}</b> ({design.heatSinkType === 'double' ? 'Double' : 'Single'})</div>
+            <div className="rs-hs-label">Dissipation: <b>{s.heatSinks.dissipation}</b></div>
+          </div>
+          <p className="rs-note">* All weapons: {s.weaponHeat} heat</p>
+          <h4 className="rs-subtitle" style={{ marginTop: 6 }}>Ammunition</h4>
+          {data.ammo.length === 0 && <p className="rs-note left">None</p>}
+          {data.ammo.map((a, i) => (
+            <div key={i} className="rs-ammo-line"><span>{a.name} [{a.location}]</span><span>Shots: ____ / {a.shots}</span></div>
+          ))}
         </Panel>
 
         <Panel title="Velocity Record" className="area-notes">

@@ -5,12 +5,14 @@ import type { VehicleDesign } from '../../rules/vehicle';
 import { isVehicle } from '../../rules/vehicle';
 import type { SupportVehicleDesign } from '../../rules/support';
 import { isSupport } from '../../rules/support';
-import { FighterRecordSheet, MechRecordSheet, SupportRecordSheet, VehicleRecordSheet } from './RecordSheets';
+import { FighterRecordSheet, MechRecordSheet, SupportRecordSheet, VehicleRecordSheet, VesselRecordSheet } from './RecordSheets';
+import type { VesselDesign } from '../../rules/vessel';
+import { isVessel } from '../../rules/vessel';
 import type { FighterDesign } from '../../rules/fighter';
 import { isFighter } from '../../rules/fighter';
 
 interface Props {
-  design: MechDesign | VehicleDesign | SupportVehicleDesign | FighterDesign;
+  design: MechDesign | VehicleDesign | SupportVehicleDesign | FighterDesign | VesselDesign;
   onClose: () => void;
 }
 
@@ -18,7 +20,7 @@ type Paper = 'letter' | 'a4';
 
 /** Full-screen preview of the record sheet(s), printed with the browser / app print dialog. */
 export function PrintPreview({ design, onClose }: Props) {
-  const isMech = !isVehicle(design) && !isSupport(design) && !isFighter(design);
+  const isMech = !isVehicle(design) && !isSupport(design) && !isFighter(design) && !isVessel(design);
   const mech = isMech ? (design as MechDesign) : null;
   const [allConfigs, setAllConfigs] = useState(false);
   const [paper, setPaper] = useState<Paper>(() => (navigator.language === 'en-US' ? 'letter' : 'a4'));
@@ -68,6 +70,7 @@ export function PrintPreview({ design, onClose }: Props) {
       <div className={`print-pages paper-${paper}`}>
         {isMech
           ? mechs.map((m, i) => <MechRecordSheet key={i} design={m} />)
+          : isVessel(design) ? <VesselRecordSheet design={design} />
           : isFighter(design) ? <FighterRecordSheet design={design} />
           : isSupport(design) ? <SupportRecordSheet design={design} />
           : <VehicleRecordSheet design={design as VehicleDesign} />}

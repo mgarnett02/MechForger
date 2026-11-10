@@ -10,6 +10,8 @@ import { meleeDamage } from './melee';
 import type { FighterDesign } from './fighter';
 import { fighterItemWeight } from './fighter';
 import { AERO_AV } from './aeroAV';
+import type { VesselDesign, VesselItem } from './vessel';
+import { computeVessel, shotsPerBin, vesselItemWeight } from './vessel';
 import type { VehicleDesign } from './vehicle';
 import { VEHICLE_LOCATION_NAMES, turretName, vehicleItemWeight } from './vehicle';
 
@@ -196,4 +198,38 @@ export function fighterSheetData(d: FighterDesign): { weapons: FighterWeaponRow[
     .filter((eq): eq is Equipment => !!eq && eq.category === 'Ammo')
     .map((eq) => ({ name: shortEquipmentName(eq, d), location: 'FUS', shots: ammoShots(eq) }));
   return { weapons, equipment, ammo };
+}
+
+export interface VesselBayRow {
+  name: string;
+  location: string;
+  heat: number;
+  av: [string, string, string, string];
+}
+
+/** One row per weapon bay: its weapons, total heat and summed attack values per bracket. */
+export function vesselSheetData(d: VesselDesign): { bays: VesselBayRow[]; equipment: EquipmentRow[]; ammo: AmmoRow[] } {
+  const bays = computeVessel(d).weaponBays.map((g): VesselBayRow => {
+    const counts = new Map<string, number>();
+    const av = [0, 0, 0, 0];
+    let heat = 0;
+    for (const item of g.items) {
+      const eq = getEquipment(item.equipmentId)!;
+      const name = shortEquipmentName(eq, d);
+      counts.set(name, (counts.get(name) ?? 0) + 1);
+      heat += eq.heat;
+      (AERO_AV[eq.id] ?? [0, 0, 0, 0]).forEach((v, i) => { av[i] += v; });
+    }
+    const name = [...counts].map(([n, c]) => (c > 1 ? `${c} ${n}` : n)).join(', ');
+    return { name, location: g.arc + (g.rear ? ' (R)' : ''), heat, av: av.map((v) => (v ? String(v) : '—')) as VesselBayRow['av'] };
+  });
+  const equipment = group(
+    d.equipment.filter((e) => { const eq = getEquipment(e.equipmentId); return eq && !eq.isWeapon && eq.category !== 'Ammo'; }),
+    (e) => ({ label: e.location ?? '—', order: 0, rear: false }),
+  ).map((g) => ({ qty: g.count, name: shortEquipmentName(g.eq, d), location: g.location, tons: vesselItemWeight(g.eq, d) * g.count }));
+  const ammo = d.equipment
+    .map((e) => ({ e, eq: getEquipment(e.equipmentId) }))
+    .filter((x): x is { e: VesselItem; eq: Equipment } => !!x.eq && x.eq.category === 'Ammo')
+    .map(({ e, eq }) => ({ name: shortEquipmentName(eq, d).replace(/\s*\(\d+\)$/, ''), location: e.location ?? '—', shots: e.shots ?? shotsPerBin(eq) }));
+  return { bays, equipment, ammo };
 }
