@@ -2,7 +2,7 @@ import type {
   ArmLocation, ArmorAllocation, ArmorFacing, ArmorType, CockpitType, EngineType, GyroType, HeatSinkType, JumpJetType, Location,
   MechConfig, MechDesign, MountedItem, MyomerType, OmniData, StructureType, TechBase,
 } from './types';
-import { ARMOR_FACINGS, LOCATIONS, REAR_FACING, isQuad } from './types';
+import { ARMOR_FACINGS, LOCATIONS, REAR_FACING, isQuad, legLocations } from './types';
 import {
   FREE_HEAT_SINKS, armorPointsPerTon, armorSlots, engineHeatSinkCapacity, maxWalkMP, structureSlots,
 } from './tables';
@@ -185,12 +185,21 @@ export function setArmorTonnage(d: MechDesign, tons: number): MechDesign {
 }
 
 export function addEquipment(d: MechDesign, equipmentId: string, location: Location | null = null): MechDesign {
-  const item: MountedItem = { uid: newUid(), equipmentId, location };
-  if (d.omni && !isFixedOnly(equipmentId)) item.pod = true;
+  const pod = d.omni && !isFixedOnly(equipmentId) ? { pod: true } : {};
+  // Talons come as a set: one in every leg.
+  if (equipmentId === 'talons' && location === null) {
+    if (d.equipment.some((e) => e.equipmentId === 'talons')) return d;
+    const set = legLocations(d).map((leg): MountedItem => ({ uid: newUid(), equipmentId, location: leg, ...pod }));
+    return { ...d, equipment: [...d.equipment, ...set] };
+  }
+  const item: MountedItem = { uid: newUid(), equipmentId, location, ...pod };
   return { ...d, equipment: [...d.equipment, item] };
 }
 
 export function removeEquipment(d: MechDesign, uid: string): MechDesign {
+  const target = d.equipment.find((e) => e.uid === uid);
+  // Removing one talon removes the whole set.
+  if (target?.equipmentId === 'talons') return { ...d, equipment: d.equipment.filter((e) => e.equipmentId !== 'talons') };
   return { ...d, equipment: d.equipment.filter((e) => e.uid !== uid) };
 }
 
@@ -353,10 +362,14 @@ export function parseDesign(raw: unknown): MechDesign {
   let omni: OmniData | null = null;
   const o = r.omni as { configurations?: unknown; active?: unknown } | null | undefined;
   if (o && Array.isArray(o.configurations) && o.configurations.length > 0) {
-    const configurations = o.configurations.map((c: { name?: unknown; pod?: unknown }, i: number) => ({
-      name: typeof c?.name === 'string' && c.name ? c.name : `Config ${i + 1}`,
-      pod: Array.isArray(c?.pod) ? parseItems(c.pod).map((p) => ({ ...p, pod: true })) : [],
-    }));
+    const configurations = o.configurations.map((c: { name?: unknown; pod?: unknown; actuators?: unknown }, i: number) => {
+      const ca = c?.actuators as Record<string, { lowerArm?: unknown; hand?: unknown }> | undefined;
+      return {
+        name: typeof c?.name === 'string' && c.name ? c.name : `Config ${i + 1}`,
+        pod: Array.isArray(c?.pod) ? parseItems(c.pod).map((p) => ({ ...p, pod: true })) : [],
+        ...(ca && typeof ca === 'object' ? { actuators: { LA: arm(ca.LA), RA: arm(ca.RA) } } : {}),
+      };
+    });
     const active = typeof o.active === 'number' && configurations[o.active] ? o.active : 0;
     omni = { configurations, active };
   }

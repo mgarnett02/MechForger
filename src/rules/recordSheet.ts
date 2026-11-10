@@ -6,6 +6,7 @@ import type { MechDesign } from './types';
 import { LOCATIONS, locationAbbr } from './types';
 import type { Equipment } from './equipment';
 import { equipmentName, getEquipment, itemWeight } from './equipment';
+import { meleeDamage } from './melee';
 import type { VehicleDesign } from './vehicle';
 import { VEHICLE_LOCATION_NAMES, turretName, vehicleItemWeight } from './vehicle';
 
@@ -100,13 +101,19 @@ export function mechSheetData(d: MechDesign): SheetData {
     return eq && !eq.managed;
   });
   const groups = group(placed, (e) => ({
-    label: e.location ? locationAbbr(d, e.location) : '—',
+    // A set of talons spans every leg: one row.
+    label: e.equipmentId === 'talons' ? 'Legs' : e.location ? locationAbbr(d, e.location) : '—',
     order: e.location ? MECH_ORDER[e.location] : 99,
     rear: !!e.rear,
   }));
-  const weapons = groups.filter((g) => g.eq.isWeapon).map((g) => weaponRow(g, equipmentName(g.eq, d), true, false));
+  const weapons = groups.filter((g) => g.eq.isWeapon || g.eq.melee).map((g) => {
+    const row = weaponRow(g, equipmentName(g.eq, d), true, false);
+    if (!g.eq.melee) return row;
+    // Melee weapons: no heat, adjacent-hex only; a talon set is one item.
+    return { ...row, qty: g.eq.melee === 'talons' ? 1 : row.qty, heat: '—', damage: meleeDamage(g.eq.melee, d.tonnage) };
+  });
   const equipment = groups
-    .filter((g) => !g.eq.isWeapon && g.eq.category !== 'Ammo')
+    .filter((g) => !g.eq.isWeapon && !g.eq.melee && g.eq.category !== 'Ammo')
     .map((g) => ({ qty: g.count, name: equipmentName(g.eq, d), location: g.location, tons: itemWeight(g.eq, d) * g.count }));
   const ammo = placed
     .map((e) => ({ e, eq: getEquipment(e.equipmentId)! }))

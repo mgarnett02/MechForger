@@ -32,11 +32,11 @@ export function activeConfigName(d: MechDesign): string | null {
   return d.omni ? d.omni.configurations[d.omni.active]?.name ?? null : null;
 }
 
-/** Store the live pod items back into the active configuration. */
+/** Store the live pod items and arm actuators back into the active configuration. */
 function stash(d: MechDesign): MechDesign {
   if (!d.omni) return d;
   const configurations = d.omni.configurations.map((c, i) =>
-    i === d.omni!.active ? { ...c, pod: podItems(d) } : c,
+    i === d.omni!.active ? { ...c, pod: podItems(d), actuators: d.actuators } : c,
   );
   return { ...d, omni: { ...d.omni, configurations } };
 }
@@ -60,10 +60,11 @@ export function setOmni(d: MechDesign, on: boolean): MechDesign {
 export function switchConfiguration(d: MechDesign, index: number): MechDesign {
   if (!d.omni || index === d.omni.active || !d.omni.configurations[index]) return d;
   const s = stash(d);
-  const incoming = s.omni!.configurations[index].pod;
+  const incoming = s.omni!.configurations[index];
   return {
     ...s,
-    equipment: [...fixedItems(s), ...incoming],
+    actuators: incoming.actuators ?? s.actuators,
+    equipment: [...fixedItems(s), ...incoming.pod],
     omni: { ...s.omni!, active: index },
   };
 }
@@ -92,7 +93,7 @@ export function addConfiguration(d: MechDesign, copyActive: boolean, name?: stri
   const s = stash(d);
   const pod = copyActive ? podItems(d).map((e) => ({ ...e, uid: freshUid() })) : [];
   const configName = uniqueName(s, name?.trim() || nextLetter(s));
-  const configurations = [...s.omni!.configurations, { name: configName, pod }];
+  const configurations = [...s.omni!.configurations, { name: configName, pod, actuators: d.actuators }];
   return switchConfiguration({ ...s, omni: { ...s.omni!, configurations } }, configurations.length - 1);
 }
 
@@ -126,7 +127,9 @@ export function configurationDesigns(d: MechDesign): { name: string; design: Mec
   return d.omni.configurations.map((c, i) => ({
     name: c.name,
     active: i === d.omni!.active,
-    design: i === d.omni!.active ? d : { ...d, equipment: [...fixed, ...c.pod], omni: { ...d.omni!, active: i } },
+    design: i === d.omni!.active ? d : {
+      ...d, actuators: c.actuators ?? d.actuators, equipment: [...fixed, ...c.pod], omni: { ...d.omni!, active: i },
+    },
   }));
 }
 

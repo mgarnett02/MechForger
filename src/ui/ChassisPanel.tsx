@@ -216,7 +216,7 @@ export function ChassisPanel({ design, summary, update }: Props) {
           Its legs can carry weapons, which may face forward or to the rear.
         </p>
       ) : (<>
-      <h3>Arm actuators</h3>
+      <h3>Arm actuators{design.omni && <span className="muted small"> (this configuration)</span>}</h3>
       <div className="actuators">
         {ARM_LOCATIONS.map((arm) => (
           <div key={arm}>

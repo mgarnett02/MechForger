@@ -89,6 +89,11 @@ export interface OmniConfiguration {
   name: string;
   /** Pod items for this configuration (for the active one, the live copy is in design.equipment). */
   pod: MountedItem[];
+  /**
+   * Lower arm / hand actuators for this configuration (OmniMechs may change them per configuration).
+   * For the active one, the live copy is design.actuators. Absent = same as the active configuration.
+   */
+  actuators?: Record<ArmLocation, ArmActuators>;
 }
 
 export interface OmniData {

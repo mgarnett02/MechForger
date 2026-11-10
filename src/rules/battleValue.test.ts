@@ -56,7 +56,7 @@ describe('BV building blocks', () => {
 
   it('every weapon and piece of equipment has BV and cost values', () => {
     const missing = ALL_EQUIPMENT.filter(
-      (e) => !e.managed && e.category !== 'Ammo' && !e.variableWeight && !ITEM_VALUES[e.id],
+      (e) => !e.managed && e.category !== 'Ammo' && !e.variableWeight && !e.melee && !ITEM_VALUES[e.id],
     ).map((e) => e.id);
     expect(missing).toEqual([]);
   });

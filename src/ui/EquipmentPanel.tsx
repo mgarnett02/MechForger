@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import type { Location, MechDesign, MountedItem } from '../rules/types';
-import { locationName } from '../rules/types';
+import { isQuad, locationName } from '../rules/types';
 import type { MechSummary } from '../rules/construction';
 import type { Equipment, EquipmentCategory } from '../rules/equipment';
 import {
   ALL_EQUIPMENT, FILLER_IDS, allowedLocations, canRearMount, equipmentName, getEquipment,
-  isEquipmentAvailable, itemSlots, itemWeight,
+  isEquipmentAvailable, itemSlots, itemWeight, legCount,
 } from '../rules/equipment';
+import { meleeDamage } from '../rules/melee';
 import { addEquipment, removeEquipment, setItemLocation, setItemRear } from '../rules/edit';
 import { activeConfigName, isFixedOnly, setItemPod } from '../rules/omni';
 import { OmniBar } from './OmniBar';
@@ -24,6 +25,7 @@ const TABS: { id: EquipmentCategory; label: string }[] = [
   { id: 'Ballistic', label: 'Ballistic' },
   { id: 'Missile', label: 'Missile' },
   { id: 'Ammo', label: 'Ammo' },
+  { id: 'Physical', label: 'Melee' },
   { id: 'Other', label: 'Equipment' },
 ];
 
@@ -71,23 +73,26 @@ export function EquipmentPanel({ design, summary, update, selected, setSelected 
           </thead>
           <tbody>
             {catalog.map((eq) => {
-              const tons = itemWeight(eq, design);
+              // Talons are bought as a set (one per leg).
+              const tons = eq.melee === 'talons' ? itemWeight(eq, design) * legCount(design) : itemWeight(eq, design);
+              const noArms = !!eq.armOnly && isQuad(design);
               const tooHeavy = tons > summary.weights.free;
               return (
                 <tr key={eq.id} className={eq.ammoFor && !mountedIds.has(eq.ammoFor) ? 'dim' : ''}>
                   <td>{equipmentName(eq, design)}</td>
                   {showCombat && (
                     <>
-                      <td className="num">{eq.damage ?? '—'}</td>
+                      <td className="num">{eq.melee ? meleeDamage(eq.melee, design.tonnage) : eq.damage ?? '—'}</td>
                       <td className="num">{eq.heat}</td>
                       <td>{rangeText(eq)}</td>
                     </>
                   )}
                   <td className="num">{tons}</td>
-                  <td className="num">{itemSlots(eq, design)}</td>
+                  <td className="num">{itemSlots(eq, design)}{eq.melee === 'talons' ? ' / leg' : ''}</td>
                   <td>
-                    <button className="small" disabled={tooHeavy}
-                      title={tooHeavy ? 'Not enough free tonnage' : 'Add to mech'}
+                    <button className="small" disabled={tooHeavy || noArms}
+                      title={noArms ? 'Arm-mounted: quads have no arms' : tooHeavy ? 'Not enough free tonnage'
+                        : eq.melee === 'talons' ? 'Fits talons to every leg' : 'Add to mech'}
                       onClick={() => update((d) => addEquipment(d, eq.id))}>Add</button>
                   </td>
                 </tr>

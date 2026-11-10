@@ -269,7 +269,8 @@ function parseMtf(text: string): ParsedMech {
   const cockpitType: CockpitType = !ck || /^Standard/.test(ck) ? 'standard' : /^Small/.test(ck) ? 'small' : fail(`cockpit ${ck}`);
   const my = get('myomer');
   const myomer = !my || my === 'Standard' ? 'standard' : my === 'Triple-Strength' ? 'tsm' : fail(`myomer ${my}`);
-  if (kv.has('ejection') || kv.has('lam')) fail('special systems');
+  // A Full Head Ejection System (Hatchetman, Axman…) takes no slots or weight; other systems aren't supported.
+  if (kv.has('lam') || (kv.has('ejection') && !/^Full Head Ejection System$/i.test(get('ejection')))) fail('special systems');
 
   const armor: ArmorAllocation = {
     HD: Number(get('hd armor')), CT: Number(get('ct armor')), CTR: Number(get('rtc armor')),
@@ -279,9 +280,10 @@ function parseMtf(text: string): ParsedMech {
   };
   for (const [k, v] of Object.entries(armor)) if (!Number.isFinite(v)) fail(`armor value ${k}`);
 
+  const slotNames = (l: Location) => (crits[l] ?? []).map((c) => c.replace(/\s*\((ARMORED|OMNIPOD)\)/gi, '').trim());
   const arm = (l: Location) => ({
-    lowerArm: !!crits[l]?.includes('Lower Arm Actuator'),
-    hand: !!crits[l]?.includes('Hand Actuator'),
+    lowerArm: slotNames(l).includes('Lower Arm Actuator'),
+    hand: slotNames(l).includes('Hand Actuator'),
   });
 
   const sizing = { tonnage, techBase, equipment: [] as MountedItem[] };
@@ -592,7 +594,11 @@ function main() {
       ...base.design,
       model: '',
       equipment: [...fixed, ...podsOf(base)],
-      omni: { active: 0, configurations: group.map((p, i) => ({ name: p.design.model, pod: i === 0 ? [] : podsOf(p) })) },
+      // OmniMechs may change lower arm and hand actuators per configuration.
+      omni: {
+        active: 0,
+        configurations: group.map((p, i) => ({ name: p.design.model, pod: i === 0 ? [] : podsOf(p), actuators: p.design.actuators })),
+      },
     };
     const d = settleEra(design, Math.min(...group.map((g) => g.year)), (x) => validate(x).map((i) => i.message));
     plain.push(mechEntry(d, base, group.length));

@@ -4,7 +4,10 @@ import type { EraId } from './eras';
 import { isAvailableIn } from './eras';
 import { jumpJetWeight, mascWeight } from './tables';
 
-export type EquipmentCategory = 'Energy' | 'Ballistic' | 'Missile' | 'Ammo' | 'Other' | 'Utility';
+export type EquipmentCategory = 'Energy' | 'Ballistic' | 'Missile' | 'Ammo' | 'Physical' | 'Other' | 'Utility';
+
+/** Physical (melee) weapons. Their weight, slots, damage, BV and cost mostly scale with the mech's tonnage. */
+export type MeleeKind = 'hatchet' | 'sword' | 'mace' | 'claw' | 'retractable-blade' | 'chain-whip' | 'talons' | 'spikes';
 
 export interface RangeBrackets {
   min: number;
@@ -40,6 +43,10 @@ export interface Equipment {
   fixedOnly?: boolean;
   /** Added/removed through chassis controls rather than the equipment catalog. */
   managed?: boolean;
+  /** Physical (melee) weapon. */
+  melee?: MeleeKind;
+  /** Arm-mounted only (so not available to quads, whose front legs share the arm locations). */
+  armOnly?: boolean;
   /** Which tech base can mount it ('Both' = generic, e.g. jump jets). */
   techBase: TechBase | 'Both';
   /** First era in which the item is available. */
@@ -59,6 +66,8 @@ const IS_3068: Avail = { techBase: 'IS', firstEra: '3068' };
 const CLAN_3068: Avail = { techBase: 'Clan', firstEra: '3068' };
 const ANY_3025: Avail = { techBase: 'Both', firstEra: '3025' };
 const ANY_3050: Avail = { techBase: 'Both', firstEra: '3050' };
+const IS_3081: Avail = { techBase: 'IS', firstEra: '3081' };
+const CLAN_3081: Avail = { techBase: 'Clan', firstEra: '3081' };
 
 const TORSO: readonly Location[] = ['CT', 'LT', 'RT'];
 const NOT_HEAD: readonly Location[] = ['CT', 'LT', 'RT', 'LA', 'RA', 'LL', 'RL'];
@@ -319,6 +328,21 @@ export const OTHER_EQUIPMENT: readonly Equipment[] = [
     id: 'clan-masc', name: 'MASC', category: 'Other', tons: 0, slots: 0, heat: 0, isWeapon: false,
     variableWeight: 'masc', allowedLocations: NOT_HEAD, fixedOnly: true, ...CLAN_3050,
   },
+  // Physical (melee) weapons
+  ...([
+    [IS_3025, 'hatchet', 'Hatchet', true],
+    [IS_3050, 'sword', 'Sword', true],
+    [IS_3050, 'mace', 'Mace', true],
+    [ANY_3050, 'claw', 'Claw', true],
+    [IS_3050, 'retractable-blade', 'Retractable Blade', true],
+    [IS_3081, 'chain-whip', 'Chain Whip', true],
+    [CLAN_3081, 'talons', 'Talons', false],
+    [IS_3050, 'spikes', 'Spikes', false],
+  ] as const).map(([avail, id, name, armOnly]): Equipment => ({
+    id, name, category: 'Physical', tons: 0, slots: 0, heat: 0, isWeapon: false, melee: id, ...avail,
+    ...(armOnly ? { armOnly: true, allowedLocations: ['LA', 'RA'] as const } : {}),
+    ...(id === 'talons' ? { allowedLocations: ['LL', 'RL'] as const } : {}),
+  })),
   { id: 'artemis-iv', name: 'Artemis IV FCS', category: 'Other', tons: 1, slots: 1, heat: 0, isWeapon: false, ...IS_3050 },
   { id: 'clan-artemis-iv', name: 'Artemis IV FCS', category: 'Other', tons: 1, slots: 1, heat: 0, isWeapon: false, ...CLAN_3050 },
   {
@@ -393,6 +417,7 @@ export function getEquipment(id: string): Equipment | undefined {
  */
 export function allowedLocations(eq: Equipment, design?: { config?: MechConfig }): readonly Location[] {
   const locs = eq.allowedLocations ?? LOCATIONS;
+  if (design?.config === 'quad' && eq.armOnly) return [];
   if (design?.config === 'quad' && locs.includes('LL')) {
     return LOCATIONS.filter((l) => locs.includes(l) || l === 'LA' || l === 'RA');
   }
@@ -418,7 +443,7 @@ export function equipmentName(eq: Equipment, d: Pick<MechDesign, 'mixedTech'>): 
   return `${eq.name} (${eq.techBase === 'Clan' ? 'Clan' : 'IS'})`;
 }
 
-type SizingDesign = Pick<MechDesign, 'tonnage' | 'techBase' | 'equipment'>;
+type SizingDesign = Pick<MechDesign, 'tonnage' | 'techBase' | 'equipment'> & { config?: MechConfig };
 
 /** Weapons a targeting computer is sized from: direct-fire energy and ballistic weapons. */
 export function isDirectFire(eq: Equipment): boolean {
@@ -440,13 +465,44 @@ export function itemWeight(eq: Equipment, d: SizingDesign): number {
   if (eq.variableWeight === 'improvedJumpJet') return jumpJetWeight(d.tonnage) * 2;
   if (eq.variableWeight === 'masc') return mascWeight(d.tonnage, eq.techBase === 'Clan' ? 'Clan' : 'IS');
   if (eq.variableWeight === 'targetingComputer') return targetingComputerWeight(eq, d);
+  if (eq.melee) return meleeWeight(eq.melee, d);
   return eq.tons;
 }
 
 export function itemSlots(eq: Equipment, d: SizingDesign): number {
+  if (eq.melee) return meleeSlots(eq.melee, d.tonnage);
   return eq.variableWeight === 'masc' || eq.variableWeight === 'targetingComputer'
     ? itemWeight(eq, d)
     : eq.slots;
+}
+
+const upHalf = (x: number) => Math.ceil(x * 2 - 1e-9) / 2;
+
+/** Number of legs (talons are one item per leg). */
+export const legCount = (d: { config?: MechConfig }) => (d.config === 'quad' ? 4 : 2);
+
+/** Weight of one melee item (TechManual / Tactical Operations, as implemented by MegaMek). */
+export function meleeWeight(kind: MeleeKind, d: SizingDesign): number {
+  const t = d.tonnage;
+  switch (kind) {
+    case 'hatchet': case 'claw': return Math.ceil(t / 15);
+    case 'sword': return upHalf(t / 20);
+    case 'mace': return Math.ceil(t / 10);
+    case 'retractable-blade': return 0.5 + upHalf(t / 20);
+    case 'chain-whip': return 3;
+    case 'talons': return Math.ceil(t / 15) / legCount(d); // the set weighs tonnage / 15, split over the legs
+    case 'spikes': return 0.5;
+  }
+}
+
+export function meleeSlots(kind: MeleeKind, tonnage: number): number {
+  switch (kind) {
+    case 'hatchet': case 'sword': case 'claw': return Math.ceil(tonnage / 15);
+    case 'mace': return Math.ceil(tonnage / 10);
+    case 'retractable-blade': return 1 + Math.ceil(tonnage / 20);
+    case 'chain-whip': case 'talons': return 2;
+    case 'spikes': return 1;
+  }
 }
 
 export function jumpJetIdFor(d: Pick<MechDesign, 'jumpJetType'>): string {

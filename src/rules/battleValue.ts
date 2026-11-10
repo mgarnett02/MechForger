@@ -12,6 +12,7 @@ import type { Equipment } from './equipment';
 import { getEquipment, isDirectFire, itemWeight } from './equipment';
 import { computeMech } from './construction';
 import { runMP } from './tables';
+import { meleeBV, meleeCost } from './melee';
 import type { VehicleDesign } from './vehicle';
 import { computeVehicle, vehicleItemWeight } from './vehicle';
 import { DEFENSIVE_IDS, ITEM_VALUES, MML_AMMO_BV, isGaussType } from './values';
@@ -190,8 +191,12 @@ export function mechBV(d: MechDesign): BVBreakdown {
   if (explosive) lines.push(['Explosive ammo / components', -explosive]);
   lines.push([`Defensive factor (TMM ${tmm})`, 1 + tmm / 10]);
 
-  // --- Offensive battle rating
+  // --- Offensive battle rating (melee weapons count as heat-free, forward-facing weapons)
   const weapons = weaponEntries(d.equipment);
+  for (const item of d.equipment) {
+    const eq = getEquipment(item.equipmentId);
+    if (eq?.melee) weapons.push({ bv: meleeBV(eq.melee, d), heat: 0, rear: false, id: eq.id });
+  }
   const frontBV = weapons.filter((w) => !w.rear).reduce((a, w) => a + w.bv, 0);
   const rearBV = weapons.filter((w) => w.rear).reduce((a, w) => a + w.bv, 0);
   for (const w of weapons) {
@@ -229,13 +234,14 @@ const ARMOR_COST: Record<string, number> = { standard: 10000, 'ferro-fibrous': 2
 
 /** Cost of mounted weapons, ammo and equipment. */
 function equipmentCost<T extends { equipmentId: string }>(
-  items: T[], weight: (eq: Equipment) => number, rating: number,
+  items: T[], weight: (eq: Equipment) => number, rating: number, mech?: MechDesign,
 ): number {
   let total = 0;
   for (const i of items) {
     const eq = getEquipment(i.equipmentId);
     if (!eq || eq.managed) continue;
-    if (eq.category === 'Ammo') total += ammoValue(eq).cost;
+    if (eq.melee && mech) total += meleeCost(eq.melee, mech);
+    else if (eq.category === 'Ammo') total += ammoValue(eq).cost;
     else if (eq.variableWeight === 'masc') total += rating * weight(eq) * 1000;
     else if (eq.variableWeight === 'targetingComputer') total += weight(eq) * 10000;
     else total += value(eq.id)?.cost ?? 0;
@@ -266,7 +272,7 @@ export function mechCost(d: MechDesign): CostBreakdown {
     ['Jump jets', jumpCost],
     ['Heat sinks', hsCost],
     ['Armor', ARMOR_COST[d.armorType] * s.weights.armor],
-    ['Weapons & equipment', equipmentCost(d.equipment, (eq) => itemWeight(eq, d), s.rating)],
+    ['Weapons & equipment', equipmentCost(d.equipment, (eq) => itemWeight(eq, d), s.rating, d)],
   ];
   const subtotal = lines.reduce((a, [, v]) => a + v, 0);
   const multiplier = (1 + t / 100) * (d.omni ? 1.25 : 1);

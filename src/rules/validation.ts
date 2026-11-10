@@ -1,5 +1,7 @@
 import type { MechDesign } from './types';
-import { ARM_LOCATIONS, ARMOR_FACINGS, LOCATIONS, facingName, isQuad, locationName } from './types';
+import { ARM_LOCATIONS, ARMOR_FACINGS, LOCATIONS, facingName, isQuad, legLocations, locationName } from './types';
+import type { MeleeKind } from './equipment';
+import { HAND_WEAPONS, NEEDS_HAND } from './melee';
 import {
   FREE_HEAT_SINKS, MAX_ENGINE_RATING, MIN_ENGINE_RATING, TONNAGES,
 } from './tables';
@@ -220,6 +222,34 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
   const hasMasc = design.equipment.some((e) => getEquipment(e.equipmentId)?.variableWeight === 'masc');
   if (hasMasc && design.myomer === 'tsm') {
     error('MASC and Triple-Strength Myomer cannot be installed together.');
+  }
+
+  // Melee weapons: actuators, one hand weapon per arm, talons in every leg
+  for (const loc of ARM_LOCATIONS) {
+    if (isQuad(design)) break;
+    const kinds = design.equipment
+      .filter((e) => e.location === loc)
+      .map((e) => getEquipment(e.equipmentId)?.melee)
+      .filter((k): k is MeleeKind => !!k && HAND_WEAPONS.includes(k));
+    const where = locationName(design, loc);
+    if (kinds.length > 1) error(`${where}: only one melee weapon (hatchet, sword, mace, claw, blade or whip) per arm.`);
+    const act = design.actuators[loc];
+    for (const k of new Set(kinds)) {
+      const name = getEquipment(k)!.name;
+      if (NEEDS_HAND.includes(k) && !(act.lowerArm && act.hand)) {
+        error(`${where}: a ${name} needs lower arm and hand actuators.`);
+      }
+      if (k === 'claw' && !act.lowerArm) error(`${where}: a claw needs a lower arm actuator.`);
+      if (k === 'claw' && act.hand) error(`${where}: a claw replaces the hand actuator; remove the hand.`);
+    }
+  }
+  const talons = design.equipment.filter((e) => e.equipmentId === 'talons');
+  if (talons.length) {
+    const legs = legLocations(design);
+    const placed = new Set(talons.map((t) => t.location));
+    if (talons.length !== legs.length || legs.some((l) => !placed.has(l))) {
+      error(`Talons are fitted to every leg: add one to each of the ${legs.length} legs.`);
+    }
   }
 
   // Targeting computer
