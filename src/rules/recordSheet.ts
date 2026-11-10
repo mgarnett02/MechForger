@@ -5,7 +5,7 @@
 import type { MechDesign } from './types';
 import { LOCATIONS, locationAbbr } from './types';
 import type { Equipment } from './equipment';
-import { equipmentName, getEquipment, itemWeight } from './equipment';
+import { getEquipment, itemWeight, shortEquipmentName } from './equipment';
 import { meleeDamage } from './melee';
 import type { VehicleDesign } from './vehicle';
 import { VEHICLE_LOCATION_NAMES, turretName, vehicleItemWeight } from './vehicle';
@@ -107,19 +107,19 @@ export function mechSheetData(d: MechDesign): SheetData {
     rear: !!e.rear,
   }));
   const weapons = groups.filter((g) => g.eq.isWeapon || g.eq.melee).map((g) => {
-    const row = weaponRow(g, equipmentName(g.eq, d), true, false);
+    const row = weaponRow(g, shortEquipmentName(g.eq, d), true, false);
     if (!g.eq.melee) return row;
     // Melee weapons: no heat, adjacent-hex only; a talon set is one item.
     return { ...row, qty: g.eq.melee === 'talons' ? 1 : row.qty, heat: '—', damage: meleeDamage(g.eq.melee, d.tonnage) };
   });
   const equipment = groups
     .filter((g) => !g.eq.isWeapon && !g.eq.melee && g.eq.category !== 'Ammo')
-    .map((g) => ({ qty: g.count, name: equipmentName(g.eq, d), location: g.location, tons: itemWeight(g.eq, d) * g.count }));
+    .map((g) => ({ qty: g.count, name: shortEquipmentName(g.eq, d), location: g.location, tons: itemWeight(g.eq, d) * g.count }));
   const ammo = placed
     .map((e) => ({ e, eq: getEquipment(e.equipmentId)! }))
     .filter(({ eq }) => eq.category === 'Ammo')
     .sort((a, b) => (MECH_ORDER[a.e.location ?? ''] ?? 99) - (MECH_ORDER[b.e.location ?? ''] ?? 99))
-    .map(({ e, eq }) => ({ name: equipmentName(eq, d), location: e.location ? locationAbbr(d, e.location) : '—', shots: ammoShots(eq) }));
+    .map(({ e, eq }) => ({ name: shortEquipmentName(eq, d), location: e.location ? locationAbbr(d, e.location) : '—', shots: ammoShots(eq) }));
   return { weapons, equipment, ammo };
 }
 
@@ -128,14 +128,14 @@ const VEHICLE_ORDER: Record<string, number> = { FR: 0, LS: 1, RS: 2, RR: 3, TU: 
 export function vehicleSheetData(d: VehicleDesign): SheetData {
   const locName = (l: string | null) => (l === 'TU' ? turretName(d) : l ? VEHICLE_LOCATION_NAMES[l as keyof typeof VEHICLE_LOCATION_NAMES] : '—');
   const groups = group(d.equipment, (e) => ({ label: locName(e.location), order: VEHICLE_ORDER[e.location ?? ''] ?? 99, rear: false }));
-  const weapons = groups.filter((g) => g.eq.isWeapon).map((g) => weaponRow(g, equipmentName(g.eq, d), true, true));
+  const weapons = groups.filter((g) => g.eq.isWeapon).map((g) => weaponRow(g, shortEquipmentName(g.eq, d), true, true));
   const equipment = groups
     .filter((g) => !g.eq.isWeapon && g.eq.category !== 'Ammo')
-    .map((g) => ({ qty: g.count, name: equipmentName(g.eq, d), location: g.location, tons: vehicleItemWeight(g.eq, d) * g.count }));
+    .map((g) => ({ qty: g.count, name: shortEquipmentName(g.eq, d), location: g.location, tons: vehicleItemWeight(g.eq, d) * g.count }));
   const ammo = d.equipment
     .map((e) => getEquipment(e.equipmentId))
     .filter((eq): eq is Equipment => !!eq && eq.category === 'Ammo')
-    .map((eq) => ({ name: equipmentName(eq, d), location: 'Body', shots: ammoShots(eq) }));
+    .map((eq) => ({ name: shortEquipmentName(eq, d), location: 'Body', shots: ammoShots(eq) }));
   return { weapons, equipment, ammo };
 }
 

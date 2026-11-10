@@ -2,7 +2,7 @@ import type { MechDesign } from './types';
 import { LOCATIONS, REAR_FACING, TECH_BASE_NAMES, facingName, isQuad, locationAbbr, locationName } from './types';
 import { getEra } from './eras';
 import type { MountedItem } from './types';
-import { equipmentName, getEquipment } from './equipment';
+import { getEquipment, shortEquipmentName } from './equipment';
 import { activeConfigName } from './omni';
 import { mechBV, mechCost } from './battleValue';
 import type { MechSummary } from './construction';
@@ -59,8 +59,13 @@ export function technicalReadout(design: MechDesign, summary: MechSummary = comp
     if (rear) lines.push(`    ${facingName(design, rear).padEnd(18)}${''.padStart(5)}${String(design.armor[rear]).padStart(9)}`);
   }
   lines.push('');
+  // Name column wide enough for the longest entry ("12 " count prefix + name + " (R)"), so columns never run together.
+  const nameWidth = Math.max(26, ...design.equipment.map((e) => {
+    const eq = getEquipment(e.equipmentId);
+    return eq ? shortEquipmentName(eq, design).length + (e.rear ? 4 : 0) + 4 : 0;
+  }));
   const header = (title: string) =>
-    lines.push(`${title.padEnd(26)}${'Loc'.padEnd(6)}${'Crit'.padEnd(6)}Tons`);
+    lines.push(`${title.padEnd(nameWidth)}${'Loc'.padEnd(6)}${'Crit'.padEnd(6)}Tons`);
   if (design.omni && s.omni) {
     header('Fixed Equipment');
     listItems(design.equipment.filter((e) => !e.pod));
@@ -93,7 +98,7 @@ export function technicalReadout(design: MechDesign, summary: MechSummary = comp
       g.tons += itemWeight(eq, design);
     } else {
       groups.set(key, {
-        name: equipmentName(eq, design) + (item.rear ? ' (R)' : ''),
+        name: shortEquipmentName(eq, design) + (item.rear ? ' (R)' : ''),
         loc: item.location ? locationAbbr(design, item.location) : '—',
         slots: itemSlots(eq, design),
         tons: itemWeight(eq, design),
@@ -103,18 +108,18 @@ export function technicalReadout(design: MechDesign, summary: MechSummary = comp
   }
   for (const g of groups.values()) {
     const name = g.n > 1 ? `${g.n} ${g.name}` : g.name;
-    lines.push(`${name.padEnd(26)}${g.loc.padEnd(6)}${String(g.slots).padEnd(6)}${t(g.tons)}`);
+    lines.push(`${name.padEnd(nameWidth)}${g.loc.padEnd(6)}${String(g.slots).padEnd(6)}${t(g.tons)}`);
   }
   const jj = items.filter((e) => e.equipmentId.endsWith('jump-jet'));
   if (jj.length) {
     const locs = [...new Set(jj.map((e) => (e.location ? locationAbbr(design, e.location) : '—')))].join('/');
     const tons = (s.weights.jumpJets / Math.max(1, s.jumpMP)) * jj.length;
-    lines.push(`${(design.jumpJetType === 'improved' ? 'Improved Jump Jets' : 'Jump Jets').padEnd(26)}${locs.padEnd(6)}${String(jj.length).padEnd(6)}${t(tons)}`);
+    lines.push(`${(design.jumpJetType === 'improved' ? 'Improved Jump Jets' : 'Jump Jets').padEnd(nameWidth)}${locs.padEnd(6)}${String(jj.length).padEnd(6)}${t(tons)}`);
   }
   const hs = items.filter((e) => getEquipment(e.equipmentId)?.id.includes('heat-sink'));
   if (hs.length && design.omni) {
     const locs = [...new Set(hs.map((e) => (e.location ? locationAbbr(design, e.location) : '—')))].join('/');
-    lines.push(`${'Heat Sinks'.padEnd(26)}${locs.padEnd(6)}${String(hs.length).padEnd(6)}`);
+    lines.push(`${'Heat Sinks'.padEnd(nameWidth)}${locs.padEnd(6)}${String(hs.length).padEnd(6)}`);
   }
   }
 }

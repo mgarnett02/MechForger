@@ -443,6 +443,46 @@ export function equipmentName(eq: Equipment, d: Pick<MechDesign, 'mixedTech'>): 
   return `${eq.name} (${eq.techBase === 'Clan' ? 'Clan' : 'IS'})`;
 }
 
+/** Standard short forms, always applied in compact names. */
+const ABBREVIATIONS: [RegExp, string][] = [
+  [/Light Machine Gun/g, 'LMG'], [/Heavy Machine Gun/g, 'HMG'], [/Machine Gun/g, 'MG'],
+  [/Anti-Missile System/g, 'AMS'], [/Narc Missile Beacon/g, 'Narc'], [/iNarc Launcher/g, 'iNarc'],
+  [/Hyper-Assault Gauss/g, 'HAG'], [/Magshot Gauss Rifle/g, 'Magshot'], [/AP Gauss Rifle/g, 'AP Gauss'],
+  [/Light Gauss Rifle/g, 'Light Gauss'], [/Heavy Gauss Rifle/g, 'Heavy Gauss'],
+  [/Ultra AC\//g, 'UAC/'], [/Rotary AC\//g, 'RAC/'], [/(LB \d+-X) AC/g, '$1'],
+  [/Artemis IV FCS/g, 'Artemis IV'], [/ Artemis IV Ammo/g, ' Art. Ammo'], [/ Ammo, Half/g, ' Ammo ½'],
+  [/Targeting Computer/g, 'Targeting Comp.'], [/Triple-Strength Myomer/g, 'TSM'],
+  [/Beagle Active Probe/g, 'Beagle Probe'], [/Guardian ECM Suite/g, 'Guardian ECM'],
+  [/C3 Master Computer/g, 'C3 Master'], [/C3 Slave Unit/g, 'C3 Slave'], [/Improved C3 Computer/g, 'C3i'],
+  [/Improved Jump Jet/g, 'Imp. Jump Jet'], [/Snub-Nose PPC/g, 'SN PPC'], [/Retractable Blade/g, 'Ret. Blade'],
+  [/Communications Equipment/g, 'Comms Equip.'], [/Lift Hoist \/ Arresting Hoist/g, 'Lift Hoist'],
+  [/Remote Sensors \/ Dispenser/g, 'Sensor Dispenser'], [/Vehicular Mine Dispenser/g, 'Mine Dispenser'],
+  [/Paramedic Equipment/g, 'Paramedic Equip.'], [/Manipulator \(industrial\)/g, 'Manipulator'],
+  [/Heavy-Duty Pile Driver/g, 'HD Pile Driver'], [/Lifeboat \(Atmospheric\)/g, 'Lifeboat (Atmo)'],
+  [/ \((\d+) tons?\)/g, ' ($1 t)'],
+];
+
+/** Further short forms, used only while a name is still longer than COMPACT_LENGTH. */
+const IF_LONG: [RegExp, string][] = [
+  [/\bMedium\b/g, 'Med.'], [/\bLarge\b/g, 'Lg.'], [/\bSmall\b/g, 'Sm.'],
+  [/Streak SRM/g, 'SSRM'], [/Thunderbolt/g, 'T-Bolt'], [/Gauss Rifle/g, 'Gauss'], [/Double Heat Sink/g, 'Dbl. Heat Sink'],
+  [/Plasma (Rifle|Cannon)/g, 'Plas. $1'], [/Equipment/g, 'Equip.'],
+];
+export const COMPACT_LENGTH = 16;
+
+/**
+ * Abbreviated name for tight spaces (record sheets, critical slots, readouts):
+ * "Machine Gun Ammo, Half (100)" → "MG Ammo ½ (100)", "Medium Pulse Laser" → "Med. Pulse Laser".
+ * Mixed-tech designs tag items "(C)" or "(IS)".
+ */
+export function shortEquipmentName(eq: Equipment, d: Pick<MechDesign, 'mixedTech'>): string {
+  let name = eq.name;
+  for (const [re, to] of ABBREVIATIONS) name = name.replace(re, to);
+  for (const [re, to] of IF_LONG) if (name.length > COMPACT_LENGTH) name = name.replace(re, to);
+  if (!d.mixedTech || eq.techBase === 'Both') return name;
+  return `${name} (${eq.techBase === 'Clan' ? 'C' : 'IS'})`;
+}
+
 type SizingDesign = Pick<MechDesign, 'tonnage' | 'techBase' | 'equipment'> & { config?: MechConfig };
 
 /** Weapons a targeting computer is sized from: direct-fire energy and ballistic weapons. */

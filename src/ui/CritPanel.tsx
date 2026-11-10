@@ -85,7 +85,7 @@ export function CritPanel({ design, summary, update, selected, setSelected }: Pr
                   <li key={i} className={`slot ${slot.kind} ${slot.uid && slot.uid === selected ? 'selected' : ''} ${slot.kind === 'item' && !slot.first ? 'cont' : ''}`}>
                     <span className="idx">{(i % 6) + 1}</span>
                     {slot.kind === 'item' ? (
-                      <button className="slot-btn" title="Click to unallocate"
+                      <button className="slot-btn" title={`${slot.fullName ?? slot.label} — click to unallocate`}
                         onClick={(e) => {
                           e.stopPropagation();
                           if (selEq) { if (placeable) place(loc); return; }

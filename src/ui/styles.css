@@ -456,6 +456,8 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 .rs-crit-group li { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.25; }
 .rs-crit-group li.empty { color: #777; }
 .rs-crit-group li.item { font-weight: 700; }
+/* Names still long after abbreviation are condensed slightly rather than cut off. */
+.rs-crit-group li.long { letter-spacing: -0.045em; font-size: 5.9pt; }
 .rs-slot-no { display: inline-block; width: 10px; }
 .rs-crit-damage {
   display: grid; grid-template-columns: max-content max-content; column-gap: 6px; row-gap: 4px;

@@ -16,7 +16,7 @@ import {
 } from './tables';
 import type { Equipment } from './equipment';
 import {
-  equipmentName, getEquipment, isDirectFire, isEquipmentAvailable, usesAmmo,
+  shortEquipmentName, getEquipment, isDirectFire, isEquipmentAvailable, usesAmmo,
 } from './equipment';
 import { armorPointsForTons, armorTonnage } from './armor';
 import type { Issue } from './validation';
@@ -656,7 +656,8 @@ export function vehicleReadout(
     lines.push(`    ${VEHICLE_LOCATION_NAMES[l].padEnd(18)}${String(s.structurePoints).padStart(5)}${String(d.armor[l]).padStart(9)}`);
   }
   lines.push('');
-  lines.push(`${'Weapons and Ammo'.padEnd(30)}${'Location'.padEnd(12)}Tons`);
+  const nameWidth = Math.max(30, ...d.equipment.map((e) => { const eq = getEquipment(e.equipmentId); return eq ? shortEquipmentName(eq, d).length + 4 : 0; }));
+  lines.push(`${'Weapons and Ammo'.padEnd(nameWidth)}${'Location'.padEnd(12)}Tons`);
   const groups = new Map<string, { name: string; loc: string; tons: number; n: number }>();
   for (const item of d.equipment) {
     const eq = getEquipment(item.equipmentId);
@@ -668,11 +669,11 @@ export function vehicleReadout(
       g.n++;
       g.tons += w;
     } else {
-      groups.set(key, { name: equipmentName(eq, d), loc: item.location ? VEHICLE_LOCATION_NAMES[item.location] : '—', tons: w, n: 1 });
+      groups.set(key, { name: shortEquipmentName(eq, d), loc: item.location ? VEHICLE_LOCATION_NAMES[item.location] : '—', tons: w, n: 1 });
     }
   }
   for (const g of groups.values()) {
-    lines.push(`${(g.n > 1 ? `${g.n} ${g.name}` : g.name).padEnd(30)}${g.loc.padEnd(12)}${t(g.tons)}`);
+    lines.push(`${(g.n > 1 ? `${g.n} ${g.name}` : g.name).padEnd(nameWidth)}${g.loc.padEnd(12)}${t(g.tons)}`);
   }
   lines.push('');
   lines.push(`Item slots: ${s.slots.used} / ${s.slots.capacity}`);

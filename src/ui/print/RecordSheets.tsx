@@ -9,7 +9,7 @@ import type { SupportVehicleDesign } from '../../rules/support';
 import {
   CHASSIS_MODS, SV_ENGINE_NAMES, SV_LOCATION_NAMES, SV_TYPES, computeSupport, svItemWeight,
 } from '../../rules/support';
-import { equipmentName, getEquipment } from '../../rules/equipment';
+import { COMPACT_LENGTH, getEquipment, shortEquipmentName } from '../../rules/equipment';
 import type { AmmoRow, EquipmentRow, WeaponRow } from '../../rules/recordSheet';
 import { CONSCIOUSNESS, HEAT_SCALE, mechSheetData, vehicleSheetData } from '../../rules/recordSheet';
 import type { VehicleArmorLocation, VehicleDesign } from '../../rules/vehicle';
@@ -198,7 +198,7 @@ export function MechRecordSheet({ design }: { design: MechDesign }) {
             </span>
             <ol>
               {g.map((slot, i) => (
-                <li key={i} className={slot.kind}>
+                <li key={i} className={`${slot.kind} ${slot.label.length > COMPACT_LENGTH ? 'long' : ''}`}>
                   <span className="rs-slot-no">{i + 1}.</span>
                   {slot.kind === 'empty' ? 'Roll Again' : slot.label}
                 </li>
@@ -437,15 +437,15 @@ export function SupportRecordSheet({ design }: { design: SupportVehicleDesign })
     if (!eq) continue;
     if (eq.category === 'Ammo') {
       const shots = Number(/\((\d+)\)\s*$/.exec(eq.name)?.[1] ?? 0);
-      for (let i = 0; i < g.qty; i++) ammo.push({ name: equipmentName(eq, design), location: g.loc, shots });
+      for (let i = 0; i < g.qty; i++) ammo.push({ name: shortEquipmentName(eq, design), location: g.loc, shots });
     } else if (eq.isWeapon) {
       const r = eq.range;
       weapons.push({
-        qty: g.qty, name: equipmentName(eq, design), location: g.loc, heat: '', damage: eq.damage ?? '—',
+        qty: g.qty, name: shortEquipmentName(eq, design), location: g.loc, heat: '', damage: eq.damage ?? '—',
         min: r?.min ? String(r.min) : '—', short: r ? String(r.short) : '—', medium: r ? String(r.medium) : '—', long: r?.long ? String(r.long) : '—',
       });
     } else {
-      equipment.push({ qty: g.qty, name: equipmentName(eq, design), location: g.loc, tons: svItemWeight(eq, design) * g.qty });
+      equipment.push({ qty: g.qty, name: shortEquipmentName(eq, design), location: g.loc, tons: svItemWeight(eq, design) * g.qty });
     }
   }
   const tr = design.transport;

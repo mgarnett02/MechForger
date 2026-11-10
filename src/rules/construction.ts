@@ -7,7 +7,7 @@ import {
   weightClass,
 } from './tables';
 import type { Equipment } from './equipment';
-import { HEAT_SINK_IDS, JUMP_JET_IDS, equipmentName, getEquipment, itemSlots, itemWeight } from './equipment';
+import { HEAT_SINK_IDS, JUMP_JET_IDS, equipmentName, getEquipment, itemSlots, itemWeight, shortEquipmentName } from './equipment';
 import type { OmniWeights } from './omni';
 import { omniWeights } from './omni';
 import { armorTonnage, maxArmorByLocation, maxTotalArmor, totalArmorPoints } from './armor';
@@ -20,6 +20,8 @@ export interface SlotEntry {
   uid?: string;
   /** True on the first slot an item occupies (multi-slot items span several). */
   first?: boolean;
+  /** Full item name, when `label` is abbreviated. */
+  fullName?: string;
 }
 
 export interface LocationSlots {
@@ -126,8 +128,9 @@ export function fixedSlots(design: MechDesign, loc: Location): (string | null)[]
   }
 }
 
+/** Slot label: the abbreviated item name, plus (R) for rear-facing. */
 export function itemLabel(eq: Equipment, item: MountedItem, design: Pick<MechDesign, 'mixedTech'>): string {
-  const name = equipmentName(eq, design);
+  const name = shortEquipmentName(eq, design);
   return item.rear ? `${name} (R)` : name;
 }
 
@@ -146,7 +149,9 @@ function layoutLocation(design: MechDesign, loc: Location): LocationSlots {
     const n = itemSlots(eq, design);
     for (let s = 0; s < n; s++) {
       if (cursor < openIdx.length) {
-        slots[openIdx[cursor]] = { label: itemLabel(eq, item, design), kind: 'item', uid: item.uid, first: s === 0 };
+        slots[openIdx[cursor]] = {
+          label: itemLabel(eq, item, design), fullName: equipmentName(eq, design), kind: 'item', uid: item.uid, first: s === 0,
+        };
         cursor++;
       } else {
         overflow++;

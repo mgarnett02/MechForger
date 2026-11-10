@@ -11,7 +11,7 @@ import { TECH_BASE_NAMES } from './types';
 import type { EraId } from './eras';
 import { DEFAULT_ERA, getEra, isAvailableIn } from './eras';
 import type { Equipment } from './equipment';
-import { equipmentName, getEquipment, isDirectFire, isEquipmentAvailable, usesAmmo } from './equipment';
+import { shortEquipmentName, getEquipment, isDirectFire, isEquipmentAvailable, usesAmmo } from './equipment';
 import type { Issue } from './validation';
 
 // ---------------------------------------------------------------------------
@@ -604,7 +604,8 @@ export function supportReadout(d: SupportVehicleDesign, s: SupportSummary = comp
   lines.push(row(`Armor: BAR ${d.bar}, ${s.armorTotal} points`, w.armor));
   lines.push('');
   for (const l of s.armorLocations) lines.push(`    ${SV_LOCATION_NAMES[l].padEnd(18)}${String(d.armor[l] ?? 0).padStart(5)}`);
-  lines.push('', `${'Weapons and Equipment'.padEnd(30)}${'Location'.padEnd(12)}Tons`);
+  const nameWidth = Math.max(30, ...d.equipment.map((e) => { const eq = getEquipment(e.equipmentId); return eq ? shortEquipmentName(eq, d).length + 4 : 0; }));
+  lines.push('', `${'Weapons and Equipment'.padEnd(nameWidth)}${'Location'.padEnd(12)}Tons`);
   const groups = new Map<string, { name: string; loc: string; tons: number; n: number }>();
   for (const item of d.equipment) {
     const eq = getEquipment(item.equipmentId);
@@ -612,8 +613,8 @@ export function supportReadout(d: SupportVehicleDesign, s: SupportSummary = comp
     const key = `${eq.id}|${item.location}`;
     const g = groups.get(key);
     const wt = svItemWeight(eq, d);
-    if (g) { g.n++; g.tons += wt; } else groups.set(key, { name: equipmentName(eq, d), loc: item.location ? SV_LOCATION_NAMES[item.location] : '—', tons: wt, n: 1 });
+    if (g) { g.n++; g.tons += wt; } else groups.set(key, { name: shortEquipmentName(eq, d), loc: item.location ? SV_LOCATION_NAMES[item.location] : '—', tons: wt, n: 1 });
   }
-  for (const g of groups.values()) lines.push(`${(g.n > 1 ? `${g.n} ${g.name}` : g.name).padEnd(30)}${g.loc.padEnd(12)}${t(g.tons)}`);
+  for (const g of groups.values()) lines.push(`${(g.n > 1 ? `${g.n} ${g.name}` : g.name).padEnd(nameWidth)}${g.loc.padEnd(12)}${t(g.tons)}`);
   return lines.join('\n');
 }
