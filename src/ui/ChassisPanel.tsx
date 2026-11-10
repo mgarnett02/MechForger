@@ -1,17 +1,17 @@
 import type {
-  CockpitType, EngineType, GyroType, HeatSinkType, JumpJetType, MechConfig, MechDesign, MyomerType, StructureType, TechBase,
+  CockpitType, EngineType, GyroType, HeatSinkType, JumpJetType, LamType, MechConfig, MechDesign, MyomerType, StructureType, TechBase,
 } from '../rules/types';
 import type { ComponentOption } from '../rules/tables';
 import {
   COCKPIT_OPTIONS, ENGINE_OPTIONS, GYRO_OPTIONS, HEAT_SINK_OPTIONS, JUMP_JET_OPTIONS, MYOMER_OPTIONS,
   STRUCTURE_OPTIONS, componentAvailable, componentEraOk, componentFirstEra,
 } from '../rules/tables';
-import { ARM_LOCATIONS, LOCATION_NAMES, TECH_BASE_NAMES, isQuad } from '../rules/types';
+import { ARM_LOCATIONS, LAM_TYPE_NAMES, LOCATION_NAMES, TECH_BASE_NAMES, isQuad } from '../rules/types';
 import { ERAS, getEra, isAvailableIn } from '../rules/eras';
 import type { MechSummary } from '../rules/construction';
 import { TONNAGES, maxWalkMP } from '../rules/tables';
 import {
-  setActuator, setCockpitType, setConfig, setEngineHeatSinks, setEngineType, setGyroType, setHeatSinkTotal,
+  setActuator, setCockpitType, setConfig, setFullHeadEjection, setLam, setEngineHeatSinks, setEngineType, setGyroType, setHeatSinkTotal,
   setHeatSinkType, setJumpJetType, setJumpMP,
   setMixedTech, setMyomer, setStructureType, setTechBase, setTonnage, setWalkMP,
 } from '../rules/edit';
@@ -61,10 +61,15 @@ export function ChassisPanel({ design, summary, update }: Props) {
 
         <label>Configuration</label>
         <div>
-          <select aria-label="Configuration" value={design.config}
-            onChange={(e) => update((d) => setConfig(d, e.target.value as MechConfig))}>
+          <select aria-label="Configuration" value={design.lam ? `lam-${design.lam}` : design.config}
+            onChange={(e) => {
+              const v = e.target.value;
+              update((d) => (v.startsWith('lam-') ? setLam(d, v.slice(4) as LamType) : setConfig(setLam(d, null), v as MechConfig)));
+            }}>
             <option value="biped">Biped (two legs, two arms)</option>
             <option value="quad">Quad (four legs)</option>
+            <option value="lam-standard" disabled={design.techBase !== 'IS'}>LAM, standard (3 modes)</option>
+            <option value="lam-bimodal" disabled={design.techBase !== 'IS'}>LAM, bimodal (no AirMech)</option>
           </select>
         </div>
 
@@ -92,6 +97,11 @@ export function ChassisPanel({ design, summary, update }: Props) {
                 update((d) => setOmni(d, on));
               }} />
             OmniMech
+          </label>
+          <label className="check" title="Full Head Ejection System (as on the Hatchetman): no weight or slots, 1,725,000 C-bills">
+            <input type="checkbox" checked={!!design.fullHeadEjection}
+              onChange={(e) => update((d) => setFullHeadEjection(d, e.target.checked))} />
+            Full head ejection
           </label>
         </div>
 
@@ -210,6 +220,7 @@ export function ChassisPanel({ design, summary, update }: Props) {
         </div>
       </div>
 
+      {design.lam && <LamInfo design={design} summary={summary} />}
       {isQuad(design) ? (
         <p className="small muted">
           A quad has four legs, each with a hip, upper and lower leg, and foot actuator, and no arms.
@@ -236,5 +247,30 @@ export function ChassisPanel({ design, summary, update }: Props) {
       </div>
       </>)}
     </section>
+  );
+}
+
+/** Land-Air 'Mech summary: conversion equipment and movement in each mode. */
+function LamInfo({ design, summary }: { design: MechDesign; summary: MechSummary }) {
+  const lam = summary.lam;
+  if (!design.lam || !lam) return null;
+  return (
+    <div className="lam-info">
+      <h3>Land-Air 'Mech <span className="muted small">({LAM_TYPE_NAMES[design.lam]})</span></h3>
+      <p className="small muted">
+        Conversion equipment {summary.weights.conversion} t ({design.lam === 'bimodal' ? '15' : '10'}% of tonnage) ·
+        Avionics in the head and side torsos, Landing Gear in the center and side torsos.
+        Standard or compact fusion engine, no Endo Steel or ferro-fibrous, up to 55 tons, at least 3 jump MP.
+      </p>
+      <table className="lam-modes">
+        <tbody>
+          <tr><th>'Mech</th><td>Walk {design.walkMP} · Run {summary.runMP} · Jump {summary.jumpMP}</td></tr>
+          {lam.airMech && (
+            <tr><th>AirMech</th><td>Walk {lam.airMech.walk} · Run {lam.airMech.run} · Flight {lam.airMech.cruise} / {lam.airMech.flank}</td></tr>
+          )}
+          <tr><th>Fighter</th><td>Safe thrust {lam.fighter.safe} · Max thrust {lam.fighter.max}</td></tr>
+        </tbody>
+      </table>
+    </div>
   );
 }

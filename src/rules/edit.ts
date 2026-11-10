@@ -1,6 +1,6 @@
 import type {
   ArmLocation, ArmorAllocation, ArmorFacing, ArmorType, CockpitType, EngineType, GyroType, HeatSinkType, JumpJetType, Location,
-  MechConfig, MechDesign, MountedItem, MyomerType, OmniData, StructureType, TechBase,
+  LamType, MechConfig, MechDesign, MountedItem, MyomerType, OmniData, StructureType, TechBase,
 } from './types';
 import { ARMOR_FACINGS, LOCATIONS, REAR_FACING, isQuad, legLocations } from './types';
 import {
@@ -138,7 +138,8 @@ export function setJumpMP(d: MechDesign, jumpMP: number): MechDesign {
  */
 export function setConfig(d: MechDesign, config: MechConfig): MechDesign {
   if (d.config === config) return d;
-  const next: MechDesign = { ...d, config, armor: clampArmor(d.armor, d.tonnage, config === 'quad') };
+  // Only bipeds can be Land-Air 'Mechs.
+  const next: MechDesign = { ...d, config, lam: config === 'quad' ? null : d.lam, armor: clampArmor(d.armor, d.tonnage, config === 'quad') };
   const limbs: Location[] = ['LA', 'RA'];
   const allowed = (item: MountedItem) => {
     const eq = getEquipment(item.equipmentId);
@@ -154,6 +155,17 @@ export function setConfig(d: MechDesign, config: MechConfig): MechDesign {
     configurations: next.omni.configurations.map((c) => ({ ...c, pod: c.pod.map((p) => (allowed(p) ? p : free(p))) })),
   };
   return { ...next, equipment, omni };
+}
+
+/** Make the design a Land-Air 'Mech of the given type, or an ordinary 'Mech (null). */
+export function setLam(d: MechDesign, lam: LamType | null): MechDesign {
+  if ((d.lam ?? null) === lam) return d;
+  const base = lam ? setConfig(d, 'biped') : d;
+  return { ...base, lam };
+}
+
+export function setFullHeadEjection(d: MechDesign, on: boolean): MechDesign {
+  return { ...d, fullHeadEjection: on || undefined };
 }
 
 export function setActuator(
@@ -389,6 +401,8 @@ export function parseDesign(raw: unknown): MechDesign {
     myomer: pick(r.myomer, ['standard', 'tsm'] as const, 'standard'),
     mixedTech: r.mixedTech === true,
     config: pick(r.config, ['biped', 'quad'] as const, 'biped'),
+    lam: r.config !== 'quad' && (r.lam === 'standard' || r.lam === 'bimodal') ? r.lam : null,
+    ...(r.fullHeadEjection === true ? { fullHeadEjection: true } : {}),
     omni,
     chassis: typeof r.chassis === 'string' ? r.chassis : 'Unnamed',
     model: typeof r.model === 'string' ? r.model : '',

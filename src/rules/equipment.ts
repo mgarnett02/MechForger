@@ -47,6 +47,10 @@ export interface Equipment {
   melee?: MeleeKind;
   /** Arm-mounted only (so not available to quads, whose front legs share the arm locations). */
   armOnly?: boolean;
+  /** Land-Air 'Mech equipment only. */
+  lamOnly?: boolean;
+  /** Explodes when hit (counts like ammunition for Battle Value). */
+  explosive?: boolean;
   /** Which tech base can mount it ('Both' = generic, e.g. jump jets). */
   techBase: TechBase | 'Both';
   /** First era in which the item is available. */
@@ -343,6 +347,15 @@ export const OTHER_EQUIPMENT: readonly Equipment[] = [
     ...(armOnly ? { armOnly: true, allowedLocations: ['LA', 'RA'] as const } : {}),
     ...(id === 'talons' ? { allowedLocations: ['LL', 'RL'] as const } : {}),
   })),
+  // Land-Air 'Mech equipment (Interstellar Operations)
+  {
+    id: 'bomb-bay', name: 'Bomb Bay', category: 'Other', tons: 1, slots: 1, heat: 0, isWeapon: false,
+    lamOnly: true, explosive: true, allowedLocations: TORSO, ...ANY_3025,
+  },
+  {
+    id: 'lam-fuel-tank', name: 'LAM Fuel Tank', category: 'Other', tons: 1, slots: 1, heat: 0, isWeapon: false,
+    lamOnly: true, explosive: true, allowedLocations: NOT_HEAD, ...ANY_3025,
+  },
   { id: 'artemis-iv', name: 'Artemis IV FCS', category: 'Other', tons: 1, slots: 1, heat: 0, isWeapon: false, ...IS_3050 },
   { id: 'clan-artemis-iv', name: 'Artemis IV FCS', category: 'Other', tons: 1, slots: 1, heat: 0, isWeapon: false, ...CLAN_3050 },
   {

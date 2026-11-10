@@ -148,6 +148,8 @@ export const ITEM_VALUES: Record<string, ItemValue> = {
   'guardian-ecm': v(61, 200000),
   'clan-active-probe': v(12, 200000),
   'clan-ecm': v(61, 200000),
+  'bomb-bay': v(0, 5000),
+  'lam-fuel-tank': v(0, 200),
 
   // Utility equipment (vehicles only)
   searchlight: v(0, 2000), 'searchlight-handheld': v(0, 500), 'lift-hoist': v(0, 50000),

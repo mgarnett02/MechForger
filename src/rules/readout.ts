@@ -1,5 +1,5 @@
 import type { MechDesign } from './types';
-import { LOCATIONS, REAR_FACING, TECH_BASE_NAMES, facingName, isQuad, locationAbbr, locationName } from './types';
+import { LAM_TYPE_NAMES, LOCATIONS, REAR_FACING, TECH_BASE_NAMES, facingName, isQuad, locationAbbr, locationName } from './types';
 import { getEra } from './eras';
 import type { MountedItem } from './types';
 import { getEquipment, shortEquipmentName } from './equipment';
@@ -20,11 +20,12 @@ export function technicalReadout(design: MechDesign, summary: MechSummary = comp
   lines.push('');
   lines.push(`Mass: ${design.tonnage} tons (${s.weightClass ?? 'invalid'})`);
   if (isQuad(design)) lines.push('Configuration: Quad');
+  if (design.lam) lines.push(`Configuration: Land-Air 'Mech (${LAM_TYPE_NAMES[design.lam]})`);
   const era = getEra(design.era);
   if (design.mixedTech) {
     lines.push(`Tech Base: Mixed (${TECH_BASE_NAMES[design.techBase]} chassis) (Advanced)`);
   } else {
-    lines.push(`Tech Base: ${TECH_BASE_NAMES[design.techBase]} (${era?.rulesLevel ?? '?'})`);
+    lines.push(`Tech Base: ${TECH_BASE_NAMES[design.techBase]} (${design.lam ? 'Advanced' : era?.rulesLevel ?? '?'})`);
   }
   if (design.omni) lines.push(`Config: OmniMech — ${activeConfigName(design)} configuration`);
   if (era) lines.push(`Era: ${era.name} (${era.year})`);
@@ -39,11 +40,18 @@ export function technicalReadout(design: MechDesign, summary: MechSummary = comp
   lines.push(`    Running MP: ${s.runMP}${s.mascRunMP ? ` [${s.mascRunMP}]` : ''}`);
   if (s.tsmMP) lines.push(`    (Triple-Strength Myomer: ${s.tsmMP.walk}/${s.tsmMP.run} at 9+ heat)`);
   lines.push(`    Jumping MP: ${s.jumpMP}`);
+  if (s.lam?.airMech) {
+    const a = s.lam.airMech;
+    lines.push(`    AirMech MP: ${a.walk}/${a.run} ground, ${a.cruise}/${a.flank} flight`);
+  }
+  if (s.lam) lines.push(`    Fighter thrust: ${s.lam.fighter.safe} safe / ${s.lam.fighter.max} max`);
   const hsLabel = design.heatSinkType === 'double' ? ' Double' : '';
   lines.push(row(`Heat Sinks:${hsLabel} ${s.heatSinks.total} [${s.heatSinks.dissipation}]`, s.weights.heatSinks));
   const gyroName = { standard: '', xl: ' XL', 'heavy-duty': ' Heavy-Duty', compact: ' Compact' }[design.gyroType];
   lines.push(row(`Gyro:${gyroName}`, s.weights.gyro));
   lines.push(row(`Cockpit:${design.cockpitType === 'small' ? ' Small' : ''}`, s.weights.cockpit));
+  if (s.weights.conversion) lines.push(row('LAM Conversion Equipment:', s.weights.conversion));
+  if (design.fullHeadEjection) lines.push('Full Head Ejection System');
   const ff = {
     standard: '', 'ferro-fibrous': ' (Ferro-Fibrous)', 'light-ferro': ' (Light Ferro-Fibrous)',
     'heavy-ferro': ' (Heavy Ferro-Fibrous)',

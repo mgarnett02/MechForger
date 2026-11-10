@@ -28,6 +28,14 @@ const QUAD_LOCATION_NAMES: Record<Location, string> = {
 
 export const isQuad = (d: { config?: MechConfig }) => d.config === 'quad';
 
+/**
+ * Land-Air 'Mechs (Interstellar Operations): a standard LAM converts between 'Mech, AirMech
+ * and fighter modes; a bimodal LAM has no AirMech mode.
+ */
+export type LamType = 'standard' | 'bimodal';
+export const LAM_TYPE_NAMES: Record<LamType, string> = { standard: 'Standard', bimodal: 'Bimodal' };
+export const isLam = (d: { lam?: LamType | null }) => !!d.lam;
+
 /** Location name for this design's configuration. */
 export function locationName(d: { config?: MechConfig }, loc: Location): string {
   return (isQuad(d) ? QUAD_LOCATION_NAMES : LOCATION_NAMES)[loc];
@@ -135,6 +143,10 @@ export interface MechDesign {
   mixedTech: boolean;
   /** Biped (two legs, two arms) or quad (four legs). */
   config: MechConfig;
+  /** Land-Air 'Mech type (bipeds only); absent or null for an ordinary 'Mech. */
+  lam?: LamType | null;
+  /** Full Head Ejection System (Hatchetman, Axman…): no weight or slots, adds cost. */
+  fullHeadEjection?: boolean;
   /** Set for OmniMechs: configurations of pod-mounted equipment. */
   omni: OmniData | null;
   chassis: string;

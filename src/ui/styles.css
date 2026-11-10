@@ -585,3 +585,9 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 .vplate-rw { border-radius: 4px 30px 6px 4px; }
 .vplate-af { border-radius: 6px 6px 14px 14px; }
 .mods { display: flex; flex-wrap: wrap; gap: 0.25rem 0.75rem; }
+
+/* Land-Air 'Mech movement modes */
+.lam-info { margin-top: 0.75rem; }
+.lam-modes { border-collapse: collapse; font-size: 0.9rem; }
+.lam-modes th { text-align: left; font-weight: 600; padding: 0.1rem 0.75rem 0.1rem 0; color: var(--muted); }
+.lam-modes td { padding: 0.1rem 0; }

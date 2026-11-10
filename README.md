@@ -43,6 +43,9 @@ Everything above, plus:
 - **Triple-Strength Myomer** (IS; 6 slots, +1 walking MP at 9+ heat; not with MASC)
 - **C3** master computer and slave unit (IS)
 - **Half-ton machine gun ammo**
+- **Land-Air 'Mechs**: standard and bimodal LAMs with conversion equipment, avionics and landing gear,
+  AirMech and fighter movement, bomb bays and LAM fuel tanks, and the Interstellar Operations
+  construction limits (as implemented by MegaMek)
 - **Melee weapons**: hatchet, sword, mace, claw, retractable blade, chain whip, talons and spikes, with
   weight, slots, damage, BV and cost scaled to the mech, and actuator / one-per-arm checks
 - **Quad BattleMechs**: four legs (front legs use leg structure and armor), leg actuators, weapons
@@ -132,7 +135,7 @@ fixed-wing.
 - Critical slot allocation (click to place, or **Auto-allocate**) with live validation
 - Red / amber / green status light: illegal, legal but incomplete (unused tonnage,
   unallocated armor), or fully legal
-- **Canon units**: about 2,000 canon BattleMechs, including 47 quads and around 100 melee-armed designs (OmniMechs with all their
+- **Canon units**: about 2,000 canon BattleMechs, including 47 quads, 19 Land-Air 'Mechs and around 100 melee-armed designs (OmniMechs with all their
   configurations), 630 canon combat vehicles and 120 support vehicles, searchable by name, era, tech base,
   weight and type, ready to load, modify and print (see *Canon unit data* below)
 - **Battle Value (BV 2.0) and C-bill cost**, with the working shown; mech values

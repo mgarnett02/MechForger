@@ -38,7 +38,8 @@ function rangeText(eq: Equipment): string {
 export function EquipmentPanel({ design, summary, update, selected, setSelected }: Props) {
   const [tab, setTab] = useState<EquipmentCategory>('Energy');
   const available = ALL_EQUIPMENT.filter(
-    (e) => !e.managed && e.category !== 'Utility' && isEquipmentAvailable(e, design.era, design.techBase, design.mixedTech),
+    (e) => !e.managed && e.category !== 'Utility' && (!e.lamOnly || !!design.lam)
+      && isEquipmentAvailable(e, design.era, design.techBase, design.mixedTech),
   );
   const tabs = TABS.filter((t) => available.some((e) => e.category === t.id));
   const activeTab = tabs.some((t) => t.id === tab) ? tab : 'Energy';

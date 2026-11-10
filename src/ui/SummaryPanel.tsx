@@ -26,6 +26,7 @@ export function SummaryPanel({ design, summary, issues }: Props) {
     ['Jump jets', w.jumpJets],
     ['Armor', w.armor],
     ['Weapons & ammo', w.equipment],
+    ...(w.conversion ? [['LAM conversion', w.conversion] as [string, number]] : []),
   ];
   const pct = Math.min(100, (w.total / design.tonnage) * 100);
   const errors = issues.filter((i) => i.severity === 'error');

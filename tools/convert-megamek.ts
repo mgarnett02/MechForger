@@ -70,7 +70,7 @@ const UTILITY_NAMES: Record<string, string> = {
 const FIXED = new Set([
   'empty', 'fusionengine', 'engine', 'gyro', 'sensors', 'lifesupport', 'cockpit', 'smallcockpit', 'shoulder',
   'upperarmactuator', 'lowerarmactuator', 'handactuator', 'hip', 'upperlegactuator', 'lowerlegactuator',
-  'footactuator', 'xlgyro', 'compactgyro', 'heavydutygyro',
+  'footactuator', 'xlgyro', 'compactgyro', 'heavydutygyro', 'landinggear', 'avionics',
 ]);
 
 const byKey = new Map<string, Equipment[]>();
@@ -239,8 +239,10 @@ function parseMtf(text: string): ParsedMech {
   const get = (k: string) => kv.get(k) ?? '';
 
   const config = get('config');
-  if (!['Biped', 'Biped OmniMek', 'Quad', 'Quad OmniMek'].includes(config)) fail(`config ${config}`);
+  if (!['Biped', 'Biped OmniMek', 'Quad', 'Quad OmniMek', 'LAM'].includes(config)) fail(`config ${config}`);
   const quad = config.startsWith('Quad');
+  const lamRaw = get('lam');
+  const lam = config === 'LAM' ? (/^bimodal/i.test(lamRaw) ? 'bimodal' : /^standard/i.test(lamRaw) || !lamRaw ? 'standard' : fail(`LAM type ${lamRaw}`)) : null;
   const tbRaw = get('techbase');
   const techBase: TechBase = /^Clan|Clan Chassis/.test(tbRaw) ? 'Clan' : 'IS';
   const mixedTech = /^Mixed/.test(tbRaw);
@@ -270,7 +272,7 @@ function parseMtf(text: string): ParsedMech {
   const my = get('myomer');
   const myomer = !my || my === 'Standard' ? 'standard' : my === 'Triple-Strength' ? 'tsm' : fail(`myomer ${my}`);
   // A Full Head Ejection System (Hatchetman, Axman…) takes no slots or weight; other systems aren't supported.
-  if (kv.has('lam') || (kv.has('ejection') && !/^Full Head Ejection System$/i.test(get('ejection')))) fail('special systems');
+  if (kv.has('ejection') && !/^Full Head Ejection System$/i.test(get('ejection'))) fail('special systems');
 
   const armor: ArmorAllocation = {
     HD: Number(get('hd armor')), CT: Number(get('ct armor')), CTR: Number(get('rtc armor')),
@@ -322,7 +324,8 @@ function parseMtf(text: string): ParsedMech {
     schemaVersion: 1, era: '3025', techBase, mixedTech,
     structureType, engineType, gyroType, cockpitType, heatSinkType,
     jumpJetType: jets.some((e) => e.equipmentId === 'improved-jump-jet') ? 'improved' : 'standard',
-    armorType, myomer, config: quad ? 'quad' : 'biped', omni: null,
+    armorType, myomer, config: quad ? 'quad' : 'biped', lam, omni: null,
+    ...(kv.has('ejection') ? { fullHeadEjection: true } : {}),
     chassis: get('clanname') ? `${get('clanname')} (${get('chassis')})` : get('chassis'),
     model: get('model'), tonnage, walkMP,
     engineHeatSinks: hsTotal - externalHS, armor,
@@ -686,7 +689,7 @@ function mechEntry(d: MechDesign, p: ParsedMech, configs = 1): CanonEntry {
   const issues = validate(d, s);
   return {
     n: `${d.chassis} ${d.model}`.trim(), t: d.tonnage, tb: d.techBase, era: d.era, y: p.year,
-    k: d.config === 'quad' ? (d.omni ? `quadomni:${configs}` : 'quad') : d.omni ? `omni:${configs}` : 'mech', bv: mechBV(d).total, ok: issues.every((i) => i.severity !== 'error'),
+    k: d.lam ? 'lam' : d.config === 'quad' ? (d.omni ? `quadomni:${configs}` : 'quad') : d.omni ? `omni:${configs}` : 'mech', bv: mechBV(d).total, ok: issues.every((i) => i.severity !== 'error'),
     w: s.weights.total === d.tonnage, src: p.source, mul: p.mulId, d: encodeMech(d),
   };
 }

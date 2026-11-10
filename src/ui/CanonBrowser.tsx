@@ -27,6 +27,7 @@ function weightClass(t: number, unit: UnitType, k = ''): string {
 function kindLabel(k: string): string {
   if (k === 'mech') return 'BattleMech';
   if (k === 'quad') return 'Quad BattleMech';
+  if (k === 'lam') return "Land-Air 'Mech";
   if (k.startsWith('omni:')) return `OmniMech (${k.slice(5)} configs)`;
   if (k.startsWith('quadomni:')) return `Quad OmniMech (${k.slice(9)} configs)`;
   if (k in SV_TYPES) return `${SV_TYPES[k as SVType].name} support`;
@@ -117,7 +118,7 @@ export function CanonBrowser({ unit, onLoad, onClose }: Props) {
           </select>
           <select aria-label="Type" value={sub} onChange={(e) => setSub(e.target.value)}>
             <option value="">All types</option>
-            {subKinds.map((k) => <option key={k} value={k}>{k === 'omni' ? 'OmniMechs' : k === 'quadomni' ? 'Quad OmniMechs' : k === 'quad' ? 'Quad BattleMechs' : kindLabel(k)}</option>)}
+            {subKinds.map((k) => <option key={k} value={k}>{k === 'omni' ? 'OmniMechs' : k === 'quadomni' ? 'Quad OmniMechs' : k === 'quad' ? 'Quad BattleMechs' : k === 'lam' ? "Land-Air 'Mechs" : kindLabel(k)}</option>)}
           </select>
           <label className="check small"><input type="checkbox" checked={legalOnly} onChange={(e) => setLegalOnly(e.target.checked)} /> Legal in MechForger only</label>
         </div>

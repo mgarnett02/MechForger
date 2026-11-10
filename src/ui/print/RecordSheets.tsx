@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import type { ArmorFacing, Location, MechDesign } from '../../rules/types';
-import { TECH_BASE_NAMES, isQuad, locationName } from '../../rules/types';
+import { LAM_TYPE_NAMES, TECH_BASE_NAMES, isQuad, locationName } from '../../rules/types';
 import { computeMech } from '../../rules/construction';
 import { getEra } from '../../rules/eras';
 import { activeConfigName } from '../../rules/omni';
@@ -55,8 +55,9 @@ function Field({ label, value, wide }: { label: string; value?: ReactNode; wide?
   );
 }
 
-function rulesLevel(d: { era: MechDesign['era']; mixedTech: boolean }): string {
-  return d.mixedTech ? 'Advanced' : getEra(d.era)?.rulesLevel ?? '';
+function rulesLevel(d: { era: MechDesign['era']; mixedTech: boolean; lam?: MechDesign['lam'] }): string {
+  // Mixed tech and Land-Air 'Mechs are Advanced rules.
+  return d.mixedTech || d.lam ? 'Advanced' : getEra(d.era)?.rulesLevel ?? '';
 }
 
 function techBase(d: { techBase: MechDesign['techBase']; mixedTech: boolean }): string {
@@ -212,7 +213,7 @@ export function MechRecordSheet({ design }: { design: MechDesign }) {
 
   return (
     <article className="record-sheet mech">
-      <SheetHeader kind="BattleMech Record Sheet" name={config ? `${name} (${config})` : name} />
+      <SheetHeader kind={design.lam ? "Land-Air 'Mech Record Sheet" : 'BattleMech Record Sheet'} name={config ? `${name} (${config})` : name} />
       <div className="rs-grid-mech">
         <Panel title="'Mech Data" className="area-data">
           <div className="rs-fields">
@@ -231,6 +232,12 @@ export function MechRecordSheet({ design }: { design: MechDesign }) {
             <Field label="Cost" value={`${mechCost(design).total.toLocaleString('en-US')} C-bills`} />
             <Field label="Engine" value={`${s.rating} ${engine}`} />
             {isQuad(design) && <Field label="Configuration" value="Quad" />}
+            {design.lam && <Field label="Configuration" value={`LAM (${LAM_TYPE_NAMES[design.lam]})`} />}
+            {s.lam?.airMech && (
+              <Field label="AirMech MP" wide
+                value={`Walk ${s.lam.airMech.walk} · Run ${s.lam.airMech.run} · Flight ${s.lam.airMech.cruise}/${s.lam.airMech.flank}`} />
+            )}
+            {s.lam && <Field label="Fighter Thrust" value={`${s.lam.fighter.safe} safe / ${s.lam.fighter.max} max`} />}
             {design.omni && <Field label="Config" value={`OmniMech — ${config}`} />}
           </div>
           {s.tsmMP && <p className="rs-note">Triple-Strength Myomer: {s.tsmMP.walk}/{s.tsmMP.run} at 9+ heat</p>}
@@ -273,6 +280,8 @@ export function MechRecordSheet({ design }: { design: MechDesign }) {
                   <div><span>Gyro Hits</span><Circles n={design.gyroType === 'heavy-duty' ? 3 : 2} /></div>
                   <div><span>Sensor Hits</span><Circles n={2} /></div>
                   <div><span>Life Support</span><Circles n={1} /></div>
+                  {design.lam && <div><span>Avionics</span><Circles n={3} /></div>}
+                  {design.lam && <div><span>Landing Gear</span><Circles n={3} /></div>}
                 </div>
               ),
             )}

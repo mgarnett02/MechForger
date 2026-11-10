@@ -178,13 +178,17 @@ export function mechBV(d: MechDesign): BVBreakdown {
     const eq = getEquipment(item.equipmentId);
     if (!eq || !item.location || protectedLoc(item.location)) continue;
     if (eq.category === 'Ammo' && eq.ammoFor && !isGaussType(eq.ammoFor) && !/plasma/.test(eq.ammoFor)) explosive += 15;
+    else if (eq.explosive) explosive += 15 * eq.slots;
     else if (eq.isWeapon && isGaussType(eq.id)) explosive += eq.slots;
   }
 
   const walk = d.walkMP;
   const run = s.mascRunMP ?? (s.tsmMP ? runMP(walk + 1) : s.runMP);
   const jump = s.jumpMP;
-  const tmm = Math.max(targetMovementModifier(run), jump > 0 ? targetMovementModifier(jump) + 1 : 0);
+  // Standard LAMs are rated on AirMech flank speed, with +1 for being airborne (IO p. 192, as in MegaMek).
+  const airMechFlank = d.lam === 'standard' ? s.lam?.airMech?.flank ?? 0 : null;
+  const runTMM = airMechFlank !== null ? (airMechFlank ? targetMovementModifier(airMechFlank) + 1 : 0) : targetMovementModifier(run);
+  const tmm = Math.max(runTMM, jump > 0 ? targetMovementModifier(jump) + 1 : 0);
   const defensive = Math.max(1, armor + structure + gyro + defEquip - explosive) * (1 + tmm / 10);
   lines.push(['Armor', armor], ['Internal structure', structure], ['Gyro', gyro]);
   if (defEquip) lines.push(['Defensive equipment', defEquip]);
@@ -202,8 +206,8 @@ export function mechBV(d: MechDesign): BVBreakdown {
   for (const w of weapons) {
     if (rearBV > frontBV ? !w.rear : w.rear) w.bv /= 2;
   }
-  const moveHeat = Math.max(2, jump > 0 ? Math.max(3, jump) : 0);
-  const heatEfficiency = 6 + s.heatSinks.dissipation - moveHeat;
+  const moveHeat = airMechFlank !== null ? Math.round(airMechFlank / 3) : Math.max(2, jump > 0 ? Math.max(3, jump) : 0);
+  const heatEfficiency = 6 + s.heatSinks.dissipation + (airMechFlank !== null ? 3 : 0) - moveHeat;
   weapons.sort((a, b) => b.bv - a.bv || a.heat - b.heat);
   let heat = 0;
   let weaponBV = 0;
@@ -219,7 +223,7 @@ export function mechBV(d: MechDesign): BVBreakdown {
     return eq && !eq.isWeapon && eq.category !== 'Ammo' && !DEFENSIVE_IDS.has(eq.id) ? a + (value(eq.id)?.bv ?? 0) : a;
   }, 0);
   const tonnage = d.tonnage * (d.myomer === 'tsm' ? 1.5 : 1);
-  const sf = speedFactor(run + Math.ceil(jump / 2));
+  const sf = speedFactor(run + Math.round((airMechFlank ?? jump) / 2));
   const offensive = (weaponBV + ammo + offEquip + tonnage) * sf;
   lines.push(['Weapons (heat-adjusted)', weaponBV], ['Ammunition', ammo]);
   if (offEquip) lines.push(['Offensive equipment', offEquip]);
@@ -274,6 +278,12 @@ export function mechCost(d: MechDesign): CostBreakdown {
     ['Armor', ARMOR_COST[d.armorType] * s.weights.armor],
     ['Weapons & equipment', equipmentCost(d.equipment, (eq) => itemWeight(eq, d), s.rating, d)],
   ];
+  if (d.fullHeadEjection) lines.push(['Full Head Ejection System', 1725000]);
+  if (d.lam) {
+    // Conversion equipment: 75% (65% bimodal) of internal structure plus weapons and equipment cost.
+    const base = lines.find(([l]) => l === 'Internal structure')![1] + lines.find(([l]) => l === 'Weapons & equipment')![1];
+    lines.push([`LAM conversion (${d.lam})`, base * (d.lam === 'bimodal' ? 0.65 : 0.75)]);
+  }
   const subtotal = lines.reduce((a, [, v]) => a + v, 0);
   const multiplier = (1 + t / 100) * (d.omni ? 1.25 : 1);
   lines.push([d.omni ? `× (1 + tonnage/100) × 1.25 OmniMech` : '× (1 + tonnage/100)', multiplier]);

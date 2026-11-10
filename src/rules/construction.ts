@@ -35,6 +35,8 @@ export interface LocationSlots {
 
 export interface WeightBreakdown {
   structure: number;
+  /** Land-Air 'Mech conversion equipment. */
+  conversion: number;
   engine: number;
   gyro: number;
   cockpit: number;
@@ -55,6 +57,8 @@ export interface MechSummary {
   tsmMP: { walk: number; run: number } | null;
   /** OmniMech fixed weight and pod space, for OmniMechs. */
   omni: OmniWeights | null;
+  /** Land-Air 'Mech movement in its other modes. */
+  lam: LamMovement | null;
   jumpMP: number;
   weightClass: WeightClass | null;
   engineWeight: number | null;
@@ -85,6 +89,36 @@ export function slotCount(design: Pick<MechDesign, 'config'>, loc: Location): nu
   return isQuad(design) && (loc === 'LA' || loc === 'RA') ? 6 : SLOT_COUNT[loc];
 }
 
+export interface LamMovement {
+  /** AirMech mode (standard LAMs only): ground movement, then WiGE flight. */
+  airMech: { walk: number; run: number; cruise: number; flank: number } | null;
+  /** Fighter mode thrust. */
+  fighter: { safe: number; max: number };
+}
+
+/** Conversion equipment weight: 10% of tonnage (15% bimodal), rounded up to a whole ton (IO p. 113). */
+export function lamConversionWeight(d: Pick<MechDesign, 'tonnage' | 'lam'>): number {
+  if (!d.lam) return 0;
+  return Math.ceil(d.tonnage * (d.lam === 'bimodal' ? 0.15 : 0.1) - 1e-9);
+}
+
+export function lamMovement(d: Pick<MechDesign, 'lam' | 'walkMP'>, jumpMP: number): LamMovement | null {
+  if (!d.lam) return null;
+  const walk = Math.ceil(d.walkMP * 0.33);
+  const cruise = jumpMP * 3;
+  return {
+    airMech: d.lam === 'standard' ? { walk, run: Math.ceil(walk * 1.5), cruise, flank: Math.ceil(cruise * 1.5) } : null,
+    fighter: { safe: jumpMP, max: Math.ceil(jumpMP * 1.5) },
+  };
+}
+
+/** Put a LAM system in the first open slot. */
+function claim(slots: (string | null)[], label: string): (string | null)[] {
+  const i = slots.indexOf(null);
+  if (i >= 0) slots[i] = label;
+  return slots;
+}
+
 const LEG_SLOTS = ['Hip', 'Upper Leg Actuator', 'Lower Leg Actuator', 'Foot Actuator', null, null];
 
 const ENGINE_LABEL = {
@@ -94,6 +128,17 @@ const GYRO_LABEL = { standard: 'Gyro', xl: 'XL Gyro', 'heavy-duty': 'Heavy-Duty 
 
 /** Fixed components per location; null marks a slot open for equipment. */
 export function fixedSlots(design: MechDesign, loc: Location): (string | null)[] {
+  const base = baseFixedSlots(design, loc);
+  if (!design.lam) return base;
+  // LAM conversion systems take the first open slots: avionics in the head, landing gear in
+  // the center torso, and landing gear + avionics in each side torso (as MegaMek places them).
+  if (loc === 'HD') return claim(base, 'Avionics');
+  if (loc === 'CT') return claim(base, 'Landing Gear');
+  if (loc === 'LT' || loc === 'RT') return claim(claim(base, 'Landing Gear'), 'Avionics');
+  return base;
+}
+
+function baseFixedSlots(design: MechDesign, loc: Location): (string | null)[] {
   switch (loc) {
     case 'HD':
       return design.cockpitType === 'small'
@@ -187,6 +232,7 @@ export function computeMech(design: MechDesign): MechSummary {
   const armorTotal = totalArmorPoints(design.armor);
   const weights: WeightBreakdown = {
     structure: internalStructureWeight(design.structureType, tonnage),
+    conversion: lamConversionWeight(design),
     engine: engineWt ?? 0,
     gyro: gyroWeightFor(design.gyroType, rating),
     cockpit: cockpitWeight(design.cockpitType),
@@ -198,7 +244,7 @@ export function computeMech(design: MechDesign): MechSummary {
     free: 0,
   };
   weights.total =
-    weights.structure + weights.engine + weights.gyro + weights.cockpit +
+    weights.structure + weights.conversion + weights.engine + weights.gyro + weights.cockpit +
     weights.heatSinks + weights.jumpJets + weights.armor + weights.equipment;
   weights.free = tonnage - weights.total;
 
@@ -211,6 +257,7 @@ export function computeMech(design: MechDesign): MechSummary {
     mascRunMP: hasMasc ? walkMP * 2 : null,
     tsmMP: design.myomer === 'tsm' ? { walk: walkMP + 1, run: runMP(walkMP + 1) } : null,
     omni: design.omni ? omniWeights(design, weights.total) : null,
+    lam: lamMovement(design, jumpMP),
     jumpMP,
     weightClass: weightClass(tonnage),
     engineWeight: engineWt,

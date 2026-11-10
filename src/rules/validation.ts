@@ -1,5 +1,5 @@
 import type { MechDesign } from './types';
-import { ARM_LOCATIONS, ARMOR_FACINGS, LOCATIONS, facingName, isQuad, legLocations, locationName } from './types';
+import { ARM_LOCATIONS, ARMOR_FACINGS, LAM_TYPE_NAMES, LOCATIONS, facingName, isQuad, legLocations, locationName } from './types';
 import type { MeleeKind } from './equipment';
 import { HAND_WEAPONS, NEEDS_HAND } from './melee';
 import {
@@ -166,6 +166,33 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
     error('Standard and improved jump jets cannot be mixed.');
   }
 
+  // Land-Air 'Mechs (Interstellar Operations; checks as in MegaMek's TestMek)
+  if (design.lam) {
+    const lamName = `${LAM_TYPE_NAMES[design.lam]} LAM`;
+    if (design.tonnage > 55) error(`LAMs cannot weigh more than 55 tons (got ${design.tonnage}).`);
+    if (design.techBase !== 'IS') error('LAMs are Inner Sphere technology; switch the tech base to Inner Sphere.');
+    if (isQuad(design)) error('Only biped \'Mechs can be LAMs.');
+    if (design.omni) error('LAMs cannot be built as OmniMechs.');
+    if (design.engineType !== 'standard' && design.engineType !== 'compact') {
+      error(`${lamName}s may only use standard or compact fusion engines.`);
+    }
+    if (design.gyroType === 'xl') error('LAMs cannot use an XL gyro.');
+    if (design.structureType !== 'standard') error('LAMs cannot use Endo Steel (or any structure that takes slots).');
+    if (design.armorType !== 'standard') error('LAMs cannot use ferro-fibrous armor (or any armor that takes slots).');
+    if (summary.jumpMP < 3) error(`LAMs need at least 3 jumping MP (fighter thrust comes from the jump jets); has ${summary.jumpMP}.`);
+    for (const arm of ARM_LOCATIONS) {
+      if (!design.actuators[arm].lowerArm) error(`${locationName(design, arm)}: LAMs need upper and lower arm actuators in both arms.`);
+    }
+    const banned = new Set<string>();
+    for (const item of design.equipment) {
+      const eq = getEquipment(item.equipmentId);
+      if (eq && (eq.melee || eq.id === 'heavy-gauss-rifle')) banned.add(eq.name);
+    }
+    const bays = design.equipment.filter((e) => e.equipmentId === 'bomb-bay').length;
+    if (bays > 20) error(`A LAM can carry at most 20 bomb bays (has ${bays}).`);
+    for (const name of banned) error(`LAMs cannot mount a ${name}${/Gauss/.test(name) ? '' : ' (no physical weapons)'}.`);
+  }
+
   // Actuators
   for (const arm of isQuad(design) ? [] : ARM_LOCATIONS) {
     const a = design.actuators[arm];
@@ -209,6 +236,7 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
         error(`${eq.name} is not available in the ${eraName} era.`);
       }
     }
+    if (eq.lamOnly && !design.lam) error(`${eq.name} can only be fitted to a Land-Air 'Mech.`);
     if (item.location !== null && !allowedLocations(eq, design).includes(item.location)) {
       error(`${eq.name} cannot be mounted in the ${locationName(design, item.location)}.`);
     }
