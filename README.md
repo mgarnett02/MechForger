@@ -43,6 +43,10 @@ Everything above, plus:
 - **Triple-Strength Myomer** (IS; 6 slots, +1 walking MP at 9+ heat; not with MASC)
 - **C3** master computer and slave unit (IS)
 - **Half-ton machine gun ammo**
+- **Fighters**: aerospace fighters (including OmniFighters) and conventional fighters: engine rating from
+  thrust, structural integrity, fuel, heat sinks, armor arcs with thresholds, five weapon slots per arc
+  (less ferro-aluminum armor), matched wings, BV and cost as in MegaMek, and aerospace record sheets
+  with attack values by range bracket
 - **Land-Air 'Mechs**: standard and bimodal LAMs with conversion equipment, avionics and landing gear,
   AirMech and fighter movement, bomb bays and LAM fuel tanks, and the Interstellar Operations
   construction limits (as implemented by MegaMek)
@@ -136,7 +140,8 @@ fixed-wing.
 - Red / amber / green status light: illegal, legal but incomplete (unused tonnage,
   unallocated armor), or fully legal
 - **Canon units**: about 2,000 canon BattleMechs, including 47 quads, 19 Land-Air 'Mechs and around 100 melee-armed designs (OmniMechs with all their
-  configurations), 630 canon combat vehicles and 120 support vehicles, searchable by name, era, tech base,
+  configurations), 630 canon combat vehicles, 120 support vehicles and about 400 aerospace, Omni and
+  conventional fighters, searchable by name, era, tech base,
   weight and type, ready to load, modify and print (see *Canon unit data* below)
 - **Battle Value (BV 2.0) and C-bill cost**, with the working shown; mech values
   reproduce published canon figures (e.g. Atlas AS7-D: BV 1,897, 9,626,000 C-bills).

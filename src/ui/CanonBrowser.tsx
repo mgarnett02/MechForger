@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CanonEntry } from '../data/canonFormat';
-import { decodeMech, decodeSupport, decodeVehicle } from '../data/canonFormat';
+import { decodeFighter, decodeMech, decodeSupport, decodeVehicle } from '../data/canonFormat';
 import { SV_TYPES, sizeClass } from '../rules/support';
 import type { SVType } from '../rules/support';
 import { ERAS } from '../rules/eras';
@@ -20,6 +20,7 @@ function weightClass(t: number, unit: UnitType, k = ''): string {
     const size = sizeClass({ svType: (k in SV_TYPES ? k : 'wheeled') as SVType, tonnage: t });
     return size[0].toUpperCase() + size.slice(1);
   }
+  if (unit === 'fighter') return k === 'conventional' ? (t <= 15 ? 'Light' : t <= 30 ? 'Medium' : 'Heavy') : t <= 45 ? 'Light' : t <= 70 ? 'Medium' : 'Heavy';
   if (unit === 'mech') return t <= 35 ? 'Light' : t <= 55 ? 'Medium' : t <= 75 ? 'Heavy' : 'Assault';
   return t < 40 ? 'Light' : t < 60 ? 'Medium' : t < 80 ? 'Heavy' : t <= 100 ? 'Assault' : 'Super-heavy';
 }
@@ -28,6 +29,9 @@ function kindLabel(k: string): string {
   if (k === 'mech') return 'BattleMech';
   if (k === 'quad') return 'Quad BattleMech';
   if (k === 'lam') return "Land-Air 'Mech";
+  if (k === 'aerospace') return 'Aerospace fighter';
+  if (k === 'omnifighter') return 'OmniFighter';
+  if (k === 'conventional') return 'Conventional fighter';
   if (k.startsWith('omni:')) return `OmniMech (${k.slice(5)} configs)`;
   if (k.startsWith('quadomni:')) return `Quad OmniMech (${k.slice(9)} configs)`;
   if (k in SV_TYPES) return `${SV_TYPES[k as SVType].name} support`;
@@ -51,7 +55,8 @@ export function CanonBrowser({ unit, onLoad, onClose }: Props) {
   useEffect(() => {
     setEntries(null);
     setSub('');
-    const load = kind === 'support' ? import('../data/canon/support.json')
+    const load = kind === 'fighter' ? import('../data/canon/fighters.json')
+      : kind === 'support' ? import('../data/canon/support.json')
       : kind === 'vehicle' ? import('../data/canon/vehicles.json') : import('../data/canon/mechs.json');
     load.then((m) => setEntries(m.default as CanonEntry[]), (e) => setError(String(e)));
   }, [kind]);
@@ -84,7 +89,7 @@ export function CanonBrowser({ unit, onLoad, onClose }: Props) {
   }, [entries, query, tech, era, cls, sub, legalOnly, kind]);
 
   const open = (e: CanonEntry) => {
-    onLoad(kind === 'support' ? decodeSupport(e.d) : kind === 'vehicle' ? decodeVehicle(e.d) : decodeMech(e.d));
+    onLoad(kind === 'fighter' ? decodeFighter(e.d) : kind === 'support' ? decodeSupport(e.d) : kind === 'vehicle' ? decodeVehicle(e.d) : decodeMech(e.d));
     onClose();
   };
 
@@ -97,6 +102,7 @@ export function CanonBrowser({ unit, onLoad, onClose }: Props) {
             <button role="radio" aria-checked={kind === 'mech'} className={kind === 'mech' ? 'active' : ''} onClick={() => setKind('mech')}>BattleMechs</button>
             <button role="radio" aria-checked={kind === 'vehicle'} className={kind === 'vehicle' ? 'active' : ''} onClick={() => setKind('vehicle')}>Vehicles</button>
             <button role="radio" aria-checked={kind === 'support'} className={kind === 'support' ? 'active' : ''} onClick={() => setKind('support')}>Support vehicles</button>
+            <button role="radio" aria-checked={kind === 'fighter'} className={kind === 'fighter' ? 'active' : ''} onClick={() => setKind('fighter')}>Fighters</button>
           </div>
           <span className="spacer" />
           <button onClick={onClose}>Close</button>
@@ -114,7 +120,7 @@ export function CanonBrowser({ unit, onLoad, onClose }: Props) {
           </select>
           <select aria-label="Weight class" value={cls} onChange={(e) => setCls(e.target.value)}>
             <option value="">All weights</option>
-            {(kind === 'support' ? ['Small', 'Medium', 'Large'] : ['Light', 'Medium', 'Heavy', 'Assault', ...(kind === 'vehicle' ? ['Super-heavy'] : [])]).map((c) => <option key={c}>{c}</option>)}
+            {(kind === 'support' ? ['Small', 'Medium', 'Large'] : kind === 'fighter' ? ['Light', 'Medium', 'Heavy'] : ['Light', 'Medium', 'Heavy', 'Assault', ...(kind === 'vehicle' ? ['Super-heavy'] : [])]).map((c) => <option key={c}>{c}</option>)}
           </select>
           <select aria-label="Type" value={sub} onChange={(e) => setSub(e.target.value)}>
             <option value="">All types</option>

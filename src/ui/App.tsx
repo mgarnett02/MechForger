@@ -21,13 +21,16 @@ import { VehicleEditor } from './VehicleEditor';
 import { SupportEditor } from './SupportEditor';
 import type { SupportVehicleDesign } from '../rules/support';
 import { computeSupport, newSupportVehicle, validateSupport } from '../rules/support';
+import type { FighterDesign } from '../rules/fighter';
+import { computeFighter, newFighter, validateFighter } from '../rules/fighter';
+import { FighterEditor } from './FighterEditor';
 import { PrintPreview } from './print/PrintPreview';
 import { AboutDialog } from './AboutDialog';
 import { CanonBrowser } from './CanonBrowser';
 import type { AnyDesign, UnitType } from './storage';
 import {
-  clearLegacySaved, listLegacySaved, loadCurrent, loadCurrentSupport, loadCurrentVehicle, loadUnit,
-  saveCurrent, saveCurrentSupport, saveCurrentVehicle, saveUnit, unitTypeOf,
+  clearLegacySaved, listLegacySaved, loadCurrent, loadCurrentFighter, loadCurrentSupport, loadCurrentVehicle, loadUnit,
+  saveCurrent, saveCurrentFighter, saveCurrentSupport, saveCurrentVehicle, saveUnit, unitTypeOf,
 } from './storage';
 import { loadDesignFile, saveDesignFile, saveDesignFiles } from './designFiles';
 
@@ -36,6 +39,7 @@ export function App() {
   const [design, setDesign] = useState<MechDesign>(() => loadCurrent() ?? newDesign());
   const [vehicle, setVehicle] = useState<VehicleDesign>(() => loadCurrentVehicle() ?? newVehicle());
   const [support, setSupport] = useState<SupportVehicleDesign>(() => loadCurrentSupport() ?? newSupportVehicle());
+  const [fighter, setFighter] = useState<FighterDesign>(() => loadCurrentFighter() ?? newFighter());
   const [selected, setSelected] = useState<string | null>(null);
   const [legacy, setLegacy] = useState(() => Object.values(listLegacySaved()));
   const [notice, setNotice] = useState<string | null>(null);
@@ -53,10 +57,13 @@ export function App() {
   const vIssues = useMemo(() => validateVehicle(vehicle, vSummary), [vehicle, vSummary]);
   const sSummary = useMemo(() => computeSupport(support), [support]);
   const sIssues = useMemo(() => validateSupport(support, sSummary), [support, sSummary]);
+  const fSummary = useMemo(() => computeFighter(fighter), [fighter]);
+  const fIssues = useMemo(() => validateFighter(fighter, fSummary), [fighter, fSummary]);
 
   useEffect(() => saveCurrent(design), [design]);
   useEffect(() => saveCurrentVehicle(vehicle), [vehicle]);
   useEffect(() => saveCurrentSupport(support), [support]);
+  useEffect(() => saveCurrentFighter(fighter), [fighter]);
   useEffect(() => saveUnit(unit), [unit]);
   useEffect(() => {
     if (!notice) return;
@@ -67,19 +74,24 @@ export function App() {
   const update = useCallback((fn: (d: MechDesign) => MechDesign) => setDesign((d) => fn(d)), []);
   const updateVehicle = useCallback((fn: (d: VehicleDesign) => VehicleDesign) => setVehicle((d) => fn(d)), []);
   const updateSupport = useCallback((fn: (d: SupportVehicleDesign) => SupportVehicleDesign) => setSupport((d) => fn(d)), []);
+  const updateFighter = useCallback((fn: (d: FighterDesign) => FighterDesign) => setFighter((d) => fn(d)), []);
 
   /** The design being edited, whichever kind it is. */
-  const active: AnyDesign = unit === 'support' ? support : unit === 'vehicle' ? vehicle : design;
-  const issues = unit === 'support' ? sIssues : unit === 'vehicle' ? vIssues : mechIssues;
+  const active: AnyDesign = unit === 'fighter' ? fighter : unit === 'support' ? support : unit === 'vehicle' ? vehicle : design;
+  const issues = unit === 'fighter' ? fIssues : unit === 'support' ? sIssues : unit === 'vehicle' ? vIssues : mechIssues;
   const setName = (patch: { chassis?: string; model?: string }) =>
-    unit === 'support' ? updateSupport((d) => ({ ...d, ...patch }))
+    unit === 'fighter' ? updateFighter((d) => ({ ...d, ...patch }))
+      : unit === 'support' ? updateSupport((d) => ({ ...d, ...patch }))
       : unit === 'vehicle' ? updateVehicle((d) => ({ ...d, ...patch })) : update((d) => ({ ...d, ...patch }));
   const newOf = (u: UnitType, era: EraId, tb: TechBase): AnyDesign =>
-    u === 'support' ? newSupportVehicle(era, tb) : u === 'vehicle' ? newVehicle(era, tb) : newDesign(era, tb);
+    u === 'fighter' ? newFighter(era, tb) : u === 'support' ? newSupportVehicle(era, tb) : u === 'vehicle' ? newVehicle(era, tb) : newDesign(era, tb);
 
   const load = (d: AnyDesign) => {
     const kind = unitTypeOf(d);
-    if (kind === 'support') {
+    if (kind === 'fighter') {
+      setFighter(d as FighterDesign);
+      setUnit('fighter');
+    } else if (kind === 'support') {
       setSupport(d as SupportVehicleDesign);
       setUnit('support');
     } else if (isVehicle(d)) {
@@ -96,9 +108,10 @@ export function App() {
     d.equipment.some((e) => e.equipmentId !== 'heat-sink') || Object.values(d.armor).some((v) => v > 0);
 
   const chooseEra = (era: EraId, techBase: TechBase, chosen: UnitType) => {
-    const current: AnyDesign = chosen === 'support' ? support : chosen === 'vehicle' ? vehicle : design;
+    const current: AnyDesign = chosen === 'fighter' ? fighter : chosen === 'support' ? support : chosen === 'vehicle' ? vehicle : design;
     if (techBase === current.techBase) {
-      if (chosen === 'support') updateSupport((d) => (d.era === era ? d : { ...d, era }));
+      if (chosen === 'fighter') updateFighter((d) => (d.era === era ? d : { ...d, era }));
+      else if (chosen === 'support') updateSupport((d) => (d.era === era ? d : { ...d, era }));
       else if (chosen === 'vehicle') updateVehicle((d) => (d.era === era ? d : { ...d, era }));
       else update((d) => (d.era === era ? d : { ...d, era }));
       setUnit(chosen);
@@ -164,7 +177,7 @@ export function App() {
         <h1>
           MechForger{' '}
           <span className="muted small">
-            {unit === 'vehicle' ? 'Vehicle · ' : unit === 'support' ? 'Support Vehicle · ' : ''}
+            {unit === 'vehicle' ? 'Vehicle · ' : unit === 'support' ? 'Support Vehicle · ' : unit === 'fighter' ? 'Fighter · ' : ''}
             {era
               ? `${era.name} · ${active.mixedTech ? `Mixed tech (${TECH_BASE_NAMES[active.techBase]} chassis) · Advanced` : `${TECH_BASE_NAMES[active.techBase]} · ${era.rulesLevel}`} · ${era.year}`
               : active.era}
@@ -179,7 +192,7 @@ export function App() {
           <input aria-label="Model" value={active.model} placeholder="Model" style={{ width: '7rem' }}
             onChange={(e) => setName({ model: e.target.value })} />
           <button onClick={() => load(newOf(unit, active.era, active.techBase))}>New</button>
-          <button onClick={() => setCanon(true)} title="Browse and load canon BattleMechs and vehicles">Canon units…</button>
+          <button onClick={() => setCanon(true)} title="Browse and load canon BattleMechs, vehicles and fighters">Canon units…</button>
           <button onClick={() => void onLoad()} title="Open a design file (.json)">Load…</button>
           <button onClick={() => void onSave()} title="Save this design as its own .json file">Save…</button>
           {legacy.length > 0 && (
@@ -194,7 +207,9 @@ export function App() {
         {notice && <div className="notice" role="status">{notice}</div>}
       </header>
 
-      {unit === 'support' ? (
+      {unit === 'fighter' ? (
+        <FighterEditor design={fighter} summary={fSummary} issues={fIssues} update={updateFighter} />
+      ) : unit === 'support' ? (
         <SupportEditor design={support} summary={sSummary} issues={sIssues} update={updateSupport} />
       ) : unit === 'vehicle' ? (
         <VehicleEditor design={vehicle} summary={vSummary} issues={vIssues} update={updateVehicle} />

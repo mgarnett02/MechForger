@@ -8,7 +8,7 @@ import { DISCLAIMER_SHORT } from './legal';
 interface Props {
   current: EraId;
   currentTechBase: TechBase;
-  onSelect: (era: EraId, techBase: TechBase, unit: 'mech' | 'vehicle' | 'support') => void;
+  onSelect: (era: EraId, techBase: TechBase, unit: 'mech' | 'vehicle' | 'support' | 'fighter') => void;
   /** When provided the dialog can be dismissed without choosing (Esc / Cancel). */
   onCancel?: () => void;
   theme: ThemeChoice;
@@ -66,8 +66,8 @@ export function EraDialog({ current, currentTechBase, onSelect, onCancel, theme,
     setPending(era);
     setStep('unit');
   };
-  const [unit, setUnit] = useState<'mech' | 'vehicle' | 'support'>('mech');
-  const pickUnit = (u: 'mech' | 'vehicle' | 'support') => {
+  const [unit, setUnit] = useState<'mech' | 'vehicle' | 'support' | 'fighter'>('mech');
+  const pickUnit = (u: 'mech' | 'vehicle' | 'support' | 'fighter') => {
     if (!pending) return;
     setUnit(u);
     if (pending.techBases.length === 1) onSelect(pending.id, pending.techBases[0], u);
@@ -80,7 +80,7 @@ export function EraDialog({ current, currentTechBase, onSelect, onCancel, theme,
         {step === 'unit' && pending ? (
           <>
             <h2 id="era-title">{pending.year} {pending.name}: what are you building?</h2>
-            <p className="muted">Both use the {pending.name} era&apos;s technology.</p>
+            <p className="muted">All use the {pending.name} era&apos;s technology.</p>
             <div className="era-grid">
               <button ref={firstRef} className="era-btn" onClick={() => pickUnit('mech')}>
                 <span className="unit-icon" aria-hidden="true">
@@ -102,6 +102,13 @@ export function EraDialog({ current, currentTechBase, onSelect, onCancel, theme,
                 </span>
                 <span className="era-year">Support Vehicle</span>
                 <span className="era-desc">Trucks, transports, trains, airships and aircraft built with support vehicle rules.</span>
+              </button>
+              <button className="era-btn" onClick={() => pickUnit('fighter')}>
+                <span className="unit-icon" aria-hidden="true">
+                  <svg viewBox="0 0 48 48" width="40" height="40"><path d="M24 2l4 14 16 10v4l-16-4-2 12 6 4v3l-8-2-8 2v-3l6-4-2-12-16 4v-4l16-10z" fill="currentColor" /></svg>
+                </span>
+                <span className="era-year">Fighter</span>
+                <span className="era-desc">Aerospace fighters (incl. OmniFighters) and conventional fighters.</span>
               </button>
             </div>
           </>

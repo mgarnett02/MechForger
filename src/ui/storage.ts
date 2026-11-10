@@ -4,22 +4,26 @@ import type { VehicleDesign } from '../rules/vehicle';
 import { isVehicle, parseVehicle } from '../rules/vehicle';
 import type { SupportVehicleDesign } from '../rules/support';
 import { isSupport, parseSupport } from '../rules/support';
+import type { FighterDesign } from '../rules/fighter';
+import { isFighter, parseFighter } from '../rules/fighter';
 
-export type AnyDesign = MechDesign | VehicleDesign | SupportVehicleDesign;
-export type UnitType = 'mech' | 'vehicle' | 'support';
+export type AnyDesign = MechDesign | VehicleDesign | SupportVehicleDesign | FighterDesign;
+export type UnitType = 'mech' | 'vehicle' | 'support' | 'fighter';
 
 export function unitTypeOf(d: AnyDesign): UnitType {
-  return isSupport(d) ? 'support' : isVehicle(d) ? 'vehicle' : 'mech';
+  return isFighter(d) ? 'fighter' : isSupport(d) ? 'support' : isVehicle(d) ? 'vehicle' : 'mech';
 }
 
 const KEY = 'mechforger.designs.v1';
 const CURRENT = 'mechforger.current.v1';
 const CURRENT_VEHICLE = 'mechforger.currentVehicle.v1';
 const CURRENT_SUPPORT = 'mechforger.currentSupport.v1';
+const CURRENT_FIGHTER = 'mechforger.currentFighter.v1';
 const UNIT = 'mechforger.unit.v1';
 
 /** Parse a saved or imported file as whichever kind of design it is. */
 export function parseAny(raw: unknown): AnyDesign {
+  if (isFighter(raw)) return parseFighter(raw);
   if (isSupport(raw)) return parseSupport(raw);
   return isVehicle(raw) ? parseVehicle(raw) : parseDesign(raw);
 }
@@ -98,7 +102,7 @@ export function saveCurrentVehicle(d: VehicleDesign) {
 
 export function loadUnit(): UnitType {
   const u = read(UNIT);
-  return u === 'vehicle' || u === 'support' ? u : 'mech';
+  return u === 'vehicle' || u === 'support' || u === 'fighter' ? u : 'mech';
 }
 
 export function loadCurrentSupport(): SupportVehicleDesign | null {
@@ -113,6 +117,20 @@ export function loadCurrentSupport(): SupportVehicleDesign | null {
 
 export function saveCurrentSupport(d: SupportVehicleDesign) {
   write(CURRENT_SUPPORT, d);
+}
+
+export function loadCurrentFighter(): FighterDesign | null {
+  const raw = read(CURRENT_FIGHTER);
+  if (!raw) return null;
+  try {
+    return parseFighter(raw);
+  } catch {
+    return null;
+  }
+}
+
+export function saveCurrentFighter(d: FighterDesign) {
+  write(CURRENT_FIGHTER, d);
 }
 
 export function saveUnit(unit: UnitType) {

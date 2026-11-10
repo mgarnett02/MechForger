@@ -13,6 +13,8 @@ import { getEquipment, isDirectFire, itemWeight } from './equipment';
 import { computeMech } from './construction';
 import { runMP } from './tables';
 import { meleeBV, meleeCost } from './melee';
+import type { FighterDesign } from './fighter';
+import { computeFighter, fighterItemWeight } from './fighter';
 import type { VehicleDesign } from './vehicle';
 import { computeVehicle, vehicleItemWeight } from './vehicle';
 import { DEFENSIVE_IDS, ITEM_VALUES, MML_AMMO_BV, isGaussType } from './values';
@@ -348,4 +350,109 @@ export function vehicleCost(d: VehicleDesign): CostBreakdown {
 
 export function formatCBills(n: number): string {
   return `${n.toLocaleString('en-US')} C-bills`;
+}
+
+// ---------------------------------------------------------------------------
+// Aerospace and conventional fighters (MegaMek's AeroBVCalculator / AeroCostCalculator)
+// ---------------------------------------------------------------------------
+
+export function fighterBV(d: FighterDesign): BVBreakdown {
+  const s = computeFighter(d);
+  const lines: [string, number][] = [];
+  const conventional = d.fighterType === 'conventional';
+
+  // Defensive: armor, structural integrity, defensive equipment, unprotected explosives, type modifier.
+  const armor = s.armorTotal * 2.5;
+  const structure = s.si * 2;
+  const defEquip = defensiveEquipmentBV(d.equipment);
+  // Clan fighters and fighters with CASE ignore explosives; otherwise −15 per ammo type, −1 per Gauss weapon.
+  const protectedAll = d.techBase === 'Clan' || d.equipment.some((e) => e.equipmentId === 'case');
+  let explosive = 0;
+  if (!protectedAll) {
+    const ammoTypes = new Set<string>();
+    for (const item of d.equipment) {
+      const eq = getEquipment(item.equipmentId);
+      if (!eq) continue;
+      if (eq.category === 'Ammo' && eq.ammoFor && !isGaussType(eq.ammoFor) && !/plasma/.test(eq.ammoFor)) ammoTypes.add(eq.id);
+      else if (eq.isWeapon && isGaussType(eq.id)) explosive += 1;
+      else if (eq.explosive) explosive += 1;
+    }
+    explosive += 15 * ammoTypes.size;
+  }
+  const typeModifier = conventional ? 1.1 : 1.2;
+  const defensive = Math.max(1, armor + structure + defEquip - explosive) * typeModifier;
+  lines.push(['Armor', armor], ['Structural integrity', structure]);
+  if (defEquip) lines.push(['Defensive equipment', defEquip]);
+  if (explosive) lines.push(['Explosive ammo / components', -explosive]);
+  lines.push([`Type modifier (${conventional ? 'conventional' : 'aerospace'} fighter)`, typeModifier]);
+
+  // Offensive: aft and rear-facing weapons are the rear arc; the weaker arc counts half.
+  const weapons = weaponEntries(d.equipment.map((e) => ({ ...e, rear: e.rear || e.location === 'AFT' })));
+  const frontBV = weapons.filter((w) => !w.rear).reduce((a, w) => a + w.bv, 0);
+  const rearBV = weapons.filter((w) => w.rear).reduce((a, w) => a + w.bv, 0);
+  for (const w of weapons) if (rearBV > frontBV ? !w.rear : w.rear) w.bv /= 2;
+  // Aerospace fighters track heat against 6 + dissipation (no movement heat); conventional fighters don't.
+  const heatEfficiency = 6 + s.heatSinks.dissipation;
+  weapons.sort((a, b) => ((a.heat === 0) !== (b.heat === 0) ? (a.heat === 0 ? -1 : 1) : b.bv - a.bv || a.heat - b.heat));
+  let heat = 0;
+  let weaponBV = 0;
+  for (const w of weapons) {
+    weaponBV += conventional || heat < heatEfficiency || w.heat === 0 ? w.bv : w.bv / 2;
+    heat += w.heat;
+  }
+  const ammo = ammoBV(d.equipment, weapons);
+  const offEquip = d.equipment.reduce((a, i) => {
+    const eq = getEquipment(i.equipmentId);
+    return eq && !eq.isWeapon && eq.category !== 'Ammo' && !DEFENSIVE_IDS.has(eq.id) ? a + (value(eq.id)?.bv ?? 0) : a;
+  }, 0);
+  const sf = speedFactor(s.maxThrust);
+  const offensive = (weaponBV + ammo + offEquip) * sf;
+  lines.push(['Weapons (heat-adjusted)', weaponBV], ['Ammunition', ammo]);
+  if (offEquip) lines.push(['Offensive equipment', offEquip]);
+  lines.push([`Speed factor (max thrust ${s.maxThrust})`, sf]);
+
+  let total = defensive + offensive;
+  if (d.cockpitType === 'small') {
+    total *= 0.95;
+    lines.push(['× 0.95 small cockpit', 0.95]);
+  }
+  return { total: round(total), defensive, offensive, lines, approximate: false };
+}
+
+export function fighterCost(d: FighterDesign): CostBreakdown {
+  const s = computeFighter(d);
+  const t = d.tonnage;
+  const engine = (ENGINE_COST[d.engineType] * s.rating * t) / 75;
+  const armor = ARMOR_COST[d.armorType] * s.weights.armor;
+  const sinkCost = d.heatSinkType === 'double' ? 6000 : 2000;
+  const equipment = equipmentCost(d.equipment, (eq) => fighterItemWeight(eq, d), s.rating);
+  const lines: [string, number][] = d.fighterType === 'conventional'
+    ? [
+        ['Avionics', 4000 * (Math.ceil(t / 5) / 2)],
+        ...(d.vstol ? [['VSTOL gear', 5000 * (Math.ceil(t / 10) / 2)] as [string, number]] : []),
+        ['Structure', 4000 * s.si],
+        ['Flight systems', 25000 + 10 * t],
+        ['Engine', engine],
+        ['Fuel tanks', (200 * s.fuelPoints) / 160],
+        ['Armor', armor],
+        ['Heat sinks', sinkCost * s.heatSinks.required],
+        ['Weapons & equipment', equipment],
+        ...(s.weights.powerAmplifiers ? [['Power amplifiers', 20000 * s.weights.powerAmplifiers] as [string, number]] : []),
+      ]
+    : [
+        ['Cockpit', 200000],
+        ['Life support', 50000],
+        ['Sensors', 2000 * t],
+        ['Structure', 50000 * s.si],
+        ['Flight systems', 25000 + 10 * t],
+        ['Engine', engine],
+        ['Fuel tanks', (200 * s.fuelPoints) / 80],
+        ['Armor', armor],
+        ['Heat sinks', sinkCost * s.heatSinks.total],
+        ['Weapons & equipment', equipment],
+      ];
+  const subtotal = lines.reduce((a, [, v]) => a + v, 0);
+  const multiplier = (1 + t / 200) * (d.omni ? 1.25 : 1);
+  lines.push([d.omni ? '× (1 + tonnage/200) × 1.25 OmniFighter' : '× (1 + tonnage/200)', multiplier]);
+  return { total: round(subtotal * multiplier), lines, approximate: false };
 }

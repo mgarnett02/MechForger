@@ -7,6 +7,9 @@ import { LOCATIONS, locationAbbr } from './types';
 import type { Equipment } from './equipment';
 import { getEquipment, itemWeight, shortEquipmentName } from './equipment';
 import { meleeDamage } from './melee';
+import type { FighterDesign } from './fighter';
+import { fighterItemWeight } from './fighter';
+import { AERO_AV } from './aeroAV';
 import type { VehicleDesign } from './vehicle';
 import { VEHICLE_LOCATION_NAMES, turretName, vehicleItemWeight } from './vehicle';
 
@@ -162,3 +165,35 @@ export const HEAT_SCALE: Record<number, string> = {
 
 /** MechWarrior consciousness rolls by hits taken (6 = killed). */
 export const CONSCIOUSNESS = ['3', '5', '7', '10', '11', 'Dead'];
+
+export interface FighterWeaponRow {
+  qty: number;
+  name: string;
+  location: string;
+  heat: string;
+  /** Attack value per bracket: short, medium, long, extreme ("—" when out of range). */
+  av: [string, string, string, string];
+}
+
+export function fighterSheetData(d: FighterDesign): { weapons: FighterWeaponRow[]; equipment: EquipmentRow[]; ammo: AmmoRow[] } {
+  const order: Record<string, number> = { NOS: 0, LWG: 1, RWG: 2, AFT: 3, FUS: 4 };
+  const groups = group(d.equipment, (e) => ({ label: e.location ?? '—', order: order[e.location ?? ''] ?? 9, rear: !!e.rear }));
+  const weapons = groups.filter((g) => g.eq.isWeapon).map((g): FighterWeaponRow => {
+    const av = AERO_AV[g.eq.id] ?? [0, 0, 0, 0];
+    return {
+      qty: g.count,
+      name: shortEquipmentName(g.eq, d) + (g.rear ? ' (R)' : ''),
+      location: g.location,
+      heat: String(g.eq.heat * g.count),
+      av: av.map((v) => (v ? String(v * g.count) : '—')) as FighterWeaponRow['av'],
+    };
+  });
+  const equipment = groups
+    .filter((g) => !g.eq.isWeapon && g.eq.category !== 'Ammo')
+    .map((g) => ({ qty: g.count, name: shortEquipmentName(g.eq, d), location: g.location, tons: fighterItemWeight(g.eq, d) * g.count }));
+  const ammo = d.equipment
+    .map((e) => getEquipment(e.equipmentId))
+    .filter((eq): eq is Equipment => !!eq && eq.category === 'Ammo')
+    .map((eq) => ({ name: shortEquipmentName(eq, d), location: 'FUS', shots: ammoShots(eq) }));
+  return { weapons, equipment, ammo };
+}

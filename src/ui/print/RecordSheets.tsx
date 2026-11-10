@@ -10,6 +10,11 @@ import {
   CHASSIS_MODS, SV_ENGINE_NAMES, SV_LOCATION_NAMES, SV_TYPES, computeSupport, svItemWeight,
 } from '../../rules/support';
 import { COMPACT_LENGTH, getEquipment, shortEquipmentName } from '../../rules/equipment';
+import type { FighterArc, FighterDesign } from '../../rules/fighter';
+import { FIGHTER_ARMOR_NAMES, FIGHTER_ENGINE_LABELS, FIGHTER_LOCATION_NAMES, armorThreshold, computeFighter } from '../../rules/fighter';
+import type { FighterWeaponRow } from '../../rules/recordSheet';
+import { fighterSheetData } from '../../rules/recordSheet';
+import { fighterBV, fighterCost } from '../../rules/battleValue';
 import type { AmmoRow, EquipmentRow, WeaponRow } from '../../rules/recordSheet';
 import { CONSCIOUSNESS, HEAT_SCALE, mechSheetData, vehicleSheetData } from '../../rules/recordSheet';
 import type { VehicleArmorLocation, VehicleDesign } from '../../rules/vehicle';
@@ -538,6 +543,155 @@ export function SupportRecordSheet({ design }: { design: SupportVehicleDesign })
 
         <Panel title="Notes" className="area-notes">
           <div className="rs-lines" />
+        </Panel>
+      </div>
+      <Footer />
+    </article>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Aerospace and conventional fighters
+// ---------------------------------------------------------------------------
+
+function FighterInventory({ rows, equipment }: { rows: FighterWeaponRow[]; equipment: EquipmentRow[] }) {
+  return (
+    <div className="rs-inventory">
+      <div className="rs-subtitle">Weapons &amp; Equipment Inventory <span>(attack values by range bracket)</span></div>
+      <table className="rs-table">
+        <thead>
+          <tr><th>Qty</th><th className="left">Type</th><th>Loc</th><th>Ht</th><th>SRV</th><th>MRV</th><th>LRV</th><th>ERV</th></tr>
+        </thead>
+        <tbody>
+          {rows.map((r, i) => (
+            <tr key={i}>
+              <td>{r.qty}</td><td className="left">{r.name}</td><td>{r.location}</td><td>{r.heat}</td>
+              {r.av.map((v, j) => <td key={j}>{v}</td>)}
+            </tr>
+          ))}
+          {equipment.map((r, i) => (
+            <tr key={`e${i}`}>
+              <td>{r.qty}</td><td className="left">{r.name}</td><td>{r.location}</td><td>—</td>
+              <td>[E]</td><td>—</td><td>—</td><td>—</td>
+            </tr>
+          ))}
+          {rows.length + equipment.length === 0 && <tr><td colSpan={8} className="rs-empty">No weapons or equipment</td></tr>}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+const FIGHTER_PLATES: [FighterArc, string][] = [['NOS', 'no'], ['LWG', 'lw'], ['RWG', 'rw'], ['AFT', 'af']];
+
+export function FighterRecordSheet({ design }: { design: FighterDesign }) {
+  const s = computeFighter(design);
+  const data = fighterSheetData(design);
+  const conventional = design.fighterType === 'conventional';
+  const name = `${design.chassis} ${design.model}`.trim() || 'Unnamed';
+  const kind = conventional ? 'Conventional Fighter Record Sheet' : 'Aerospace Fighter Record Sheet';
+  return (
+    <article className="record-sheet vehicle fighter">
+      <SheetHeader kind={kind} name={name} />
+      <div className="rs-grid-fighter">
+        <Panel title="Fighter Data" className="area-data">
+          <div className="rs-fields">
+            <Field label="Type" value={`${name}${design.omni ? ' (OmniFighter)' : ''}`} wide />
+            <div className="rs-move">
+              <span className="rs-label">Thrust:</span>
+              <Field label="Safe" value={design.safeThrust} />
+              <Field label="Maximum" value={s.maxThrust} />
+            </div>
+            <Field label="Tonnage" value={design.tonnage} />
+            <Field label="Tech Base" value={techBase(design)} />
+            <Field label="Rules Level" value={rulesLevel(design)} />
+            <Field label="Era" value={eraName(design)} />
+            <Field label="Battle Value" value={fighterBV(design).total.toLocaleString('en-US')} />
+            <Field label="Cost" value={`${fighterCost(design).total.toLocaleString('en-US')} C-bills`} />
+            <Field label="Engine" value={`${s.rating} ${FIGHTER_ENGINE_LABELS[design.engineType]}`} />
+            <Field label="Fuel" value={`${s.fuelPoints} points`} />
+          </div>
+          <FighterInventory rows={data.weapons} equipment={data.equipment} />
+        </Panel>
+
+        <Panel title="Armor Diagram" className="area-armor">
+          <div className="rs-vehicle-figure aero">
+            {FIGHTER_PLATES.map(([arc, area]) => (
+              <div key={arc} className={`rs-plate vplate-${area}`} style={{ gridArea: area }}>
+                <div className="rs-plate-label">
+                  {FIGHTER_LOCATION_NAMES[arc]} <b>({design.armor[arc]})</b> · TH {armorThreshold(design.armor[arc])}
+                </div>
+                <Pips count={design.armor[arc]} kind="armor" />
+              </div>
+            ))}
+            <div className="rs-vehicle-body rs-fighter-si" style={{ gridArea: 'body' }}>
+              <span>Structural Integrity ({s.si})</span>
+              <Pips count={s.si} kind="structure" />
+            </div>
+          </div>
+          <div className="rs-armor-total">
+            Armor: <b>{s.armorTotal}</b>{design.armorType !== 'standard' && ` (${FIGHTER_ARMOR_NAMES[design.armorType]})`} · SI: <b>{s.si}</b>
+          </div>
+        </Panel>
+
+        <Panel title="Pilot Data" className="area-crew">
+          <div className="rs-fields">
+            <Field label="Name" wide />
+            <Field label="Gunnery Skill" />
+            <Field label="Piloting Skill" />
+          </div>
+          <table className="rs-hits">
+            <tbody>
+              <tr><th>Hits Taken</th>{CONSCIOUSNESS.map((_, i) => <td key={i}>{i + 1}</td>)}</tr>
+              <tr><th>Consciousness #</th>{CONSCIOUSNESS.map((c) => <td key={c}>{c}</td>)}</tr>
+            </tbody>
+          </table>
+        </Panel>
+
+        <Panel title="Critical Damage" className="area-crit">
+          <div className="rs-crit-boxes">
+            <div><span>Avionics</span><span className="rs-check" /><i>+1</i><span className="rs-check" /><i>+2</i><span className="rs-check" /><i>+5</i></div>
+            <div><span>FCS</span><span className="rs-check" /><i>+2</i><span className="rs-check" /><i>+4</i><span className="rs-check" /><i>D</i></div>
+            <div><span>Sensors</span><span className="rs-check" /><i>+1</i><span className="rs-check" /><i>+2</i><span className="rs-check" /><i>+5</i></div>
+            <div><span>Engine</span><span className="rs-check" /><i>−2</i><span className="rs-check" /><i>−4</i><span className="rs-check" /><i>D</i></div>
+            <div><span>Fuel Tank</span><span className="rs-check" /></div>
+            <div><span>Landing Gear</span><span className="rs-check" /><i>+5</i></div>
+            {!conventional && <div><span>Life Support</span><span className="rs-check" /></div>}
+            <div><span>Crew</span><span className="rs-check" /><i>+1</i><span className="rs-check" /><i>+2</i></div>
+          </div>
+        </Panel>
+
+        <Panel title="Heat Data" className="area-heat">
+          {conventional ? (
+            <p className="rs-note left">Conventional fighters are heat-neutral: {s.heatSinks.required} heat sinks for their energy weapons.</p>
+          ) : (
+            <>
+              <div className="rs-heat-sinks">
+                <div className="rs-hs-label">Heat Sinks: <b>{s.heatSinks.total}</b> ({design.heatSinkType === 'double' ? 'Double' : 'Single'})</div>
+                <div className="rs-hs-label">Dissipation: <b>{s.heatSinks.dissipation}</b></div>
+                <Circles n={s.heatSinks.total} />
+              </div>
+              <p className="rs-note">* All weapons: {s.weaponHeat} heat</p>
+              <div className="rs-fighter-heat" aria-label="Heat scale">
+                {Array.from({ length: 31 }, (_, i) => <span key={i}>{i}</span>)}
+              </div>
+            </>
+          )}
+        </Panel>
+
+        <Panel title="Ammunition" className="area-ammo">
+          <AmmoTrack rows={data.ammo} />
+        </Panel>
+
+        <Panel title="Velocity Record" className="area-notes">
+          <table className="rs-velocity">
+            <tbody>
+              <tr><th>Turn #</th>{Array.from({ length: 10 }, (_, i) => <td key={i}>{i + 1}</td>)}</tr>
+              <tr><th>Thrust</th>{Array.from({ length: 10 }, (_, i) => <td key={i} />)}</tr>
+              <tr><th>Velocity</th>{Array.from({ length: 10 }, (_, i) => <td key={i} />)}</tr>
+              <tr><th>Altitude</th>{Array.from({ length: 10 }, (_, i) => <td key={i} />)}</tr>
+            </tbody>
+          </table>
         </Panel>
       </div>
       <Footer />

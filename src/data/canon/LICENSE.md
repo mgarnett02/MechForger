@@ -1,6 +1,6 @@
 # Canon unit data — license and attribution
 
-`mechs.json` and `vehicles.json` in this folder are converted from
+`mechs.json`, `vehicles.json`, `support.json` and `fighters.json` in this folder are converted from
 **MegaMek Data** by the MegaMek Development Team
 (<https://github.com/MegaMek/mm-data>), which is licensed under
 [Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International](https://creativecommons.org/licenses/by-nc-sa/4.0/)

@@ -591,3 +591,30 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 .lam-modes { border-collapse: collapse; font-size: 0.9rem; }
 .lam-modes th { text-align: left; font-weight: 600; padding: 0.1rem 0.75rem 0.1rem 0; color: var(--muted); }
 .lam-modes td { padding: 0.1rem 0; }
+
+/* Fighter weapon slots per arc */
+.arc-slots { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; font-size: 0.85rem; margin-bottom: 0.5rem; }
+.arc-slots .warn { color: var(--warn); }
+
+/* Fighter record sheet */
+.rs-grid-fighter {
+  flex: 1; display: grid; gap: 4px 7px;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto auto auto auto 1fr;
+  grid-template-areas:
+    "data armor"
+    "crew armor"
+    "crit heat"
+    "ammo heat"
+    "notes notes";
+}
+.record-sheet.fighter .area-armor { display: flex; flex-direction: column; }
+.record-sheet.fighter .rs-vehicle-figure { flex: 1; grid-template-rows: 1fr 1.4fr 1fr; }
+.rs-fighter-si { flex-direction: column; gap: 4px; text-transform: none; letter-spacing: 0; color: #111; border-style: solid; }
+.rs-fighter-heat { display: grid; grid-template-columns: repeat(16, 1fr); gap: 1px; margin-top: 4px; font-size: 6pt; text-align: center; }
+.rs-fighter-heat span { border: 1px solid #111; padding: 1px 0; }
+.rs-velocity { width: 100%; border-collapse: collapse; font-size: 7pt; }
+.rs-velocity th { text-align: left; width: 5em; }
+.rs-velocity td { border: 1px solid #111; height: 14px; text-align: center; }
+.record-sheet.fighter .vplate-lw { border-radius: 14px 4px 4px 6px; }
+.record-sheet.fighter .vplate-rw { border-radius: 4px 14px 6px 4px; }

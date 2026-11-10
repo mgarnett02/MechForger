@@ -21,11 +21,13 @@ import type { Equipment } from '../src/rules/equipment';
 import { ALL_EQUIPMENT, getEquipment, itemSlots } from '../src/rules/equipment';
 import { computeMech } from '../src/rules/construction';
 import { validate } from '../src/rules/validation';
-import { mechBV, mechCost, vehicleBV, vehicleCost } from '../src/rules/battleValue';
+import { fighterBV, mechBV, mechCost, vehicleBV, vehicleCost } from '../src/rules/battleValue';
 import type { MotiveType, VehicleDesign, VehicleEngineType, VehicleLocation } from '../src/rules/vehicle';
 import { computeVehicle, emptyVehicleArmor, validateVehicle } from '../src/rules/vehicle';
 import { armorPointsPerTon } from '../src/rules/tables';
-import { encodeMech, encodeSupport, encodeVehicle } from '../src/data/canonFormat';
+import { encodeFighter, encodeMech, encodeSupport, encodeVehicle } from '../src/data/canonFormat';
+import type { FighterDesign, FighterItem, FighterLocation } from '../src/rules/fighter';
+import { computeFighter, emptyFighterArmor, validateFighter } from '../src/rules/fighter';
 import type { SVItem, SVLocation, SVType, SupportVehicleDesign, TechRating } from '../src/rules/support';
 import { TECH_RATINGS, computeSupport, emptyTransport, kgPerFuelPoint, validateSupport } from '../src/rules/support';
 import type { CanonEntry } from '../src/data/canonFormat';
@@ -420,6 +422,67 @@ function parseBlk(text: string): { design: VehicleDesign; year: number; rulesLev
 
 
 // ---------------------------------------------------------------------------
+// BLK fighters (aerospace and conventional)
+// ---------------------------------------------------------------------------
+
+const FIGHTER_ENGINES: Record<string, FighterDesign['engineType']> = { 0: 'standard', 1: 'ice', 2: 'xl', 4: 'light', 5: 'compact' };
+/** MegaMek armor codes: standard, ferro-aluminum, heavy and light ferro-aluminum. */
+const FIGHTER_ARMOR: Record<string, ArmorType> = { 0: 'standard', 19: 'ferro-fibrous', 20: 'heavy-ferro', 21: 'light-ferro' };
+
+function parseFighterBlk(text: string): { design: FighterDesign; year: number; mulId?: number; source: string } {
+  const tags = new Map<string, string[]>();
+  const re = /<([^/>]+)>\s*\n([\s\S]*?)\n<\/\1>/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text))) tags.set(m[1], m[2].split(/\r?\n/).map((x) => x.trim()).filter(Boolean));
+  const one = (k: string) => tags.get(k)?.[0] ?? '';
+  const unitType = one('UnitType');
+  const fighterType = unitType === 'AeroSpaceFighter' ? 'aerospace' : unitType === 'ConvFighter' ? 'conventional' : fail(`unit type ${unitType}`);
+  const typeStr = one('type');
+  if (/Primitive/i.test(typeStr) || one('cockpit_type') === '3') fail('primitive fighter');
+  const techBase: TechBase = /^Clan|Clan Chassis/.test(typeStr) ? 'Clan' : 'IS';
+  const mixedTech = /^Mixed/.test(typeStr);
+  const tonnage = Number(one('tonnage'));
+  const engineType = FIGHTER_ENGINES[one('engine_type')] ?? fail(`engine type ${one('engine_type')}`);
+  const armorType = FIGHTER_ARMOR[one('armor_type')] ?? fail(`armor type ${one('armor_type')}`);
+  const cockpit = one('cockpit_type');
+  const cockpitType = cockpit === '0' || cockpit === '' ? 'standard' : cockpit === '1' ? 'small' : fail(`cockpit ${cockpit}`);
+  if (tags.has('transporters')) fail('transport bays');
+  const [nose, lw, rw, aft] = (tags.get('armor') ?? []).map(Number);
+  const armor = { ...emptyFighterArmor(), NOS: nose ?? 0, LWG: lw ?? 0, RWG: rw ?? 0, AFT: aft ?? 0 };
+  const blocks: [string, FighterLocation][] = [
+    ['Nose Equipment', 'NOS'], ['Left Wing Equipment', 'LWG'], ['Right Wing Equipment', 'RWG'], ['Aft Equipment', 'AFT'],
+    ['Fuselage Equipment', 'FUS'], ['Wings Equipment', 'FUS'],
+  ];
+  const equipment: FighterItem[] = [];
+  let uid = 0;
+  for (const [tag, loc] of blocks) {
+    for (const raw0 of tags.get(tag) ?? []) {
+      const rear = /\(R\)/.test(raw0);
+      const raw = raw0.replace(/:OMNI$/i, '').replace(/:SIZE:[\d.]+$/i, '');
+      const r = resolveName(raw, techBase);
+      if (r.kind === 'fixed') continue;
+      if (r.kind === 'unknown') fail(`unknown item "${r.name}"`);
+      const id = (r as { id: string }).id;
+      const eq = getEquipment(id)!;
+      if (/heat-sink/.test(id)) continue; // fighters count heat sinks in the <heatsinks> total
+      if (eq.managed) fail(`mech-only item ${id}`);
+      if (id === 'case' && techBase === 'Clan') continue; // built into Clan fighters
+      equipment.push({ uid: `a${uid++}`, equipmentId: id, location: loc, ...(rear ? { rear: true } : {}) });
+    }
+  }
+  fixAmmoTech(equipment);
+  const ppt = fighterType === 'conventional' ? 160 : 80;
+  const design: FighterDesign = {
+    schemaVersion: 1, unitType: 'fighter', fighterType, era: '3025', techBase, mixedTech, omni: one('omni') === '1',
+    chassis: one('Name'), model: one('Model'), tonnage, safeThrust: Number(one('SafeThrust')), engineType, cockpitType,
+    heatSinkType: one('sink_type') === '1' ? 'double' : 'single', heatSinks: Number(one('heatsinks')) || 0,
+    fuelTons: Math.round((2 * Number(one('fuel'))) / ppt) / 2, armorType, armor, vstol: one('vstol') === '1', equipment,
+  };
+  if (fighterType === 'conventional') design.heatSinks = 0;
+  return { design, year: Number(one('year')) || 3025, mulId: Number(one('mul id:')) || undefined, source: one('source') };
+}
+
+// ---------------------------------------------------------------------------
 // BLK support vehicles
 // ---------------------------------------------------------------------------
 
@@ -660,6 +723,38 @@ function main() {
       note(`support: ${e.message}`);
     }
   }
+  // --- Fighters
+  const fighterFiles = ['fighters', 'convfighter'].flatMap((dir) => walk(path.join(root, 'data/mekfiles', dir), '.blk')).sort();
+  const fighters: CanonEntry[] = [];
+  let ftrSkipped = 0;
+  const fseen = new Set<string>();
+  for (const f of fighterFiles) {
+    const text = fs.readFileSync(f, 'utf8');
+    if (!/<UnitType>\s*\n(AeroSpaceFighter|ConvFighter)\n/.test(text)) continue;
+    try {
+      const p = parseFighterBlk(text);
+      const key = `${p.design.chassis} ${p.design.model}`;
+      if (fseen.has(key)) continue;
+      fseen.add(key);
+      const d = settleEra(p.design, p.year, (x) => validateFighter(x).map((i) => i.message));
+      const s = computeFighter(d);
+      const issues = validateFighter(d, s);
+      fighters.push({
+        n: `${d.chassis} ${d.model}`.trim(), t: d.tonnage, tb: d.techBase, era: d.era, y: p.year,
+        k: d.fighterType === 'conventional' ? 'conventional' : d.omni ? 'omnifighter' : 'aerospace',
+        bv: fighterBV(d).total, ok: issues.every((i) => i.severity !== 'error'), w: Math.abs(s.weights.total - d.tonnage) < 1e-6,
+        src: p.source, mul: p.mulId, d: encodeFighter(d),
+      });
+    } catch (e) {
+      if (!(e instanceof Unsupported)) throw new Error(`${f}: ${(e as Error).stack}`);
+      ftrSkipped++;
+      note(`fighter: ${e.message}`);
+    }
+  }
+  fighters.sort((a, b) => a.n.localeCompare(b.n));
+  fs.writeFileSync(path.join(outDir, 'fighters.json'), JSON.stringify(fighters));
+  console.log(`Fighters: ${fighters.length} converted, ${ftrSkipped} skipped; exact tonnage ${fighters.filter((e) => e.w).length}, fully legal ${fighters.filter((e) => e.ok).length}`);
+
   supports.sort((a, b) => a.n.localeCompare(b.n));
   fs.writeFileSync(path.join(outDir, 'support.json'), JSON.stringify(supports));
   const sOk = supports.filter((e) => e.ok).length;
