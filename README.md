@@ -183,7 +183,7 @@ fixed-wing.
 - **Canon units**: about 2,480 canon BattleMechs, including 47 quads, 19 Land-Air 'Mechs and around 100 melee-armed designs (OmniMechs with all their
   configurations), 700 canon combat vehicles, 120 support vehicles, about 400 aerospace, Omni and
   conventional fighters and about 290 spacecraft (small craft, DropShips, JumpShips, WarShips and
-  space stations) about 1,190 battle armor squads and about 1,940 infantry platoons, searchable by name, era, tech base,
+  space stations), about 1,190 battle armor squads and about 1,940 infantry platoons, searchable by name, era, tech base,
   weight and type, ready to load, modify and print (see *Canon unit data* below)
 - **Battle Value (BV 2.0) and C-bill cost**, with the working shown; mech values
   reproduce published canon figures (e.g. Atlas AS7-D: BV 1,897, 9,626,000 C-bills).
