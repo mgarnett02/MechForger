@@ -37,6 +37,15 @@ export const LAM_TYPE_NAMES: Record<LamType, string> = { standard: 'Standard', b
 export const isLam = (d: { lam?: LamType | null }) => !!d.lam;
 
 /** Location name for this design's configuration. */
+/** Components whose tech base can differ from the chassis on a mixed-tech design. */
+export type TechComponent = 'structure' | 'armor' | 'engine' | 'heatSinks';
+export const TECH_COMPONENTS: readonly TechComponent[] = ['structure', 'armor', 'engine', 'heatSinks'];
+
+/** Tech base of a component: its own on a mixed-tech design, otherwise the chassis'. */
+export function techOf(d: { techBase: TechBase; mixedTech?: boolean; componentTech?: Partial<Record<TechComponent, TechBase>> }, part: TechComponent): TechBase {
+  return (d.mixedTech && d.componentTech?.[part]) || d.techBase;
+}
+
 export function locationName(d: { config?: MechConfig }, loc: Location): string {
   return (isQuad(d) ? QUAD_LOCATION_NAMES : LOCATION_NAMES)[loc];
 }
@@ -117,6 +126,10 @@ export interface OmniConfiguration {
    * For the active one, the live copy is design.actuators. Absent = same as the active configuration.
    */
   actuators?: Record<ArmLocation, ArmActuators>;
+  /** Mixed-tech pods (e.g. Inner Sphere weapons on a Clan OmniMech). Absent = same as the active configuration. */
+  mixedTech?: boolean;
+  /** Jump jet type of this configuration's pod-mounted jets. Absent = same as the active configuration. */
+  jumpJetType?: JumpJetType;
 }
 
 export interface OmniData {
@@ -177,6 +190,11 @@ export interface MechDesign {
   lam?: LamType | null;
   /** IndustrialMechs: environmental sealing (one slot per location, a tenth of the tonnage). */
   environmentalSealing?: boolean;
+  /**
+   * Mixed tech: the tech base of individual components when it differs from the chassis
+   * (e.g. Clan double heat sinks or Clan ferro-fibrous armor on an Inner Sphere chassis).
+   */
+  componentTech?: Partial<Record<TechComponent, TechBase>>;
   /** Full Head Ejection System (Hatchetman, Axman…): no weight or slots, adds cost. */
   fullHeadEjection?: boolean;
   /** Set for OmniMechs: configurations of pod-mounted equipment. */

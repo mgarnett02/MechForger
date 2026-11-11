@@ -7,7 +7,7 @@
  * approximate.
  */
 import type { Location, MechDesign } from './types';
-import { LOCATIONS, isIndustrial, isQuad, legLocations } from './types';
+import { LOCATIONS, isIndustrial, isQuad, legLocations, techOf } from './types';
 import type { Equipment } from './equipment';
 import { canArmor, getEquipment, isArtemisVCapable, isDirectFire, isPPC, itemSlots, itemWeight } from './equipment';
 import { armoredSystemSlots, computeMech, fixedSlots } from './construction';
@@ -242,7 +242,7 @@ export function mechBV(d: MechDesign): BVBreakdown {
   const armor = (s.armorTotal + cockpitArmor) * 2.5 * (ARMOR_BV_MULTIPLIER[d.armorType] ?? 1) * bar;
   const isPoints = s.structure ? LOCATIONS.reduce((a, l) => a + s.structure![l], 0) : 0;
   // Engine multiplier from the side-torso engine slots (as MegaMek): 6+ → 0.25, 3+ → 0.5, 2 → 0.75.
-  const sideSlots = engineSideTorsoSlots(d.engineType, d.techBase);
+  const sideSlots = engineSideTorsoSlots(d.engineType, techOf(d, 'engine'));
   const engineMod = sideSlots >= 6 ? 0.25 : sideSlots >= 3 ? 0.5 : sideSlots === 2 ? 0.75 : 1;
   const structureMod = d.structureType === 'composite' || d.structureType === 'industrial' ? 0.5 : d.structureType === 'reinforced' ? 2 : 1;
   const structure = isPoints * 1.5 * structureMod * engineMod;

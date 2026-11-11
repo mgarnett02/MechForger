@@ -1,5 +1,5 @@
 import type { Location, MechDesign, TechBase, MechConfig } from './types';
-import { LOCATIONS } from './types';
+import { LOCATIONS, techOf } from './types';
 import type { EraId } from './eras';
 import { isAvailableIn } from './eras';
 import { engineWeight, jumpJetWeight, mascWeight } from './tables';
@@ -673,8 +673,9 @@ export function allowedLocations(eq: Equipment, design?: { config?: MechConfig }
 export function canRearMount(eq: Equipment, location: Location | null, design?: { config?: MechConfig }): boolean {
   // Weapons, and industrial equipment such as lift hoists and searchlights, may face rearward.
   if ((!eq.isWeapon && eq.category !== 'Utility') || !location) return false;
-  if (location === 'CT' || location === 'LT' || location === 'RT') return true;
-  return design?.config === 'quad' && location !== 'HD';
+  // Torso, head and leg weapons may face rearward; arm weapons may not (a quad's front legs share the arm codes).
+  if (location === 'CT' || location === 'LT' || location === 'RT' || location === 'HD' || location === 'LL' || location === 'RL') return true;
+  return design?.config === 'quad';
 }
 
 /** Armored components: half a ton per critical slot (an armored cockpit is a flat ton). */
@@ -869,7 +870,7 @@ export function jumpJetIdFor(d: Pick<MechDesign, 'jumpJetType'>): string {
 }
 
 /** Heat sink equipment id for a design's heat sink type and tech base. */
-export function heatSinkIdFor(d: Pick<MechDesign, 'heatSinkType' | 'techBase'>): string {
+export function heatSinkIdFor(d: Pick<MechDesign, 'heatSinkType' | 'techBase'> & Partial<Pick<MechDesign, 'mixedTech' | 'componentTech'>>): string {
   if (d.heatSinkType === 'single') return HEAT_SINK_ID;
-  return d.techBase === 'Clan' ? CLAN_DOUBLE_HEAT_SINK_ID : DOUBLE_HEAT_SINK_ID;
+  return techOf(d, 'heatSinks') === 'Clan' ? CLAN_DOUBLE_HEAT_SINK_ID : DOUBLE_HEAT_SINK_ID;
 }

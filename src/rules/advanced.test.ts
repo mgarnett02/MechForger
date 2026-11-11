@@ -99,7 +99,6 @@ describe('canon designs with advanced structure, armor and engines', () => {
       || !['standard', 'endo-steel'].includes(d.structureType) || !['standard', 'ferro-fibrous', 'light-ferro', 'heavy-ferro', 'commercial', 'industrial', 'heavy-industrial'].includes(d.armorType)));
     expect(adv.length).toBeGreaterThan(100);
     expect(adv.filter((d) => computeMech(d).weights.total === d.tonnage).length / adv.length).toBeGreaterThan(0.95);
-    // Late mixed-tech designs (Clan heat sinks or cockpits on IS chassis) are the main exceptions.
-    expect(adv.filter((d) => errors(d).length === 0).length / adv.length).toBeGreaterThan(0.88);
+    expect(adv.filter((d) => errors(d).length === 0).length / adv.length).toBeGreaterThan(0.95);
   });
 });

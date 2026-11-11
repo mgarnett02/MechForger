@@ -127,6 +127,8 @@ Everything above, plus:
   ACs** and IS **re-engineered lasers**
 - **Artemis V** (Clan, 1.5 t, 2 slots): ×1.3 BV for the linked Clan LRM/SRM launcher. Artemis V ammo
   also gets ×1.3 BV and costs twice as much.
+- **Mixed tech:** a mixed-tech 'Mech can take Clan or Inner Sphere structure, armor, engine and double heat sinks independently of its chassis (an IS / Clan picker appears beside each). Slots, armor points and engine side-torso slots follow each component's own tech base. OmniMech configurations can be mixed tech, or use a different jump jet type, on their own; configurations built on a different base chassis become a separate OmniMech.
+- **Rules matching MegaMek:** Clan small cockpits (from 3080), rear-facing head and leg weapons, and industrial equipment on BattleMechs.
 - **Actuator Enhancement System (AES):**
   - One per arm, or one in every leg. Weight is tonnage ÷ 35, rounded up to the half ton (÷ 50 for quads); slots are 1–4 by weight class.
   - Weapons and melee weapons in an AES arm count ×1.25 BV, and the BV tonnage factor rises.
@@ -328,5 +330,4 @@ npm run dist:win   # build the Windows installer, zip and portable exe into rele
 
 Some Advanced / Experimental equipment (e.g. rifles, Bloodhound probes, laser AMS), patchwork armor, and per-configuration jump jet type or tech base on OmniMechs
 (mixed-tech and improved-jump-jet configurations of a standard Prime are left out of the canon list).
-Mixed tech applies to equipment only: structure, engine, heat
-sinks and armor follow the chassis tech base.
+

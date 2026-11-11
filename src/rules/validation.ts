@@ -11,7 +11,8 @@ import {
 } from './equipment';
 import { configurationDesigns, isFixedOnly } from './omni';
 import { getEra, isAvailableIn } from './eras';
-import { SPLIT_ADJACENT, TECH_BASE_NAMES, isIndustrial } from './types';
+import { SPLIT_ADJACENT, TECH_BASE_NAMES, isIndustrial, techOf } from './types';
+import type { TechBase } from './types';
 import { canSplit, tsmSlots } from './edit';
 import type { ComponentOption } from './tables';
 import {
@@ -79,18 +80,19 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
     if (!era.techBases.includes(design.techBase)) {
       error(`${TECH_BASE_NAMES[design.techBase]} designs cannot be built in the ${era.name} era.`);
     }
-    const chosen: ComponentOption[] = [
-      STRUCTURE_OPTIONS[design.structureType],
-      ENGINE_OPTIONS[design.engineType],
-      GYRO_OPTIONS[design.gyroType],
-      COCKPIT_OPTIONS[design.cockpitType],
-      HEAT_SINK_OPTIONS[design.heatSinkType],
-      ARMOR_OPTIONS[design.armorType],
-      MYOMER_OPTIONS[design.myomer],
-      JUMP_JET_OPTIONS[design.jumpJetType],
+    // Each component is checked against its own tech base (mixed-tech designs may use Clan parts on an IS chassis).
+    const chosen: [ComponentOption, TechBase][] = [
+      [STRUCTURE_OPTIONS[design.structureType], techOf(design, 'structure')],
+      [ENGINE_OPTIONS[design.engineType], techOf(design, 'engine')],
+      [GYRO_OPTIONS[design.gyroType], design.techBase],
+      [COCKPIT_OPTIONS[design.cockpitType], design.techBase],
+      [HEAT_SINK_OPTIONS[design.heatSinkType], techOf(design, 'heatSinks')],
+      [ARMOR_OPTIONS[design.armorType], techOf(design, 'armor')],
+      [MYOMER_OPTIONS[design.myomer], design.techBase],
+      [JUMP_JET_OPTIONS[design.jumpJetType], design.techBase],
     ];
-    for (const o of chosen) {
-      if (!componentEraOk(o, design.era, design.techBase)) {
+    for (const [o, partTech] of chosen) {
+      if (!componentEraOk(o, design.era, partTech)) {
         error(`${o.label} cannot be used in the ${era.name} era.`);
       } else if (!componentTechOk(o, design.techBase, design.mixedTech)) {
         error(`${o.label}: ${TECH_BASE_NAMES[o.techBase as 'IS' | 'Clan']} technology only (needs mixed tech on a ${TECH_BASE_NAMES[design.techBase]} design).`);
@@ -312,8 +314,8 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
 
   // Endo Steel / Ferro-Fibrous slot placeholders
   const fillerCheck: [string, number, string][] = [
-    [ENDO_STEEL_ID, structureSlots(design.structureType, design.techBase), STRUCTURE_NAMES[design.structureType]],
-    [FERRO_FIBROUS_ID, armorSlots(design.armorType, design.techBase), `${ARMOR_NAMES[design.armorType]} armor`],
+    [ENDO_STEEL_ID, structureSlots(design.structureType, techOf(design, 'structure')), STRUCTURE_NAMES[design.structureType]],
+    [FERRO_FIBROUS_ID, armorSlots(design.armorType, techOf(design, 'armor')), `${ARMOR_NAMES[design.armorType]} armor`],
     [TSM_ID, tsmSlots(design.myomer), design.myomer === 'industrial-tsm' ? 'Industrial TSM' : 'Triple-Strength Myomer'],
   ];
   for (const [id, required, name] of fillerCheck) {
@@ -329,10 +331,8 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
       error(`Unknown equipment "${item.equipmentId}".`);
       continue;
     }
-    if (eq.category === 'Utility' && !industrial && !unavailable.has(`u-${eq.id}`)) {
-      unavailable.add(`u-${eq.id}`);
-      error(`${eq.name} is industrial equipment: only IndustrialMechs (and vehicles) can mount it.`);
-    }
+    // Industrial equipment (cargo, lift hoists, communications gear…) can go on BattleMechs too (as MegaMek);
+    // only environmental sealing and Industrial TSM are IndustrialMech-only, and those are checked above.
     if (item.pod && (!design.omni || isFixedOnly(eq.id))) {
       error(design.omni ? `${eq.name} cannot be pod-mounted; it must be fixed equipment.` : `${eq.name} is marked as a pod but this is not an OmniMech.`);
     }
@@ -377,7 +377,7 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
   if (superchargers.length > 1) error('Only one supercharger may be installed.');
   for (const sc of superchargers) {
     const side = sc.location === 'LT' || sc.location === 'RT';
-    if (side && engineSideTorsoSlots(design.engineType, design.techBase) === 0) {
+    if (side && engineSideTorsoSlots(design.engineType, techOf(design, 'engine')) === 0) {
       error('A supercharger must go in a location with engine slots (the center torso, or a side torso with an XL-type engine).');
     }
   }

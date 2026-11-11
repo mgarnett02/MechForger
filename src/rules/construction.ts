@@ -1,5 +1,5 @@
 import type { Location, MechDesign, MountedItem, WeightClass } from './types';
-import { LOCATIONS, isIndustrial, isQuad } from './types';
+import { LOCATIONS, isIndustrial, isQuad, techOf } from './types';
 import {
   freeHeatSinks, armorPointsPerTon, cockpitWeight, engineCenterSlots, engineHeatSinkCapacity,
   engineSideTorsoSlots, engineWeight, gyroSlots, gyroWeightFor, internalStructure, internalStructureWeight,
@@ -177,7 +177,7 @@ function baseFixedSlots(design: MechDesign, loc: Location): (string | null)[] {
     }
     case 'LT':
     case 'RT': {
-      const n = engineSideTorsoSlots(design.engineType, design.techBase);
+      const n = engineSideTorsoSlots(design.engineType, techOf(design, 'engine'));
       // A torso-mounted cockpit puts life support in the first slot of each side torso.
       const ls = design.cockpitType === 'torso-mounted' ? ['Life Support'] : [];
       const fixed = [...ls, ...Array(n).fill(ENGINE_LABEL[design.engineType])];
@@ -290,7 +290,7 @@ export function computeMech(design: MechDesign): MechSummary {
     if (eq.isWeapon) weaponHeat += eq.heat;
   }
 
-  const ppt = armorPointsPerTon(design.armorType, design.techBase);
+  const ppt = armorPointsPerTon(design.armorType, techOf(design, 'armor'));
   const armorTotal = totalArmorPoints(design.armor);
   const weights: WeightBreakdown = {
     structure: internalStructureWeight(design.structureType, tonnage),

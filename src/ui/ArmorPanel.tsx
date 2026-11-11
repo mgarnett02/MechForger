@@ -5,7 +5,8 @@ import { ARMOR_NAMES, ARMOR_OPTIONS, armorSlots, componentAvailable } from '../r
 const ARMOR_NOTES: Partial<Record<ArmorType, string>> = {
   stealth: ' — needs ECM', hardened: ' — −1 running MP',
 };
-import { LOCATIONS, locationName, REAR_FACING } from '../rules/types';
+import { LOCATIONS, locationName, REAR_FACING, techOf } from '../rules/types';
+import { TechPicker } from './TechPicker';
 import type { MechSummary } from '../rules/construction';
 import { armorPointsForTons, armorTonnage, locationArmor } from '../rules/armor';
 import { clearArmor, maximizeArmor, setArmor, setArmorTonnage, setArmorType } from '../rules/edit';
@@ -31,14 +32,15 @@ export function ArmorPanel({ design, summary, update }: Props) {
         <select aria-label="Armor type" value={design.armorType}
           onChange={(e) => update((d) => setArmorType(d, e.target.value as ArmorType))}>
           {(Object.keys(ARMOR_OPTIONS) as ArmorType[]).map((k) => {
-            const n = k === 'stealth' ? 12 : armorSlots(k, design.techBase);
+            const n = k === 'stealth' ? 12 : armorSlots(k, techOf(design, 'armor'));
             return (
-              <option key={k} value={k} disabled={k !== 'standard' && !componentAvailable(ARMOR_OPTIONS[k], design.era, design.techBase, design.mixedTech)}>
+              <option key={k} value={k} disabled={k !== 'standard' && !componentAvailable(ARMOR_OPTIONS[k], design.era, techOf(design, 'armor'), design.mixedTech)}>
                 {ARMOR_NAMES[k]}{n ? ` (${n} slots)` : ''}{ARMOR_NOTES[k] ?? ''}
               </option>
             );
           })}
         </select>{' '}
+        <TechPicker design={design} part="armor" update={update} />{' '}
         <span className="muted small">{pptLabel} pts/ton</span>
       </h2>
       <table className="armor-table">

@@ -1,8 +1,8 @@
 import type {
   ArmLocation, ArmorAllocation, ArmorFacing, ArmorType, CockpitType, EngineType, GyroType, HeatSinkType, JumpJetType, Location,
-  LamType, MechConfig, MechDesign, MountedItem, MyomerType, OmniData, StructureType, TechBase,
+  LamType, MechConfig, MechDesign, MountedItem, MyomerType, OmniData, StructureType, TechBase, TechComponent,
 } from './types';
-import { ARMOR_FACINGS, LOCATIONS, REAR_FACING, SPLIT_ADJACENT, isQuad, legLocations } from './types';
+import { ARMOR_FACINGS, LOCATIONS, REAR_FACING, SPLIT_ADJACENT, TECH_COMPONENTS, isQuad, legLocations, techOf } from './types';
 import {
   ARMOR_OPTIONS, COCKPIT_OPTIONS, ENGINE_OPTIONS, GYRO_OPTIONS, MYOMER_OPTIONS, STRUCTURE_OPTIONS,
   FREE_HEAT_SINKS, armorPointsPerTon, armorSlots, engineHeatSinkCapacity, maxWalkMP, structureSlots,
@@ -193,7 +193,7 @@ export function clearArmor(d: MechDesign): MechDesign {
 }
 
 export function setArmorTonnage(d: MechDesign, tons: number): MechDesign {
-  const ppt = armorPointsPerTon(d.armorType, d.techBase);
+  const ppt = armorPointsPerTon(d.armorType, techOf(d, 'armor'));
   return { ...d, armor: distributeArmor(d.tonnage, armorPointsForTons(Math.round(tons * 2) / 2, ppt), isQuad(d)) };
 }
 
@@ -237,6 +237,16 @@ export function setItemLocation(d: MechDesign, uid: string, location: Location |
       return { ...e, location, rear, split };
     }),
   };
+}
+
+function parseComponentTech(raw: unknown): Pick<MechDesign, 'componentTech'> {
+  if (!raw || typeof raw !== 'object') return {};
+  const out: Partial<Record<TechComponent, TechBase>> = {};
+  for (const part of TECH_COMPONENTS) {
+    const v = (raw as Record<string, unknown>)[part];
+    if (v === 'IS' || v === 'Clan') out[part] = v;
+  }
+  return Object.keys(out).length ? { componentTech: out } : {};
 }
 
 function parseArmoredSlots(raw: unknown): Pick<MechDesign, 'armoredSlots'> {
@@ -330,8 +340,8 @@ function normalizeHeatSinks(d: MechDesign): MechDesign {
 
 /** Keep Endo Steel / Ferro-Fibrous slot placeholders at the count the rules require. */
 function syncFillers(d: MechDesign): MechDesign {
-  const withEndo = syncCount(d, ENDO_STEEL_ID, structureSlots(d.structureType, d.techBase));
-  const withFerro = syncCount(withEndo, FERRO_FIBROUS_ID, armorSlots(d.armorType, d.techBase));
+  const withEndo = syncCount(d, ENDO_STEEL_ID, structureSlots(d.structureType, techOf(d, 'structure')));
+  const withFerro = syncCount(withEndo, FERRO_FIBROUS_ID, armorSlots(d.armorType, techOf(d, 'armor')));
   const withTsm = syncCount(withFerro, TSM_ID, tsmSlots(d.myomer));
   return syncCount(withTsm, ENV_SEAL_ID, d.environmentalSealing ? 8 : 0);
 }
@@ -350,7 +360,17 @@ export function setMyomer(d: MechDesign, myomer: MyomerType): MechDesign {
 }
 
 export function setMixedTech(d: MechDesign, mixedTech: boolean): MechDesign {
-  return { ...d, mixedTech };
+  // Component tech only applies to mixed-tech designs; slot fillers and heat sinks follow.
+  return syncFillers(normalizeHeatSinks({ ...d, mixedTech }));
+}
+
+/** Mixed tech: set one component's tech base (null = same as the chassis). */
+export function setComponentTech(d: MechDesign, part: TechComponent, tech: TechBase | null): MechDesign {
+  const componentTech = { ...d.componentTech };
+  if (!tech || tech === d.techBase) delete componentTech[part]; else componentTech[part] = tech;
+  const next: MechDesign = { ...d, componentTech };
+  if (!Object.keys(componentTech).length) delete next.componentTech;
+  return syncFillers(normalizeHeatSinks(next));
 }
 
 export function setTechBase(d: MechDesign, techBase: TechBase): MechDesign {
@@ -463,12 +483,14 @@ export function parseDesign(raw: unknown): MechDesign {
   let omni: OmniData | null = null;
   const o = r.omni as { configurations?: unknown; active?: unknown } | null | undefined;
   if (o && Array.isArray(o.configurations) && o.configurations.length > 0) {
-    const configurations = o.configurations.map((c: { name?: unknown; pod?: unknown; actuators?: unknown }, i: number) => {
+    const configurations = o.configurations.map((c: { name?: unknown; pod?: unknown; actuators?: unknown; mixedTech?: unknown; jumpJetType?: unknown }, i: number) => {
       const ca = c?.actuators as Record<string, { lowerArm?: unknown; hand?: unknown }> | undefined;
       return {
         name: typeof c?.name === 'string' && c.name ? c.name : `Config ${i + 1}`,
         pod: Array.isArray(c?.pod) ? parseItems(c.pod).map((p) => ({ ...p, pod: true })) : [],
         ...(ca && typeof ca === 'object' ? { actuators: { LA: arm(ca.LA), RA: arm(ca.RA) } } : {}),
+        ...(typeof c?.mixedTech === 'boolean' ? { mixedTech: c.mixedTech } : {}),
+        ...(c?.jumpJetType === 'standard' || c?.jumpJetType === 'improved' ? { jumpJetType: c.jumpJetType as JumpJetType } : {}),
       };
     });
     const active = typeof o.active === 'number' && configurations[o.active] ? o.active : 0;
@@ -491,6 +513,7 @@ export function parseDesign(raw: unknown): MechDesign {
     ...(r.environmentalSealing ? { environmentalSealing: true } : {}),
     ...parseArmoredSlots(r.armoredSlots),
     mixedTech: r.mixedTech === true,
+    ...parseComponentTech(r.componentTech),
     config: pick(r.config, ['biped', 'quad'] as const, 'biped'),
     lam: r.config !== 'quad' && (r.lam === 'standard' || r.lam === 'bimodal') ? r.lam : null,
     ...(r.fullHeadEjection === true ? { fullHeadEjection: true } : {}),

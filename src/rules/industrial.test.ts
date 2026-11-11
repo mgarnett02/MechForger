@@ -41,9 +41,9 @@ describe('IndustrialMech construction', () => {
     expect(errors(setCockpitType(newDesign('3025'), 'industrial'))).toContain('Only IndustrialMechs use an industrial cockpit.');
   });
 
-  it('industrial equipment and Industrial TSM are for IndustrialMechs only', () => {
+  it('industrial equipment fits BattleMechs too; Industrial TSM is for IndustrialMechs only', () => {
     expect(errors(addEquipment(industrial(), 'lift-hoist', 'RA'))).toEqual([]);
-    expect(errors(addEquipment(newDesign('3025'), 'lift-hoist', 'RA')).some((m) => /industrial equipment/.test(m))).toBe(true);
+    expect(errors(addEquipment(newDesign('3025'), 'lift-hoist', 'RA')).some((m) => /industrial equipment/.test(m))).toBe(false);
     const itsm = setMyomer(industrial(), 'industrial-tsm');
     expect(itsm.equipment.filter((e) => e.equipmentId === 'tsm')).toHaveLength(12);
   });

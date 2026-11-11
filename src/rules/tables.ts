@@ -315,7 +315,7 @@ export const GYRO_OPTIONS: Record<GyroType, ComponentOption> = {
 };
 export const COCKPIT_OPTIONS: Record<CockpitType, ComponentOption> = {
   standard: opt('Standard cockpits', 'Both', '3025'),
-  small: opt('Small cockpits', 'IS', '3062'),
+  small: opt('Small cockpits', 'Both', '3062', '3081'), // Clan small cockpits from 3080 (as MegaMek)
   'command-console': opt('Command consoles', 'Both', '3025'),
   'torso-mounted': opt('Torso-mounted cockpits', 'Both', '3050'),
   industrial: opt('Industrial cockpits', 'Both', '3025'),

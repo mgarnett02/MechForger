@@ -64,10 +64,13 @@ describe('quad BattleMechs', () => {
     d = addEquipment(d, 'medium-laser', 'RL');
     d = setItemRear(d, d.equipment.at(-1)!.uid, true);
     expect(errors(d).filter((m) => /jump jet|rear/i.test(m))).toEqual([]);
-    // A biped can't put jump jets in its arms or rear-mount leg weapons.
+    // A biped can't put jump jets in its arms; leg and head weapons may face the rear, arm weapons may not.
     let b = newDesign();
     b = addEquipment(b, 'jump-jet', 'LA');
     b = addEquipment(b, 'medium-laser', 'RL');
+    b = setItemRear(b, b.equipment.at(-1)!.uid, true);
+    expect(errors(b).some((m) => /rear-mounted/.test(m))).toBe(false);
+    b = addEquipment(b, 'small-laser', 'RA');
     b = setItemRear(b, b.equipment.at(-1)!.uid, true);
     expect(errors(b).some((m) => /cannot be mounted in the Left Arm/.test(m))).toBe(true);
     expect(errors(b).some((m) => /cannot be rear-mounted there; only torso weapons can face rear/.test(m))).toBe(true);

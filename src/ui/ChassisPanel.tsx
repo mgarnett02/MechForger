@@ -7,7 +7,8 @@ import {
   COCKPIT_OPTIONS, ENGINE_OPTIONS, GYRO_OPTIONS, HEAT_SINK_OPTIONS, JUMP_JET_OPTIONS, MYOMER_OPTIONS,
   STRUCTURE_NAMES, STRUCTURE_OPTIONS, componentAvailable, structureSlots, componentEraOk, componentFirstEra,
 } from '../rules/tables';
-import { ARM_LOCATIONS, LAM_TYPE_NAMES, LOCATION_NAMES, TECH_BASE_NAMES, isQuad } from '../rules/types';
+import { ARM_LOCATIONS, LAM_TYPE_NAMES, LOCATION_NAMES, TECH_BASE_NAMES, isQuad, techOf } from '../rules/types';
+import { TechPicker } from './TechPicker';
 import { ERAS, getEra, isAvailableIn } from '../rules/eras';
 import type { MechSummary } from '../rules/construction';
 import { TONNAGES, freeHeatSinks, maxWalkMP } from '../rules/tables';
@@ -38,7 +39,7 @@ export function ChassisPanel({ design, summary, update }: Props) {
   const era = getEra(design.era);
   const advanced = isAvailableIn(ADVANCED_ERA, design.era);
   const lockedTitle = advanced ? undefined : 'Available from the Clan Invasion era (3050)';
-  const xlSlots = design.techBase === 'Clan' ? 2 : 3;
+  const xlSlots = techOf(design, 'engine') === 'Clan' ? 2 : 3;
   const jumpMax = design.jumpJetType === 'improved' ? summary.runMP : design.walkMP;
   /** Whether a construction option can be chosen, and why not when it can't. */
   const ok = (o: ComponentOption) => componentAvailable(o, design.era, design.techBase, design.mixedTech);
@@ -122,14 +123,15 @@ export function ChassisPanel({ design, summary, update }: Props) {
           <select aria-label="Internal structure" value={design.structureType} title={lockedTitle}
             onChange={(e) => update((d) => setStructureType(d, e.target.value as StructureType))}>
             {(Object.keys(STRUCTURE_OPTIONS) as StructureType[]).map((k) => {
-              const n = structureSlots(k, design.techBase);
+              const n = structureSlots(k, techOf(design, 'structure'));
               return (
                 <option key={k} value={k} disabled={k !== 'standard' && !ok(STRUCTURE_OPTIONS[k])} title={k === 'standard' ? undefined : why(STRUCTURE_OPTIONS[k])}>
                   {STRUCTURE_NAMES[k]}{n ? ` (${n} slots)` : ''}{STRUCTURE_NOTES[k] ?? ''}
                 </option>
               );
             })}
-          </select>
+          </select>{' '}
+          <TechPicker design={design} part="structure" update={update} />
           <span className="muted"> {summary.weights.structure} t</span>
         </div>
 
@@ -149,7 +151,7 @@ export function ChassisPanel({ design, summary, update }: Props) {
               {summary.rating} XL ({xlSlots} slots per side torso)
             </option>
             <option value="xxl" disabled={!ok(ENGINE_OPTIONS.xxl)} title={why(ENGINE_OPTIONS.xxl)}>
-              {summary.rating} XXL ({design.techBase === 'Clan' ? 4 : 6} slots per side torso, runs hot)
+              {summary.rating} XXL ({techOf(design, 'engine') === 'Clan' ? 4 : 6} slots per side torso, runs hot)
             </option>
             <option value="light" disabled={!ok(ENGINE_OPTIONS.light)} title={why(ENGINE_OPTIONS.light)}>
               {summary.rating} Light (2 slots per side torso)
@@ -166,7 +168,8 @@ export function ChassisPanel({ design, summary, update }: Props) {
             <option value="ice" disabled={!ok(ENGINE_OPTIONS.ice)} title="Internal combustion: twice fusion weight, no free heat sinks">
               {summary.rating} I.C.E.
             </option>
-          </select>
+          </select>{' '}
+          <TechPicker design={design} part="engine" update={update} />
           <span className="muted"> {summary.engineWeight ?? '—'} t</span>
         </div>
 
@@ -250,7 +253,8 @@ export function ChassisPanel({ design, summary, update }: Props) {
             onChange={(e) => update((d) => setHeatSinkType(d, e.target.value as HeatSinkType))}>
             <option value="single">Single</option>
             <option value="double" disabled={!ok(HEAT_SINK_OPTIONS.double)} title={why(HEAT_SINK_OPTIONS.double)}>Double</option>
-          </select>
+          </select>{' '}
+          {design.heatSinkType === 'double' && <TechPicker design={design} part="heatSinks" update={update} />}
           <span className="muted"> {summary.weights.heatSinks} t · dissipates {hs.dissipation}</span>
         </div>
 

@@ -13,7 +13,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type {
   ArmorAllocation, ArmorType, CockpitType, EngineType, GyroType, HeatSinkType, Location, MechDesign, MountedItem,
-  TechBase,
+  TechBase, TechComponent,
 } from '../src/rules/types';
 import type { EraId } from '../src/rules/eras';
 import { ERAS } from '../src/rules/eras';
@@ -311,6 +311,18 @@ function parseMtf(text: string): ParsedMech {
   };
   const armorType: MechDesign['armorType'] = ARMORS[ar.replace(/\(.*$/, '').trim()] ?? fail(`armor ${ar}`);
   const hs = get('heat sinks');
+  // Mixed tech: each component may be Inner Sphere or Clan regardless of the chassis.
+  const partTech = (clan: boolean, is: boolean): TechBase | undefined => (clan ? 'Clan' : is ? 'IS' : undefined);
+  const componentTech: Partial<Record<TechComponent, TechBase>> = {};
+  if (mixedTech) {
+    const parts: [TechComponent, TechBase | undefined][] = [
+      ['structure', partTech(/^Clan /.test(st), /^IS /.test(st))],
+      ['armor', partTech(/\(Clan\)/.test(ar), /\((IS|Inner Sphere)\)/.test(ar))],
+      ['engine', partTech(/\(Clan\)/.test(eng), /\(IS\)/.test(eng))],
+      ['heatSinks', partTech(/Clan/.test(hs), /\bIS\b/.test(hs))],
+    ];
+    for (const [part, t] of parts) if (t && t !== techBase) componentTech[part] = t;
+  }
   const hsTotal = Number(/^(\d+)/.exec(hs)?.[1]);
   const heatSinkType: HeatSinkType = /Double/.test(hs) ? 'double' : /Single/.test(hs) ? 'single' : fail(`heat sinks ${hs}`);
   const gy = get('gyro');
@@ -419,6 +431,7 @@ function parseMtf(text: string): ParsedMech {
   const jets = equipment.filter((e) => /jump-jet$/.test(e.equipmentId));
   const design: MechDesign = {
     schemaVersion: 1, era: '3025', techBase, mixedTech,
+    ...(Object.keys(componentTech).length ? { componentTech } : {}),
     structureType, engineType, gyroType, cockpitType, heatSinkType,
     ...(equipment.some((e) => e.equipmentId === 'environmental-sealing') ? { environmentalSealing: true } : {}),
     jumpJetType: jets.some((e) => e.equipmentId === 'improved-jump-jet') ? 'improved' : 'standard',
@@ -1062,7 +1075,12 @@ function main() {
       if (seen.has(key)) continue; // duplicates across sourcebooks
       seen.add(key);
       if (p.omni) {
-        const g = `${p.design.chassis}|${p.design.techBase}|${p.design.tonnage}|${p.design.config}`;
+        // Configurations share one OmniMech only when they share the fixed base chassis.
+        const d0 = p.design;
+        const fixedBase = JSON.stringify([d0.engineType, d0.walkMP, d0.structureType, d0.armorType, d0.armor, d0.heatSinkType,
+          d0.engineHeatSinks, d0.componentTech ?? null, d0.cockpitType, d0.gyroType,
+          d0.equipment.filter((e) => !p.pods.has(e)).map((e) => `${e.equipmentId}@${e.location}`).sort()]);
+        const g = `${p.design.chassis}|${p.design.techBase}|${p.design.tonnage}|${p.design.config}|${fixedBase}`;
         omniGroups.set(g, [...(omniGroups.get(g) ?? []), p]);
         continue;
       }
@@ -1075,18 +1093,17 @@ function main() {
     }
   }
   let omniCount = 0;
+  // Chassis with configurations on more than one base: the later bases are named after their first configuration.
+  const basesPerChassis = new Map<string, number>();
   for (const group of omniGroups.values()) {
+    const c = group[0].design.chassis;
+    basesPerChassis.set(c, (basesPerChassis.get(c) ?? 0) + 1);
+  }
+  const seenChassis = new Set<string>();
+  const hasPrime = (g: ParsedMech[]) => (g.some((p) => p.design.model === 'Prime') ? 1 : 0);
+  for (const group of [...omniGroups.values()].sort((a, b) => hasPrime(b) - hasPrime(a))) {
     group.sort((a, b) => (a.design.model === 'Prime' ? -1 : b.design.model === 'Prime' ? 1 : a.design.model.localeCompare(b.design.model)));
-    // One design holds every configuration, so a configuration must share the Prime's tech base and
-    // jump jet type (mixed-tech Society or Bloodname configurations and improved-jump-jet variants are left out).
-    const jjType = (p: ParsedMech) => (p.design.equipment.some((e) => e.equipmentId === 'improved-jump-jet') ? 'improved' : 'standard');
-    for (let k = group.length - 1; k > 0; k--) {
-      const p = group[k];
-      if ((p.design.mixedTech && !group[0].design.mixedTech) || (jjType(p) !== jjType(group[0]) && p.design.equipment.some((e) => /jump-jet$/.test(e.equipmentId)))) {
-        note(`mech: OmniMech configuration differs from the Prime (${p.design.mixedTech ? 'mixed tech' : 'jump jets'})`);
-        group.splice(k, 1);
-      }
-    }
+    // Configurations may differ from the Prime in mixed tech (Society / Bloodname pods) and jump jet type.
     const base = group[0];
     const fixed = base.design.equipment.filter((e) => !base.pods.has(e));
     const podsOf = (p: ParsedMech) => p.design.equipment.filter((e) => p.pods.has(e)).map((e) => ({ ...e, pod: true }));
@@ -1097,9 +1114,18 @@ function main() {
       // OmniMechs may change lower arm and hand actuators per configuration.
       omni: {
         active: 0,
-        configurations: group.map((p, i) => ({ name: p.design.model, pod: i === 0 ? [] : podsOf(p), actuators: p.design.actuators })),
+        configurations: group.map((p, i) => ({
+          name: p.design.model, pod: i === 0 ? [] : podsOf(p), actuators: p.design.actuators,
+          ...(i > 0 && p.design.mixedTech !== base.design.mixedTech ? { mixedTech: p.design.mixedTech } : {}),
+          ...(i > 0 && p.design.jumpJetType !== base.design.jumpJetType ? { jumpJetType: p.design.jumpJetType } : {}),
+        })),
       },
     };
+    if ((basesPerChassis.get(design.chassis) ?? 1) > 1) {
+      // The first base (the Prime's, as groups are sorted) keeps the plain name.
+      if (seenChassis.has(design.chassis)) design.chassis = `${design.chassis} (${group[0].design.model} base)`;
+      else seenChassis.add(design.chassis);
+    }
     const d = settleEra(design, Math.min(...group.map((g) => g.year)), (x) => validate(x).map((i) => i.message));
     plain.push(mechEntry(d, base, group.length));
     omniCount++;
