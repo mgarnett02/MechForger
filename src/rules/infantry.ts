@@ -61,6 +61,8 @@ const BEAST_SIZE = { large: [1, 21, 0], 'very-large': [2, 7, 2], monstrous: [4, 
 export interface FieldGun { uid: string; equipmentId: string; ammoTons?: number }
 
 export interface InfantryDesign {
+  /** Master Unit List id, for designs loaded from the canon list. */
+  mulId?: number;
   schemaVersion: 1;
   unitType: 'infantry';
   era: EraId;

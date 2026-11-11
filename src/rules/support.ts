@@ -54,6 +54,8 @@ export interface SVTransport {
 }
 
 export interface SupportVehicleDesign {
+  /** Master Unit List id, for designs loaded from the canon list. */
+  mulId?: number;
   schemaVersion: 1;
   unitType: 'support';
   era: EraId;

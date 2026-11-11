@@ -72,6 +72,7 @@ export function CanonBrowser({ unit, onLoad, onClose }: Props) {
   const [cls, setCls] = useState('');
   const [sub, setSub] = useState('');
   const [legalOnly, setLegalOnly] = useState(false);
+  const [mulOnly, setMulOnly] = useState(false);
   const [limit, setLimit] = useState(PAGE);
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -84,7 +85,10 @@ export function CanonBrowser({ unit, onLoad, onClose }: Props) {
       : kind === 'fighter' ? import('../data/canon/fighters.json')
       : kind === 'support' ? import('../data/canon/support.json')
       : kind === 'vehicle' ? import('../data/canon/vehicles.json') : import('../data/canon/mechs.json');
-    load.then((m) => setEntries(m.default as CanonEntry[]), (e) => setError(String(e)));
+    // Ignore a list that arrives after the user has switched to another tab.
+    let current = true;
+    load.then((m) => current && setEntries(m.default as CanonEntry[]), (e) => current && setError(String(e)));
+    return () => { current = false; };
   }, [kind]);
 
   useEffect(() => {
@@ -94,7 +98,7 @@ export function CanonBrowser({ unit, onLoad, onClose }: Props) {
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  useEffect(() => setLimit(PAGE), [query, tech, era, cls, sub, legalOnly, kind]);
+  useEffect(() => setLimit(PAGE), [query, tech, era, cls, sub, legalOnly, mulOnly, kind]);
 
   /** Filter group for an entry: OmniMechs are grouped regardless of how many configurations they have. */
   const group = (k: string) => (k.startsWith('omni:') ? 'omni' : k.startsWith('quadomni:') ? 'quadomni' : k);
@@ -109,13 +113,15 @@ export function CanonBrowser({ unit, onLoad, onClose }: Props) {
       if (cls && weightClass(e.t, kind, e.k) !== cls) return false;
       if (sub && group(e.k) !== sub) return false;
       if (legalOnly && !e.ok) return false;
+      if (mulOnly && !e.mul) return false;
       const name = e.n.toLowerCase();
       return words.every((w) => name.includes(w));
     });
-  }, [entries, query, tech, era, cls, sub, legalOnly, kind]);
+  }, [entries, query, tech, era, cls, sub, legalOnly, mulOnly, kind]);
 
   const open = (e: CanonEntry) => {
-    onLoad(kind === 'infantry' ? decodeInfantry(e.d) : kind === 'battlearmor' ? decodeBattleArmor(e.d) : kind === 'vessel' ? decodeVessel(e.d) : kind === 'fighter' ? decodeFighter(e.d) : kind === 'support' ? decodeSupport(e.d) : kind === 'vehicle' ? decodeVehicle(e.d) : decodeMech(e.d));
+    const d: AnyDesign = (kind === 'infantry' ? decodeInfantry(e.d) : kind === 'battlearmor' ? decodeBattleArmor(e.d) : kind === 'vessel' ? decodeVessel(e.d) : kind === 'fighter' ? decodeFighter(e.d) : kind === 'support' ? decodeSupport(e.d) : kind === 'vehicle' ? decodeVehicle(e.d) : decodeMech(e.d));
+    onLoad(e.mul ? { ...d, mulId: e.mul } : d);
     onClose();
   };
 
@@ -156,6 +162,7 @@ export function CanonBrowser({ unit, onLoad, onClose }: Props) {
             {subKinds.map((k) => <option key={k} value={k}>{k === 'omni' ? 'OmniMechs' : k === 'quadomni' ? 'Quad OmniMechs' : k === 'quad' ? 'Quad BattleMechs' : k === 'lam' ? "Land-Air 'Mechs" : kindLabel(k)}</option>)}
           </select>
           <label className="check small"><input type="checkbox" checked={legalOnly} onChange={(e) => setLegalOnly(e.target.checked)} /> Legal in MechForger only</label>
+          <label className="check small" title="Only units with a Master Unit List entry"><input type="checkbox" checked={mulOnly} onChange={(e) => setMulOnly(e.target.checked)} /> On the MUL only</label>
         </div>
 
         {error && <p className="bad">Could not load the unit list: {error}</p>}
@@ -177,6 +184,7 @@ export function CanonBrowser({ unit, onLoad, onClose }: Props) {
                         {e.n}
                         {!e.w && <span className="canon-flag" title="Weight differs from the canon design under MechForger's tables"> ⚖</span>}
                         {!e.ok && <span className="canon-flag" title="Does not pass all of MechForger's construction checks"> ⚠</span>}
+                        {!e.mul && <span className="canon-flag no-mul" title="No Master Unit List entry: a design built from the published rules, or one the MUL does not list"> no MUL</span>}
                       </td>
                       <td className="small">{kindLabel(e.k)}</td>
                       <td className="num">{kind === 'battlearmor' ? Math.round(e.t * 1000) : e.t}</td>

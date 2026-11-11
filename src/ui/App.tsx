@@ -232,6 +232,10 @@ export function App() {
             onChange={(e) => setName({ chassis: e.target.value })} />
           <input aria-label="Model" value={active.model} placeholder="Model" style={{ width: '7rem' }}
             onChange={(e) => setName({ model: e.target.value })} />
+          {active.mulId ? (
+            <a className="mul-link" href={`https://masterunitlist.battletech.com/Unit/Details/${active.mulId}`} target="_blank" rel="noreferrer"
+              title="Open this canon design's Master Unit List page">MUL #{active.mulId} ↗</a>
+          ) : null}
           <button onClick={() => load(newOf(unit, active.era, active.techBase))}>New</button>
           <button onClick={() => setCanon(true)} title="Browse and load canon BattleMechs, vehicles and fighters">Canon units…</button>
           <button onClick={() => void onLoad()} title="Open a design file (.json)">Load…</button>

@@ -136,6 +136,8 @@ export type ArmorType =
 export type MyomerType = 'standard' | 'tsm';
 
 export interface MechDesign {
+  /** Master Unit List id, for designs loaded from the canon list. */
+  mulId?: number;
   schemaVersion: 1;
   /** Tech level / era the design is built for. */
   era: EraId;

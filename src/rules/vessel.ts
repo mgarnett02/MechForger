@@ -157,6 +157,8 @@ export interface VesselItem {
 }
 
 export interface VesselDesign {
+  /** Master Unit List id, for designs loaded from the canon list. */
+  mulId?: number;
   schemaVersion: 1;
   unitType: 'vessel';
   vesselType: VesselType;

@@ -688,6 +688,11 @@ function parseInfantryBlk(text: string): { design: InfantryDesign; year: number;
   return { design, year: Number(one('year')) || 3025, mulId: Number(one('mul id:')) || undefined, source: one('source') };
 }
 
+/** Leave out apocryphal designs (video-game and other non-canon sources). */
+function official(list: CanonEntry[]): CanonEntry[] {
+  return list.filter((e) => !/apocryph/i.test(e.src ?? '') && !/apocryph/i.test(e.n));
+}
+
 function parseVesselBlk(text: string): { design: VesselDesign; year: number; mulId?: number; source: string } {
   const tags = new Map<string, string[]>();
   const re = /<([^/>]+)>\s*\n([\s\S]*?)\n<\/\1>/g;
@@ -1053,7 +1058,7 @@ function main() {
     }
   }
   vessels.sort((a, b) => a.n.localeCompare(b.n));
-  fs.writeFileSync(path.join(outDir, 'vessels.json'), JSON.stringify(vessels));
+  fs.writeFileSync(path.join(outDir, 'vessels.json'), JSON.stringify(official(vessels)));
   console.log(`Small craft / DropShips / large craft: ${vessels.length} converted, ${vslSkipped} skipped; exact tonnage ${vessels.filter((e) => e.w).length}, fully legal ${vessels.filter((e) => e.ok).length}`);
 
   // --- Battle armor
@@ -1085,7 +1090,7 @@ function main() {
     }
   }
   battlearmor.sort((a, b) => a.n.localeCompare(b.n));
-  fs.writeFileSync(path.join(outDir, 'battlearmor.json'), JSON.stringify(battlearmor));
+  fs.writeFileSync(path.join(outDir, 'battlearmor.json'), JSON.stringify(official(battlearmor)));
   console.log(`Battle armor: ${battlearmor.length} converted, ${baSkipped} skipped; within weight ${battlearmor.filter((e) => e.w).length}, fully legal ${battlearmor.filter((e) => e.ok).length}`);
 
   // --- Conventional infantry
@@ -1116,7 +1121,7 @@ function main() {
     }
   }
   infantry.sort((a, b) => a.n.localeCompare(b.n));
-  fs.writeFileSync(path.join(outDir, 'infantry.json'), JSON.stringify(infantry));
+  fs.writeFileSync(path.join(outDir, 'infantry.json'), JSON.stringify(official(infantry)));
   console.log(`Infantry: ${infantry.length} converted, ${infSkipped} skipped; fully legal ${infantry.filter((e) => e.ok).length}`);
 
   // --- Fighters
@@ -1148,19 +1153,19 @@ function main() {
     }
   }
   fighters.sort((a, b) => a.n.localeCompare(b.n));
-  fs.writeFileSync(path.join(outDir, 'fighters.json'), JSON.stringify(fighters));
+  fs.writeFileSync(path.join(outDir, 'fighters.json'), JSON.stringify(official(fighters)));
   console.log(`Fighters: ${fighters.length} converted, ${ftrSkipped} skipped; exact tonnage ${fighters.filter((e) => e.w).length}, fully legal ${fighters.filter((e) => e.ok).length}`);
 
   supports.sort((a, b) => a.n.localeCompare(b.n));
-  fs.writeFileSync(path.join(outDir, 'support.json'), JSON.stringify(supports));
+  fs.writeFileSync(path.join(outDir, 'support.json'), JSON.stringify(official(supports)));
   const sOk = supports.filter((e) => e.ok).length;
   const sW = supports.filter((e) => e.w).length;
   console.log(`Support vehicles: ${supports.length} converted, ${svSkipped} skipped; exact tonnage ${sW}, fully legal ${sOk}`);
 
   plain.sort((a, b) => a.n.localeCompare(b.n));
   vehicles.sort((a, b) => a.n.localeCompare(b.n));
-  fs.writeFileSync(path.join(outDir, 'mechs.json'), JSON.stringify(plain));
-  fs.writeFileSync(path.join(outDir, 'vehicles.json'), JSON.stringify(vehicles));
+  fs.writeFileSync(path.join(outDir, 'mechs.json'), JSON.stringify(official(plain)));
+  fs.writeFileSync(path.join(outDir, 'vehicles.json'), JSON.stringify(official(vehicles)));
 
   const pct = (a: number, b: number) => `${((100 * a) / Math.max(1, b)).toFixed(1)}%`;
   const mOk = plain.filter((e) => e.ok).length;

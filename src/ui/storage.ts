@@ -30,14 +30,20 @@ const CURRENT_BA = 'mechforger.currentBattleArmor.v1';
 const CURRENT_INF = 'mechforger.currentInfantry.v1';
 const UNIT = 'mechforger.unit.v1';
 
+/** Carry a canon design's Master Unit List id through parsing. */
+function keepMul<T extends object>(raw: unknown, d: T): T {
+  const id = (raw as { mulId?: unknown })?.mulId;
+  return typeof id === 'number' && id > 0 ? { ...d, mulId: id } : d;
+}
+
 /** Parse a saved or imported file as whichever kind of design it is. */
 export function parseAny(raw: unknown): AnyDesign {
-  if (isInfantry(raw)) return parseInfantry(raw);
-  if (isBattleArmor(raw)) return parseBattleArmor(raw);
-  if (isVessel(raw)) return parseVessel(raw);
-  if (isFighter(raw)) return parseFighter(raw);
-  if (isSupport(raw)) return parseSupport(raw);
-  return isVehicle(raw) ? parseVehicle(raw) : parseDesign(raw);
+  if (isInfantry(raw)) return keepMul(raw, parseInfantry(raw));
+  if (isBattleArmor(raw)) return keepMul(raw, parseBattleArmor(raw));
+  if (isVessel(raw)) return keepMul(raw, parseVessel(raw));
+  if (isFighter(raw)) return keepMul(raw, parseFighter(raw));
+  if (isSupport(raw)) return keepMul(raw, parseSupport(raw));
+  return isVehicle(raw) ? keepMul(raw, parseVehicle(raw)) : keepMul(raw, parseDesign(raw));
 }
 
 function read(key: string): unknown {
@@ -88,7 +94,7 @@ export function loadCurrent(): MechDesign | null {
   const raw = read(CURRENT);
   if (!raw) return null;
   try {
-    return parseDesign(raw);
+    return keepMul(raw, parseDesign(raw));
   } catch {
     return null;
   }
@@ -102,7 +108,7 @@ export function loadCurrentVehicle(): VehicleDesign | null {
   const raw = read(CURRENT_VEHICLE);
   if (!raw) return null;
   try {
-    return parseVehicle(raw);
+    return keepMul(raw, parseVehicle(raw));
   } catch {
     return null;
   }
@@ -121,7 +127,7 @@ export function loadCurrentSupport(): SupportVehicleDesign | null {
   const raw = read(CURRENT_SUPPORT);
   if (!raw) return null;
   try {
-    return parseSupport(raw);
+    return keepMul(raw, parseSupport(raw));
   } catch {
     return null;
   }
@@ -135,7 +141,7 @@ export function loadCurrentFighter(): FighterDesign | null {
   const raw = read(CURRENT_FIGHTER);
   if (!raw) return null;
   try {
-    return parseFighter(raw);
+    return keepMul(raw, parseFighter(raw));
   } catch {
     return null;
   }
@@ -149,7 +155,7 @@ export function loadCurrentVessel(): VesselDesign | null {
   const raw = read(CURRENT_VESSEL);
   if (!raw) return null;
   try {
-    return parseVessel(raw);
+    return keepMul(raw, parseVessel(raw));
   } catch {
     return null;
   }
@@ -163,7 +169,7 @@ export function loadCurrentBattleArmor(): BattleArmorDesign | null {
   const raw = read(CURRENT_BA);
   if (!raw) return null;
   try {
-    return parseBattleArmor(raw);
+    return keepMul(raw, parseBattleArmor(raw));
   } catch {
     return null;
   }
@@ -177,7 +183,7 @@ export function loadCurrentInfantry(): InfantryDesign | null {
   const raw = read(CURRENT_INF);
   if (!raw) return null;
   try {
-    return parseInfantry(raw);
+    return keepMul(raw, parseInfantry(raw));
   } catch {
     return null;
   }

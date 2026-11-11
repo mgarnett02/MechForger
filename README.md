@@ -185,6 +185,10 @@ fixed-wing.
   conventional fighters and about 290 spacecraft (small craft, DropShips, JumpShips, WarShips and
   space stations), about 1,190 battle armor squads and about 1,940 infantry platoons, searchable by name, era, tech base,
   weight and type, ready to load, modify and print (see *Canon unit data* below)
+  - Apocryphal (video-game and other non-canon) designs are left out. A canon design keeps its Master
+    Unit List id: the editor shows it as a link to the unit's MUL page. Units without a MUL entry
+    (mostly infantry built from the published rules) are marked **no MUL** in the browser, and an
+    **On the MUL only** filter hides them
 - **Battle Value (BV 2.0) and C-bill cost**, with the working shown; mech values
   reproduce published canon figures (e.g. Atlas AS7-D: BV 1,897, 9,626,000 C-bills).
   Vehicle values are marked as approximate

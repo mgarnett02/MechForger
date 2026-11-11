@@ -51,6 +51,8 @@ export interface FighterItem {
 }
 
 export interface FighterDesign {
+  /** Master Unit List id, for designs loaded from the canon list. */
+  mulId?: number;
   schemaVersion: 1;
   unitType: 'fighter';
   fighterType: FighterType;

@@ -663,3 +663,8 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 .rs-inf-damage th { background: #eee; font-weight: 600; }
 .rs-grid-inf { flex: 1; display: grid; gap: 4px 7px; grid-template-columns: 1.25fr 1fr; grid-template-rows: auto auto; grid-template-areas: "data crew" "dmg dmg"; align-items: start; align-content: start; }
 .rs-grid-inf .area-dmg { grid-area: dmg; }
+
+/* Master Unit List link (editor header) and the canon browser's "no MUL" marking */
+.mul-link { font-size: 0.85rem; white-space: nowrap; padding: 0.15rem 0.4rem; border: 1px solid var(--border, #ccc); border-radius: 4px; text-decoration: none; }
+.mul-link:hover { text-decoration: underline; }
+.canon-flag.no-mul { font-size: 0.7rem; color: var(--muted, #777); border: 1px solid currentColor; border-radius: 3px; padding: 0 3px; margin-left: 4px; white-space: nowrap; }

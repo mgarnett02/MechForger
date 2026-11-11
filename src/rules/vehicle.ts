@@ -44,6 +44,8 @@ export interface VehicleItem {
 }
 
 export interface VehicleDesign {
+  /** Master Unit List id, for designs loaded from the canon list. */
+  mulId?: number;
   schemaVersion: 1;
   unitType: 'vehicle';
   era: EraId;
