@@ -178,8 +178,9 @@ Advanced or Experimental level and is not modeled yet.
 ### Support vehicles (every era)
 
 Built with the TechManual support vehicle rules: wheeled, tracked, hover, VTOL,
-naval (with hydrofoil / submersible modifications), rail, airship and
-fixed-wing.
+WiGE, naval (with hydrofoil / submersible modifications), rail, airship and
+fixed-wing (MegaMek's support tanks, large support tanks, support VTOLs and
+fixed-wing support).
 
 - Small / medium / large size classes; chassis and engine weights from the
   base values for each type, scaled by structure and engine **tech ratings (A–F)**
@@ -187,14 +188,16 @@ fixed-wing.
   steam, maglev, external power, or none (trailers); fuel by weight (fuel points
   shown for aircraft and airships)
 - **BAR 2–10 armor** with weight per point by armor tech rating; nose / wing /
-  aft armor for aircraft and airships
+  aft armor for aircraft and airships. **Large** ground support vehicles (large support tanks) have six
+  facings: front, front-right, front-left, rear-right, rear-left and rear.
+- **OmniVehicle** chassis modification. Each canon Omni configuration loads as its own design.
 - **Chassis modifications** (armored, off-road, amphibious, tractor, trailer,
   environmental sealing, STOL, VSTOL, prop, hydrofoil, submersible, …)
 - Basic / advanced fire control, turrets, power amplifiers and heat sinks for
   energy weapons
 - Crew and passenger accommodations (seats, quarters) and cargo / troop space
 - **Utility equipment** (searchlights, lift hoists, cargo containers, field
-  kitchens, bulldozers, …), also available to combat vehicles
+  kitchens, bulldozers, MASH units, ladders, sprayers, …), also available to combat vehicles
 - Battle Value and cost are not calculated for support vehicles, and item
   slots are not checked
 
@@ -204,7 +207,7 @@ fixed-wing.
 - Red / amber / green status light: illegal, legal but incomplete (unused tonnage,
   unallocated armor), or fully legal
 - **Canon units**: about 2,780 canon 'Mechs (about 110 of them IndustrialMechs), including 47 quads, 19 Land-Air 'Mechs and around 100 melee-armed designs (OmniMechs with all their
-  configurations), 715 canon combat vehicles, 120 support vehicles, about 440 aerospace, Omni and
+  configurations), 715 canon combat vehicles, 160 support vehicles, about 440 aerospace, Omni and
   conventional fighters and about 290 spacecraft (small craft, DropShips, JumpShips, WarShips and
   space stations), about 1,190 battle armor squads and about 1,940 infantry platoons, searchable by name, era, tech base,
   weight and type, ready to load, modify and print (see *Canon unit data* below)
@@ -234,11 +237,10 @@ commercially; see `src/data/canon/LICENSE.md`.
 
 Only units MechForger can represent are included: biped mechs, combat
 vehicles and support vehicles using modeled equipment. Quads, LAMs,
-superheavies, OmniVehicles, Omni support vehicles, WiGE craft and units with Advanced or
-Experimental equipment (stealth armor, CASE II, physical weapons, …) are
+OmniVehicles (combat), superheavies, and units with equipment MechForger does not model yet are
 skipped. Of the converted mechs, 99% weigh exactly their published tonnage
 under MechForger's tables, and Battle Values match the Master Unit List for
-the checked designs. Weights match for about 92% of combat vehicles and 69% of
+the checked designs. Weights match for about 92% of combat vehicles and 71% of
 support vehicles (most others within half a ton); in the
 browser, ⚖ marks a weight difference and ⚠ a failed construction check.
 

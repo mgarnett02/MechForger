@@ -8,7 +8,7 @@ import { activeConfigName } from '../../rules/omni';
 import { mechBV, mechCost, vehicleBV, vehicleCost } from '../../rules/battleValue';
 import type { SupportVehicleDesign } from '../../rules/support';
 import {
-  CHASSIS_MODS, SV_ENGINE_NAMES, SV_LOCATION_NAMES, SV_TYPES, computeSupport, svItemWeight,
+  CHASSIS_MODS, SV_ENGINE_NAMES, SV_LOCATION_NAMES, SV_TYPES, computeSupport, isLargeSupportTank, svItemWeight,
 } from '../../rules/support';
 import { COMPACT_LENGTH, getEquipment, shortEquipmentName } from '../../rules/equipment';
 import type { FighterArc, FighterDesign } from '../../rules/fighter';
@@ -508,7 +508,7 @@ export function SupportRecordSheet({ design }: { design: SupportVehicleDesign })
         </Panel>
 
         <Panel title="Armor Diagram" className="area-armor">
-          <div className={`rs-vehicle-figure ${info.aero ? 'aero' : ''} ${design.turret ? 'with-turret' : ''} ${design.svType === 'vtol' ? 'vtol' : ''}`}>
+          <div className={`rs-vehicle-figure ${info.aero ? 'aero' : ''} ${design.turret ? 'with-turret' : ''} ${design.svType === 'vtol' ? 'vtol' : ''} ${isLargeSupportTank(design) ? 'large' : ''}`}>
             {s.armorLocations.map((l) => (
               <div key={l} className={`rs-plate vplate-${l.toLowerCase()}`} style={{ gridArea: l.toLowerCase() }}>
                 <div className="rs-plate-label">{SV_LOCATION_NAMES[l]} <b>({design.armor[l] ?? 0})</b></div>

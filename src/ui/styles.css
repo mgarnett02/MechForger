@@ -508,6 +508,9 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 .rs-vehicle-figure.with-turret { grid-template-areas: "fr fr fr" "ls tu rs" "rr rr rr"; }
 .rs-vehicle-figure.vtol { grid-template-areas: ". ro ." "fr fr fr" "ls body rs" "rr rr rr"; }
 .rs-vehicle-figure.vtol.with-turret { grid-template-areas: ". ro ." "fr fr fr" "ls tu rs" "rr rr rr"; }
+.rs-vehicle-figure.large { grid-template-areas: "fr fr fr" "fls body frs" "rls body rrs" "rr rr rr"; }
+.rs-vehicle-figure.large.with-turret { grid-template-areas: "fr fr fr" "fls tu frs" "rls tu rrs" "rr rr rr"; }
+.record-sheet.vehicle .rs-vehicle-figure.large { grid-template-rows: 1fr 1fr 1fr 1fr; }
 .record-sheet.vehicle .area-armor { display: flex; flex-direction: column; }
 .record-sheet.vehicle .rs-vehicle-figure { flex: 1; grid-template-rows: 1fr 1.5fr 1fr; }
 .record-sheet.vehicle .rs-vehicle-figure.vtol { grid-template-rows: 0.8fr 1fr 1.5fr 1fr; }

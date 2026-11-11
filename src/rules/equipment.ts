@@ -519,6 +519,11 @@ export const UTILITY_EQUIPMENT: readonly Equipment[] = [
   utility('mining-drill', 'Mining Drill', 3),
   utility('sprayer', 'Sprayer', 0.5),
   utility('im-ejection-seat', 'IM Ejection Seat', 0.5),
+  utility('sprayer-vehicle', 'Sprayer (Vehicular)', 0.015),
+  // MASH: a 3.5 t core with one operating theater, plus 1 t per extra theater.
+  utility('mash-core', 'MASH Core (1 theater)', 3.5),
+  utility('mash-theater', 'MASH Theater', 1),
+  utility('ladder-20m', 'Ladder (20 m)', 0.1),
   // Cargo space and liquid storage, a ton (one slot) or half a ton (one slot) at a time.
   utility('cargo-1', 'Cargo (1 ton)', 1),
   utility('cargo-half', 'Cargo (½ ton)', 0.5),

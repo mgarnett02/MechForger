@@ -18,19 +18,20 @@ import type { Issue } from './validation';
 // Types and tables
 // ---------------------------------------------------------------------------
 
-export type SVType = 'wheeled' | 'tracked' | 'hover' | 'vtol' | 'naval' | 'rail' | 'airship' | 'fixed-wing';
+export type SVType = 'wheeled' | 'tracked' | 'hover' | 'vtol' | 'wige' | 'naval' | 'rail' | 'airship' | 'fixed-wing';
 export type TechRating = 'A' | 'B' | 'C' | 'D' | 'E' | 'F';
 export const TECH_RATINGS: TechRating[] = ['A', 'B', 'C', 'D', 'E', 'F'];
 export type SVEngine =
   | 'ice' | 'fusion' | 'fission' | 'fuel-cell' | 'battery' | 'solar' | 'steam' | 'maglev' | 'external' | 'none';
 export type SizeClass = 'small' | 'medium' | 'large';
 
-export const SV_LOCATIONS = ['FR', 'LS', 'RS', 'RR', 'TU', 'RO', 'NO', 'LW', 'RW', 'AF', 'BD'] as const;
+export const SV_LOCATIONS = ['FR', 'FRS', 'FLS', 'LS', 'RS', 'RRS', 'RLS', 'RR', 'TU', 'RO', 'NO', 'LW', 'RW', 'AF', 'BD'] as const;
 export type SVLocation = (typeof SV_LOCATIONS)[number];
 export type SVArmorLocation = Exclude<SVLocation, 'BD'>;
 
 export const SV_LOCATION_NAMES: Record<SVLocation, string> = {
   FR: 'Front', LS: 'Left Side', RS: 'Right Side', RR: 'Rear', TU: 'Turret', RO: 'Rotor',
+  FRS: 'Front Right', FLS: 'Front Left', RRS: 'Rear Right', RLS: 'Rear Left',
   NO: 'Nose', LW: 'Left Wing', RW: 'Right Wing', AF: 'Aft', BD: 'Body',
 };
 
@@ -98,6 +99,7 @@ export const SV_TYPES: Record<SVType, SVTypeInfo> = {
   wheeled: { name: 'Wheeled', mediumMax: 80, largeMax: 160, baseChassis: [0.12, 0.15, 0.18], baseEngine: [0.0025, 0.0075, 0.015], aero: false, description: 'Trucks, cars, APCs and other road vehicles.' },
   tracked: { name: 'Tracked', mediumMax: 100, largeMax: 200, baseChassis: [0.13, 0.15, 0.25], baseEngine: [0.006, 0.013, 0.025], aero: false, description: 'Bulldozers, crawlers and heavy haulers.' },
   hover: { name: 'Hover', mediumMax: 50, largeMax: 100, baseChassis: [0.2, 0.25, 0.3], baseEngine: [0.0025, 0.004, 0.007], aero: false, description: 'Hovercraft for land and water.' },
+  wige: { name: 'WiGE', mediumMax: 80, largeMax: 240, baseChassis: [0.12, 0.15, 0.17], baseEngine: [0.003, 0.005, 0.006], aero: false, description: 'Wing-in-ground-effect craft that skim over land and water.' },
   vtol: { name: 'VTOL', mediumMax: 30, largeMax: 60, baseChassis: [0.2, 0.25, 0.3], baseEngine: [0.002, 0.0025, 0.004], aero: false, description: 'Helicopters and other rotorcraft.' },
   naval: { name: 'Naval', mediumMax: 300, largeMax: 300, baseChassis: [0.12, 0.15, 0.17], baseEngine: [0.004, 0.007, 0.009], aero: false, description: 'Boats and ships (hydrofoil and submersible as chassis modifications).' },
   rail: { name: 'Rail', mediumMax: 300, largeMax: 600, baseChassis: [0.15, 0.2, 0.3], baseEngine: [0.003, 0.004, 0.005], aero: false, description: 'Trains and maglev vehicles.' },
@@ -105,7 +107,7 @@ export const SV_TYPES: Record<SVType, SVTypeInfo> = {
   'fixed-wing': { name: 'Fixed-wing', mediumMax: 100, largeMax: 200, baseChassis: [0.08, 0.1, 0.15], baseEngine: [0.005, 0.01, 0.015], aero: true, description: 'Airplanes: cargo planes, airliners, light fighters.' },
 };
 
-export const SV_TYPE_ORDER: SVType[] = ['wheeled', 'tracked', 'hover', 'vtol', 'naval', 'rail', 'airship', 'fixed-wing'];
+export const SV_TYPE_ORDER: SVType[] = ['wheeled', 'tracked', 'hover', 'vtol', 'wige', 'naval', 'rail', 'airship', 'fixed-wing'];
 
 const STRUCTURE_TECH: Record<TechRating, number> = { A: 1.6, B: 1.3, C: 1.15, D: 1.0, E: 0.85, F: 0.66 };
 
@@ -132,7 +134,7 @@ const ALL: SVType[] = SV_TYPE_ORDER;
 const ENGINE_TYPES_ALLOWED: Record<SVEngine, SVType[]> = {
   steam: ['wheeled', 'tracked', 'airship', 'naval', 'rail'],
   ice: ALL, external: ['rail'], battery: ALL, 'fuel-cell': ALL,
-  solar: ['wheeled', 'tracked', 'airship', 'fixed-wing', 'naval'],
+  solar: ['wheeled', 'tracked', 'airship', 'fixed-wing', 'naval', 'wige'],
   maglev: ['rail'], fission: ALL, fusion: ALL, none: ['wheeled', 'tracked', 'rail'],
 };
 
@@ -164,6 +166,8 @@ export const CHASSIS_MODS: ChassisMod[] = [
   { id: 'hydrofoil', name: 'Hydrofoil', multiplier: 1.7, types: ['naval'] },
   { id: 'monocycle', name: 'Monocycle', multiplier: 0.5, types: ['hover', 'wheeled'], smallOnly: true },
   { id: 'off-road', name: 'Off-Road', multiplier: 1.5, types: ['wheeled'] },
+  // OmniVehicle: pod-mounted weapons and equipment (no weight change).
+  { id: 'omni', name: 'OmniVehicle', multiplier: 1.0, types: ALL },
   { id: 'prop', name: 'Prop', multiplier: 1.2, types: ['fixed-wing'] },
   { id: 'snowmobile', name: 'Snowmobile', multiplier: 1.75, types: ['wheeled', 'tracked'] },
   { id: 'stol', name: 'STOL', multiplier: 1.5, types: ['fixed-wing'] },
@@ -209,15 +213,20 @@ function roundUp(w: number, small: boolean): number {
   return (small ? Math.ceil(t * 1000) / 1000 : Math.ceil(t * 2) / 2) || 0;
 }
 
-export function svArmorLocations(d: Pick<SupportVehicleDesign, 'svType' | 'turret'>): SVArmorLocation[] {
+/** Large ground and naval support vehicles (MegaMek's "large support tanks") have six armor facings. */
+export function isLargeSupportTank(d: Pick<SupportVehicleDesign, 'svType' | 'tonnage'>): boolean {
+  return !SV_TYPES[d.svType].aero && d.svType !== 'vtol' && sizeClass(d) === 'large';
+}
+
+export function svArmorLocations(d: Pick<SupportVehicleDesign, 'svType' | 'turret' | 'tonnage'>): SVArmorLocation[] {
   if (SV_TYPES[d.svType].aero) return ['NO', 'LW', 'RW', 'AF'];
-  const locs: SVArmorLocation[] = ['FR', 'LS', 'RS', 'RR'];
+  const locs: SVArmorLocation[] = isLargeSupportTank(d) ? ['FR', 'FRS', 'FLS', 'RRS', 'RLS', 'RR'] : ['FR', 'LS', 'RS', 'RR'];
   if (d.turret) locs.push('TU');
   if (d.svType === 'vtol') locs.push('RO');
   return locs;
 }
 
-export function svItemLocations(eq: Equipment, d: Pick<SupportVehicleDesign, 'svType' | 'turret'>): SVLocation[] {
+export function svItemLocations(eq: Equipment, d: Pick<SupportVehicleDesign, 'svType' | 'turret' | 'tonnage'>): SVLocation[] {
   if (!eq.isWeapon) return ['BD'];
   return [...svArmorLocations(d).filter((l) => l !== 'RO'), 'BD'];
 }
@@ -226,7 +235,7 @@ export function svItemLocations(eq: Equipment, d: Pick<SupportVehicleDesign, 'sv
 export function svMaxArmor(d: Pick<SupportVehicleDesign, 'svType' | 'tonnage'>): number {
   const large = sizeClass(d) === 'large';
   const factor = {
-    airship: large ? 0.05 : 0.334, naval: large ? 0.05 : 0.334, rail: 0.5,
+    airship: large ? 0.05 : 0.334, naval: large ? 0.05 : 0.334, rail: 0.5, wige: 0.5,
     'fixed-wing': 1.0, hover: 1.0, vtol: 1.0, tracked: 2.0, wheeled: 2.0,
   }[d.svType];
   return 4 + Math.floor(d.tonnage * factor);
@@ -492,7 +501,7 @@ export function isSupport(d: unknown): d is SupportVehicleDesign {
 
 export function setSupportType(d: SupportVehicleDesign, svType: SVType): SupportVehicleDesign {
   const info = SV_TYPES[svType];
-  const armorLocs = svArmorLocations({ svType, turret: d.turret && !info.aero });
+  const armorLocs = svArmorLocations({ svType, turret: d.turret && !info.aero, tonnage: Math.min(d.tonnage, info.largeMax) });
   const armor: SupportVehicleDesign['armor'] = {};
   for (const l of armorLocs) armor[l] = d.armor[l] ?? 0;
   const engineType = ENGINE_TYPES_ALLOWED[d.engineType].includes(svType) ? d.engineType : 'ice';
@@ -524,7 +533,9 @@ export function distributeSupportArmor(d: SupportVehicleDesign, points: number):
     left -= armor.RO;
   }
   const main = locs.filter((l) => l !== 'RO');
-  const weightsFor: Partial<Record<SVArmorLocation, number>> = { FR: 3, NO: 3, LS: 2, RS: 2, LW: 2, RW: 2, RR: 1.5, AF: 1.5, TU: 2 };
+  const weightsFor: Partial<Record<SVArmorLocation, number>> = {
+    FR: 3, NO: 3, LS: 2, RS: 2, LW: 2, RW: 2, RR: 1.5, AF: 1.5, TU: 2, FRS: 2, FLS: 2, RRS: 1.5, RLS: 1.5,
+  };
   const total = main.reduce((a, l) => a + (weightsFor[l] ?? 1), 0);
   let given = 0;
   for (const l of main) {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   addSupportItem, barWeightPerPoint, computeSupport, kgPerFuelPoint, newSupportVehicle, parseSupport,
-  setSupportType, sizeClass, supportReadout, svMaxArmor, validateSupport,
+  isLargeSupportTank, setSupportType, sizeClass, supportReadout, svArmorLocations, svMaxArmor, validateSupport,
 } from './index';
 import type { SupportVehicleDesign } from './support';
 import support from '../data/canon/support.json';
@@ -91,4 +91,33 @@ describe('canon support vehicles', () => {
       expect(computeSupport(d).weights.total).toBe(d.tonnage);
     },
   );
+});
+
+describe('large support tanks, WiGE and OmniVehicles', () => {
+  it('large ground support vehicles have six armor facings', () => {
+    const d = { ...newSupportVehicle('3025'), svType: 'tracked' as const, tonnage: 150 };
+    expect(svArmorLocations(d)).toEqual(['FR', 'FRS', 'FLS', 'RRS', 'RLS', 'RR']);
+    expect(svArmorLocations({ ...d, tonnage: 100 })).toEqual(['FR', 'LS', 'RS', 'RR']);
+    expect(isLargeSupportTank({ svType: 'vtol', tonnage: 60 })).toBe(false);
+    const tug = canon('Galaport Ground Tug');
+    expect(computeSupport(tug).armorLocations).toContain('RLS');
+    expect(computeSupport(tug).weights.total).toBe(200);
+    expect(errors(tug)).toEqual([]);
+  });
+
+  it('WiGE support vehicles: medium to 80 t, large to 240 t, armor 4 + tonnage / 2', () => {
+    expect(sizeClass({ svType: 'wige', tonnage: 81 })).toBe('large');
+    expect(svMaxArmor({ svType: 'wige', tonnage: 50 })).toBe(29);
+    const d = canon('Sturmvogel Gunship WiGE');
+    expect(d.svType).toBe('wige');
+    expect(computeSupport(d).weights.total).toBe(d.tonnage);
+    expect(errors(canon('Ryu Heavy Transport'))).toEqual([]);
+  });
+
+  it('OmniVehicle configurations load as separate designs with the OmniVehicle chassis mod', () => {
+    const d = canon('Hesiod Utility Vehicle B (Bulldozer)');
+    expect(d.chassisMods).toContain('omni');
+    expect(computeSupport(d).weights.total).toBe(7);
+    expect(S.filter((e) => decodeSupport(e.d).chassisMods.includes('omni')).length).toBeGreaterThan(10);
+  });
 });

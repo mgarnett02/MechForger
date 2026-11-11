@@ -38,7 +38,7 @@ import { computeFighter, emptyFighterArmor, validateFighter } from '../src/rules
 import type { BayKind, QuartersKind, VesselDesign, VesselItem, VesselLocation } from '../src/rules/vessel';
 import { computeVessel, emptyVesselArmor, validateVessel } from '../src/rules/vessel';
 import type { SVItem, SVLocation, SVType, SupportVehicleDesign, TechRating } from '../src/rules/support';
-import { TECH_RATINGS, computeSupport, emptyTransport, kgPerFuelPoint, validateSupport } from '../src/rules/support';
+import { TECH_RATINGS, computeSupport, emptyTransport, isLargeSupportTank, kgPerFuelPoint, validateSupport } from '../src/rules/support';
 import type { CanonEntry } from '../src/data/canonFormat';
 
 class Unsupported extends Error {}
@@ -79,7 +79,7 @@ const UTILITY_NAMES: Record<string, string> = {
   trailerhitch: 'trailer-hitch', hitch: 'trailer-hitch', vehicularminedispenser: 'mine-dispenser',
   minesweeper: 'mine-sweeper', remotesensordispenser: 'remote-sensor-dispenser',
   manipulatornonmechnonbattlearmor: 'manipulator', reconcamera: 'recon-camera',
-  miningdrill: 'mining-drill', mechsprayer: 'sprayer', sprayermech: 'sprayer', ejectionseatindustrialmech: 'im-ejection-seat',
+  miningdrill: 'mining-drill', mechsprayer: 'sprayer', tanksprayer: 'sprayer-vehicle', sprayervehicular: 'sprayer-vehicle', sprayermech: 'sprayer', ejectionseatindustrialmech: 'im-ejection-seat',
 };
 
 /** Structural crit names handled outside the equipment list. */
@@ -867,7 +867,7 @@ function parseVesselBlk(text: string): { design: VesselDesign; year: number; mul
 
 const SV_MOTION: Record<string, SVType> = {
   Wheeled: 'wheeled', Tracked: 'tracked', Hover: 'hover', VTOL: 'vtol', Naval: 'naval', Hydrofoil: 'naval',
-  Submarine: 'naval', Rail: 'rail', Maglev: 'rail', Aerodyne: 'fixed-wing', Airship: 'airship',
+  Submarine: 'naval', Rail: 'rail', Maglev: 'rail', Aerodyne: 'fixed-wing', Airship: 'airship', WiGE: 'wige',
 };
 const SV_ENGINES: Record<string, SupportVehicleDesign['engineType']> = {
   0: 'fusion', 1: 'ice', 6: 'fuel-cell', 7: 'fission', 8: 'none', 9: 'maglev', 10: 'steam', 11: 'battery', 12: 'solar', 13: 'external',
@@ -877,7 +877,7 @@ const CHASSIS_MOD_NAMES: [RegExp, string][] = [
   [/amphibious/i, 'amphibious'], [/environmental sealing/i, 'environmental-sealing'], [/bicycle/i, 'bicycle'],
   [/ultra-?light/i, 'ultra-light'], [/vstol/i, 'vstol'], [/stol/i, 'stol'], [/submersible/i, 'submersible'], [/hydrofoil/i, 'hydrofoil'],
   [/prop/i, 'prop'], [/dune ?buggy/i, 'dune-buggy'], [/convertible/i, 'convertible'], [/snowmobile/i, 'snowmobile'],
-  [/monocycle/i, 'monocycle'], [/external ?power/i, 'external-power-pickup'],
+  [/monocycle/i, 'monocycle'], [/external ?power/i, 'external-power-pickup'], [/omni/i, 'omni'],
 ];
 
 function parseSupportBlk(text: string): { design: SupportVehicleDesign; year: number; mulId?: number; source: string } {
@@ -888,7 +888,6 @@ function parseSupportBlk(text: string): { design: SupportVehicleDesign; year: nu
   const one = (k: string) => tags.get(k)?.[0] ?? '';
   const unitType = one('UnitType');
   if (!['SupportTank', 'SupportVTOL', 'FixedWingSupport', 'LargeSupportTank'].includes(unitType)) fail(`unit type ${unitType}`);
-  if (tags.has('omni')) fail('Omni support vehicle');
   const svType = SV_MOTION[one('motion_type')] ?? fail(`motion ${one('motion_type')}`);
   const typeStr = one('type');
   const techBase: TechBase = /^Clan|Clan Chassis/.test(typeStr) ? 'Clan' : 'IS';
@@ -899,36 +898,54 @@ function parseSupportBlk(text: string): { design: SupportVehicleDesign; year: nu
   const bar = Number(one('barrating')) || (armorCode - 41);
   const rating = (k: string): TechRating => TECH_RATINGS[Number(one(k))] ?? fail(`tech rating ${k}`);
   const aero = svType === 'fixed-wing' || svType === 'airship';
-  for (const k of ['Front Turret Equipment', 'Rear Turret Equipment', 'Front Right Equipment', 'Front Left Equipment', 'Rear Right Equipment', 'Rear Left Equipment', 'Wings Equipment']) {
+  const large = unitType === 'LargeSupportTank';
+  if (large !== isLargeSupportTank({ svType, tonnage })) fail('large support tank size class');
+  for (const k of ['Front Turret Equipment', 'Rear Turret Equipment', 'Wings Equipment', ...(large ? ['Left Equipment', 'Right Equipment'] : ['Front Right Equipment', 'Front Left Equipment', 'Rear Right Equipment', 'Rear Left Equipment'])]) {
     if ((tags.get(k) ?? []).length) fail(k);
   }
   const turret = tags.has('Turret Equipment');
   const armorVals = (tags.get('armor') ?? []).map(Number);
   const armor: SupportVehicleDesign['armor'] = {};
   if (aero) [armor.NO, armor.LW, armor.RW, armor.AF] = armorVals;
-  else {
+  else if (large) {
+    // Large support tanks: front, front right, front left, rear right, rear left, rear (+ turret).
+    [armor.FR, armor.FRS, armor.FLS, armor.RRS, armor.RLS, armor.RR] = armorVals;
+    if (turret) armor.TU = armorVals[6] ?? 0;
+  } else {
     [armor.FR, armor.RS, armor.LS, armor.RR] = armorVals;
     if (svType === 'vtol') armor.RO = armorVals[4] ?? 0;
     else if (turret) armor.TU = armorVals[4] ?? 0;
   }
   const blocks: [string, SVLocation][] = aero
     ? [['Nose Equipment', 'NO'], ['Left Wing Equipment', 'LW'], ['Right Wing Equipment', 'RW'], ['Aft Equipment', 'AF'], ['Body Equipment', 'BD']]
-    : [['Front Equipment', 'FR'], ['Right Equipment', 'RS'], ['Left Equipment', 'LS'], ['Rear Equipment', 'RR'], ['Turret Equipment', 'TU'], ['Body Equipment', 'BD']];
+    : large
+      ? [['Front Equipment', 'FR'], ['Front Right Equipment', 'FRS'], ['Front Left Equipment', 'FLS'], ['Rear Right Equipment', 'RRS'],
+        ['Rear Left Equipment', 'RLS'], ['Rear Equipment', 'RR'], ['Turret Equipment', 'TU'], ['Body Equipment', 'BD']]
+      : [['Front Equipment', 'FR'], ['Right Equipment', 'RS'], ['Left Equipment', 'LS'], ['Rear Equipment', 'RR'], ['Turret Equipment', 'TU'], ['Body Equipment', 'BD']];
   const equipment: SVItem[] = [];
   const chassisMods = new Set<string>();
+  if (tags.has('omni')) chassisMods.add('omni');
   if (one('motion_type') === 'Hydrofoil') chassisMods.add('hydrofoil');
   if (one('motion_type') === 'Submarine') chassisMods.add('submersible');
   let fireControl: SupportVehicleDesign['fireControl'] = 'none';
   let uid = 0;
   for (const [tag, loc] of blocks) {
     for (const rawLine of tags.get(tag) ?? []) {
-      if (/:OMNI/.test(rawLine)) fail('pod-mounted equipment');
       const size = Number(/:SIZE:([\d.]+)/.exec(rawLine)?.[1] ?? 1);
-      const raw = rawLine.replace(/:SIZE:[\d.]+/, '');
+      const raw = rawLine.replace(/:SIZE:[\d.]+/, '').replace(/:OMNI/, '');
       if (/chassis|environmental sealing$/i.test(raw) && !/\(mech\)/i.test(raw)) {
         const mod = CHASSIS_MOD_NAMES.find(([r]) => r.test(raw));
         if (!mod) fail(`chassis mod "${raw}"`);
         chassisMods.add(mod![1]);
+        continue;
+      }
+      // MASH (core + theaters) and ladders (per 20 m) are sized items.
+      if (/^MASH Equipment$/i.test(raw)) {
+        for (let n = 0; n < Math.max(1, Math.round(size)); n++) equipment.push({ uid: `s${uid++}`, equipmentId: n ? 'mash-theater' : 'mash-core', location: 'BD' });
+        continue;
+      }
+      if (/^Ladder$/i.test(raw)) {
+        for (let n = 0; n < Math.max(1, Math.round(size / 20)); n++) equipment.push({ uid: `s${uid++}`, equipmentId: 'ladder-20m', location: 'BD' });
         continue;
       }
       if (/^Basic Fire Control$/i.test(raw)) { fireControl = 'basic'; continue; }
