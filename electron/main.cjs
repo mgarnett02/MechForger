@@ -67,17 +67,21 @@ function createWindow() {
     minHeight: 600,
     title: 'MechForger',
     icon: path.join(__dirname, '..', 'build', 'icon.png'),
+    // Show the window straight away (in the page's background colour) rather than after the first
+    // render, so there is immediate feedback while the app starts.
     backgroundColor: '#f4f2ee',
-    show: false,
+    show: true,
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
       preload: path.join(__dirname, 'preload.cjs'),
+      // No text fields need spell checking; skipping it avoids loading the dictionaries at startup.
+      spellcheck: false,
+      // Cache compiled JavaScript so later launches skip most of the parsing.
+      v8CacheOptions: 'bypassHeatCheck',
     },
   });
-
-  win.once('ready-to-show', () => win.show());
 
   // Open any external links in the user's browser instead of inside the app.
   win.webContents.setWindowOpenHandler(({ url }) => {

@@ -44,6 +44,7 @@
     "win": {
       "target": [
         "nsis",
+        "zip",
         "portable"
       ],
       "icon": "build/icon.png"
@@ -54,7 +55,11 @@
       "artifactName": "MechForger-Setup-${version}.${ext}"
     },
     "portable": {
-      "artifactName": "MechForger-Portable-${version}.${ext}"
+      "artifactName": "MechForger-Portable-${version}.${ext}",
+      "unpackDirName": "MechForger"
+    },
+    "zip": {
+      "artifactName": "MechForger-${version}-win.${ext}"
     }
   }
 }

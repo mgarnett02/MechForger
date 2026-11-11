@@ -36,6 +36,7 @@ jobs:
           name: MechForger-windows
           path: |
             release/MechForger-Setup-*.exe
+            release/MechForger-*-win.zip
             release/MechForger-Portable-*.exe
           if-no-files-found: error
 
@@ -45,4 +46,5 @@ jobs:
         with:
           files: |
             release/MechForger-Setup-*.exe
+            release/MechForger-*-win.zip
             release/MechForger-Portable-*.exe

@@ -256,12 +256,16 @@ Every push to `main` builds Windows executables with GitHub Actions:
 
 1. Open the repository's **Actions** tab → **Windows build** → the latest run.
 2. Download the **MechForger-windows** artifact (a zip) at the bottom of the page.
-3. Inside are two files:
-   - `MechForger-Setup-x.y.z.exe` — installer (Start-menu shortcut, uninstaller)
-   - `MechForger-Portable-x.y.z.exe` — runs directly, no install needed
+3. Inside are three files:
+   - `MechForger-Setup-x.y.z.exe`: the installer (Start-menu shortcut, uninstaller). **Fastest to start; recommended.**
+   - `MechForger-x.y.z-win.zip`: no install needed. Unzip it once to any folder and run `MechForger.exe`.
+     It starts as quickly as the installed version.
+   - `MechForger-Portable-x.y.z.exe`: a single file that runs without installing. It unpacks the
+     whole app (about 250 MB, Electron included) to a temporary folder **every time it starts**, so it
+     takes several seconds longer to open, especially while Windows Defender scans the unpacked files.
 
 Pushing a version tag (e.g. `git tag v0.2.0 && git push origin v0.2.0`) also
-publishes both files on the repository's **Releases** page.
+publishes these files on the repository's **Releases** page.
 
 The executables are not code-signed, so Windows SmartScreen may warn the first
 time: choose **More info → Run anyway**.
@@ -276,7 +280,7 @@ npm run dev        # run in the browser at http://localhost:5173
 npm run app        # run as a desktop app (Electron)
 npm test           # rules-engine unit tests
 npm run build      # type-check and production web build
-npm run dist:win   # build the Windows installer + portable exe into release/
+npm run dist:win   # build the Windows installer, zip and portable exe into release/
 ```
 
 ## Layout
