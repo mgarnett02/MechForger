@@ -47,7 +47,8 @@
         "zip",
         "portable"
       ],
-      "icon": "build/icon.png"
+      "icon": "build/icon.png",
+      "artifactName": "MechForger-${version}-win.${ext}"
     },
     "nsis": {
       "oneClick": false,
@@ -57,9 +58,6 @@
     "portable": {
       "artifactName": "MechForger-Portable-${version}.${ext}",
       "unpackDirName": "MechForger"
-    },
-    "zip": {
-      "artifactName": "MechForger-${version}-win.${ext}"
     }
   }
 }
