@@ -118,6 +118,10 @@ Everything above, plus:
 - **Superchargers** (10% of engine weight, one slot in a location with engine slots; run at twice walking
   MP, 2.5× with MASC), **PPC Capacitors** (1 t, linked to a PPC in the same location; adds MegaMek's
   capacitor BV and 5 heat, explosive) and the **Angel ECM Suite** (2 t, 2 slots, 100 BV)
+- **Artillery**: Arrow IV (IS and Clan), Long Tom, Sniper and Thumper (indirect fire, range in mapsheets)
+  and the Long Tom, Sniper and Thumper artillery cannons, with ammunition; usable on 'Mechs, vehicles and
+  as infantry field artillery (one piece per platoon)
+- **Light autocannons** (LAC/2, LAC/5) and one-shot **rocket launchers** (RL 10/15/20)
 - **XXL engines** (a third of standard weight; 6 slots per side torso IS / 4 Clan; walk 4, run 6 and
   jump 2 per MP heat, 2 standing; BV structure ×0.25 IS / ×0.5 Clan)
 - **Improved jump jets** (double weight and slots; jump up to running MP) — the Inner
@@ -176,10 +180,10 @@ fixed-wing.
 - Critical slot allocation (click to place, or **Auto-allocate**) with live validation
 - Red / amber / green status light: illegal, legal but incomplete (unused tonnage,
   unallocated armor), or fully legal
-- **Canon units**: about 2,410 canon BattleMechs, including 47 quads, 19 Land-Air 'Mechs and around 100 melee-armed designs (OmniMechs with all their
-  configurations), 630 canon combat vehicles, 120 support vehicles, about 400 aerospace, Omni and
+- **Canon units**: about 2,480 canon BattleMechs, including 47 quads, 19 Land-Air 'Mechs and around 100 melee-armed designs (OmniMechs with all their
+  configurations), 700 canon combat vehicles, 120 support vehicles, about 400 aerospace, Omni and
   conventional fighters and about 290 spacecraft (small craft, DropShips, JumpShips, WarShips and
-  space stations) about 1,190 battle armor squads and about 1,750 infantry platoons, searchable by name, era, tech base,
+  space stations) about 1,190 battle armor squads and about 1,940 infantry platoons, searchable by name, era, tech base,
   weight and type, ready to load, modify and print (see *Canon unit data* below)
 - **Battle Value (BV 2.0) and C-bill cost**, with the working shown; mech values
   reproduce published canon figures (e.g. Atlas AS7-D: BV 1,897, 9,626,000 C-bills).

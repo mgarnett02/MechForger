@@ -52,6 +52,8 @@ export interface Equipment {
   armOnly?: boolean;
   /** Land-Air 'Mech equipment only. */
   lamOnly?: boolean;
+  /** Artillery: tube or missile artillery (indirect fire, range in mapsheets) or an artillery cannon. */
+  artillery?: boolean;
   /** Explodes when hit (counts like ammunition for Battle Value). */
   explosive?: boolean;
   /** Explosive, but only −1 BV per slot (improved heavy lasers, PPC capacitors). */
@@ -79,6 +81,7 @@ const CLAN_3062: Avail = { techBase: 'Clan', firstEra: '3062' };
 const IS_3068: Avail = { techBase: 'IS', firstEra: '3068' };
 const CLAN_3068: Avail = { techBase: 'Clan', firstEra: '3068' };
 const ANY_3025: Avail = { techBase: 'Both', firstEra: '3025' };
+const ANY_3068: Avail = { techBase: 'Both', firstEra: '3068' };
 const ANY_3050: Avail = { techBase: 'Both', firstEra: '3050' };
 const IS_3081: Avail = { techBase: 'IS', firstEra: '3081' };
 const CLAN_3081: Avail = { techBase: 'Clan', firstEra: '3081' };
@@ -125,6 +128,11 @@ const IS_INTRO_WEAPONS: Equipment[] = [
   weapon(IS_3025, 'srm-2', 'SRM 2', 'Missile', 1, 1, 2, '2/missile', [0, 3, 6, 9], 50),
   weapon(IS_3025, 'srm-4', 'SRM 4', 'Missile', 2, 1, 3, '2/missile', [0, 3, 6, 9], 25),
   weapon(IS_3025, 'srm-6', 'SRM 6', 'Missile', 3, 2, 4, '2/missile', [0, 3, 6, 9], 15),
+  // Tube and missile artillery: indirect fire, range in mapsheets (Arrow IV 8, Long Tom 30, Sniper 18, Thumper 21).
+  { ...weapon(IS_3025, 'arrow-iv', 'Arrow IV', 'Missile', 15, 15, 10, '20 art.', null, 5), artillery: true },
+  { ...weapon(ANY_3025, 'long-tom', 'Long Tom', 'Ballistic', 30, 30, 20, '25 art.', null, 5), artillery: true },
+  { ...weapon(ANY_3025, 'sniper', 'Sniper', 'Ballistic', 20, 20, 10, '20 art.', null, 10), artillery: true },
+  { ...weapon(ANY_3025, 'thumper', 'Thumper', 'Ballistic', 15, 15, 5, '15 art.', null, 20), artillery: true },
 ];
 
 /** Inner Sphere Standard-level weapons recovered or developed by the Clan Invasion era. */
@@ -205,6 +213,17 @@ const JIHAD_WEAPONS: Equipment[] = [
   weapon(IS_3068, 'small-vsp-laser', 'Small VSP Laser', 'Energy', 2, 1, 3, '5/4/3', [0, 2, 4, 6]),
   weapon(IS_3068, 'medium-vsp-laser', 'Medium VSP Laser', 'Energy', 4, 2, 7, '9/7/5', [0, 2, 5, 9]),
   weapon(IS_3068, 'large-vsp-laser', 'Large VSP Laser', 'Energy', 9, 4, 10, '11/9/7', [0, 4, 8, 15]),
+  // Light autocannons and rocket launchers (Civil War era prototypes, 3062–3064).
+  weapon(IS_3062, 'lac-2', 'Light AC/2', 'Ballistic', 4, 1, 1, '2', [0, 6, 12, 18], 45),
+  weapon(IS_3062, 'lac-5', 'Light AC/5', 'Ballistic', 5, 2, 1, '5', [0, 5, 10, 15], 20),
+  // Rocket launchers are one-shot (no ammunition) and fire at +1 to hit.
+  weapon(IS_3062, 'rl-10', 'Rocket Launcher 10', 'Missile', 0.5, 1, 3, '1/missile', [0, 5, 11, 18]),
+  weapon(IS_3062, 'rl-15', 'Rocket Launcher 15', 'Missile', 1, 2, 4, '1/missile', [0, 4, 9, 15]),
+  weapon(IS_3062, 'rl-20', 'Rocket Launcher 20', 'Missile', 1.5, 3, 5, '1/missile', [0, 3, 7, 12]),
+  // Artillery cannons (direct or indirect fire).
+  { ...weapon(ANY_3068, 'thumper-cannon', 'Thumper Cannon', 'Ballistic', 10, 7, 5, '5 art.', [3, 4, 9, 14], 20), artillery: true },
+  { ...weapon(ANY_3068, 'sniper-cannon', 'Sniper Cannon', 'Ballistic', 15, 10, 10, '10 art.', [2, 4, 8, 12], 10), artillery: true },
+  { ...weapon(ANY_3068, 'long-tom-cannon', 'Long Tom Cannon', 'Ballistic', 20, 15, 20, '20 art.', [4, 6, 13, 20], 5), artillery: true },
 ];
 
 /** MML ammunition: [launcher, LRM shots per ton, SRM shots per ton]. */
@@ -258,6 +277,7 @@ const CLAN_WEAPONS: Equipment[] = [
   weapon(CLAN_3050, 'clan-heavy-machine-gun', 'Heavy Machine Gun', 'Ballistic', 0.5, 1, 0, '3', [0, 1, 2, 0], 100),
   weapon(CLAN_3050, 'clan-tag', 'TAG', 'Other', 1, 1, 0, 'designator', [0, 5, 9, 15]),
   weapon(CLAN_3050, 'clan-light-tag', 'Light TAG', 'Other', 0.5, 1, 0, 'designator', [0, 3, 6, 9]),
+  { ...weapon(CLAN_3050, 'clan-arrow-iv', 'Arrow IV', 'Missile', 12, 12, 10, '20 art.', null, 5), artillery: true },
 ];
 
 const ALL_WEAPONS = [...IS_INTRO_WEAPONS, ...IS_3050_WEAPONS, ...IS_3062_WEAPONS, ...JIHAD_WEAPONS, ...CLAN_WEAPONS];
@@ -605,7 +625,8 @@ const ABBREVIATIONS: [RegExp, string][] = [
   [/Light Gauss Rifle/g, 'Light Gauss'], [/Heavy Gauss Rifle/g, 'Heavy Gauss'],
   [/Ultra AC\//g, 'UAC/'], [/Rotary AC\//g, 'RAC/'], [/(LB \d+-X) AC/g, '$1'],
   [/Artemis IV FCS/g, 'Artemis IV'], [/ Artemis IV Ammo/g, ' Art. Ammo'], [/ Ammo, Half/g, ' Ammo ½'],
-  [/Improved Heavy (Small|Medium|Large) Laser/g, 'Imp. Heavy $1 L.'], [/Targeting Computer/g, 'Targeting Comp.'], [/Triple-Strength Myomer/g, 'TSM'],
+  [/Improved Heavy (Small|Medium|Large) Laser/g, 'Imp. Heavy $1 L.'], [/Rocket Launcher (\d+)/g, 'RL $1'],
+  [/Long Tom Cannon Ammo/g, 'LT Cannon Ammo'], [/(Sniper|Thumper) Cannon Ammo/g, '$1 C. Ammo'], [/Targeting Computer/g, 'Targeting Comp.'], [/Triple-Strength Myomer/g, 'TSM'],
   [/Beagle Active Probe/g, 'Beagle Probe'], [/Guardian ECM Suite/g, 'Guardian ECM'],
   [/C3 Master Computer/g, 'C3 Master'], [/C3 Slave Unit/g, 'C3 Slave'], [/Improved C3 Computer/g, 'C3i'],
   [/Improved Jump Jet/g, 'Imp. Jump Jet'], [/Snub-Nose PPC/g, 'SN PPC'], [/Retractable Blade/g, 'Ret. Blade'],
@@ -649,7 +670,10 @@ type SizingDesign = Pick<MechDesign, 'tonnage' | 'techBase' | 'equipment'> & { c
 
 /** Weapons a targeting computer is sized from: direct-fire energy and ballistic weapons. */
 export function isDirectFire(eq: Equipment): boolean {
-  return eq.isWeapon && (eq.category === 'Energy' || eq.category === 'Ballistic');
+  // As MegaMek: lasers, PPCs, autocannon, Gauss rifles and plasma weapons are direct fire; artillery,
+  // flamers, machine guns and anti-missile systems are not.
+  if (!eq.isWeapon || eq.artillery || /flamer|machine-gun|(^|-)ams$/.test(eq.id)) return false;
+  return eq.category === 'Energy' || eq.category === 'Ballistic';
 }
 
 /** Targeting computer: 1 ton per 4 (IS) or 5 (Clan) tons of direct-fire weapons, rounded up. */

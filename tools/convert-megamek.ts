@@ -55,6 +55,8 @@ const ALIASES: Record<string, string> = {
   snppc: 'snubnoseppc', mg: 'machinegun', lightmg: 'lightmachinegun', heavymg: 'heavymachinegun',
   hag20: 'hyperassaultgauss20', hag30: 'hyperassaultgauss30', hag40: 'hyperassaultgauss40',
   heavysmalllaser: 'smallheavylaser', heavymediumlaser: 'mediumheavylaser', heavylargelaser: 'largeheavylaser',
+  lightautocannon2: 'lightac2', lightautocannon5: 'lightac5', lac2: 'lightac2', lac5: 'lightac5',
+  rl10: 'rocketlauncher10', rl15: 'rocketlauncher15', rl20: 'rocketlauncher20',
   improvedmediumheavylaser: 'improvedheavymediumlaser', improvedsmallheavylaser: 'improvedheavysmalllaser',
   magshotgr: 'magshotgaussrifle', narcbeacon: 'narcmissilebeacon', improvednarc: 'inarclauncher',
   c3masterunit: 'c3mastercomputer', c3iunit: 'improvedc3computer', artemisiv: 'artemisivfcs',
@@ -121,6 +123,9 @@ function resolveAmmo(raw: string, unitTech: TechBase): string | null {
   let s = norm(raw.replace(/\(clan\)/gi, '')).replace(/^(clan|is|cl)/, '').replace(/ammo|pods|full|half|artemiscapable/g, '');
   s = s.replace(/^ammo/, '');
   const families: [RegExp, (m: RegExpExecArray) => string][] = [
+    [/^arrowiv/, () => 'arrow-iv'], [/^longtomcannon/, () => 'long-tom-cannon'], [/^longtom/, () => 'long-tom'],
+    [/^snipercannon/, () => 'sniper-cannon'], [/^sniper/, () => 'sniper'], [/^thumpercannon/, () => 'thumper-cannon'],
+    [/^thumper/, () => 'thumper'], [/^lac(\d+)/, (m) => `lac-${m[1]}`],
     [/^ultraac(\d+)/, (m) => `uac-${m[1]}`], [/^rotaryac(\d+)/, (m) => `rac-${m[1]}`],
     [/^lb(\d+)x/, (m) => `lb-${m[1]}x`], [/^ac(\d+)/, (m) => `ac-${m[1]}`],
     [/^streaksrm(\d+)/, (m) => `streak-srm-${m[1]}`], [/^srm(\d+)/, (m) => `srm-${m[1]}`],

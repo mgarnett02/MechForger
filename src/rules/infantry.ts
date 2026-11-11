@@ -269,6 +269,9 @@ export function validateInfantry(d: InfantryDesign, s = computeInfantry(d)): Inf
   if (d.fieldGuns.length) {
     const ids = new Set(d.fieldGuns.map((g) => g.equipmentId));
     if (ids.size > 1) error('All field guns must be of the same type.');
+    const gun0 = getEquipment(d.fieldGuns[0].equipmentId);
+    // Tube and missile artillery (not artillery cannons) is field artillery: one piece per platoon.
+    if (d.fieldGuns.length > 1 && gun0?.artillery && !gun0.range) error('A platoon may use only one field artillery piece.');
     if (s.fieldGunCrew > s.troopers) error(`The field guns need ${s.fieldGunCrew} crew; the platoon has ${s.troopers} troopers.`);
     if (beastOf(d)) error('Beast-mounted infantry cannot use field guns.');
   }
