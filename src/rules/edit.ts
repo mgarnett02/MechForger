@@ -230,6 +230,35 @@ export function setItemLocation(d: MechDesign, uid: string, location: Location |
   };
 }
 
+function parseArmoredSlots(raw: unknown): Pick<MechDesign, 'armoredSlots'> {
+  if (!raw || typeof raw !== 'object') return {};
+  const out: Partial<Record<Location, number[]>> = {};
+  for (const loc of LOCATIONS) {
+    const v = (raw as Record<string, unknown>)[loc];
+    if (Array.isArray(v)) {
+      const list = v.filter((n): n is number => Number.isInteger(n) && n >= 0 && n < 12);
+      if (list.length) out[loc] = [...new Set(list)].sort((a, b) => a - b);
+    }
+  }
+  return Object.keys(out).length ? { armoredSlots: out } : {};
+}
+
+/** Armor (or un-armor) a mounted item: +0.5 t per slot. */
+export function setItemArmored(d: MechDesign, uid: string, armored: boolean): MechDesign {
+  return { ...d, equipment: d.equipment.map((e) => (e.uid === uid ? { ...e, armored: armored || undefined } : e)) };
+}
+
+/** Toggle armor on a fixed system slot (engine, gyro, cockpit, actuator…). */
+export function toggleSystemArmor(d: MechDesign, loc: Location, index: number): MechDesign {
+  const cur = d.armoredSlots?.[loc] ?? [];
+  const list = cur.includes(index) ? cur.filter((i) => i !== index) : [...cur, index].sort((a, b) => a - b);
+  const armoredSlots = { ...d.armoredSlots, [loc]: list };
+  if (!list.length) delete armoredSlots[loc];
+  const next: MechDesign = { ...d, armoredSlots };
+  if (!Object.keys(armoredSlots).length) delete next.armoredSlots;
+  return next;
+}
+
 /** Split a weapon of 8+ slots over its location and an adjacent one (null = unsplit). */
 export function setItemSplit(d: MechDesign, uid: string, split: { location: Location; slots: number } | null): MechDesign {
   return { ...d, equipment: d.equipment.map((e) => (e.uid === uid ? { ...e, split: split ?? undefined } : e)) };
@@ -414,6 +443,7 @@ export function parseDesign(raw: unknown): MechDesign {
       const item: MountedItem = { uid: newUid(), equipmentId: e.equipmentId, location };
       if (e.rear === true) item.rear = true;
       if (e.pod === true) item.pod = true;
+      if (e.armored === true) item.armored = true;
       const sp = e.split as { location?: unknown; slots?: unknown } | undefined;
       if (sp && (LOCATIONS as readonly string[]).includes(sp.location as string) && typeof sp.slots === 'number' && sp.slots > 0) {
         item.split = { location: sp.location as Location, slots: Math.floor(sp.slots) };
@@ -450,6 +480,7 @@ export function parseDesign(raw: unknown): MechDesign {
     armorType: pick(r.armorType, Object.keys(ARMOR_OPTIONS) as ArmorType[], 'standard'),
     myomer: pick(r.myomer, Object.keys(MYOMER_OPTIONS) as MyomerType[], 'standard'),
     ...(r.environmentalSealing ? { environmentalSealing: true } : {}),
+    ...parseArmoredSlots(r.armoredSlots),
     mixedTech: r.mixedTech === true,
     config: pick(r.config, ['biped', 'quad'] as const, 'biped'),
     lam: r.config !== 'quad' && (r.lam === 'standard' || r.lam === 'bimodal') ? r.lam : null,

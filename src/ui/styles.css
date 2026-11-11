@@ -668,3 +668,8 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 .mul-link { font-size: 0.85rem; white-space: nowrap; padding: 0.15rem 0.4rem; border: 1px solid var(--border, #ccc); border-radius: 4px; text-decoration: none; }
 .mul-link:hover { text-decoration: underline; }
 .canon-flag.no-mul { font-size: 0.7rem; color: var(--muted, #777); border: 1px solid currentColor; border-radius: 3px; padding: 0 3px; margin-left: 4px; white-space: nowrap; }
+
+/* Armored components */
+.panel-head { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; flex-wrap: wrap; }
+.slot.armored { box-shadow: inset 3px 0 0 var(--accent); }
+.slot-btn.armor-toggle:hover { text-decoration: underline; }

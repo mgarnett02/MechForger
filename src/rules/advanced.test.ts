@@ -98,8 +98,7 @@ describe('canon designs with advanced structure, armor and engines', () => {
     const adv = M.map((e) => decodeMech(e.d)).filter((d) => d.structureType !== 'industrial' && (d.engineType === 'xxl'
       || !['standard', 'endo-steel'].includes(d.structureType) || !['standard', 'ferro-fibrous', 'light-ferro', 'heavy-ferro', 'commercial', 'industrial', 'heavy-industrial'].includes(d.armorType)));
     expect(adv.length).toBeGreaterThan(100);
-    // A few late designs use armored components (0.5 t per armored slot), which MechForger does not model yet.
-    expect(adv.filter((d) => computeMech(d).weights.total === d.tonnage).length / adv.length).toBeGreaterThan(0.94);
+    expect(adv.filter((d) => computeMech(d).weights.total === d.tonnage).length / adv.length).toBeGreaterThan(0.95);
     expect(adv.filter((d) => errors(d).length === 0).length / adv.length).toBeGreaterThan(0.9);
   });
 });

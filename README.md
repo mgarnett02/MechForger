@@ -127,6 +127,12 @@ Everything above, plus:
   ACs** and IS **re-engineered lasers**
 - **Artemis V** (Clan, 1.5 t, 2 slots): ×1.3 BV for the linked Clan LRM/SRM launcher. Artemis V ammo
   also gets ×1.3 BV and costs twice as much.
+- **Armored components** (Tactical Operations, from 3061): armor any equipment item ("Armored" in the
+  equipment list) or system slot (engine, gyro, cockpit, sensors, life support, actuators; tick
+  "Armor components" in the critical slot panel and click a slot). Each armored slot weighs 0.5 t; an
+  armored cockpit weighs a flat ton. Each slot costs 150,000 C-bills. BV, as MegaMek: +5% of an item's BV per
+  slot (+5 per slot with no BV), 5% of the gyro's BV per armored gyro slot, +5 per other system slot.
+  Record sheets mark armored slots with ◆.
 - **Coolant pods** (heat efficiency + ⌈heat sinks × pods / 5⌉ for BV; explosive), the Clan **light
   active probe**, and **A-, B- and M-Pods** (anti-infantry pods, counted as defensive equipment)
 - **IndustrialMechs**: industrial structure (twice standard weight), fusion, fission, fuel cell and internal
@@ -296,8 +302,7 @@ npm run dist:win   # build the Windows installer + portable exe into release/
 
 ## Not yet supported
 
-Some Advanced / Experimental equipment (e.g. rifles, Bloodhound probes, laser AMS), armored
-components, patchwork armor, and per-configuration jump jet type or tech base on OmniMechs
+Some Advanced / Experimental equipment (e.g. rifles, Bloodhound probes, laser AMS), patchwork armor, and per-configuration jump jet type or tech base on OmniMechs
 (mixed-tech and improved-jump-jet configurations of a standard Prime are left out of the canon list).
 Mixed tech applies to equipment only: structure, engine, heat
 sinks and armor follow the chassis tech base.

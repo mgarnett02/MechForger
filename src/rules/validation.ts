@@ -6,7 +6,7 @@ import {
   freeHeatSinks, engineCenterSlots, engineSideTorsoSlots, gyroSlots, MAX_ENGINE_RATING, MIN_ENGINE_RATING, TONNAGES,
 } from './tables';
 import {
-  ENDO_STEEL_ID, ENV_SEAL_ID, FERRO_FIBROUS_ID, HEAT_SINK_IDS, TSM_ID, allowedLocations, canRearMount, getEquipment, isArtemisVCapable, isPPC,
+  ENDO_STEEL_ID, ENV_SEAL_ID, canArmor, FERRO_FIBROUS_ID, HEAT_SINK_IDS, TSM_ID, allowedLocations, canRearMount, getEquipment, isArtemisVCapable, isPPC,
   JUMP_JET_IDS, heatSinkIdFor, isDirectFire, isEquipmentAvailable, jumpJetIdFor, usesAmmo,
 } from './equipment';
 import { configurationDesigns, isFixedOnly } from './omni';
@@ -21,7 +21,7 @@ import {
 import { armorPointsForTons } from './armor';
 import { locationArmor } from './armor';
 import type { MechSummary } from './construction';
-import { computeMech, itemSlots } from './construction';
+import { armoredSystemSlots, computeMech, itemSlots } from './construction';
 
 export type Severity = 'error' | 'warning' | 'info';
 
@@ -180,6 +180,17 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
     if (design.environmentalSealing) error('Only IndustrialMechs can be environmentally sealed.');
     if (design.cockpitType === 'industrial') error('Only IndustrialMechs use an industrial cockpit.');
     if (design.myomer === 'industrial-tsm') error('Only IndustrialMechs can mount Industrial TSM.');
+  }
+
+  // Armored components (Tactical Operations; prototypes from 3061)
+  const armoredItems = design.equipment.filter((e) => e.armored);
+  const armoredSystems = LOCATIONS.reduce((n, l) => n + armoredSystemSlots(design, l).length, 0);
+  if (armoredItems.length || armoredSystems) {
+    if (!isAvailableIn('3050', design.era)) error('Armored components are not available before 3061.');
+    for (const e of armoredItems) {
+      const eq = getEquipment(e.equipmentId);
+      if (eq && !canArmor(eq)) error(`${eq.name} cannot be armored.`);
+    }
   }
 
   // Jump jets

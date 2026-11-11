@@ -21,7 +21,7 @@ import type { Equipment } from '../src/rules/equipment';
 import { ALL_EQUIPMENT, getEquipment, itemSlots } from '../src/rules/equipment';
 import { canSplit } from '../src/rules/edit';
 import { SPLIT_ADJACENT } from '../src/rules/types';
-import { computeMech } from '../src/rules/construction';
+import { computeMech, fixedSlots } from '../src/rules/construction';
 import { validate } from '../src/rules/validation';
 import { fighterBV, mechBV, mechCost, vehicleBV, vehicleCost, vesselBV } from '../src/rules/battleValue';
 import type { MotiveType, VehicleDesign, VehicleEngineType, VehicleLocation } from '../src/rules/vehicle';
@@ -156,6 +156,14 @@ function resolveAmmo(raw: string, unitTech: TechBase): string | null {
     return null;
   }
   return null;
+}
+
+/** System crit kind, so MegaMek's names ("Fusion Engine") match MechForger's ("XL Fusion Engine"). */
+function systemKind(name: string): string {
+  if (/engine|i\.c\.e|fuel cell/i.test(name)) return 'engine';
+  if (/gyro/i.test(name)) return 'gyro';
+  if (/cockpit/i.test(name)) return 'cockpit';
+  return norm(name);
 }
 
 type Resolved = { kind: 'fixed' } | { kind: 'item'; id: string } | { kind: 'unknown'; name: string };
@@ -335,6 +343,9 @@ function parseMtf(text: string): ParsedMech {
   let uid = 0;
   // Split weapons: partial runs, paired up across adjacent locations after the loop.
   const partials: { l: Location; id: string; slots: number; raw: string }[] = [];
+  // Armored system slots: [location, system kind, occurrence of that kind in the location].
+  const sysSeen = new Map<string, number>();
+  const armoredSys: [Location, string, number][] = [];
   for (const [l, slots] of Object.entries(crits) as [Location, string[]][]) {
     let i = 0;
     while (i < slots.length) {
@@ -353,12 +364,18 @@ function parseMtf(text: string): ParsedMech {
         for (let c = 0; c < count; c++) {
           const ids = kind === 'communications' ? Array(Math.round(tons)).fill('communications-equipment')
             : [...Array(Math.floor(tons)).fill(`${kind}-1`), ...(tons % 1 ? [`${kind}-half`] : [])];
-          for (const id of ids) equipment.push({ uid: `c${uid++}`, equipmentId: id, location: l });
+          for (const id of ids) equipment.push({ uid: `c${uid++}`, equipmentId: id, location: l, ...(/\(ARMORED\)/.test(raw) ? { armored: true } : {}) });
         }
         continue;
       }
       const r = resolveName(raw, techBase);
-      if (r.kind === 'fixed') continue;
+      if (r.kind === 'fixed') {
+        const kind = systemKind(raw.replace(/\s*\((ARMORED|OMNIPOD)\)/gi, ''));
+        const seen = sysSeen.get(`${l}|${kind}`) ?? 0;
+        if (/\(ARMORED\)/.test(raw)) for (let k = 0; k < run; k++) armoredSys.push([l, kind, seen + k]);
+        sysSeen.set(`${l}|${kind}`, seen + run);
+        continue;
+      }
       if (r.kind === 'unknown') fail(`unknown item "${r.name}"`);
       // Clan CASE is built in (weightless); MechForger does not list it.
       if ((r as { id: string }).id === 'case' && techBase === 'Clan' && /^CL|^Clan/.test(raw)) continue;
@@ -373,6 +390,7 @@ function parseMtf(text: string): ParsedMech {
       for (let n = 0; n < Math.floor(run / size); n++) {
         const item: MountedItem = { uid: `c${uid++}`, equipmentId: eq.id, location: l };
         if (/\(R\)/.test(raw)) item.rear = true;
+        if (/\(ARMORED\)/.test(raw)) item.armored = true;
         equipment.push(item);
         if (/\(OMNIPOD\)/.test(raw)) pods.add(item);
       }
@@ -389,6 +407,7 @@ function parseMtf(text: string): ParsedMech {
     const [main, rest] = a.slots >= b.slots ? [a, b] : [b, a];
     const item: MountedItem = { uid: `c${uid++}`, equipmentId: a.id, location: main.l, split: { location: rest.l, slots: rest.slots } };
     if (/\(R\)/.test(main.raw)) item.rear = true;
+    if (/\(ARMORED\)/.test(main.raw)) item.armored = true;
     equipment.push(item);
     if (/\(OMNIPOD\)/.test(main.raw)) pods.add(item);
   }
@@ -408,6 +427,14 @@ function parseMtf(text: string): ParsedMech {
     actuators: quad ? { LA: { lowerArm: true, hand: true }, RA: { lowerArm: true, hand: true } } : { LA: arm('LA'), RA: arm('RA') },
     equipment,
   };
+  // Map armored system crits onto MechForger's fixed slots, matching the n-th engine / gyro / … slot.
+  for (const [l, kind, occ] of armoredSys) {
+    const fixed = fixedSlots(design, l);
+    let n = 0;
+    const idx = fixed.findIndex((f) => f !== null && systemKind(f) === kind && n++ === occ);
+    if (idx < 0) fail(`armored ${kind} slot`);
+    design.armoredSlots = { ...design.armoredSlots, [l]: [...(design.armoredSlots?.[l] ?? []), idx] };
+  }
   return {
     design, year: Number(get('era')) || 3025, rulesLevel: Number(get('rules level')) || 0,
     omni: config.endsWith('OmniMek'), mulId: Number(get('mul id')) || undefined,

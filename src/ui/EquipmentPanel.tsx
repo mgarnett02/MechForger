@@ -5,11 +5,11 @@ import { SPLIT_ADJACENT, isQuad, locationName } from '../rules/types';
 import type { MechSummary } from '../rules/construction';
 import type { Equipment, EquipmentCategory } from '../rules/equipment';
 import {
-  ALL_EQUIPMENT, FILLER_IDS, allowedLocations, canRearMount, equipmentName, getEquipment,
+  ALL_EQUIPMENT, FILLER_IDS, allowedLocations, canArmor, canRearMount, equipmentName, getEquipment,
   isEquipmentAvailable, itemSlots, itemWeight, legCount,
 } from '../rules/equipment';
 import { meleeDamage } from '../rules/melee';
-import { addEquipment, canSplit, removeEquipment, setItemLocation, setItemRear, setItemSplit } from '../rules/edit';
+import { addEquipment, canSplit, removeEquipment, setItemArmored, setItemLocation, setItemRear, setItemSplit } from '../rules/edit';
 import { activeConfigName, isFixedOnly, setItemPod } from '../rules/omni';
 import { OmniBar } from './OmniBar';
 
@@ -174,6 +174,13 @@ function MountedRow({
           <input type="checkbox" checked={!!item.rear}
             onChange={(e) => update((d) => setItemRear(d, item.uid, e.target.checked))} />
           Rear
+        </label>
+      )}
+      {canArmor(eq) && item.location && (
+        <label className="check small" title="Armored component: +0.5 t per slot, from 3061">
+          <input type="checkbox" checked={!!item.armored}
+            onChange={(e) => update((d) => setItemArmored(d, item.uid, e.target.checked))} />
+          Armored
         </label>
       )}
       {design.omni && !isFixedOnly(eq.id) && (

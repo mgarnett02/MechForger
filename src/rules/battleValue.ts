@@ -9,8 +9,8 @@
 import type { Location, MechDesign } from './types';
 import { LOCATIONS, isIndustrial, isQuad, legLocations } from './types';
 import type { Equipment } from './equipment';
-import { getEquipment, isArtemisVCapable, isDirectFire, isPPC, itemWeight } from './equipment';
-import { computeMech } from './construction';
+import { canArmor, getEquipment, isArtemisVCapable, isDirectFire, isPPC, itemSlots, itemWeight } from './equipment';
+import { armoredSystemSlots, computeMech, fixedSlots } from './construction';
 import { engineSideTorsoSlots, freeHeatSinks } from './tables';
 import { meleeBV, meleeCost } from './melee';
 import type { FighterDesign } from './fighter';
@@ -188,6 +188,42 @@ function defensiveEquipmentBV(items: { equipmentId: string }[]): number {
 
 const round = (n: number) => Math.round(n);
 
+/** Armored slots: [system slots, item slots] (for cost). */
+function armoredSlotCounts(d: MechDesign): [number, number] {
+  const sys = LOCATIONS.reduce((a, l) => a + armoredSystemSlots(d, l).length, 0);
+  const items = d.equipment.reduce((a, i) => {
+    const eq = i.armored && getEquipment(i.equipmentId);
+    return eq && canArmor(eq) ? a + itemSlots(eq, d) : a;
+  }, 0);
+  return [sys, items];
+}
+
+/**
+ * Armored component BV (as MegaMek): 5% of an item's BV per slot (a PPC with a capacitor counts both,
+ * over one more slot), or 5 per slot for items without BV; an armored gyro slot adds 5% of the gyro's
+ * BV (tonnage × 0.5, or × 1 heavy-duty), any other armored system slot 5.
+ */
+function armoredComponentBV(d: MechDesign): number {
+  let bv = 0;
+  const caps = capacitorCounts(d.equipment);
+  for (const item of d.equipment) {
+    const eq = getEquipment(item.equipmentId);
+    const linked = takeCapacitor(caps, item);
+    if (!eq || !item.armored || !canArmor(eq) || /ppc-capacitor$/.test(eq.id)) continue;
+    const slots = itemSlots(eq, d);
+    const base = eq.melee ? meleeBV(eq.melee, d) : eq.category === 'Ammo' ? ammoValue(eq).bv : value(eq.id)?.bv ?? 0;
+    if (linked) bv += (base + (CAPACITOR_BV[eq.id] ?? 0)) * 0.05 * (slots + 1);
+    else bv += base > 0 ? base * 0.05 * slots : 5 * slots;
+  }
+  for (const loc of LOCATIONS) {
+    const fixed = fixedSlots(d, loc);
+    for (const i of armoredSystemSlots(d, loc)) {
+      bv += /Gyro/.test(fixed[i]!) ? d.tonnage * (d.gyroType === 'heavy-duty' ? 1 : 0.5) * 0.05 : 5;
+    }
+  }
+  return bv;
+}
+
 // ---------------------------------------------------------------------------
 // BattleMechs
 // ---------------------------------------------------------------------------
@@ -211,6 +247,7 @@ export function mechBV(d: MechDesign): BVBreakdown {
   const structure = isPoints * 1.5 * structureMod * engineMod;
   const gyro = d.tonnage * (d.gyroType === 'heavy-duty' ? 1 : 0.5);
   const defEquip = defensiveEquipmentBV(d.equipment);
+  const armoredBV = armoredComponentBV(d);
 
   // Explosive ammo (−15 per slot) and Gauss weapons (−1 per slot) where CASE does not protect.
   // As MegaMek: CASE II protects any location; CASE protects arms and side torsos unless the side torso
@@ -247,9 +284,10 @@ export function mechBV(d: MechDesign): BVBreakdown {
   // Stealth armor adds 2 to the target movement modifier.
   const stealth = d.armorType === 'stealth' ? 2 : 0;
   const tmm = Math.max(runTMM, jump > 0 ? targetMovementModifier(jump) + 1 : 0) + stealth;
-  const defensive = Math.max(1, armor + structure + gyro + defEquip - explosive) * (1 + tmm / 10);
+  const defensive = Math.max(1, armor + structure + gyro + defEquip + armoredBV - explosive) * (1 + tmm / 10);
   lines.push(['Armor', armor], ['Internal structure', structure], ['Gyro', gyro]);
   if (defEquip) lines.push(['Defensive equipment', defEquip]);
+  if (armoredBV) lines.push(['Armored components', armoredBV]);
   if (explosive) lines.push(['Explosive ammo / components', -explosive]);
   lines.push([`Defensive factor (TMM ${tmm})`, 1 + tmm / 10]);
 
@@ -362,6 +400,9 @@ export function mechCost(d: MechDesign): CostBreakdown {
     ['Weapons & equipment', equipmentCost(d.equipment, (eq) => itemWeight(eq, d), s.rating, d)],
   ];
   if (d.fullHeadEjection) lines.push(['Full Head Ejection System', 1725000]);
+  // Armored components: 150,000 C-bills per armored slot.
+  const armoredSlots = armoredSlotCounts(d);
+  if (armoredSlots[0] + armoredSlots[1]) lines.push(['Armored components', 150000 * (armoredSlots[0] + armoredSlots[1])]);
   if (d.environmentalSealing) lines.push(['Environmental sealing', 225 * t]);
   if (d.lam) {
     // Conversion equipment: 75% (65% bimodal) of internal structure plus weapons and equipment cost.

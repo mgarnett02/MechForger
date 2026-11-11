@@ -96,6 +96,8 @@ export interface MountedItem {
   rear?: boolean;
   /** OmniMechs: pod-mounted (belongs to the active configuration) rather than fixed. */
   pod?: boolean;
+  /** Armored component (TO:AUE p. 95): +0.5 t per slot, survives a critical hit roll. */
+  armored?: boolean;
   /** Split weapons (8+ slots): this many slots sit in an adjacent location; the rest in `location`. */
   split?: { location: Location; slots: number };
 }
@@ -162,6 +164,8 @@ export interface MechDesign {
   gyroType: GyroType;
   cockpitType: CockpitType;
   heatSinkType: HeatSinkType;
+  /** Armored system slots (engine, gyro, cockpit, actuators…): indices into each location's fixed slots. */
+  armoredSlots?: Partial<Record<Location, number[]>>;
   jumpJetType: JumpJetType;
   armorType: ArmorType;
   myomer: MyomerType;

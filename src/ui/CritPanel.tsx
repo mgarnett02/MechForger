@@ -1,8 +1,9 @@
 import type { Location, MechDesign } from '../rules/types';
 import { isQuad, locationName } from '../rules/types';
 import type { MechSummary } from '../rules/construction';
-import { allowedLocations, equipmentName, getEquipment, itemSlots } from '../rules/equipment';
-import { autoAllocate, placeItem, setItemLocation, splitFor } from '../rules/edit';
+import { allowedLocations, canArmor, canArmorSystem, equipmentName, getEquipment, itemSlots } from '../rules/equipment';
+import { useState } from 'react';
+import { autoAllocate, placeItem, setItemArmored, setItemLocation, splitFor, toggleSystemArmor } from '../rules/edit';
 
 interface Props {
   design: MechDesign;
@@ -31,6 +32,19 @@ export function CritPanel({ design, summary, update, selected, setSelected }: Pr
     else groups.push({ id: item.equipmentId, items: [item] });
   }
 
+  const [armorMode, setArmorMode] = useState(false);
+  const armorable = (slot: MechSummary['slots'][Location]['slots'][number]) => {
+    if (slot.kind === 'fixed') return canArmorSystem(slot.label);
+    if (slot.kind !== 'item') return false;
+    const item = design.equipment.find((e) => e.uid === slot.uid);
+    const eq = item && getEquipment(item.equipmentId);
+    return !!eq && canArmor(eq);
+  };
+  const toggleArmor = (loc: Location, slot: MechSummary['slots'][Location]['slots'][number]) => {
+    if (slot.kind === 'fixed' && slot.fixedIndex !== undefined) update((d) => toggleSystemArmor(d, loc, slot.fixedIndex!));
+    else if (slot.uid) update((d) => setItemArmored(d, slot.uid!, !slot.armored));
+  };
+
   const place = (loc: Location) => {
     if (!selItem || !selEq || !allowedLocations(selEq, design).includes(loc)) return;
     update((d) => placeItem(d, selItem.uid, loc));
@@ -42,7 +56,14 @@ export function CritPanel({ design, summary, update, selected, setSelected }: Pr
 
   return (
     <section className="panel">
-      <h2>Critical slots</h2>
+      <div className="panel-head">
+        <h2>Critical slots</h2>
+        <label className="check small" title="Click slots to armor or un-armor them (0.5 t per slot, from 3061)">
+          <input type="checkbox" checked={armorMode} onChange={(e) => { setArmorMode(e.target.checked); setSelected(null); }} />
+          Armor components{summary.weights.armored ? ` (${summary.weights.armored} t)` : ''}
+        </label>
+      </div>
+      {armorMode && <p className="small muted">Click an engine, gyro, cockpit, actuator or equipment slot to armor it (◆). An armored component cannot be destroyed by a critical hit until it is struck a second time.</p>}
       {groups.length > 0 && (
         <div className="unallocated-bar">
           <span className="muted small">Unallocated — pick one, then click a location:</span>
@@ -82,19 +103,24 @@ export function CritPanel({ design, summary, update, selected, setSelected }: Pr
               </div>
               <ol className="slots">
                 {s.slots.map((slot, i) => (
-                  <li key={i} className={`slot ${slot.kind} ${slot.uid && slot.uid === selected ? 'selected' : ''} ${slot.kind === 'item' && !slot.first ? 'cont' : ''}`}>
+                  <li key={i} className={`slot ${slot.kind} ${slot.uid && slot.uid === selected ? 'selected' : ''} ${slot.kind === 'item' && !slot.first ? 'cont' : ''} ${slot.armored ? 'armored' : ''}`}>
                     <span className="idx">{(i % 6) + 1}</span>
-                    {slot.kind === 'item' ? (
+                    {armorMode && armorable(slot) ? (
+                      <button className="slot-btn armor-toggle" title={slot.armored ? 'Remove armor' : 'Armor this component'}
+                        onClick={(e) => { e.stopPropagation(); toggleArmor(loc, slot); }}>
+                        {slot.armored ? '◆ ' : ''}{slot.label}
+                      </button>
+                    ) : slot.kind === 'item' ? (
                       <button className="slot-btn" title={`${slot.fullName ?? slot.label} — click to unallocate`}
                         onClick={(e) => {
                           e.stopPropagation();
                           if (selEq) { if (placeable) place(loc); return; }
                           update((d) => setItemLocation(d, slot.uid!, null));
                         }}>
-                        {slot.label}
+                        {slot.armored ? '◆ ' : ''}{slot.label}
                       </button>
                     ) : (
-                      <span>{slot.label}</span>
+                      <span>{slot.armored ? '◆ ' : ''}{slot.label}</span>
                     )}
                   </li>
                 ))}

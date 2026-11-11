@@ -7,7 +7,7 @@ import {
   weightClass,
 } from './tables';
 import type { Equipment } from './equipment';
-import { HEAT_SINK_IDS, JUMP_JET_IDS, equipmentName, getEquipment, itemSlots, itemWeight, shortEquipmentName } from './equipment';
+import { ARMORED_TONS_PER_SLOT, HEAT_SINK_IDS, JUMP_JET_IDS, canArmor, canArmorSystem, equipmentName, getEquipment, itemSlots, itemWeight, shortEquipmentName } from './equipment';
 import type { OmniWeights } from './omni';
 import { omniWeights } from './omni';
 import { armorTonnage, maxArmorByLocation, maxTotalArmor, totalArmorPoints } from './armor';
@@ -22,6 +22,10 @@ export interface SlotEntry {
   first?: boolean;
   /** Full item name, when `label` is abbreviated. */
   fullName?: string;
+  /** Armored component. */
+  armored?: boolean;
+  /** Fixed slots: index into the location's fixed slots (for armoring systems). */
+  fixedIndex?: number;
 }
 
 export interface LocationSlots {
@@ -44,6 +48,8 @@ export interface WeightBreakdown {
   jumpJets: number;
   armor: number;
   equipment: number;
+  /** Armored components (0.5 t per slot, armored cockpit 1 t). */
+  armored: number;
   total: number;
   free: number;
 }
@@ -193,10 +199,38 @@ export function itemLabel(eq: Equipment, item: MountedItem, design: Pick<MechDes
   return item.rear ? `${name} (R)` : name;
 }
 
+/** Armored fixed-slot indices in a location that still hold a system (stale indices are ignored). */
+export function armoredSystemSlots(design: MechDesign, loc: Location): number[] {
+  const list = design.armoredSlots?.[loc];
+  if (!list?.length) return [];
+  const fixed = fixedSlots(design, loc);
+  return [...new Set(list)].filter((i) => canArmorSystem(fixed[i] ?? null));
+}
+
+/** Weight of armored components: 0.5 t per armored slot; an armored cockpit is 1 t however many slots it takes. */
+export function armoredComponentWeight(design: MechDesign): number {
+  let tons = 0;
+  let cockpit = false;
+  for (const loc of LOCATIONS) {
+    const fixed = fixedSlots(design, loc);
+    for (const i of armoredSystemSlots(design, loc)) {
+      if (/Cockpit/.test(fixed[i]!)) cockpit = true;
+      else tons += ARMORED_TONS_PER_SLOT;
+    }
+  }
+  for (const item of design.equipment) {
+    const eq = item.armored && getEquipment(item.equipmentId);
+    if (eq && canArmor(eq)) tons += ARMORED_TONS_PER_SLOT * itemSlots(eq, design);
+  }
+  return tons + (cockpit ? 1 : 0);
+}
+
 function layoutLocation(design: MechDesign, loc: Location): LocationSlots {
   const fixed = fixedSlots(design, loc);
-  const slots: SlotEntry[] = fixed.map((f) =>
-    f === null ? { label: 'Roll Again', kind: 'empty' } : { label: f, kind: 'fixed' },
+  const armoredSys = new Set(armoredSystemSlots(design, loc));
+  const slots: SlotEntry[] = fixed.map((f, i) =>
+    f === null ? { label: 'Roll Again', kind: 'empty' }
+      : { label: f, kind: 'fixed', fixedIndex: i, ...(armoredSys.has(i) ? { armored: true } : {}) },
   );
   const openIdx = fixed.flatMap((f, i) => (f === null ? [i] : []));
   let cursor = 0;
@@ -213,6 +247,7 @@ function layoutLocation(design: MechDesign, loc: Location): LocationSlots {
       if (cursor < openIdx.length) {
         slots[openIdx[cursor]] = {
           label: itemLabel(eq, item, design), fullName: equipmentName(eq, design), kind: 'item', uid: item.uid, first: primary && s === 0,
+          ...(item.armored ? { armored: true } : {}),
         };
         cursor++;
       } else {
@@ -258,6 +293,7 @@ export function computeMech(design: MechDesign): MechSummary {
     jumpJets: jumpMP * jumpJetWeightFor(design.jumpJetType, tonnage),
     armor: armorTonnage(armorTotal, ppt),
     equipment: equipmentWeight,
+    armored: armoredComponentWeight(design),
     total: 0,
     free: 0,
   };
@@ -265,7 +301,7 @@ export function computeMech(design: MechDesign): MechSummary {
   if (design.environmentalSealing) weights.equipment += Math.ceil(tonnage / 10 * 2 - 1e-9) / 2;
   weights.total =
     weights.structure + weights.conversion + weights.engine + weights.gyro + weights.cockpit +
-    weights.heatSinks + weights.jumpJets + weights.armor + weights.equipment;
+    weights.heatSinks + weights.jumpJets + weights.armor + weights.equipment + weights.armored;
   weights.free = tonnage - weights.total;
 
   const slots = {} as Record<Location, LocationSlots>;

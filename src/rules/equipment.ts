@@ -636,6 +636,19 @@ export function canRearMount(eq: Equipment, location: Location | null, design?: 
   return design?.config === 'quad' && location !== 'HD';
 }
 
+/** Armored components: half a ton per critical slot (an armored cockpit is a flat ton). */
+export const ARMORED_TONS_PER_SLOT = 0.5;
+
+/** Items that can be armored: anything that takes critical slots, except spread structure/armor/myomer slots. */
+export function canArmor(eq: Equipment): boolean {
+  return !FILLER_IDS.includes(eq.id) && eq.category !== 'Capital';
+}
+
+/** Fixed system slots that can be armored (everything but stealth armor slots). */
+export function canArmorSystem(label: string | null): boolean {
+  return !!label && label !== 'Stealth';
+}
+
 /** PPCs that a PPC Capacitor can link to. */
 export function isPPC(id: string): boolean {
   return /(^|-)(er-|light-|heavy-|snub-nose-)?ppc$/.test(id);

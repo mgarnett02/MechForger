@@ -215,9 +215,9 @@ export function MechRecordSheet({ design }: { design: MechDesign }) {
             </span>
             <ol>
               {g.map((slot, i) => (
-                <li key={i} className={`${slot.kind} ${slot.label.length > COMPACT_LENGTH ? 'long' : ''}`}>
+                <li key={i} className={`${slot.kind} ${slot.label.length > COMPACT_LENGTH - (slot.armored ? 2 : 0) ? 'long' : ''}`}>
                   <span className="rs-slot-no">{i + 1}.</span>
-                  {slot.kind === 'empty' ? 'Roll Again' : slot.label}
+                  {slot.armored ? '◆ ' : ''}{slot.kind === 'empty' ? 'Roll Again' : slot.label}
                 </li>
               ))}
             </ol>
@@ -298,6 +298,7 @@ export function MechRecordSheet({ design }: { design: MechDesign }) {
                   <div><span>Life Support</span><Circles n={1} /></div>
                   {design.lam && <div><span>Avionics</span><Circles n={3} /></div>}
                   {design.lam && <div><span>Landing Gear</span><Circles n={3} /></div>}
+                  {s.weights.armored > 0 && <div className="rs-muted">◆ armored component</div>}
                 </div>
               ),
             )}

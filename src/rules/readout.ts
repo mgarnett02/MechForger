@@ -7,7 +7,7 @@ import { getEquipment, shortEquipmentName } from './equipment';
 import { activeConfigName } from './omni';
 import { mechBV, mechCost } from './battleValue';
 import type { MechSummary } from './construction';
-import { computeMech, itemSlots, itemWeight } from './construction';
+import { armoredSystemSlots, computeMech, fixedSlots, itemSlots, itemWeight } from './construction';
 
 const t = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
 const row = (label: string, mass: number | string, width = 34) =>
@@ -53,6 +53,16 @@ export function technicalReadout(design: MechDesign, summary: MechSummary = comp
   const cockpitName = { standard: '', small: ' Small', 'torso-mounted': ' Torso-Mounted', 'command-console': ' Command Console', industrial: ' Industrial (no AFC)' }[design.cockpitType];
   lines.push(row(`Cockpit:${cockpitName}`, s.weights.cockpit));
   if (s.weights.conversion) lines.push(row('LAM Conversion Equipment:', s.weights.conversion));
+  if (s.weights.armored) {
+    // Armored systems, e.g. "Gyro ×2, Shoulder ×2"; armored equipment is marked (A) in the list below.
+    const counts = new Map<string, number>();
+    for (const loc of LOCATIONS) {
+      const fixed = fixedSlots(design, loc);
+      for (const i of armoredSystemSlots(design, loc)) counts.set(fixed[i]!, (counts.get(fixed[i]!) ?? 0) + 1);
+    }
+    const sys = [...counts].map(([n, c]) => (c > 1 ? `${n} ×${c}` : n)).join(', ');
+    lines.push(row(`Armored Components${sys ? `: ${sys}` : ''}`, s.weights.armored));
+  }
   if (design.fullHeadEjection) lines.push('Full Head Ejection System');
   const ff = design.armorType === 'standard' ? '' : ` (${ARMOR_NAMES[design.armorType]})`;
   lines.push(row(`Armor Factor${ff}: ${s.armorTotal}`, s.weights.armor));
@@ -69,7 +79,7 @@ export function technicalReadout(design: MechDesign, summary: MechSummary = comp
   // Name column wide enough for the longest entry ("12 " count prefix + name + " (R)"), so columns never run together.
   const nameWidth = Math.max(26, ...design.equipment.map((e) => {
     const eq = getEquipment(e.equipmentId);
-    return eq ? shortEquipmentName(eq, design).length + (e.rear ? 4 : 0) + 4 : 0;
+    return eq ? shortEquipmentName(eq, design).length + (e.rear ? 4 : 0) + (e.armored ? 4 : 0) + 4 : 0;
   }));
   const header = (title: string) =>
     lines.push(`${title.padEnd(nameWidth)}${'Loc'.padEnd(6)}${'Crit'.padEnd(6)}Tons`);
@@ -97,7 +107,7 @@ export function technicalReadout(design: MechDesign, summary: MechSummary = comp
   for (const item of items) {
     const eq = getEquipment(item.equipmentId);
     if (!eq || eq.managed) continue;
-    const key = `${eq.id}|${mountAbbr(design, item)}|${item.rear ? 'R' : ''}`;
+    const key = `${eq.id}|${mountAbbr(design, item)}|${item.rear ? 'R' : ''}|${item.armored ? 'A' : ''}`;
     const g = groups.get(key);
     if (g) {
       g.n++;
@@ -105,7 +115,7 @@ export function technicalReadout(design: MechDesign, summary: MechSummary = comp
       g.tons += itemWeight(eq, design);
     } else {
       groups.set(key, {
-        name: shortEquipmentName(eq, design) + (item.rear ? ' (R)' : ''),
+        name: shortEquipmentName(eq, design) + (item.rear ? ' (R)' : '') + (item.armored ? ' (A)' : ''),
         loc: mountAbbr(design, item),
         slots: itemSlots(eq, design),
         tons: itemWeight(eq, design),

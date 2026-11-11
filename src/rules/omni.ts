@@ -1,5 +1,5 @@
 import type { MechDesign, MountedItem } from './types';
-import { FILLER_IDS, HEAT_SINK_IDS, getEquipment, itemWeight } from './equipment';
+import { ARMORED_TONS_PER_SLOT, FILLER_IDS, HEAT_SINK_IDS, getEquipment, itemSlots, itemWeight } from './equipment';
 import { freeHeatSinks } from './tables';
 
 /**
@@ -156,6 +156,7 @@ export function omniWeights(d: MechDesign, totalWeight: number): OmniWeights {
     if (!eq) continue;
     if (HEAT_SINK_IDS.includes(eq.id)) podHS++;
     else podUsed += itemWeight(eq, d);
+    if (item.armored) podUsed += ARMORED_TONS_PER_SLOT * itemSlots(eq, d);
   }
   podUsed += Math.max(0, podHS - freeLeft);
   const fixed = totalWeight - podUsed;
