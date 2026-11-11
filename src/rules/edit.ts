@@ -2,7 +2,7 @@ import type {
   ArmLocation, ArmorAllocation, ArmorFacing, ArmorType, CockpitType, EngineType, GyroType, HeatSinkType, JumpJetType, Location,
   LamType, MechConfig, MechDesign, MountedItem, MyomerType, OmniData, StructureType, TechBase,
 } from './types';
-import { ARMOR_FACINGS, LOCATIONS, REAR_FACING, isQuad, legLocations } from './types';
+import { ARMOR_FACINGS, LOCATIONS, REAR_FACING, SPLIT_ADJACENT, isQuad, legLocations } from './types';
 import {
   ARMOR_OPTIONS, COCKPIT_OPTIONS, ENGINE_OPTIONS, GYRO_OPTIONS, MYOMER_OPTIONS, STRUCTURE_OPTIONS,
   FREE_HEAT_SINKS, armorPointsPerTon, armorSlots, engineHeatSinkCapacity, maxWalkMP, structureSlots,
@@ -146,11 +146,11 @@ export function setConfig(d: MechDesign, config: MechConfig): MechDesign {
     const eq = getEquipment(item.equipmentId);
     return !item.location || !limbs.includes(item.location) || !eq || allowedLocations(eq, next).includes(item.location);
   };
-  const free = (item: MountedItem): MountedItem => ({ ...item, location: null, rear: undefined });
+  const free = (item: MountedItem): MountedItem => ({ ...item, location: null, rear: undefined, split: undefined });
   let equipment = next.equipment.map((e) => (allowed(e) ? e : free(e)));
   const slots = computeMech({ ...next, equipment }).slots;
   const overfull = limbs.filter((l) => slots[l].overflow > 0);
-  equipment = equipment.map((e) => (e.location && overfull.includes(e.location) ? free(e) : e));
+  equipment = equipment.map((e) => ((e.location && overfull.includes(e.location)) || (e.split && overfull.includes(e.split.location)) ? free(e) : e));
   const omni = next.omni && {
     ...next.omni,
     configurations: next.omni.configurations.map((c) => ({ ...c, pod: c.pod.map((p) => (allowed(p) ? p : free(p))) })),
@@ -223,9 +223,47 @@ export function setItemLocation(d: MechDesign, uid: string, location: Location |
       if (e.uid !== uid) return e;
       const eq = getEquipment(e.equipmentId);
       const rear = e.rear && eq && canRearMount(eq, location, d) ? true : undefined;
-      return { ...e, location, rear };
+      // Moving a split weapon keeps the split only if the second location still borders the new one.
+      const split = e.split && location && SPLIT_ADJACENT[location].includes(e.split.location) ? e.split : undefined;
+      return { ...e, location, rear, split };
     }),
   };
+}
+
+/** Split a weapon of 8+ slots over its location and an adjacent one (null = unsplit). */
+export function setItemSplit(d: MechDesign, uid: string, split: { location: Location; slots: number } | null): MechDesign {
+  return { ...d, equipment: d.equipment.map((e) => (e.uid === uid ? { ...e, split: split ?? undefined } : e)) };
+}
+
+/** Weapons and equipment that may be split over two locations (eight or more critical slots). */
+export function canSplit(eq: { isWeapon: boolean; slots: number; category: string }): boolean {
+  return eq.isWeapon && eq.slots >= 8 && eq.category !== 'Capital';
+}
+
+/**
+ * Where a weapon of 8+ slots goes when its location lacks room: the remainder spills into the adjacent
+ * location with the most free slots. Returns null when it does not fit even split.
+ */
+export function splitFor(d: MechDesign, uid: string, loc: Location): { location: Location; slots: number } | null | 'fits' {
+  const item = d.equipment.find((e) => e.uid === uid);
+  const eq = item && getEquipment(item.equipmentId);
+  if (!item || !eq) return null;
+  const without = computeMech({ ...d, equipment: d.equipment.map((e) => (e.uid === uid ? { ...e, location: null, split: undefined } : e)) }).slots;
+  const n = itemSlots(eq, d);
+  if (without[loc].free >= n) return 'fits';
+  if (!canSplit(eq) || without[loc].free < 1) return null;
+  const spill = n - without[loc].free;
+  const best = SPLIT_ADJACENT[loc]
+    .filter((l) => allowedLocations(eq, d).includes(l) && without[l].free >= spill)
+    .sort((x, y) => without[y].free - without[x].free)[0];
+  return best ? { location: best, slots: spill } : null;
+}
+
+/** Place an item, splitting a big weapon into an adjacent location if it needs to. */
+export function placeItem(d: MechDesign, uid: string, loc: Location): MechDesign {
+  const split = splitFor(d, uid, loc);
+  const moved = setItemLocation(d, uid, loc);
+  return setItemSplit(moved, uid, split && split !== 'fits' ? split : null);
 }
 
 export function setItemRear(d: MechDesign, uid: string, rear: boolean): MechDesign {
@@ -376,6 +414,10 @@ export function parseDesign(raw: unknown): MechDesign {
       const item: MountedItem = { uid: newUid(), equipmentId: e.equipmentId, location };
       if (e.rear === true) item.rear = true;
       if (e.pod === true) item.pod = true;
+      const sp = e.split as { location?: unknown; slots?: unknown } | undefined;
+      if (sp && (LOCATIONS as readonly string[]).includes(sp.location as string) && typeof sp.slots === 'number' && sp.slots > 0) {
+        item.split = { location: sp.location as Location, slots: Math.floor(sp.slots) };
+      }
       return item;
     });
   const equipment = parseItems(r.equipment);

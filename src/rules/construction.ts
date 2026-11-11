@@ -202,14 +202,17 @@ function layoutLocation(design: MechDesign, loc: Location): LocationSlots {
   let cursor = 0;
   let overflow = 0;
   for (const item of design.equipment) {
-    if (item.location !== loc) continue;
+    const primary = item.location === loc;
+    if (!primary && item.split?.location !== loc) continue;
     const eq = getEquipment(item.equipmentId);
     if (!eq) continue;
-    const n = itemSlots(eq, design);
+    // A split weapon puts `split.slots` slots in the second location and the rest in its own.
+    const total = itemSlots(eq, design);
+    const n = !item.split || !item.location ? total : primary ? total - item.split.slots : item.split.slots;
     for (let s = 0; s < n; s++) {
       if (cursor < openIdx.length) {
         slots[openIdx[cursor]] = {
-          label: itemLabel(eq, item, design), fullName: equipmentName(eq, design), kind: 'item', uid: item.uid, first: s === 0,
+          label: itemLabel(eq, item, design), fullName: equipmentName(eq, design), kind: 'item', uid: item.uid, first: primary && s === 0,
         };
         cursor++;
       } else {

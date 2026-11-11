@@ -1,5 +1,5 @@
 import type { MechDesign } from './types';
-import { LAM_TYPE_NAMES, LOCATIONS, REAR_FACING, TECH_BASE_NAMES, facingName, isQuad, locationAbbr, locationName } from './types';
+import { LAM_TYPE_NAMES, LOCATIONS, REAR_FACING, TECH_BASE_NAMES, facingName, isQuad, locationAbbr, locationName, mountAbbr } from './types';
 import { getEra } from './eras';
 import { ARMOR_NAMES, STRUCTURE_NAMES } from './tables';
 import type { MountedItem } from './types';
@@ -97,7 +97,7 @@ export function technicalReadout(design: MechDesign, summary: MechSummary = comp
   for (const item of items) {
     const eq = getEquipment(item.equipmentId);
     if (!eq || eq.managed) continue;
-    const key = `${eq.id}|${item.location}|${item.rear ? 'R' : ''}`;
+    const key = `${eq.id}|${mountAbbr(design, item)}|${item.rear ? 'R' : ''}`;
     const g = groups.get(key);
     if (g) {
       g.n++;
@@ -106,7 +106,7 @@ export function technicalReadout(design: MechDesign, summary: MechSummary = comp
     } else {
       groups.set(key, {
         name: shortEquipmentName(eq, design) + (item.rear ? ' (R)' : ''),
-        loc: item.location ? locationAbbr(design, item.location) : '—',
+        loc: mountAbbr(design, item),
         slots: itemSlots(eq, design),
         tons: itemWeight(eq, design),
         n: 1,

@@ -40,16 +40,19 @@ export interface CanonEntry {
   d: unknown;
 }
 
-/** Item: [equipmentId, location, flags] where flags may contain R (rear) and P (pod). */
+/** Item: [equipmentId, location, flags] where flags may contain R (rear), P (pod) and S<loc><n> (split). */
 type EncodedItem = [string, string | null, string?];
 
-const encItem = (e: { equipmentId: string; location: string | null; rear?: boolean; pod?: boolean }): EncodedItem => {
-  const flags = `${e.rear ? 'R' : ''}${e.pod ? 'P' : ''}`;
+const encItem = (e: { equipmentId: string; location: string | null; rear?: boolean; pod?: boolean; split?: { location: string; slots: number } }): EncodedItem => {
+  const flags = `${e.rear ? 'R' : ''}${e.pod ? 'P' : ''}${e.split ? `S${e.split.location}${e.split.slots}` : ''}`;
   return flags ? [e.equipmentId, e.location, flags] : [e.equipmentId, e.location];
 };
 
-const decMechItem = ([equipmentId, location, flags = '']: EncodedItem): MountedItem => {
+const decMechItem = ([equipmentId, location, allFlags = '']: EncodedItem): MountedItem => {
   const item: MountedItem = { uid: newUid(), equipmentId, location: location as Location | null };
+  const sp = /S([A-Z]{2})(\d+)/.exec(allFlags);
+  if (sp) item.split = { location: sp[1] as Location, slots: Number(sp[2]) };
+  const flags = allFlags.replace(/S[A-Z]{2}\d+/, '');
   if (flags.includes('R')) item.rear = true;
   if (flags.includes('P')) item.pod = true;
   return item;

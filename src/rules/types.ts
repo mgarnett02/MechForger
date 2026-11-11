@@ -48,6 +48,12 @@ export function locationAbbr(d: { config?: MechConfig }, loc: Location): string 
   return (isQuad(d) && QUAD_ABBR[loc]) || loc;
 }
 
+/** An item's location code; split weapons show both parts ("LT/LA"). */
+export function mountAbbr(d: { config?: MechConfig }, item: { location: Location | null; split?: { location: Location } }): string {
+  if (!item.location) return '—';
+  return item.split ? `${locationAbbr(d, item.location)}/${locationAbbr(d, item.split.location)}` : locationAbbr(d, item.location);
+}
+
 /** Locations that are legs for this configuration. */
 export function legLocations(d: { config?: MechConfig }): readonly Location[] {
   return isQuad(d) ? ['LA', 'RA', 'LL', 'RL'] : ['LL', 'RL'];
@@ -90,7 +96,14 @@ export interface MountedItem {
   rear?: boolean;
   /** OmniMechs: pod-mounted (belongs to the active configuration) rather than fixed. */
   pod?: boolean;
+  /** Split weapons (8+ slots): this many slots sit in an adjacent location; the rest in `location`. */
+  split?: { location: Location; slots: number };
 }
+
+/** Locations a split weapon may straddle: arm or leg with its side torso, side torso with the center torso. */
+export const SPLIT_ADJACENT: Record<Location, readonly Location[]> = {
+  HD: [], CT: ['LT', 'RT'], LT: ['CT', 'LA', 'LL'], RT: ['CT', 'RA', 'RL'], LA: ['LT'], RA: ['RT'], LL: ['LT'], RL: ['RT'],
+};
 
 /** An OmniMech configuration: the pod-mounted items that go with it. */
 export interface OmniConfiguration {

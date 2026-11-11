@@ -176,6 +176,24 @@ export const ITEM_VALUES: Record<string, ItemValue> = {
   'clan-medium-improved-heavy-laser': v(93, 150000),
   'clan-large-improved-heavy-laser': v(296, 350000),
   'bomb-bay': v(0, 5000),
+  'clan-er-small-pulse-laser': v(36, 30000),
+  'clan-er-medium-pulse-laser': v(117, 150000),
+  'clan-er-large-pulse-laser': v(272, 400000),
+  'clan-streak-lrm-5': v(86, 75000, 11, 60000),
+  'clan-streak-lrm-10': v(173, 225000, 22, 60000),
+  'clan-streak-lrm-15': v(259, 400000, 32, 60000),
+  'clan-streak-lrm-20': v(345, 600000, 43, 60000),
+  'clan-rac-2': v(161, 175000, 20, 5000),
+  'clan-rac-5': v(345, 275000, 43, 13000),
+  'small-re-engineered-laser': v(14, 25000),
+  'medium-re-engineered-laser': v(65, 100000),
+  'large-re-engineered-laser': v(161, 250000),
+  'b-pod': v(2, 2500),
+  'm-pod': v(5, 6000),
+  'ap-pod': v(1, 1500),
+  'clan-light-active-probe': v(7, 50000),
+  'clan-artemis-v': v(0, 250000),
+  'coolant-pod': v(0, 50000),
 
   // Capital and sub-capital weapons (ammo BV and cost are carried per shot on the ammo itself)
   'nl-35': v(830, 500000), 'nl-45': v(1134, 850000), 'nl-55': v(1386, 1250000),
@@ -213,6 +231,7 @@ export const MML_AMMO_BV: Record<string, [number, number]> = {
 /** Equipment that counts towards defensive rather than offensive BV. */
 export const DEFENSIVE_IDS = new Set([
   'ams', 'clan-ams', 'guardian-ecm', 'clan-ecm', 'angel-ecm', 'beagle-active-probe', 'clan-active-probe',
+  'clan-light-active-probe', 'b-pod', 'm-pod', 'ap-pod',
 ]);
 
 /** Gauss-type weapons: their ammo does not explode, but the weapon itself does. */

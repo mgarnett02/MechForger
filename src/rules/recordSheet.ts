@@ -3,7 +3,7 @@
  * React so the rows can be unit-tested.
  */
 import type { MechDesign } from './types';
-import { LOCATIONS, locationAbbr } from './types';
+import { LOCATIONS, locationAbbr, mountAbbr } from './types';
 import type { Equipment } from './equipment';
 import { getEquipment, itemWeight, shortEquipmentName } from './equipment';
 import { meleeDamage } from './melee';
@@ -107,7 +107,7 @@ export function mechSheetData(d: MechDesign): SheetData {
   });
   const groups = group(placed, (e) => ({
     // A set of talons spans every leg: one row.
-    label: e.equipmentId === 'talons' ? 'Legs' : e.location ? locationAbbr(d, e.location) : '—',
+    label: e.equipmentId === 'talons' ? 'Legs' : mountAbbr(d, e),
     order: e.location ? MECH_ORDER[e.location] : 99,
     rear: !!e.rear,
   }));

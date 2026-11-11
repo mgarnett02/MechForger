@@ -2,7 +2,7 @@ import type { Location, MechDesign } from '../rules/types';
 import { isQuad, locationName } from '../rules/types';
 import type { MechSummary } from '../rules/construction';
 import { allowedLocations, equipmentName, getEquipment, itemSlots } from '../rules/equipment';
-import { autoAllocate, setItemLocation } from '../rules/edit';
+import { autoAllocate, placeItem, setItemLocation, splitFor } from '../rules/edit';
 
 interface Props {
   design: MechDesign;
@@ -21,7 +21,7 @@ export function CritPanel({ design, summary, update, selected, setSelected }: Pr
   const selEq = selItem ? getEquipment(selItem.equipmentId) : undefined;
   const selSlots = selEq ? itemSlots(selEq, design) : 0;
   const canPlace = (loc: Location) =>
-    !!selEq && allowedLocations(selEq, design).includes(loc) && summary.slots[loc].free >= selSlots;
+    !!selEq && !!selItem && allowedLocations(selEq, design).includes(loc) && splitFor(design, selItem.uid, loc) !== null;
 
   // One chip per kind of unallocated item (e.g. "Endo Steel ×14").
   const groups: { id: string; items: typeof summary.unallocated }[] = [];
@@ -33,7 +33,7 @@ export function CritPanel({ design, summary, update, selected, setSelected }: Pr
 
   const place = (loc: Location) => {
     if (!selItem || !selEq || !allowedLocations(selEq, design).includes(loc)) return;
-    update((d) => setItemLocation(d, selItem.uid, loc));
+    update((d) => placeItem(d, selItem.uid, loc));
     // Move on to the next unallocated item, preferring another of the same kind.
     const rest = design.equipment.filter((e) => e.location === null && e.uid !== selItem.uid);
     const next = rest.find((e) => e.equipmentId === selItem.equipmentId) ?? rest[0];

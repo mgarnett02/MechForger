@@ -9,7 +9,7 @@
 import type { Location, MechDesign } from './types';
 import { LOCATIONS, isIndustrial, isQuad, legLocations } from './types';
 import type { Equipment } from './equipment';
-import { getEquipment, isDirectFire, isPPC, itemWeight } from './equipment';
+import { getEquipment, isArtemisVCapable, isDirectFire, isPPC, itemWeight } from './equipment';
 import { computeMech } from './construction';
 import { engineSideTorsoSlots, freeHeatSinks } from './tables';
 import { meleeBV, meleeCost } from './melee';
@@ -68,7 +68,9 @@ function ammoValue(eq: Equipment): { bv: number; cost: number } {
   const w = value(weapon);
   let bv = (w?.ammoBV ?? 0) * scale;
   if (eq.artemisAmmo) bv *= 1.2;
-  return { bv, cost: (w?.ammoCost ?? 0) * scale };
+  if (eq.artemisVAmmo) bv *= 1.3;
+  // Artemis V ammunition costs twice as much (MegaMek).
+  return { bv, cost: (w?.ammoCost ?? 0) * scale * (eq.artemisVAmmo ? 2 : 1) };
 }
 
 /** Heat a weapon counts for in the BV heat calculation. */
@@ -93,8 +95,11 @@ function weaponEntries(
   const ids = items.map((i) => i.equipmentId);
   const hasTC = ids.some((id) => getEquipment(id)?.variableWeight === 'targetingComputer');
   // Artemis IV pairs with launchers in the same location (vehicles: anywhere).
+  // Artemis V links first (to Clan LRM/SRM launchers), then Artemis IV.
   const artemisLeft = new Map<string, number>();
+  const artemisVLeft = new Map<string, number>();
   for (const i of items) {
+    if (i.equipmentId === 'clan-artemis-v') artemisVLeft.set(i.location ?? '', (artemisVLeft.get(i.location ?? '') ?? 0) + 1);
     if (i.equipmentId === 'artemis-iv' || i.equipmentId === 'clan-artemis-iv') {
       const k = i.location ?? '';
       artemisLeft.set(k, (artemisLeft.get(k) ?? 0) + 1);
@@ -114,7 +119,10 @@ function weaponEntries(
     }
     if (hasTC && isDirectFire(eq)) bv *= 1.25;
     const k = i.location ?? '';
-    if (eq.artemisCapable && (artemisLeft.get(k) ?? 0) > 0) {
+    if (isArtemisVCapable(eq.id) && (artemisVLeft.get(k) ?? 0) > 0) {
+      artemisVLeft.set(k, artemisVLeft.get(k)! - 1);
+      bv *= 1.3;
+    } else if (eq.artemisCapable && (artemisLeft.get(k) ?? 0) > 0) {
       artemisLeft.set(k, artemisLeft.get(k)! - 1);
       bv *= 1.2;
     }
@@ -221,7 +229,8 @@ export function mechBV(d: MechDesign): BVBreakdown {
   const capsLeft = capacitorCounts(d.equipment);
   for (const item of d.equipment) {
     const eq = getEquipment(item.equipmentId);
-    if (!eq || !item.location || protectedLoc(item.location)) continue;
+    // A split weapon is a hazard if either of its locations is unprotected.
+    if (!eq || !item.location || (protectedLoc(item.location) && (!item.split || protectedLoc(item.split.location)))) continue;
     if (eq.category === 'Ammo' && eq.ammoFor && !isGaussType(eq.ammoFor) && !/plasma/.test(eq.ammoFor)) explosive += 15;
     else if (eq.explosiveLow) explosive += eq.slots;
     else if (eq.explosive) explosive += 15 * eq.slots;
@@ -256,7 +265,10 @@ export function mechBV(d: MechDesign): BVBreakdown {
     if (rearBV > frontBV ? !w.rear : w.rear) w.bv /= 2;
   }
   const moveHeat = airMechFlank !== null ? Math.round(airMechFlank / 3) : Math.max(s.heat.running, s.heat.jumping);
-  const heatEfficiency = 6 + s.heatSinks.dissipation + (airMechFlank !== null ? 3 : 0) - moveHeat - (stealth ? 10 : 0);
+  // Coolant pods: + ⌈heat sinks × pods / 5⌉ heat efficiency (as MegaMek).
+  const coolantPods = d.equipment.filter((e) => e.equipmentId === 'coolant-pod').length;
+  const coolant = coolantPods ? Math.ceil((s.heatSinks.total * coolantPods) / 5) : 0;
+  const heatEfficiency = 6 + s.heatSinks.dissipation + coolant + (airMechFlank !== null ? 3 : 0) - moveHeat - (stealth ? 10 : 0);
   weapons.sort((a, b) => b.bv - a.bv || a.heat - b.heat);
   let heat = 0;
   let weaponBV = 0;

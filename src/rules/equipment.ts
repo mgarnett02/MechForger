@@ -42,6 +42,8 @@ export interface Equipment {
   artemisCapable?: boolean;
   /** Ammo bins: Artemis IV-capable ammunition. */
   artemisAmmo?: boolean;
+  /** Ammo bins: Artemis V-capable ammunition. */
+  artemisVAmmo?: boolean;
   /** Can only be fixed equipment on an OmniMech (never pod-mounted). */
   fixedOnly?: boolean;
   /** Added/removed through chassis controls rather than the equipment catalog. */
@@ -85,6 +87,7 @@ const ANY_3068: Avail = { techBase: 'Both', firstEra: '3068' };
 const ANY_3050: Avail = { techBase: 'Both', firstEra: '3050' };
 const IS_3081: Avail = { techBase: 'IS', firstEra: '3081' };
 const CLAN_3081: Avail = { techBase: 'Clan', firstEra: '3081' };
+const IS_3101: Avail = { techBase: 'IS', firstEra: '3101' };
 
 const TORSO: readonly Location[] = ['CT', 'LT', 'RT'];
 const NOT_HEAD: readonly Location[] = ['CT', 'LT', 'RT', 'LA', 'RA', 'LL', 'RL'];
@@ -220,6 +223,16 @@ const JIHAD_WEAPONS: Equipment[] = [
   weapon(IS_3062, 'rl-10', 'Rocket Launcher 10', 'Missile', 0.5, 1, 3, '1/missile', [0, 5, 11, 18]),
   weapon(IS_3062, 'rl-15', 'Rocket Launcher 15', 'Missile', 1, 2, 4, '1/missile', [0, 4, 9, 15]),
   weapon(IS_3062, 'rl-20', 'Rocket Launcher 20', 'Missile', 1.5, 3, 5, '1/missile', [0, 3, 7, 12]),
+  // Clan rotary autocannons (3073).
+  weapon(CLAN_3068, 'clan-rac-2', 'Rotary AC/2', 'Ballistic', 8, 4, 1, '2 (×6)', [0, 8, 17, 25], 45),
+  weapon(CLAN_3068, 'clan-rac-5', 'Rotary AC/5', 'Ballistic', 10, 8, 1, '5 (×6)', [0, 7, 14, 21], 20),
+  // Anti-infantry pods: one-shot, defensive; B-Pods (3068) and M-Pods (3064) explode when hit.
+  { ...weapon(ANY_3068, 'b-pod', 'B-Pod', 'Other', 1, 1, 0, '1d6 vs. infantry', [0, 0, 0, 0]), explosiveLow: true },
+  { ...weapon(IS_3062, 'm-pod', 'M-Pod', 'Other', 1, 1, 0, '15 (cluster)', [0, 1, 2, 3]), explosiveLow: true },
+  // Re-engineered lasers (3120): pulse-like accuracy against reflective and reactive armor.
+  weapon(IS_3101, 'small-re-engineered-laser', 'Small Re-engineered Laser', 'Energy', 1.5, 1, 4, '4', [0, 1, 2, 3]),
+  weapon(IS_3101, 'medium-re-engineered-laser', 'Medium Re-engineered Laser', 'Energy', 2.5, 2, 6, '6', [0, 3, 6, 9]),
+  weapon(IS_3101, 'large-re-engineered-laser', 'Large Re-engineered Laser', 'Energy', 8, 5, 9, '9', [0, 5, 10, 15]),
   // Artillery cannons (direct or indirect fire).
   { ...weapon(ANY_3068, 'thumper-cannon', 'Thumper Cannon', 'Ballistic', 10, 7, 5, '5 art.', [3, 4, 9, 14], 20), artillery: true },
   { ...weapon(ANY_3068, 'sniper-cannon', 'Sniper Cannon', 'Ballistic', 15, 10, 10, '10 art.', [2, 4, 8, 12], 10), artillery: true },
@@ -277,6 +290,14 @@ const CLAN_WEAPONS: Equipment[] = [
   weapon(CLAN_3050, 'clan-heavy-machine-gun', 'Heavy Machine Gun', 'Ballistic', 0.5, 1, 0, '3', [0, 1, 2, 0], 100),
   weapon(CLAN_3050, 'clan-tag', 'TAG', 'Other', 1, 1, 0, 'designator', [0, 5, 9, 15]),
   weapon(CLAN_3050, 'clan-light-tag', 'Light TAG', 'Other', 0.5, 1, 0, 'designator', [0, 3, 6, 9]),
+  // Clan ER pulse lasers and Streak LRMs (3057).
+  weapon(CLAN_3050, 'clan-er-small-pulse-laser', 'ER Small Pulse Laser', 'Energy', 1.5, 1, 3, '5', [0, 2, 4, 6]),
+  weapon(CLAN_3050, 'clan-er-medium-pulse-laser', 'ER Medium Pulse Laser', 'Energy', 2, 2, 6, '7', [0, 5, 9, 14]),
+  weapon(CLAN_3050, 'clan-er-large-pulse-laser', 'ER Large Pulse Laser', 'Energy', 6, 3, 13, '10', [0, 7, 15, 23]),
+  weapon(CLAN_3050, 'clan-streak-lrm-5', 'Streak LRM 5', 'Missile', 2, 1, 2, '1/missile', [0, 7, 14, 21], 24),
+  weapon(CLAN_3050, 'clan-streak-lrm-10', 'Streak LRM 10', 'Missile', 5, 2, 4, '1/missile', [0, 7, 14, 21], 12),
+  weapon(CLAN_3050, 'clan-streak-lrm-15', 'Streak LRM 15', 'Missile', 7, 3, 5, '1/missile', [0, 7, 14, 21], 8),
+  weapon(CLAN_3050, 'clan-streak-lrm-20', 'Streak LRM 20', 'Missile', 10, 5, 6, '1/missile', [0, 7, 14, 21], 6),
   { ...weapon(CLAN_3050, 'clan-arrow-iv', 'Arrow IV', 'Missile', 12, 12, 10, '20 art.', null, 5), artillery: true },
 ];
 
@@ -284,6 +305,10 @@ const ALL_WEAPONS = [...IS_INTRO_WEAPONS, ...IS_3050_WEAPONS, ...IS_3062_WEAPONS
 // Standard LRM / SRM launchers (not Streak) can take Artemis IV.
 for (const w of ALL_WEAPONS) {
   if (/^(clan-)?(lrm|srm|mml)-\d+$/.test(w.id)) w.artemisCapable = true;
+}
+/** Clan LRM / SRM launchers that can be linked to an Artemis V fire-control system. */
+export function isArtemisVCapable(id: string): boolean {
+  return /^clan-(lrm|srm)-\d+$/.test(id);
 }
 export const WEAPONS: readonly Equipment[] = ALL_WEAPONS;
 
@@ -306,6 +331,15 @@ export const AMMO: readonly Equipment[] = [
     name: `${w.name} Artemis IV Ammo (${w.ammoPerTon})`,
     tons: 1,
     artemisAmmo: true,
+    firstEra: '3050' as const,
+  })),
+  // Artemis V ammunition (Clan, 3061).
+  ...WEAPONS.filter((w) => isArtemisVCapable(w.id)).map((w) => ({
+    ...ammoBase(w),
+    id: `ammo-${w.id}-artemis-v`,
+    name: `${w.name} Artemis V Ammo (${w.ammoPerTon})`,
+    tons: 1,
+    artemisVAmmo: true,
     firstEra: '3050' as const,
   })),
   ...MML_AMMO.flatMap(([id, lrm, srm]) => {
@@ -406,6 +440,11 @@ export const OTHER_EQUIPMENT: readonly Equipment[] = [
   },
   { id: 'artemis-iv', name: 'Artemis IV FCS', category: 'Other', tons: 1, slots: 1, heat: 0, isWeapon: false, ...IS_3050 },
   { id: 'clan-artemis-iv', name: 'Artemis IV FCS', category: 'Other', tons: 1, slots: 1, heat: 0, isWeapon: false, ...CLAN_3050 },
+  { id: 'clan-artemis-v', name: 'Artemis V FCS', category: 'Other', tons: 1.5, slots: 2, heat: 0, isWeapon: false, ...CLAN_3050 },
+  // Coolant pods (3049): one-shot heat dump; explode when hit (−1 BV per slot).
+  { id: 'coolant-pod', name: 'Coolant Pod', category: 'Other', tons: 1, slots: 1, heat: 0, isWeapon: false, explosiveLow: true, ...ANY_3050 },
+  // Anti-personnel pods (3055): defensive, one-shot.
+  { id: 'ap-pod', name: 'A-Pod', category: 'Other', tons: 0.5, slots: 1, heat: 0, isWeapon: false, ...ANY_3050 },
   {
     // The Inner Sphere version arrives in the Civil War era (3062).
     id: 'targeting-computer', name: 'Targeting Computer', category: 'Other', tons: 0, slots: 0, heat: 0,
@@ -421,6 +460,7 @@ export const OTHER_EQUIPMENT: readonly Equipment[] = [
   { id: 'beagle-active-probe', name: 'Beagle Active Probe', category: 'Other', tons: 1.5, slots: 2, heat: 0, isWeapon: false, ...IS_3050 },
   { id: 'guardian-ecm', name: 'Guardian ECM Suite', category: 'Other', tons: 1.5, slots: 2, heat: 0, isWeapon: false, ...IS_3050 },
   { id: 'clan-active-probe', name: 'Active Probe', category: 'Other', tons: 1, slots: 1, heat: 0, isWeapon: false, ...CLAN_3050 },
+  { id: 'clan-light-active-probe', name: 'Light Active Probe', category: 'Other', tons: 0.5, slots: 1, heat: 0, isWeapon: false, ...CLAN_3050 },
   { id: 'clan-ecm', name: 'ECM Suite', category: 'Other', tons: 1, slots: 1, heat: 0, isWeapon: false, ...CLAN_3050 },
   { id: 'angel-ecm', name: 'Angel ECM Suite', category: 'Other', tons: 2, slots: 2, heat: 0, isWeapon: false, ...ANY_3050 },
   // Supercharger: 10% of the engine's weight, one slot in a location holding engine slots; ×2 walking MP to run.
@@ -643,7 +683,7 @@ const ABBREVIATIONS: [RegExp, string][] = [
   [/Hyper-Assault Gauss/g, 'HAG'], [/Magshot Gauss Rifle/g, 'Magshot'], [/AP Gauss Rifle/g, 'AP Gauss'],
   [/Light Gauss Rifle/g, 'Light Gauss'], [/Heavy Gauss Rifle/g, 'Heavy Gauss'],
   [/Ultra AC\//g, 'UAC/'], [/Rotary AC\//g, 'RAC/'], [/(LB \d+-X) AC/g, '$1'],
-  [/Artemis IV FCS/g, 'Artemis IV'], [/ Artemis IV Ammo/g, ' Art. Ammo'], [/ Ammo, Half/g, ' Ammo ½'],
+  [/Artemis (IV|V) FCS/g, 'Artemis $1'], [/ Artemis IV Ammo/g, ' Art. Ammo'], [/ Artemis V Ammo/g, ' Art.V Ammo'], [/Re-engineered/g, 'Re-eng.'], [/ Ammo, Half/g, ' Ammo ½'],
   [/Improved Heavy (Small|Medium|Large) Laser/g, 'Imp. Heavy $1 L.'], [/Rocket Launcher (\d+)/g, 'RL $1'],
   [/Long Tom Cannon Ammo/g, 'LT Cannon Ammo'], [/(Sniper|Thumper) Cannon Ammo/g, '$1 C. Ammo'], [/Targeting Computer/g, 'Targeting Comp.'], [/Triple-Strength Myomer/g, 'TSM'],
   [/Beagle Active Probe/g, 'Beagle Probe'], [/Guardian ECM Suite/g, 'Guardian ECM'],
@@ -663,7 +703,7 @@ const ABBREVIATIONS: [RegExp, string][] = [
 /** Further short forms, used only while a name is still longer than COMPACT_LENGTH. */
 const IF_LONG: [RegExp, string][] = [
   [/\bMedium\b/g, 'Med.'], [/\bLarge\b/g, 'Lg.'], [/\bSmall\b/g, 'Sm.'],
-  [/Streak SRM/g, 'SSRM'], [/Thunderbolt/g, 'T-Bolt'], [/Gauss Rifle/g, 'Gauss'], [/Double Heat Sink/g, 'Dbl. Heat Sink'],
+  [/Streak SRM/g, 'SSRM'], [/Streak LRM/g, 'SLRM'], [/Thunderbolt/g, 'T-Bolt'], [/Gauss Rifle/g, 'Gauss'], [/Double Heat Sink/g, 'Dbl. Heat Sink'],
   [/Plasma (Rifle|Cannon)/g, 'Plas. $1'], [/Equipment/g, 'Equip.'],
 ];
 export const COMPACT_LENGTH = 16;

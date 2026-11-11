@@ -1,7 +1,7 @@
 import { isIndustrial } from '../rules/types';
 import { useState } from 'react';
 import type { Location, MechDesign, MountedItem } from '../rules/types';
-import { isQuad, locationName } from '../rules/types';
+import { SPLIT_ADJACENT, isQuad, locationName } from '../rules/types';
 import type { MechSummary } from '../rules/construction';
 import type { Equipment, EquipmentCategory } from '../rules/equipment';
 import {
@@ -9,7 +9,7 @@ import {
   isEquipmentAvailable, itemSlots, itemWeight, legCount,
 } from '../rules/equipment';
 import { meleeDamage } from '../rules/melee';
-import { addEquipment, removeEquipment, setItemLocation, setItemRear } from '../rules/edit';
+import { addEquipment, canSplit, removeEquipment, setItemLocation, setItemRear, setItemSplit } from '../rules/edit';
 import { activeConfigName, isFixedOnly, setItemPod } from '../rules/omni';
 import { OmniBar } from './OmniBar';
 
@@ -166,6 +166,9 @@ function MountedRow({
           </option>
         ))}
       </select>
+      {canSplit(eq) && item.location && (
+        <SplitControl item={item} eq={eq} design={design} update={update} />
+      )}
       {canRearMount(eq, item.location, design) && (
         <label className="check small">
           <input type="checkbox" checked={!!item.rear}
@@ -183,5 +186,31 @@ function MountedRow({
       <button className="small danger" aria-label={`Remove ${eq.name}`}
         onClick={() => update((d) => removeEquipment(d, item.uid))}>✕</button>
     </li>
+  );
+}
+
+/** Split a weapon of 8+ slots: choose the adjacent location and how many slots go there. */
+function SplitControl({ item, eq, design, update }: { item: MountedItem; eq: Equipment; design: MechDesign; update: Props['update'] }) {
+  const total = itemSlots(eq, design);
+  const options = SPLIT_ADJACENT[item.location!].filter((l) => allowedLocations(eq, design).includes(l));
+  if (!options.length) return null;
+  const split = item.split;
+  return (
+    <span className="split-control small" title="Weapons of 8 or more slots may be split into an adjacent location">
+      <select aria-label={`${eq.name} split location`} value={split?.location ?? ''}
+        onChange={(e) => {
+          const loc = e.target.value as Location | '';
+          update((d) => setItemSplit(d, item.uid, loc ? { location: loc, slots: split?.slots ?? Math.floor(total / 2) } : null));
+        }}>
+        <option value="">Not split</option>
+        {options.map((l) => <option key={l} value={l}>Split into {locationName(design, l)}</option>)}
+      </select>
+      {split && (
+        <select aria-label={`${eq.name} slots in ${locationName(design, split.location)}`} value={split.slots}
+          onChange={(e) => update((d) => setItemSplit(d, item.uid, { location: split.location, slots: Number(e.target.value) }))}>
+          {Array.from({ length: total - 1 }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n} slot{n > 1 ? 's' : ''} there</option>)}
+        </select>
+      )}
+    </span>
   );
 }

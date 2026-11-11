@@ -6,13 +6,13 @@ import {
   freeHeatSinks, engineCenterSlots, engineSideTorsoSlots, gyroSlots, MAX_ENGINE_RATING, MIN_ENGINE_RATING, TONNAGES,
 } from './tables';
 import {
-  ENDO_STEEL_ID, ENV_SEAL_ID, FERRO_FIBROUS_ID, HEAT_SINK_IDS, TSM_ID, allowedLocations, canRearMount, getEquipment, isPPC,
+  ENDO_STEEL_ID, ENV_SEAL_ID, FERRO_FIBROUS_ID, HEAT_SINK_IDS, TSM_ID, allowedLocations, canRearMount, getEquipment, isArtemisVCapable, isPPC,
   JUMP_JET_IDS, heatSinkIdFor, isDirectFire, isEquipmentAvailable, jumpJetIdFor, usesAmmo,
 } from './equipment';
 import { configurationDesigns, isFixedOnly } from './omni';
 import { getEra, isAvailableIn } from './eras';
-import { TECH_BASE_NAMES, isIndustrial } from './types';
-import { tsmSlots } from './edit';
+import { SPLIT_ADJACENT, TECH_BASE_NAMES, isIndustrial } from './types';
+import { canSplit, tsmSlots } from './edit';
 import type { ComponentOption } from './tables';
 import {
   ARMOR_OPTIONS, COCKPIT_OPTIONS, ENGINE_OPTIONS, GYRO_OPTIONS, HEAT_SINK_OPTIONS, JUMP_JET_OPTIONS,
@@ -21,7 +21,7 @@ import {
 import { armorPointsForTons } from './armor';
 import { locationArmor } from './armor';
 import type { MechSummary } from './construction';
-import { computeMech } from './construction';
+import { computeMech, itemSlots } from './construction';
 
 export type Severity = 'error' | 'warning' | 'info';
 
@@ -287,6 +287,17 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
     if (item.location !== null && !allowedLocations(eq, design).includes(item.location)) {
       error(`${eq.name} cannot be mounted in the ${locationName(design, item.location)}.`);
     }
+    if (item.split) {
+      const total = itemSlots(eq, design);
+      if (!canSplit(eq)) error(`${eq.name} cannot be split between locations; only weapons of 8 or more slots can.`);
+      else if (!item.location || !SPLIT_ADJACENT[item.location].includes(item.split.location)) {
+        error(`${eq.name} can only be split between adjacent locations (arm or leg and side torso, or side and center torso).`);
+      } else if (item.split.slots < 1 || item.split.slots >= total) {
+        error(`${eq.name} split: ${item.split.slots} of ${total} slots in the ${locationName(design, item.split.location)} leaves nothing in one part.`);
+      } else if (!allowedLocations(eq, design).includes(item.split.location)) {
+        error(`${eq.name} cannot be mounted in the ${locationName(design, item.split.location)}.`);
+      }
+    }
     if (item.rear && !canRearMount(eq, item.location, design)) {
       error(`${eq.name} cannot be rear-mounted there; only torso weapons${isQuad(design) ? ' and leg weapons' : ''} can face rear.`);
     }
@@ -356,8 +367,15 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
   for (const loc of LOCATIONS) {
     const here = design.equipment.filter((e) => e.location === loc).map((e) => getEquipment(e.equipmentId));
     const fcs = here.filter((e) => e?.id === 'artemis-iv' || e?.id === 'clan-artemis-iv').length;
+    const fcsV = here.filter((e) => e?.id === 'clan-artemis-v').length;
     const launchers = here.filter((e) => e?.artemisCapable).length;
-    if (fcs > launchers) {
+    const launchersV = here.filter((e) => e && isArtemisVCapable(e.id)).length;
+    if (fcsV > launchersV) {
+      error(
+        `${locationName(design, loc)} has ${fcsV} Artemis V FCS but only ${launchersV} Clan LRM/SRM launcher(s); ` +
+          'each Artemis V must share a location with its launcher.',
+      );
+    } else if (fcs + fcsV > launchers) {
       error(
         `${locationName(design, loc)} has ${fcs} Artemis IV FCS but only ${launchers} LRM/SRM launcher(s); ` +
           'each Artemis IV must share a location with its launcher.',
@@ -379,6 +397,7 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
   const weaponIds = new Set(design.equipment.map((e) => e.equipmentId));
   const fedWeapons = new Set([...weaponIds].map((id) => getEquipment(id)?.ammoFor).filter(Boolean));
   const hasArtemis = weaponIds.has('artemis-iv') || weaponIds.has('clan-artemis-iv');
+  const hasArtemisV = weaponIds.has('clan-artemis-v');
   for (const id of weaponIds) {
     const eq = getEquipment(id);
     if (eq?.ammoFor && !weaponIds.has(eq.ammoFor)) {
@@ -386,6 +405,9 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
     }
     if (eq?.artemisAmmo && !hasArtemis) {
       warn(`${eq.name} needs an Artemis IV FCS to give any benefit.`);
+    }
+    if (eq?.artemisVAmmo && !hasArtemisV) {
+      warn(`${eq.name} needs an Artemis V FCS to give any benefit.`);
     }
     if (eq && usesAmmo(eq) && !fedWeapons.has(id)) {
       warn(`${eq.name} has no ammunition.`);

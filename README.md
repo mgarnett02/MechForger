@@ -118,6 +118,17 @@ Everything above, plus:
 - **Superchargers** (10% of engine weight, one slot in a location with engine slots; run at twice walking
   MP, 2.5× with MASC), **PPC Capacitors** (1 t, linked to a PPC in the same location; adds MegaMek's
   capacitor BV and 5 heat, explosive) and the **Angel ECM Suite** (2 t, 2 slots, 100 BV)
+- **Split weapons**: weapons of 8 or more slots (AC/20, LB 20-X, Heavy Gauss, Arrow IV, Clan RAC/5…)
+  can straddle an arm or leg and its side torso, or a side torso and the center torso. Choose the split
+  in the equipment list, or click a location that is too full and the rest spills into the neighbour.
+  Record sheets show both locations ("RA/RT"). In BV, the weapon counts as explosive if either part
+  is unprotected.
+- **Clan ER pulse lasers**, **Clan Streak LRMs** (half heat for BV, like Streak SRMs), **Clan rotary
+  ACs** and IS **re-engineered lasers**
+- **Artemis V** (Clan, 1.5 t, 2 slots): ×1.3 BV for the linked Clan LRM/SRM launcher. Artemis V ammo
+  also gets ×1.3 BV and costs twice as much.
+- **Coolant pods** (heat efficiency + ⌈heat sinks × pods / 5⌉ for BV; explosive), the Clan **light
+  active probe**, and **A-, B- and M-Pods** (anti-infantry pods, counted as defensive equipment)
 - **IndustrialMechs**: industrial structure (twice standard weight), fusion, fission, fuel cell and internal
   combustion engines (with 10/5/1/0 free heat sinks), commercial, industrial and heavy industrial armor,
   the industrial cockpit (no advanced fire control: +1 to hit, offensive BV ×0.9), Industrial TSM,
@@ -186,8 +197,8 @@ fixed-wing.
 - Critical slot allocation (click to place, or **Auto-allocate**) with live validation
 - Red / amber / green status light: illegal, legal but incomplete (unused tonnage,
   unallocated armor), or fully legal
-- **Canon units**: about 2,610 canon 'Mechs (about 110 of them IndustrialMechs), including 47 quads, 19 Land-Air 'Mechs and around 100 melee-armed designs (OmniMechs with all their
-  configurations), 700 canon combat vehicles, 120 support vehicles, about 400 aerospace, Omni and
+- **Canon units**: about 2,780 canon 'Mechs (about 110 of them IndustrialMechs), including 47 quads, 19 Land-Air 'Mechs and around 100 melee-armed designs (OmniMechs with all their
+  configurations), 715 canon combat vehicles, 120 support vehicles, about 440 aerospace, Omni and
   conventional fighters and about 290 spacecraft (small craft, DropShips, JumpShips, WarShips and
   space stations), about 1,190 battle armor squads and about 1,940 infantry platoons, searchable by name, era, tech base,
   weight and type, ready to load, modify and print (see *Canon unit data* below)
@@ -285,8 +296,8 @@ npm run dist:win   # build the Windows installer + portable exe into release/
 
 ## Not yet supported
 
-Split critical slots across locations, some Advanced / Experimental equipment (e.g. rifles,
-re-engineered lasers, Artemis V), industrial structure and armor, patchwork armor,
-and ICE / fuel-cell 'Mech engines.
+Some Advanced / Experimental equipment (e.g. rifles, Bloodhound probes, laser AMS), armored
+components, patchwork armor, and per-configuration jump jet type or tech base on OmniMechs
+(mixed-tech and improved-jump-jet configurations of a standard Prime are left out of the canon list).
 Mixed tech applies to equipment only: structure, engine, heat
 sinks and armor follow the chassis tech base.

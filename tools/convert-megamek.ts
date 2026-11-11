@@ -19,6 +19,8 @@ import type { EraId } from '../src/rules/eras';
 import { ERAS } from '../src/rules/eras';
 import type { Equipment } from '../src/rules/equipment';
 import { ALL_EQUIPMENT, getEquipment, itemSlots } from '../src/rules/equipment';
+import { canSplit } from '../src/rules/edit';
+import { SPLIT_ADJACENT } from '../src/rules/types';
 import { computeMech } from '../src/rules/construction';
 import { validate } from '../src/rules/validation';
 import { fighterBV, mechBV, mechCost, vehicleBV, vehicleCost, vesselBV } from '../src/rules/battleValue';
@@ -62,6 +64,7 @@ const ALIASES: Record<string, string> = {
   c3masterunit: 'c3mastercomputer', c3iunit: 'improvedc3computer', artemisiv: 'artemisivfcs',
   ams: 'antimissilesystem', ecmsuite: 'ecmsuite', guardianecm: 'guardianecmsuite',
   flamervehicle: 'flamer', erflamer: 'erflamer',
+  artemisv: 'artemisvfcs', antipersonnelpod: 'apod', antipersonnelpodsapods: 'apod', antibattlearmorpodsbpods: 'bpod',
 };
 
 /** MegaMek names (normalized, tech prefix removed) of utility equipment. */
@@ -117,11 +120,11 @@ function pick(list: Equipment[] | undefined, tech: TechBase | null, unitTech: Te
 
 /** Resolve an ammo name such as "IS Ammo LRM-15 Artemis-capable" to a MechForger ammo id. */
 function resolveAmmo(raw: string, unitTech: TechBase): string | null {
-  if (/artemis v/i.test(raw)) return null;
   const { tech } = splitTech(raw);
-  const artemis = /artemis.capable/i.test(raw);
+  const artemisV = /artemis v.capable/i.test(raw);
+  const artemis = !artemisV && /artemis.capable/i.test(raw);
   const half = /half/i.test(raw);
-  let s = norm(raw.replace(/\(clan\)/gi, '')).replace(/^(clan|is|cl)/, '').replace(/ammo|pods|full|half|artemiscapable/g, '');
+  let s = norm(raw.replace(/\(clan\)/gi, '')).replace(/^(clan|is|cl)/, '').replace(/ammo|pods|full|half|artemisvcapable|artemiscapable/g, '');
   s = s.replace(/^ammo/, '');
   const families: [RegExp, (m: RegExpExecArray) => string][] = [
     [/^arrowiv/, () => 'arrow-iv'], [/^longtomcannon/, () => 'long-tom-cannon'], [/^longtom/, () => 'long-tom'],
@@ -129,7 +132,7 @@ function resolveAmmo(raw: string, unitTech: TechBase): string | null {
     [/^thumper/, () => 'thumper'], [/^lac(\d+)/, (m) => `lac-${m[1]}`],
     [/^ultraac(\d+)/, (m) => `uac-${m[1]}`], [/^rotaryac(\d+)/, (m) => `rac-${m[1]}`],
     [/^lb(\d+)x/, (m) => `lb-${m[1]}x`], [/^ac(\d+)/, (m) => `ac-${m[1]}`],
-    [/^streaksrm(\d+)/, (m) => `streak-srm-${m[1]}`], [/^srm(\d+)/, (m) => `srm-${m[1]}`],
+    [/^streaksrm(\d+)/, (m) => `streak-srm-${m[1]}`], [/^streaklrm(\d+)/, (m) => `streak-lrm-${m[1]}`], [/^srm(\d+)/, (m) => `srm-${m[1]}`],
     [/^lrm(\d+)/, (m) => `lrm-${m[1]}`], [/^mrm(\d+)/, (m) => `mrm-${m[1]}`], [/^atm(\d+)/, (m) => `atm-${m[1]}`],
     [/^thunderbolt(\d+)/, (m) => `thunderbolt-${m[1]}`], [/^mml(\d)(lrm|srm)/, (m) => `mml-${m[1]}|${m[2]}`],
     [/^heavygauss/, () => 'heavy-gauss-rifle'], [/^lightgauss/, () => 'light-gauss-rifle'],
@@ -147,7 +150,7 @@ function resolveAmmo(raw: string, unitTech: TechBase): string | null {
     const clanFirst = tech === 'Clan' || (!tech && unitTech === 'Clan');
     const candidates = clanFirst ? [`clan-${weapon}`, weapon] : [weapon, `clan-${weapon}`];
     for (const w of candidates) {
-      const id = mml ? `ammo-${w}-${mml}` : `ammo-${w}${artemis ? '-artemis' : ''}${half ? '-half' : ''}`;
+      const id = mml ? `ammo-${w}-${mml}` : `ammo-${w}${artemis ? '-artemis' : artemisV ? '-artemis-v' : ''}${half ? '-half' : ''}`;
       if (getEquipment(id)) return id;
     }
     return null;
@@ -330,6 +333,8 @@ function parseMtf(text: string): ParsedMech {
   const equipment: MountedItem[] = [];
   const pods = new Set<MountedItem>();
   let uid = 0;
+  // Split weapons: partial runs, paired up across adjacent locations after the loop.
+  const partials: { l: Location; id: string; slots: number; raw: string }[] = [];
   for (const [l, slots] of Object.entries(crits) as [Location, string[]][]) {
     let i = 0;
     while (i < slots.length) {
@@ -360,14 +365,32 @@ function parseMtf(text: string): ParsedMech {
       const eq = getEquipment((r as { id: string }).id)!;
       const variable = eq.variableWeight === 'masc' || eq.variableWeight === 'targetingComputer';
       const size = variable ? run : itemSlots(eq, sizing);
-      if (size <= 0 || run % size !== 0) fail(`split or mis-sized item "${raw}"`);
-      for (let n = 0; n < run / size; n++) {
+      if (size <= 0) fail(`mis-sized item "${raw}"`);
+      if (run % size !== 0) {
+        if (!canSplit(eq)) fail(`split or mis-sized item "${raw}"`);
+        partials.push({ l, id: eq.id, slots: run % size, raw });
+      }
+      for (let n = 0; n < Math.floor(run / size); n++) {
         const item: MountedItem = { uid: `c${uid++}`, equipmentId: eq.id, location: l };
         if (/\(R\)/.test(raw)) item.rear = true;
         equipment.push(item);
         if (/\(OMNIPOD\)/.test(raw)) pods.add(item);
       }
     }
+  }
+  // Pair each partial run with one in an adjacent location that makes up the rest of the weapon.
+  while (partials.length) {
+    const a = partials.shift()!;
+    const size = itemSlots(getEquipment(a.id)!, sizing);
+    const k = partials.findIndex((b) => b.id === a.id && b.slots + a.slots === size && SPLIT_ADJACENT[a.l].includes(b.l));
+    if (k < 0) fail(`split or mis-sized item "${a.raw}"`);
+    const [b] = partials.splice(k, 1);
+    // The larger part is the weapon's location; the other holds the split slots.
+    const [main, rest] = a.slots >= b.slots ? [a, b] : [b, a];
+    const item: MountedItem = { uid: `c${uid++}`, equipmentId: a.id, location: main.l, split: { location: rest.l, slots: rest.slots } };
+    if (/\(R\)/.test(main.raw)) item.rear = true;
+    equipment.push(item);
+    if (/\(OMNIPOD\)/.test(main.raw)) pods.add(item);
   }
   fixAmmoTech(equipment);
   const externalHS = equipment.filter((e) => /heat-sink$/.test(e.equipmentId)).length;
@@ -982,6 +1005,16 @@ function main() {
   let omniCount = 0;
   for (const group of omniGroups.values()) {
     group.sort((a, b) => (a.design.model === 'Prime' ? -1 : b.design.model === 'Prime' ? 1 : a.design.model.localeCompare(b.design.model)));
+    // One design holds every configuration, so a configuration must share the Prime's tech base and
+    // jump jet type (mixed-tech Society or Bloodname configurations and improved-jump-jet variants are left out).
+    const jjType = (p: ParsedMech) => (p.design.equipment.some((e) => e.equipmentId === 'improved-jump-jet') ? 'improved' : 'standard');
+    for (let k = group.length - 1; k > 0; k--) {
+      const p = group[k];
+      if ((p.design.mixedTech && !group[0].design.mixedTech) || (jjType(p) !== jjType(group[0]) && p.design.equipment.some((e) => /jump-jet$/.test(e.equipmentId)))) {
+        note(`mech: OmniMech configuration differs from the Prime (${p.design.mixedTech ? 'mixed tech' : 'jump jets'})`);
+        group.splice(k, 1);
+      }
+    }
     const base = group[0];
     const fixed = base.design.equipment.filter((e) => !base.pods.has(e));
     const podsOf = (p: ParsedMech) => p.design.equipment.filter((e) => p.pods.has(e)).map((e) => ({ ...e, pod: true }));

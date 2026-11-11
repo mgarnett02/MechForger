@@ -16,7 +16,7 @@ import {
 } from './tables';
 import type { Equipment } from './equipment';
 import {
-  shortEquipmentName, getEquipment, isDirectFire, isEquipmentAvailable, usesAmmo,
+  shortEquipmentName, getEquipment, isArtemisVCapable, isDirectFire, isEquipmentAvailable, usesAmmo,
 } from './equipment';
 import { armorPointsForTons, armorTonnage } from './armor';
 import type { Issue } from './validation';
@@ -485,7 +485,10 @@ export function validateVehicle(d: VehicleDesign, s: VehicleSummary = computeVeh
   const ids = d.equipment.map((e) => e.equipmentId);
   const artemis = ids.filter((id) => id === 'artemis-iv' || id === 'clan-artemis-iv').length;
   const launchers = ids.filter((id) => getEquipment(id)?.artemisCapable).length;
-  if (artemis > launchers) error(`${artemis} Artemis IV FCS but only ${launchers} LRM/SRM launcher(s) to link them to.`);
+  const artemisV = ids.filter((id) => id === 'clan-artemis-v').length;
+  const launchersV = ids.filter((id) => isArtemisVCapable(id)).length;
+  if (artemisV > launchersV) error(`${artemisV} Artemis V FCS but only ${launchersV} Clan LRM/SRM launcher(s) to link them to.`);
+  else if (artemis + artemisV > launchers) error(`${artemis} Artemis IV FCS but only ${launchers} LRM/SRM launcher(s) to link them to.`);
 
   const idSet = new Set(ids);
   const fed = new Set(ids.map((id) => getEquipment(id)?.ammoFor).filter(Boolean));
