@@ -7,7 +7,7 @@
  * "weapon slots" each, less any taken by advanced armor — and a fuselage for ammunition and
  * other equipment.
  */
-import type { ArmorType, CockpitType, HeatSinkType, TechBase } from './types';
+import type { BasicArmorType, CockpitType, HeatSinkType, TechBase } from './types';
 import { TECH_BASE_NAMES } from './types';
 import type { EraId } from './eras';
 import { DEFAULT_ERA, getEra, isAvailableIn } from './eras';
@@ -69,7 +69,7 @@ export interface FighterDesign {
   /** Total heat sinks (aerospace fighters; fusion engines carry 10 for free). */
   heatSinks: number;
   fuelTons: number;
-  armorType: ArmorType;
+  armorType: BasicArmorType;
   armor: Record<FighterArc, number>;
   /** Conventional fighters: vertical / short take-off and landing gear. */
   vstol: boolean;
@@ -99,13 +99,13 @@ export const FIGHTER_ENGINE_OPTIONS: Record<FighterEngineType, ComponentOption> 
 };
 
 /** Aerospace armor names (ferro-aluminum is the aerospace counterpart of ferro-fibrous). */
-export const FIGHTER_ARMOR_NAMES: Record<ArmorType, string> = {
+export const FIGHTER_ARMOR_NAMES: Record<BasicArmorType, string> = {
   standard: 'Standard', 'ferro-fibrous': 'Ferro-Aluminum', 'light-ferro': 'Light Ferro-Aluminum',
   'heavy-ferro': 'Heavy Ferro-Aluminum',
 };
 
 /** Weapon slots each armor type takes from the arcs. */
-export const FIGHTER_ARMOR_SLOTS: Record<ArmorType, number> = {
+export const FIGHTER_ARMOR_SLOTS: Record<BasicArmorType, number> = {
   standard: 0, 'ferro-fibrous': 2, 'light-ferro': 1, 'heavy-ferro': 4,
 };
 

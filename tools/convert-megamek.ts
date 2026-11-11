@@ -159,7 +159,12 @@ function resolveName(raw: string, unitTech: TechBase): Resolved {
     endosteel: 'endo-steel', ferrofibrous: 'ferro-fibrous', lightferrofibrous: 'ferro-fibrous',
     heavyferrofibrous: 'ferro-fibrous', triplestrengthmyomer: 'tsm', heatsink: 'heat-sink',
     jumpjet: 'jump-jet', improvedjumpjet: 'improved-jump-jet', case: 'case',
+    endocomposite: 'endo-steel', endosteelprototype: 'endo-steel', ferrolamellor: 'ferro-fibrous', reactive: 'ferro-fibrous',
+    reflective: 'ferro-fibrous', ballisticreinforced: 'ferro-fibrous', impactresistant: 'ferro-fibrous',
+    heatdissipating: 'ferro-fibrous', antipenetrativeablation: 'ferro-fibrous',
   };
+  // Stealth armor's slots are fixed (two per side torso, arm and leg); MechForger places them itself.
+  if (b === 'stealth') return { kind: 'fixed' };
   if (structural[b]) return { kind: 'item', id: structural[b] };
   if (UTILITY_NAMES[b]) return { kind: 'item', id: UTILITY_NAMES[b] };
   if (b === 'doubleheatsink') {
@@ -257,14 +262,23 @@ function parseMtf(text: string): ParsedMech {
   const eng = get('engine');
   const rating = Number(/^(\d+)/.exec(eng)?.[1]);
   if (rating !== tonnage * walkMP) fail('engine rating does not match walking MP');
-  const engineType: EngineType = /XXL|ICE|Fuel|Fission/.test(eng) ? fail(`engine ${eng}`)
-    : /XL/.test(eng) ? 'xl' : /Light/.test(eng) ? 'light' : /Compact/.test(eng) ? 'compact' : 'standard';
+  const engineType: EngineType = /Large|ICE|Fuel|Fission/.test(eng) ? fail(`engine ${eng}`)
+    : /XXL/.test(eng) ? 'xxl' : /XL/.test(eng) ? 'xl' : /Light/.test(eng) ? 'light' : /Compact/.test(eng) ? 'compact' : 'standard';
 
   const st = get('structure');
-  const structureType = /Endo Steel$/.test(st) ? 'endo-steel' : /Standard$/.test(st) || st === '' ? 'standard' : fail(`structure ${st}`);
+  const STRUCTURES: Record<string, MechDesign['structureType']> = {
+    Standard: 'standard', 'Endo Steel': 'endo-steel', 'Endo Steel Prototype': 'endo-prototype', 'Endo-Composite': 'endo-composite',
+    Composite: 'composite', Reinforced: 'reinforced',
+  };
+  const structureType = st === '' ? 'standard' : STRUCTURES[st.replace(/^(IS|Clan) /, '')] ?? fail(`structure ${st}`);
   const ar = get('armor');
-  const armorType: ArmorType = /^Standard/.test(ar) ? 'standard' : /^Ferro-Fibrous\(/.test(ar) ? 'ferro-fibrous'
-    : /^Light Ferro/.test(ar) ? 'light-ferro' : /^Heavy Ferro/.test(ar) ? 'heavy-ferro' : fail(`armor ${ar}`);
+  const ARMORS: Record<string, MechDesign['armorType']> = {
+    Standard: 'standard', 'Ferro-Fibrous': 'ferro-fibrous', 'Light Ferro-Fibrous': 'light-ferro', 'Heavy Ferro-Fibrous': 'heavy-ferro',
+    Stealth: 'stealth', Reactive: 'reactive', Reflective: 'reflective', Hardened: 'hardened', 'Ferro-Lamellor': 'ferro-lamellor',
+    'Ballistic-Reinforced': 'ballistic-reinforced', 'Anti-Penetrative Ablation': 'anti-penetrative',
+    'Heat-Dissipating': 'heat-dissipating', 'Impact-Resistant': 'impact-resistant',
+  };
+  const armorType: MechDesign['armorType'] = ARMORS[ar.replace(/\(.*$/, '').trim()] ?? fail(`armor ${ar}`);
   const hs = get('heat sinks');
   const hsTotal = Number(/^(\d+)/.exec(hs)?.[1]);
   const heatSinkType: HeatSinkType = /Double/.test(hs) ? 'double' : /Single/.test(hs) ? 'single' : fail(`heat sinks ${hs}`);

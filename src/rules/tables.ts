@@ -134,8 +134,15 @@ export function compactEngineWeight(rating: number): number | null {
   return std === null ? null : Math.ceil(std * 1.5 * 2) / 2;
 }
 
+/** XXL fusion engine: a third of the standard weight, rounded up to the half ton. */
+export function xxlEngineWeight(rating: number): number | null {
+  const std = standardFusionEngineWeight(rating);
+  return std === null ? null : Math.ceil((std / 3) * 2 - 1e-9) / 2;
+}
+
 export function engineWeight(type: EngineType, rating: number): number | null {
   if (type === 'xl') return xlEngineWeight(rating);
+  if (type === 'xxl') return xxlEngineWeight(rating);
   if (type === 'light') return lightEngineWeight(rating);
   if (type === 'compact') return compactEngineWeight(rating);
   return standardFusionEngineWeight(rating);
@@ -146,9 +153,10 @@ export function engineCenterSlots(type: EngineType): number {
   return type === 'compact' ? 3 : 6;
 }
 
-/** Engine critical slots in each side torso: XL 3 (IS) / 2 (Clan), Light 2. */
+/** Engine critical slots in each side torso: XL 3 (IS) / 2 (Clan), XXL 6 / 4, Light 2. */
 export function engineSideTorsoSlots(type: EngineType, techBase: TechBase): number {
   if (type === 'light') return 2;
+  if (type === 'xxl') return techBase === 'Clan' ? 4 : 6;
   if (type !== 'xl') return 0;
   return techBase === 'Clan' ? 2 : 3;
 }
@@ -172,31 +180,69 @@ export function cockpitWeight(type: CockpitType): number {
   return type === 'small' ? 2 : COCKPIT_WEIGHT;
 }
 
-/** Endo Steel weighs 5% of tonnage, rounded up to the half ton. */
+/** Structure weight as a share of standard structure (10% of tonnage), each rounded up to the half ton. */
+const STRUCTURE_WEIGHT_SHARE: Record<StructureType, number> = {
+  standard: 1, 'endo-steel': 0.5, 'endo-prototype': 0.5, 'endo-composite': 0.75, composite: 0.5, reinforced: 2,
+};
+
+/** Endo Steel weighs 5% of tonnage, Endo-Composite 7.5%, Composite 5%, Reinforced 20%; rounded up to the half ton. */
 export function internalStructureWeight(type: StructureType, tonnage: number): number {
-  return type === 'endo-steel' ? Math.ceil(tonnage * 0.05 * 2) / 2 : structureWeight(tonnage);
+  return Math.ceil(tonnage * 0.1 * STRUCTURE_WEIGHT_SHARE[type] * 2 - 1e-9) / 2;
 }
 
-/** Critical slots Endo Steel / Ferro-Fibrous must occupy (spread anywhere on the mech). */
+/** Critical slots spread-out structure must occupy (anywhere on the mech). */
 export function structureSlots(type: StructureType, techBase: TechBase): number {
-  if (type !== 'endo-steel') return 0;
-  return techBase === 'Clan' ? 7 : 14;
+  const clan = techBase === 'Clan';
+  if (type === 'endo-steel') return clan ? 7 : 14;
+  if (type === 'endo-prototype') return 16;
+  if (type === 'endo-composite') return clan ? 4 : 7;
+  return 0;
 }
 
+/** Stealth armor takes two fixed slots in each side torso, arm and leg (not spread freely). */
+export const STEALTH_LOCATIONS = ['LT', 'RT', 'LA', 'RA', 'LL', 'RL'] as const;
+
+/** Critical slots spread-out armor must occupy (stealth armor's fixed slots are not counted here). */
 export function armorSlots(type: ArmorType, techBase: TechBase): number {
-  if (type === 'light-ferro') return 7;
-  if (type === 'heavy-ferro') return 21;
-  if (type !== 'ferro-fibrous') return 0;
-  return techBase === 'Clan' ? 7 : 14;
+  const clan = techBase === 'Clan';
+  switch (type) {
+    case 'ferro-fibrous': return clan ? 7 : 14;
+    case 'light-ferro': return 7;
+    case 'heavy-ferro': return 21;
+    case 'reactive': return clan ? 7 : 14;
+    case 'reflective': return clan ? 5 : 10;
+    case 'ferro-lamellor': return 12;
+    case 'ballistic-reinforced': case 'impact-resistant': return 10;
+    case 'anti-penetrative': case 'heat-dissipating': return 6;
+    default: return 0;
+  }
 }
 
-/** Armor points per ton: standard 16; Ferro-Fibrous ×1.12 (IS) / ×1.2 (Clan); Light Ferro ×1.06. */
+const ARMOR_PPT_MULTIPLIER: Partial<Record<ArmorType, number>> = {
+  'light-ferro': 1.06, 'heavy-ferro': 1.24, hardened: 0.5, 'ferro-lamellor': 0.875, 'ballistic-reinforced': 0.75,
+  'anti-penetrative': 0.75, 'heat-dissipating': 0.625, 'impact-resistant': 0.875,
+};
+
+/** Armor points per ton: standard 16; Ferro-Fibrous ×1.12 (IS) / ×1.2 (Clan); others by their multiplier. */
 export function armorPointsPerTon(type: ArmorType, techBase: TechBase): number {
-  if (type === 'light-ferro') return ARMOR_POINTS_PER_TON * 1.06;
-  if (type === 'heavy-ferro') return ARMOR_POINTS_PER_TON * 1.24;
-  if (type !== 'ferro-fibrous') return ARMOR_POINTS_PER_TON;
-  return ARMOR_POINTS_PER_TON * (techBase === 'Clan' ? 1.2 : 1.12);
+  if (type === 'ferro-fibrous') return ARMOR_POINTS_PER_TON * (techBase === 'Clan' ? 1.2 : 1.12);
+  return ARMOR_POINTS_PER_TON * (ARMOR_PPT_MULTIPLIER[type] ?? 1);
 }
+
+/** Display names for structure, engine and armor types. */
+export const STRUCTURE_NAMES: Record<StructureType, string> = {
+  standard: 'Standard', 'endo-steel': 'Endo Steel', 'endo-prototype': 'Endo Steel Prototype',
+  'endo-composite': 'Endo-Composite', composite: 'Composite', reinforced: 'Reinforced',
+};
+export const ENGINE_NAMES: Record<EngineType, string> = {
+  standard: 'Fusion', xl: 'XL Fusion', xxl: 'XXL Fusion', light: 'Light Fusion', compact: 'Compact Fusion',
+};
+export const ARMOR_NAMES: Record<ArmorType, string> = {
+  standard: 'Standard', 'ferro-fibrous': 'Ferro-Fibrous', 'light-ferro': 'Light Ferro-Fibrous', 'heavy-ferro': 'Heavy Ferro-Fibrous',
+  stealth: 'Stealth', reactive: 'Reactive', reflective: 'Reflective', hardened: 'Hardened', 'ferro-lamellor': 'Ferro-Lamellor',
+  'ballistic-reinforced': 'Ballistic-Reinforced', 'anti-penetrative': 'Anti-Penetrative Ablation',
+  'heat-dissipating': 'Heat-Dissipating', 'impact-resistant': 'Impact-Resistant',
+};
 
 /** MASC: IS 1 ton per 20 tons of mech, Clan 1 per 25, rounded to the nearest ton. Slots = tons. */
 export function mascWeight(tonnage: number, techBase: TechBase): number {
@@ -222,10 +268,15 @@ const opt = (label: string, techBase: TechBase | 'Both', firstEra: EraId, firstE
 export const STRUCTURE_OPTIONS: Record<StructureType, ComponentOption> = {
   standard: opt('Standard structure', 'Both', '3025'),
   'endo-steel': opt('Endo Steel structure', 'Both', '3050'),
+  'endo-prototype': opt('Endo Steel Prototype structure', 'IS', '3025'),
+  'endo-composite': opt('Endo-Composite structure', 'Both', '3062', '3068'),
+  composite: opt('Composite structure', 'IS', '3050'),
+  reinforced: opt('Reinforced structure', 'Both', '3050'),
 };
 export const ENGINE_OPTIONS: Record<EngineType, ComponentOption> = {
   standard: opt('Standard fusion engines', 'Both', '3025'),
   xl: opt('XL engines', 'Both', '3050'),
+  xxl: opt('XXL engines', 'Both', '3050'),
   light: opt('Light engines', 'IS', '3062'),
   compact: opt('Compact engines', 'IS', '3068'),
 };
@@ -248,6 +299,15 @@ export const ARMOR_OPTIONS: Record<ArmorType, ComponentOption> = {
   'ferro-fibrous': opt('Ferro-Fibrous armor', 'Both', '3050'),
   'light-ferro': opt('Light Ferro-Fibrous armor', 'IS', '3062'),
   'heavy-ferro': opt('Heavy Ferro-Fibrous armor', 'IS', '3068'),
+  stealth: opt('Stealth armor', 'IS', '3050'),
+  reactive: opt('Reactive armor', 'Both', '3062'),
+  reflective: opt('Reflective armor', 'Both', '3050'),
+  hardened: opt('Hardened armor', 'Both', '3025', '3050'),
+  'ferro-lamellor': opt('Ferro-Lamellor armor', 'Clan', '3068'),
+  'impact-resistant': opt('Impact-Resistant armor', 'IS', '3081'),
+  'anti-penetrative': opt('Anti-Penetrative Ablation armor', 'IS', '3081'),
+  'ballistic-reinforced': opt('Ballistic-Reinforced armor', 'IS', '3101'),
+  'heat-dissipating': opt('Heat-Dissipating armor', 'Both', '3101'),
 };
 export const JUMP_JET_OPTIONS: Record<JumpJetType, ComponentOption> = {
   standard: opt('Standard jump jets', 'Both', '3025'),

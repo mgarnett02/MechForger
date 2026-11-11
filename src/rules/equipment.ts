@@ -534,7 +534,28 @@ export function isEquipmentAvailable(eq: Equipment, era: EraId, techBase: TechBa
 }
 
 /** Display name; on mixed-tech designs Clan and IS versions are told apart. */
+/** Spread-out structure / armor slots are named after the design's structure or armor type. */
+const FILLER_NAMES: Record<string, Record<string, string>> = {
+  'endo-steel': { 'endo-prototype': 'Endo Steel Prototype', 'endo-composite': 'Endo-Composite' },
+  'ferro-fibrous': {
+    'light-ferro': 'Light Ferro-Fibrous', 'heavy-ferro': 'Heavy Ferro-Fibrous', reactive: 'Reactive', reflective: 'Reflective',
+    'ferro-lamellor': 'Ferro-Lamellor', 'ballistic-reinforced': 'Ballistic-Reinforced', 'anti-penetrative': 'Anti-Penetrative Ablation',
+    'heat-dissipating': 'Heat-Dissipating', 'impact-resistant': 'Impact-Resistant',
+  },
+};
+const FILLER_SHORT: Record<string, string> = {
+  'Light Ferro-Fibrous': 'Light Ferro', 'Heavy Ferro-Fibrous': 'Heavy Ferro', 'Anti-Penetrative Ablation': 'Ablative',
+  'Ballistic-Reinforced': 'Ballistic-Reinf.', 'Endo Steel Prototype': 'Endo Steel (P)',
+};
+function baseName(eq: Equipment, d: object): string {
+  const by = FILLER_NAMES[eq.id];
+  if (!by) return eq.name;
+  const kind = eq.id === 'endo-steel' ? (d as { structureType?: string }).structureType : (d as { armorType?: string }).armorType;
+  return (kind && by[kind]) ?? eq.name;
+}
+
 export function equipmentName(eq: Equipment, d: Pick<MechDesign, 'mixedTech'>): string {
+  if (FILLER_NAMES[eq.id]) return baseName(eq, d);
   if (!d.mixedTech || eq.techBase === 'Both') return eq.name;
   return `${eq.name} (${eq.techBase === 'Clan' ? 'Clan' : 'IS'})`;
 }
@@ -576,6 +597,10 @@ export const COMPACT_LENGTH = 16;
  * Mixed-tech designs tag items "(C)" or "(IS)".
  */
 export function shortEquipmentName(eq: Equipment, d: Pick<MechDesign, 'mixedTech'>): string {
+  if (FILLER_NAMES[eq.id]) {
+    const n = baseName(eq, d);
+    return FILLER_SHORT[n] ?? n;
+  }
   let name = eq.name;
   for (const [re, to] of ABBREVIATIONS) name = name.replace(re, to);
   for (const [re, to] of IF_LONG) if (name.length > COMPACT_LENGTH) name = name.replace(re, to);

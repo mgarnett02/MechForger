@@ -5,7 +5,7 @@
  * Vehicles share the equipment catalog and era / tech-base availability with
  * BattleMechs, but have their own chassis, engine, armor and slot rules.
  */
-import type { ArmorType, StructureType, TechBase } from './types';
+import type { BasicArmorType, BasicStructureType, TechBase } from './types';
 import { TECH_BASE_NAMES } from './types';
 import type { EraId } from './eras';
 import { DEFAULT_ERA, getEra, isAvailableIn } from './eras';
@@ -55,8 +55,8 @@ export interface VehicleDesign {
   tonnage: number;
   cruiseMP: number;
   engineType: VehicleEngineType;
-  structureType: StructureType;
-  armorType: ArmorType;
+  structureType: BasicStructureType;
+  armorType: BasicArmorType;
   /** Single turret (a chin turret on VTOLs). */
   turret: boolean;
   /** Total single heat sinks (fusion engines include 10 for free). */
@@ -167,11 +167,11 @@ export function vehicleSlotCapacity(tonnage: number): number {
 }
 
 /** Item slots used by Endo Steel / Ferro-Fibrous on vehicles. */
-export function vehicleStructureSlots(type: StructureType, techBase: TechBase): number {
+export function vehicleStructureSlots(type: BasicStructureType, techBase: TechBase): number {
   return type === 'endo-steel' ? (techBase === 'Clan' ? 1 : 2) : 0;
 }
 
-export function vehicleArmorSlots(type: ArmorType, techBase: TechBase): number {
+export function vehicleArmorSlots(type: BasicArmorType, techBase: TechBase): number {
   switch (type) {
     case 'ferro-fibrous': return techBase === 'Clan' ? 1 : 2;
     case 'light-ferro': return 1;

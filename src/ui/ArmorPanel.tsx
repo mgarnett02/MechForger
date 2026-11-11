@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react';
 import type { ArmorType, MechDesign } from '../rules/types';
-import { isAvailableIn } from '../rules/eras';
-import { ARMOR_OPTIONS, componentAvailable } from '../rules/tables';
+import { ARMOR_NAMES, ARMOR_OPTIONS, armorSlots, componentAvailable } from '../rules/tables';
+
+const ARMOR_NOTES: Partial<Record<ArmorType, string>> = {
+  stealth: ' — needs ECM', hardened: ' — −1 running MP',
+};
 import { LOCATIONS, locationName, REAR_FACING } from '../rules/types';
 import type { MechSummary } from '../rules/construction';
 import { armorPointsForTons, armorTonnage, locationArmor } from '../rules/armor';
@@ -19,7 +22,6 @@ export function ArmorPanel({ design, summary, update }: Props) {
   useEffect(() => setTons(summary.weights.armor), [summary.weights.armor]);
   const ppt = summary.armorPointsPerTon;
   const maxTons = armorTonnage(summary.armorMaxTotal, ppt);
-  const advanced = isAvailableIn('3050', design.era);
   const unused = armorPointsForTons(summary.weights.armor, ppt) - summary.armorTotal;
   const pptLabel = Number.isInteger(ppt) ? String(ppt) : ppt.toFixed(2);
   return (
@@ -27,20 +29,15 @@ export function ArmorPanel({ design, summary, update }: Props) {
       <h2>
         Armor{' '}
         <select aria-label="Armor type" value={design.armorType}
-          title={advanced ? undefined : 'Available from the Clan Invasion era (3050)'}
           onChange={(e) => update((d) => setArmorType(d, e.target.value as ArmorType))}>
-          <option value="standard">Standard</option>
-          <option value="ferro-fibrous" disabled={!advanced}>
-            Ferro-Fibrous ({design.techBase === 'Clan' ? 7 : 14} slots)
-          </option>
-          <option value="light-ferro"
-            disabled={!componentAvailable(ARMOR_OPTIONS['light-ferro'], design.era, design.techBase, design.mixedTech)}>
-            Light Ferro-Fibrous (7 slots)
-          </option>
-          <option value="heavy-ferro"
-            disabled={!componentAvailable(ARMOR_OPTIONS['heavy-ferro'], design.era, design.techBase, design.mixedTech)}>
-            Heavy Ferro-Fibrous (21 slots)
-          </option>
+          {(Object.keys(ARMOR_OPTIONS) as ArmorType[]).map((k) => {
+            const n = k === 'stealth' ? 12 : armorSlots(k, design.techBase);
+            return (
+              <option key={k} value={k} disabled={k !== 'standard' && !componentAvailable(ARMOR_OPTIONS[k], design.era, design.techBase, design.mixedTech)}>
+                {ARMOR_NAMES[k]}{n ? ` (${n} slots)` : ''}{ARMOR_NOTES[k] ?? ''}
+              </option>
+            );
+          })}
         </select>{' '}
         <span className="muted small">{pptLabel} pts/ton</span>
       </h2>

@@ -4,7 +4,7 @@ import type {
 import type { ComponentOption } from '../rules/tables';
 import {
   COCKPIT_OPTIONS, ENGINE_OPTIONS, GYRO_OPTIONS, HEAT_SINK_OPTIONS, JUMP_JET_OPTIONS, MYOMER_OPTIONS,
-  STRUCTURE_OPTIONS, componentAvailable, componentEraOk, componentFirstEra,
+  STRUCTURE_NAMES, STRUCTURE_OPTIONS, componentAvailable, structureSlots, componentEraOk, componentFirstEra,
 } from '../rules/tables';
 import { ARM_LOCATIONS, LAM_TYPE_NAMES, LOCATION_NAMES, TECH_BASE_NAMES, isQuad } from '../rules/types';
 import { ERAS, getEra, isAvailableIn } from '../rules/eras';
@@ -27,6 +27,10 @@ interface Props {
 /** Inner Sphere / Clan options introduced in the Clan Invasion era. */
 const ADVANCED_ERA = '3050';
 
+const STRUCTURE_NOTES: Partial<Record<StructureType, string>> = {
+  composite: ' — half BV, fragile', reinforced: ' — double BV, tough',
+};
+
 export function ChassisPanel({ design, summary, update }: Props) {
   const hs = summary.heatSinks;
   const era = getEra(design.era);
@@ -44,7 +48,6 @@ export function ChassisPanel({ design, summary, update }: Props) {
     if (!ok(o)) return 'Inner Sphere technology: needs mixed tech on a Clan design';
     return undefined;
   };
-  const fillerSlots = design.techBase === 'Clan' ? 7 : 14;
   return (
     <section className="panel">
       <h2>Chassis</h2>
@@ -109,9 +112,14 @@ export function ChassisPanel({ design, summary, update }: Props) {
         <div>
           <select aria-label="Internal structure" value={design.structureType} title={lockedTitle}
             onChange={(e) => update((d) => setStructureType(d, e.target.value as StructureType))}>
-            <option value="standard">Standard</option>
-            <option value="endo-steel" disabled={!ok(STRUCTURE_OPTIONS['endo-steel'])}
-              title={why(STRUCTURE_OPTIONS['endo-steel'])}>Endo Steel ({fillerSlots} slots)</option>
+            {(Object.keys(STRUCTURE_OPTIONS) as StructureType[]).map((k) => {
+              const n = structureSlots(k, design.techBase);
+              return (
+                <option key={k} value={k} disabled={k !== 'standard' && !ok(STRUCTURE_OPTIONS[k])} title={k === 'standard' ? undefined : why(STRUCTURE_OPTIONS[k])}>
+                  {STRUCTURE_NAMES[k]}{n ? ` (${n} slots)` : ''}{STRUCTURE_NOTES[k] ?? ''}
+                </option>
+              );
+            })}
           </select>
           <span className="muted"> {summary.weights.structure} t</span>
         </div>
@@ -130,6 +138,9 @@ export function ChassisPanel({ design, summary, update }: Props) {
             <option value="standard">{summary.rating} Fusion</option>
             <option value="xl" disabled={!ok(ENGINE_OPTIONS.xl)} title={why(ENGINE_OPTIONS.xl)}>
               {summary.rating} XL ({xlSlots} slots per side torso)
+            </option>
+            <option value="xxl" disabled={!ok(ENGINE_OPTIONS.xxl)} title={why(ENGINE_OPTIONS.xxl)}>
+              {summary.rating} XXL ({design.techBase === 'Clan' ? 4 : 6} slots per side torso, runs hot)
             </option>
             <option value="light" disabled={!ok(ENGINE_OPTIONS.light)} title={why(ENGINE_OPTIONS.light)}>
               {summary.rating} Light (2 slots per side torso)

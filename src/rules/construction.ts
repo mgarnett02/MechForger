@@ -3,7 +3,7 @@ import { LOCATIONS, isQuad } from './types';
 import {
   FREE_HEAT_SINKS, armorPointsPerTon, cockpitWeight, engineCenterSlots, engineHeatSinkCapacity,
   engineSideTorsoSlots, engineWeight, gyroSlots, gyroWeightFor, internalStructure, internalStructureWeight,
-  jumpJetWeightFor, runMP,
+  STEALTH_LOCATIONS, jumpJetWeightFor, runMP,
   weightClass,
 } from './tables';
 import type { Equipment } from './equipment';
@@ -122,13 +122,17 @@ function claim(slots: (string | null)[], label: string): (string | null)[] {
 const LEG_SLOTS = ['Hip', 'Upper Leg Actuator', 'Lower Leg Actuator', 'Foot Actuator', null, null];
 
 const ENGINE_LABEL = {
-  standard: 'Fusion Engine', xl: 'XL Fusion Engine', light: 'Light Fusion Engine', compact: 'Compact Fusion Engine',
+  standard: 'Fusion Engine', xl: 'XL Fusion Engine', xxl: 'XXL Fusion Engine', light: 'Light Fusion Engine', compact: 'Compact Fusion Engine',
 } as const;
 const GYRO_LABEL = { standard: 'Gyro', xl: 'XL Gyro', 'heavy-duty': 'Heavy-Duty Gyro', compact: 'Compact Gyro' } as const;
 
 /** Fixed components per location; null marks a slot open for equipment. */
 export function fixedSlots(design: MechDesign, loc: Location): (string | null)[] {
   const base = baseFixedSlots(design, loc);
+  // Stealth armor: two slots in each side torso, arm and leg.
+  if (design.armorType === 'stealth' && (STEALTH_LOCATIONS as readonly string[]).includes(loc)) {
+    claim(claim(base, 'Stealth'), 'Stealth');
+  }
   if (!design.lam) return base;
   // LAM conversion systems take the first open slots: avionics in the head, landing gear in
   // the center torso, and landing gear + avionics in each side torso (as MegaMek places them).
@@ -250,12 +254,15 @@ export function computeMech(design: MechDesign): MechSummary {
 
   const slots = {} as Record<Location, LocationSlots>;
   for (const loc of LOCATIONS) slots[loc] = layoutLocation(design, loc);
+  const xxl = design.engineType === 'xxl';
+  // Hardened armor costs one running MP.
+  const hardened = design.armorType === 'hardened' ? 1 : 0;
 
   return {
     rating,
-    runMP: runMP(walkMP),
-    mascRunMP: hasMasc ? walkMP * 2 : null,
-    tsmMP: design.myomer === 'tsm' ? { walk: walkMP + 1, run: runMP(walkMP + 1) } : null,
+    runMP: runMP(walkMP) - hardened,
+    mascRunMP: hasMasc ? walkMP * 2 - hardened : null,
+    tsmMP: design.myomer === 'tsm' ? { walk: walkMP + 1, run: runMP(walkMP + 1) - hardened } : null,
     omni: design.omni ? omniWeights(design, weights.total) : null,
     lam: lamMovement(design, jumpMP),
     jumpMP,
@@ -273,7 +280,12 @@ export function computeMech(design: MechDesign): MechSummary {
       engineCapacity: engineHeatSinkCapacity(rating),
       dissipation: totalHS * (design.heatSinkType === 'double' ? 2 : 1),
     },
-    heat: { weapons: weaponHeat, running: 2, jumping: jumpMP > 0 ? Math.max(3, jumpMP) : 0 },
+    heat: {
+      weapons: weaponHeat,
+      // XXL engines run hot: 6 heat running, jumping 2 per MP (minimum 6). Stealth armor adds 10 when engaged.
+      running: xxl ? 6 : 2,
+      jumping: jumpMP > 0 ? (xxl ? Math.max(6, jumpMP * 2) : Math.max(3, jumpMP)) : 0,
+    },
     weights,
     slots,
     unallocated: design.equipment.filter((e) => e.location === null),

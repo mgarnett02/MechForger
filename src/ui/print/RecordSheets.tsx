@@ -3,6 +3,7 @@ import type { ArmorFacing, Location, MechDesign } from '../../rules/types';
 import { LAM_TYPE_NAMES, TECH_BASE_NAMES, isQuad, locationName } from '../../rules/types';
 import { computeMech } from '../../rules/construction';
 import { getEra } from '../../rules/eras';
+import { ARMOR_NAMES, ENGINE_NAMES } from '../../rules/tables';
 import { activeConfigName } from '../../rules/omni';
 import { mechBV, mechCost, vehicleBV, vehicleCost } from '../../rules/battleValue';
 import type { SupportVehicleDesign } from '../../rules/support';
@@ -190,7 +191,7 @@ export function MechRecordSheet({ design }: { design: MechDesign }) {
   const data = mechSheetData(design);
   const config = activeConfigName(design);
   const hsType = design.heatSinkType === 'double' ? 'Double' : 'Single';
-  const engine = { standard: 'Fusion', xl: 'XL Fusion', light: 'Light Fusion', compact: 'Compact Fusion' }[design.engineType];
+  const engine = ENGINE_NAMES[design.engineType];
   const name = `${design.chassis} ${design.model}`.trim() || 'Unnamed';
   const structure = s.structure ?? { HD: 0, CT: 0, LT: 0, RT: 0, LA: 0, RA: 0, LL: 0, RL: 0 };
 
@@ -258,7 +259,7 @@ export function MechRecordSheet({ design }: { design: MechDesign }) {
           <RearFigure armor={design.armor} />
           <div className="rs-armor-total">
             Armor: <b>{s.armorTotal}</b>
-            {design.armorType !== 'standard' && ` (${{ 'ferro-fibrous': 'Ferro-Fibrous', 'light-ferro': 'Light Ferro-Fibrous', 'heavy-ferro': 'Heavy Ferro-Fibrous' }[design.armorType]})`}
+            {design.armorType !== 'standard' && ` (${ARMOR_NAMES[design.armorType]})`}
           </div>
         </Panel>
 
@@ -311,7 +312,7 @@ export function MechRecordSheet({ design }: { design: MechDesign }) {
             <div className="rs-hs-label">Dissipation: <b>{s.heatSinks.dissipation}</b></div>
             <Circles n={s.heatSinks.total} />
           </div>
-          <p className="rs-note">* All weapons: {s.heat.weapons} heat · walk +1 · run +2{s.jumpMP ? ` · jump +${Math.max(3, s.jumpMP)}` : ''}</p>
+          <p className="rs-note">* All weapons: {s.heat.weapons} heat · {design.engineType === 'xxl' ? 'stand +2 · walk +4' : 'walk +1'} · run +{s.heat.running}{s.jumpMP ? ` · jump +${s.heat.jumping}` : ''}{design.armorType === 'stealth' ? ' · stealth +10' : ''}</p>
         </Panel>
 
         <div className="rs-heat-scale area-scale" aria-label="Heat scale">

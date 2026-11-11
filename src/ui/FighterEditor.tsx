@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { ArmorType, CockpitType, HeatSinkType, TechBase } from '../rules/types';
+import type { BasicArmorType, CockpitType, HeatSinkType, TechBase } from '../rules/types';
 import { TECH_BASE_NAMES } from '../rules/types';
 import { ERAS, getEra, isAvailableIn } from '../rules/eras';
 import type { ComponentOption } from '../rules/tables';
@@ -196,15 +196,15 @@ function FighterArmorPanel({ design, summary, update }: Props) {
   const ppt = summary.armorPointsPerTon;
   const maxTons = armorTonnage(summary.armorMax, ppt);
   const unused = armorPointsForTons(summary.weights.armor, ppt) - summary.armorTotal;
-  const opt = (k: ArmorType) => componentAvailable(ARMOR_OPTIONS[k], design.era, design.techBase, design.mixedTech);
-  const slotText = (k: ArmorType) => (FIGHTER_ARMOR_SLOTS[k] ? ` (${FIGHTER_ARMOR_SLOTS[k]} slot${FIGHTER_ARMOR_SLOTS[k] > 1 ? 's' : ''})` : '');
+  const opt = (k: BasicArmorType) => componentAvailable(ARMOR_OPTIONS[k], design.era, design.techBase, design.mixedTech);
+  const slotText = (k: BasicArmorType) => (FIGHTER_ARMOR_SLOTS[k] ? ` (${FIGHTER_ARMOR_SLOTS[k]} slot${FIGHTER_ARMOR_SLOTS[k] > 1 ? 's' : ''})` : '');
   return (
     <section className="panel">
       <h2>
         Armor{' '}
         <select aria-label="Armor type" value={design.armorType}
-          onChange={(e) => update((d) => ({ ...d, armorType: e.target.value as ArmorType }))}>
-          {(Object.keys(FIGHTER_ARMOR_NAMES) as ArmorType[]).map((k) => (
+          onChange={(e) => update((d) => ({ ...d, armorType: e.target.value as BasicArmorType }))}>
+          {(Object.keys(FIGHTER_ARMOR_NAMES) as BasicArmorType[]).map((k) => (
             <option key={k} value={k} disabled={k !== 'standard' && !opt(k)}>{FIGHTER_ARMOR_NAMES[k]}{slotText(k)}</option>
           ))}
         </select>{' '}

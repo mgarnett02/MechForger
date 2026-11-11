@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { ArmorType, StructureType, TechBase } from '../rules/types';
+import type { BasicArmorType, BasicStructureType, TechBase } from '../rules/types';
 import { TECH_BASE_NAMES } from '../rules/types';
 import { ERAS, getEra, isAvailableIn } from '../rules/eras';
 import type { ComponentOption } from '../rules/tables';
@@ -105,7 +105,7 @@ function VehicleChassisPanel({ design, summary, update }: Props) {
         <label>Structure</label>
         <div>
           <select aria-label="Internal structure" value={design.structureType}
-            onChange={(e) => update((d) => ({ ...d, structureType: e.target.value as StructureType }))}>
+            onChange={(e) => update((d) => ({ ...d, structureType: e.target.value as BasicStructureType }))}>
             <option value="standard">Standard</option>
             <option value="endo-steel" disabled={!ok(STRUCTURE_OPTIONS['endo-steel'])} title={why(STRUCTURE_OPTIONS['endo-steel'])}>
               Endo Steel ({endoSlots} slot{endoSlots > 1 ? 's' : ''})
@@ -176,14 +176,14 @@ function VehicleArmorPanel({ design, summary, update }: Props) {
   const ppt = summary.armorPointsPerTon;
   const maxTons = armorTonnage(summary.armorMax, ppt);
   const unused = armorPointsForTons(summary.weights.armor, ppt) - summary.armorTotal;
-  const opt = (k: ArmorType) => componentAvailable(ARMOR_OPTIONS[k], design.era, design.techBase, design.mixedTech);
-  const slots = (k: ArmorType) => vehicleArmorSlots(k, design.techBase);
+  const opt = (k: BasicArmorType) => componentAvailable(ARMOR_OPTIONS[k], design.era, design.techBase, design.mixedTech);
+  const slots = (k: BasicArmorType) => vehicleArmorSlots(k, design.techBase);
   return (
     <section className="panel">
       <h2>
         Armor{' '}
         <select aria-label="Armor type" value={design.armorType}
-          onChange={(e) => update((d) => ({ ...d, armorType: e.target.value as ArmorType }))}>
+          onChange={(e) => update((d) => ({ ...d, armorType: e.target.value as BasicArmorType }))}>
           <option value="standard">Standard</option>
           <option value="ferro-fibrous" disabled={!opt('ferro-fibrous')}>Ferro-Fibrous ({slots('ferro-fibrous')} slots)</option>
           <option value="light-ferro" disabled={!opt('light-ferro')}>Light Ferro-Fibrous ({slots('light-ferro')} slot)</option>

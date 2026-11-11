@@ -15,7 +15,7 @@ import { TECH_BASE_NAMES } from './types';
 import type { ComponentOption } from './tables';
 import {
   ARMOR_OPTIONS, COCKPIT_OPTIONS, ENGINE_OPTIONS, GYRO_OPTIONS, HEAT_SINK_OPTIONS, JUMP_JET_OPTIONS,
-  MYOMER_OPTIONS, STRUCTURE_OPTIONS, armorSlots, componentEraOk, componentTechOk, structureSlots,
+  MYOMER_OPTIONS, STRUCTURE_OPTIONS, ARMOR_NAMES, STRUCTURE_NAMES, armorSlots, componentEraOk, componentTechOk, structureSlots,
 } from './tables';
 import { armorPointsForTons } from './armor';
 import { locationArmor } from './armor';
@@ -201,10 +201,15 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
     }
   }
 
+  // Stealth armor works through an ECM suite.
+  if (design.armorType === 'stealth' && !design.equipment.some((e) => /(^|-)ecm$/.test(e.equipmentId) && e.location)) {
+    error('Stealth armor needs an ECM suite.');
+  }
+
   // Endo Steel / Ferro-Fibrous slot placeholders
   const fillerCheck: [string, number, string][] = [
-    [ENDO_STEEL_ID, structureSlots(design.structureType, design.techBase), 'Endo Steel'],
-    [FERRO_FIBROUS_ID, armorSlots(design.armorType, design.techBase), 'Ferro-Fibrous'],
+    [ENDO_STEEL_ID, structureSlots(design.structureType, design.techBase), STRUCTURE_NAMES[design.structureType]],
+    [FERRO_FIBROUS_ID, armorSlots(design.armorType, design.techBase), `${ARMOR_NAMES[design.armorType]} armor`],
     [TSM_ID, design.myomer === 'tsm' ? 6 : 0, 'Triple-Strength Myomer'],
   ];
   for (const [id, required, name] of fillerCheck) {

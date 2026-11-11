@@ -1,6 +1,7 @@
 import type { MechDesign } from './types';
 import { LAM_TYPE_NAMES, LOCATIONS, REAR_FACING, TECH_BASE_NAMES, facingName, isQuad, locationAbbr, locationName } from './types';
 import { getEra } from './eras';
+import { ARMOR_NAMES, STRUCTURE_NAMES } from './tables';
 import type { MountedItem } from './types';
 import { getEquipment, shortEquipmentName } from './equipment';
 import { activeConfigName } from './omni';
@@ -33,8 +34,8 @@ export function technicalReadout(design: MechDesign, summary: MechSummary = comp
   lines.push(`Cost: ${mechCost(design).total.toLocaleString('en-US')} C-bills`);
   lines.push('');
   lines.push(row('Equipment', 'Mass'));
-  lines.push(row(`Internal Structure: ${design.structureType === 'endo-steel' ? 'Endo Steel' : ''}`.trimEnd(), s.weights.structure));
-  const engineName = { standard: 'Fusion', xl: 'XL', light: 'Light', compact: 'Compact' }[design.engineType];
+  lines.push(row(`Internal Structure: ${design.structureType === 'standard' ? '' : STRUCTURE_NAMES[design.structureType]}`.trimEnd(), s.weights.structure));
+  const engineName = { standard: 'Fusion', xl: 'XL', xxl: 'XXL', light: 'Light', compact: 'Compact' }[design.engineType];
   lines.push(row(`Engine: ${s.rating} ${engineName}`, s.weights.engine));
   lines.push(`    Walking MP: ${design.walkMP}`);
   lines.push(`    Running MP: ${s.runMP}${s.mascRunMP ? ` [${s.mascRunMP}]` : ''}`);
@@ -52,10 +53,7 @@ export function technicalReadout(design: MechDesign, summary: MechSummary = comp
   lines.push(row(`Cockpit:${design.cockpitType === 'small' ? ' Small' : ''}`, s.weights.cockpit));
   if (s.weights.conversion) lines.push(row('LAM Conversion Equipment:', s.weights.conversion));
   if (design.fullHeadEjection) lines.push('Full Head Ejection System');
-  const ff = {
-    standard: '', 'ferro-fibrous': ' (Ferro-Fibrous)', 'light-ferro': ' (Light Ferro-Fibrous)',
-    'heavy-ferro': ' (Heavy Ferro-Fibrous)',
-  }[design.armorType];
+  const ff = design.armorType === 'standard' ? '' : ` (${ARMOR_NAMES[design.armorType]})`;
   lines.push(row(`Armor Factor${ff}: ${s.armorTotal}`, s.weights.armor));
   lines.push('');
   lines.push(`${''.padEnd(22)}Internal   Armor`);

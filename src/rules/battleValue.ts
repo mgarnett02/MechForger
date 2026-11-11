@@ -11,7 +11,7 @@ import { LOCATIONS, isQuad, legLocations } from './types';
 import type { Equipment } from './equipment';
 import { getEquipment, isDirectFire, itemWeight } from './equipment';
 import { computeMech } from './construction';
-import { runMP } from './tables';
+import { engineSideTorsoSlots } from './tables';
 import { meleeBV, meleeCost } from './melee';
 import type { FighterDesign } from './fighter';
 import { computeFighter, fighterItemWeight } from './fighter';
@@ -160,19 +160,23 @@ export function mechBV(d: MechDesign): BVBreakdown {
   const isClan = d.techBase === 'Clan';
 
   // --- Defensive battle rating
-  const armor = s.armorTotal * 2.5;
+  const armor = s.armorTotal * 2.5 * (ARMOR_BV_MULTIPLIER[d.armorType] ?? 1);
   const isPoints = s.structure ? LOCATIONS.reduce((a, l) => a + s.structure![l], 0) : 0;
-  const engineMod = d.engineType === 'xl' ? (isClan ? 0.75 : 0.5) : d.engineType === 'light' ? 0.75 : 1;
-  const structure = isPoints * 1.5 * engineMod;
+  // Engine multiplier from the side-torso engine slots (as MegaMek): 6+ → 0.25, 3+ → 0.5, 2 → 0.75.
+  const sideSlots = engineSideTorsoSlots(d.engineType, d.techBase);
+  const engineMod = sideSlots >= 6 ? 0.25 : sideSlots >= 3 ? 0.5 : sideSlots === 2 ? 0.75 : 1;
+  const structureMod = d.structureType === 'composite' ? 0.5 : d.structureType === 'reinforced' ? 2 : 1;
+  const structure = isPoints * 1.5 * structureMod * engineMod;
   const gyro = d.tonnage * (d.gyroType === 'heavy-duty' ? 1 : 0.5);
   const defEquip = defensiveEquipmentBV(d.equipment);
 
   // Explosive ammo (−15 per slot) and Gauss weapons (−1 per slot) where CASE does not protect.
   const caseIn = new Set(d.equipment.filter((e) => e.equipmentId === 'case').map((e) => e.location));
-  const isXL = d.engineType === 'xl' && !isClan;
+  const isXL = (d.engineType === 'xl' || d.engineType === 'xxl') && !isClan;
   const protectedLoc = (loc: Location): boolean => {
     if (loc === 'CT' || loc === 'HD' || legLocations(d).includes(loc)) return false;
-    if (isClan) return true; // Clan CASE is built into every location
+    // Clan CASE is built into every location, but cannot save a Clan XXL engine in a side torso.
+    if (isClan) return !((loc === 'LT' || loc === 'RT') && sideSlots > 2);
     if (isXL) return false; // losing the side torso destroys an IS XL engine anyway
     if (loc === 'LT' || loc === 'RT') return caseIn.has(loc);
     const torso: Location = loc === 'LA' ? 'LT' : 'RT';
@@ -187,13 +191,14 @@ export function mechBV(d: MechDesign): BVBreakdown {
     else if (eq.isWeapon && isGaussType(eq.id)) explosive += eq.slots;
   }
 
-  const walk = d.walkMP;
-  const run = s.mascRunMP ?? (s.tsmMP ? runMP(walk + 1) : s.runMP);
+  const run = s.mascRunMP ?? s.tsmMP?.run ?? s.runMP;
   const jump = s.jumpMP;
   // Standard LAMs are rated on AirMech flank speed, with +1 for being airborne (IO p. 192, as in MegaMek).
   const airMechFlank = d.lam === 'standard' ? s.lam?.airMech?.flank ?? 0 : null;
   const runTMM = airMechFlank !== null ? (airMechFlank ? targetMovementModifier(airMechFlank) + 1 : 0) : targetMovementModifier(run);
-  const tmm = Math.max(runTMM, jump > 0 ? targetMovementModifier(jump) + 1 : 0);
+  // Stealth armor adds 2 to the target movement modifier.
+  const stealth = d.armorType === 'stealth' ? 2 : 0;
+  const tmm = Math.max(runTMM, jump > 0 ? targetMovementModifier(jump) + 1 : 0) + stealth;
   const defensive = Math.max(1, armor + structure + gyro + defEquip - explosive) * (1 + tmm / 10);
   lines.push(['Armor', armor], ['Internal structure', structure], ['Gyro', gyro]);
   if (defEquip) lines.push(['Defensive equipment', defEquip]);
@@ -211,8 +216,8 @@ export function mechBV(d: MechDesign): BVBreakdown {
   for (const w of weapons) {
     if (rearBV > frontBV ? !w.rear : w.rear) w.bv /= 2;
   }
-  const moveHeat = airMechFlank !== null ? Math.round(airMechFlank / 3) : Math.max(2, jump > 0 ? Math.max(3, jump) : 0);
-  const heatEfficiency = 6 + s.heatSinks.dissipation + (airMechFlank !== null ? 3 : 0) - moveHeat;
+  const moveHeat = airMechFlank !== null ? Math.round(airMechFlank / 3) : Math.max(s.heat.running, s.heat.jumping);
+  const heatEfficiency = 6 + s.heatSinks.dissipation + (airMechFlank !== null ? 3 : 0) - moveHeat - (stealth ? 10 : 0);
   weapons.sort((a, b) => b.bv - a.bv || a.heat - b.heat);
   let heat = 0;
   let weaponBV = 0;
@@ -237,9 +242,22 @@ export function mechBV(d: MechDesign): BVBreakdown {
   return { total: round(defensive + offensive), defensive, offensive, lines, approximate: false };
 }
 
-const ENGINE_COST: Record<string, number> = { standard: 5000, xl: 20000, light: 15000, compact: 10000, ice: 1250 };
+const ENGINE_COST: Record<string, number> = { standard: 5000, xl: 20000, xxl: 100000, light: 15000, compact: 10000, ice: 1250 };
 const GYRO_COST: Record<string, number> = { standard: 300000, xl: 750000, compact: 400000, 'heavy-duty': 500000 };
-const ARMOR_COST: Record<string, number> = { standard: 10000, 'ferro-fibrous': 20000, 'light-ferro': 15000, 'heavy-ferro': 25000 };
+const ARMOR_COST: Record<string, number> = {
+  standard: 10000, 'ferro-fibrous': 20000, 'light-ferro': 15000, 'heavy-ferro': 25000, stealth: 50000, reactive: 30000,
+  reflective: 30000, hardened: 15000, 'ferro-lamellor': 35000, 'ballistic-reinforced': 25000, 'anti-penetrative': 15000,
+  'heat-dissipating': 25000, 'impact-resistant': 20000,
+};
+/** Structure cost per ton of 'Mech (MegaMek). */
+const STRUCTURE_COST: Record<string, number> = {
+  standard: 400, 'endo-steel': 1600, 'endo-prototype': 4800, 'endo-composite': 3200, composite: 1600, reinforced: 6400,
+};
+/** Armor BV multipliers (MegaMek). */
+const ARMOR_BV_MULTIPLIER: Partial<Record<MechDesign['armorType'], number>> = {
+  hardened: 2, reactive: 1.5, reflective: 1.5, 'ballistic-reinforced': 1.5, 'ferro-lamellor': 1.2, 'anti-penetrative': 1.2,
+  'heat-dissipating': 1.1,
+};
 
 /** Cost of mounted weapons, ammo and equipment. */
 function equipmentCost<T extends { equipmentId: string }>(
@@ -273,7 +291,7 @@ export function mechCost(d: MechDesign): CostBreakdown {
     ['Life support', 50000],
     ['Sensors', 2000 * t],
     ['Musculature', (d.myomer === 'tsm' ? 16000 : 2000) * t],
-    ['Internal structure', (d.structureType === 'endo-steel' ? 1600 : 400) * t],
+    ['Internal structure', STRUCTURE_COST[d.structureType] * t],
     ...(quad ? [] : [['Arm actuators', arms] as [string, number]]),
     ['Leg actuators', (quad ? 4 : 2) * (150 + 80 + 120) * t],
     ['Engine', (ENGINE_COST[d.engineType] * s.rating * t) / 75],
