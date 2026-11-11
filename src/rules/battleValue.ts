@@ -7,11 +7,11 @@
  * approximate.
  */
 import type { Location, MechDesign } from './types';
-import { LOCATIONS, isQuad, legLocations } from './types';
+import { LOCATIONS, isIndustrial, isQuad, legLocations } from './types';
 import type { Equipment } from './equipment';
 import { getEquipment, isDirectFire, isPPC, itemWeight } from './equipment';
 import { computeMech } from './construction';
-import { engineSideTorsoSlots } from './tables';
+import { engineSideTorsoSlots, freeHeatSinks } from './tables';
 import { meleeBV, meleeCost } from './melee';
 import type { FighterDesign } from './fighter';
 import { computeFighter, fighterItemWeight } from './fighter';
@@ -192,12 +192,14 @@ export function mechBV(d: MechDesign): BVBreakdown {
   // --- Defensive battle rating
   // A torso-mounted cockpit counts the center torso armor twice.
   const cockpitArmor = d.cockpitType === 'torso-mounted' ? d.armor.CT + d.armor.CTR : 0;
-  const armor = (s.armorTotal + cockpitArmor) * 2.5 * (ARMOR_BV_MULTIPLIER[d.armorType] ?? 1);
+  // Commercial armor has a barrier armor rating of 5 (half value).
+  const bar = d.armorType === 'commercial' ? 0.5 : 1;
+  const armor = (s.armorTotal + cockpitArmor) * 2.5 * (ARMOR_BV_MULTIPLIER[d.armorType] ?? 1) * bar;
   const isPoints = s.structure ? LOCATIONS.reduce((a, l) => a + s.structure![l], 0) : 0;
   // Engine multiplier from the side-torso engine slots (as MegaMek): 6+ → 0.25, 3+ → 0.5, 2 → 0.75.
   const sideSlots = engineSideTorsoSlots(d.engineType, d.techBase);
   const engineMod = sideSlots >= 6 ? 0.25 : sideSlots >= 3 ? 0.5 : sideSlots === 2 ? 0.75 : 1;
-  const structureMod = d.structureType === 'composite' ? 0.5 : d.structureType === 'reinforced' ? 2 : 1;
+  const structureMod = d.structureType === 'composite' || d.structureType === 'industrial' ? 0.5 : d.structureType === 'reinforced' ? 2 : 1;
   const structure = isPoints * 1.5 * structureMod * engineMod;
   const gyro = d.tonnage * (d.gyroType === 'heavy-duty' ? 1 : 0.5);
   const defEquip = defensiveEquipmentBV(d.equipment);
@@ -269,12 +271,15 @@ export function mechBV(d: MechDesign): BVBreakdown {
     const eq = getEquipment(i.equipmentId);
     return eq && !eq.isWeapon && eq.category !== 'Ammo' && !DEFENSIVE_IDS.has(eq.id) ? a + (value(eq.id)?.bv ?? 0) : a;
   }, 0);
-  const tonnage = d.tonnage * (d.myomer === 'tsm' ? 1.5 : 1);
+  const tonnage = d.tonnage * (d.myomer === 'tsm' ? 1.5 : d.myomer === 'industrial-tsm' ? 1.15 : 1);
   const sf = speedFactor(run + Math.round((airMechFlank ?? jump) / 2));
-  const offensive = (weaponBV + ammo + offEquip + tonnage) * sf;
+  // IndustrialMechs without advanced fire control: offensive rating × 0.9.
+  const afcMod = d.cockpitType === 'industrial' ? 0.9 : 1;
+  const offensive = (weaponBV + ammo + offEquip + tonnage) * sf * afcMod;
   lines.push(['Weapons (heat-adjusted)', weaponBV], ['Ammunition', ammo]);
   if (offEquip) lines.push(['Offensive equipment', offEquip]);
   lines.push(['Tonnage', tonnage], ['Speed factor', sf]);
+  if (afcMod !== 1) lines.push(['× 0.9 no advanced fire control', afcMod]);
   // Small and torso-mounted cockpits cost 5% of the total.
   const cockpitMod = d.cockpitType === 'small' || d.cockpitType === 'torso-mounted' ? 0.95 : 1;
   if (cockpitMod !== 1) lines.push([`× 0.95 ${d.cockpitType === 'small' ? 'small' : 'torso-mounted'} cockpit`, cockpitMod]);
@@ -282,16 +287,18 @@ export function mechBV(d: MechDesign): BVBreakdown {
   return { total: round((defensive + offensive) * cockpitMod), defensive, offensive, lines, approximate: false };
 }
 
-const ENGINE_COST: Record<string, number> = { standard: 5000, xl: 20000, xxl: 100000, light: 15000, compact: 10000, ice: 1250 };
+const ENGINE_COST: Record<string, number> = {
+  standard: 5000, xl: 20000, xxl: 100000, light: 15000, compact: 10000, ice: 1250, 'fuel-cell': 3500, fission: 7500,
+};
 const GYRO_COST: Record<string, number> = { standard: 300000, xl: 750000, compact: 400000, 'heavy-duty': 500000 };
 const ARMOR_COST: Record<string, number> = {
   standard: 10000, 'ferro-fibrous': 20000, 'light-ferro': 15000, 'heavy-ferro': 25000, stealth: 50000, reactive: 30000,
   reflective: 30000, hardened: 15000, 'ferro-lamellor': 35000, 'ballistic-reinforced': 25000, 'anti-penetrative': 15000,
-  'heat-dissipating': 25000, 'impact-resistant': 20000,
+  'heat-dissipating': 25000, 'impact-resistant': 20000, commercial: 3000, industrial: 5000, 'heavy-industrial': 10000,
 };
 /** Structure cost per ton of 'Mech (MegaMek). */
 const STRUCTURE_COST: Record<string, number> = {
-  standard: 400, 'endo-steel': 1600, 'endo-prototype': 4800, 'endo-composite': 3200, composite: 1600, reinforced: 6400,
+  standard: 400, 'endo-steel': 1600, 'endo-prototype': 4800, 'endo-composite': 3200, composite: 1600, reinforced: 6400, industrial: 300,
 };
 /** Armor BV multipliers (MegaMek). */
 const ARMOR_BV_MULTIPLIER: Partial<Record<MechDesign['armorType'], number>> = {
@@ -326,12 +333,12 @@ export function mechCost(d: MechDesign): CostBreakdown {
     return a + 100 * t + (act.lowerArm ? 50 * t : 0) + (act.lowerArm && act.hand ? 80 * t : 0);
   }, 0);
   const jumpCost = (d.jumpJetType === 'improved' ? 500 : 200) * t * s.jumpMP ** 2;
-  const hsCost = (d.heatSinkType === 'double' ? 6000 : 2000) * Math.max(0, s.heatSinks.total - 10);
+  const hsCost = (d.heatSinkType === 'double' ? 6000 : 2000) * Math.max(0, s.heatSinks.total - freeHeatSinks(d.engineType));
   const lines: [string, number][] = [
-    ['Cockpit', { standard: 200000, small: 175000, 'torso-mounted': 750000, 'command-console': 700000 }[d.cockpitType]],
+    ['Cockpit', { standard: 200000, small: 175000, 'torso-mounted': 750000, 'command-console': 700000, industrial: 100000 }[d.cockpitType]],
     ['Life support', 50000],
     ['Sensors', 2000 * t],
-    ['Musculature', (d.myomer === 'tsm' ? 16000 : 2000) * t],
+    ['Musculature', (d.myomer === 'tsm' ? 16000 : d.myomer === 'industrial-tsm' ? 12000 : 2000) * t],
     ['Internal structure', STRUCTURE_COST[d.structureType] * t],
     ...(quad ? [] : [['Arm actuators', arms] as [string, number]]),
     ['Leg actuators', (quad ? 4 : 2) * (150 + 80 + 120) * t],
@@ -343,14 +350,17 @@ export function mechCost(d: MechDesign): CostBreakdown {
     ['Weapons & equipment', equipmentCost(d.equipment, (eq) => itemWeight(eq, d), s.rating, d)],
   ];
   if (d.fullHeadEjection) lines.push(['Full Head Ejection System', 1725000]);
+  if (d.environmentalSealing) lines.push(['Environmental sealing', 225 * t]);
   if (d.lam) {
     // Conversion equipment: 75% (65% bimodal) of internal structure plus weapons and equipment cost.
     const base = lines.find(([l]) => l === 'Internal structure')![1] + lines.find(([l]) => l === 'Weapons & equipment')![1];
     lines.push([`LAM conversion (${d.lam})`, base * (d.lam === 'bimodal' ? 0.65 : 0.75)]);
   }
   const subtotal = lines.reduce((a, [, v]) => a + v, 0);
-  const multiplier = (1 + t / 100) * (d.omni ? 1.25 : 1);
-  lines.push([d.omni ? `× (1 + tonnage/100) × 1.25 OmniMech` : '× (1 + tonnage/100)', multiplier]);
+  // IndustrialMechs: × (1 + tonnage/400).
+  const divisor = isIndustrial(d) ? 400 : 100;
+  const multiplier = (1 + t / divisor) * (d.omni ? 1.25 : 1);
+  lines.push([`× (1 + tonnage/${divisor})${d.omni ? ' × 1.25 OmniMech' : ''}`, multiplier]);
   return { total: round(subtotal * multiplier), lines, approximate: false };
 }
 

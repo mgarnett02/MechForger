@@ -335,8 +335,10 @@ export const JUMP_JET_IDS: readonly string[] = [JUMP_JET_ID, IMPROVED_JUMP_JET_I
 export const ENDO_STEEL_ID = 'endo-steel';
 export const FERRO_FIBROUS_ID = 'ferro-fibrous';
 export const TSM_ID = 'tsm';
+/** IndustrialMech environmental sealing: one slot in every location. */
+export const ENV_SEAL_ID = 'environmental-sealing';
 /** Single-slot placeholders for spread-out structure / armor / myomer. */
-export const FILLER_IDS: readonly string[] = [ENDO_STEEL_ID, FERRO_FIBROUS_ID, TSM_ID];
+export const FILLER_IDS: readonly string[] = [ENDO_STEEL_ID, FERRO_FIBROUS_ID, TSM_ID, ENV_SEAL_ID];
 
 const managed = (avail: Avail, id: string, name: string, tons: number, slots: number): Equipment => ({
   id, name, category: 'Other', tons, slots, heat: 0, isWeapon: false, managed: true, ...avail,
@@ -361,6 +363,7 @@ export const OTHER_EQUIPMENT: readonly Equipment[] = [
   {
     ...managed(IS_3050, TSM_ID, 'Triple-Strength Myomer', 0, 1),
   },
+  managed(ANY_3025, ENV_SEAL_ID, 'Environmental Sealing', 0, 1),
   // Catalog items
   {
     id: 'case', name: 'CASE', category: 'Other', tons: 0.5, slots: 1, heat: 0, isWeapon: false,
@@ -436,9 +439,14 @@ export const OTHER_EQUIPMENT: readonly Equipment[] = [
   },
 ];
 
-/** Industrial and utility equipment carried by combat and support vehicles (not BattleMechs). */
+/** 'Mech critical slots for industrial equipment (vehicles use one item slot per item). */
+const MECH_UTILITY_SLOTS: Record<string, number> = {
+  'lift-hoist': 3, backhoe: 6, chainsaw: 5, 'dual-saw': 7, 'rock-cutter': 5, combine: 4, 'salvage-arm': 2,
+  'spot-welder': 1, 'pile-driver': 8, 'mining-drill': 4, 'cargo-container': 10,
+};
+/** Industrial and utility equipment carried by vehicles and IndustrialMechs (not BattleMechs). */
 const utility = (id: string, name: string, tons: number): Equipment => ({
-  id, name, category: 'Utility', tons, slots: 1, heat: 0, isWeapon: false, techBase: 'Both', firstEra: '3025',
+  id, name, category: 'Utility', tons, slots: MECH_UTILITY_SLOTS[id] ?? 1, heat: 0, isWeapon: false, techBase: 'Both', firstEra: '3025',
 });
 export const UTILITY_EQUIPMENT: readonly Equipment[] = [
   utility('searchlight', 'Searchlight (Mounted)', 0.5),
@@ -468,6 +476,14 @@ export const UTILITY_EQUIPMENT: readonly Equipment[] = [
   utility('remote-sensor-dispenser', 'Remote Sensors / Dispenser', 0.5),
   utility('manipulator', 'Manipulator (industrial)', 0.01),
   utility('recon-camera', 'Recon Camera', 0.5),
+  utility('mining-drill', 'Mining Drill', 3),
+  utility('sprayer', 'Sprayer', 0.5),
+  utility('im-ejection-seat', 'IM Ejection Seat', 0.5),
+  // Cargo space and liquid storage, a ton (one slot) or half a ton (one slot) at a time.
+  utility('cargo-1', 'Cargo (1 ton)', 1),
+  utility('cargo-half', 'Cargo (½ ton)', 0.5),
+  utility('liquid-storage-1', 'Liquid Storage (1 ton)', 1),
+  utility('liquid-storage-half', 'Liquid Storage (½ ton)', 0.5),
 ];
 
 // Capital and sub-capital weapons (values from MegaMek's weapon and ammo definitions)
@@ -572,9 +588,10 @@ export function allowedLocations(eq: Equipment, design?: { config?: MechConfig }
   return locs;
 }
 
-/** Weapons in a torso location (or in any leg of a quad) may be mounted rear-facing. */
+/** Weapons and industrial equipment in a torso location (or in any leg of a quad) may be mounted rear-facing. */
 export function canRearMount(eq: Equipment, location: Location | null, design?: { config?: MechConfig }): boolean {
-  if (!eq.isWeapon || !location) return false;
+  // Weapons, and industrial equipment such as lift hoists and searchlights, may face rearward.
+  if ((!eq.isWeapon && eq.category !== 'Utility') || !location) return false;
   if (location === 'CT' || location === 'LT' || location === 'RT') return true;
   return design?.config === 'quad' && location !== 'HD';
 }
@@ -594,6 +611,7 @@ export function isEquipmentAvailable(eq: Equipment, era: EraId, techBase: TechBa
 /** Spread-out structure / armor slots are named after the design's structure or armor type. */
 const FILLER_NAMES: Record<string, Record<string, string>> = {
   'endo-steel': { 'endo-prototype': 'Endo Steel Prototype', 'endo-composite': 'Endo-Composite' },
+  tsm: { 'industrial-tsm': 'Industrial TSM' },
   'ferro-fibrous': {
     'light-ferro': 'Light Ferro-Fibrous', 'heavy-ferro': 'Heavy Ferro-Fibrous', reactive: 'Reactive', reflective: 'Reflective',
     'ferro-lamellor': 'Ferro-Lamellor', 'ballistic-reinforced': 'Ballistic-Reinforced', 'anti-penetrative': 'Anti-Penetrative Ablation',
@@ -607,7 +625,8 @@ const FILLER_SHORT: Record<string, string> = {
 function baseName(eq: Equipment, d: object): string {
   const by = FILLER_NAMES[eq.id];
   if (!by) return eq.name;
-  const kind = eq.id === 'endo-steel' ? (d as { structureType?: string }).structureType : (d as { armorType?: string }).armorType;
+  const kind = eq.id === 'endo-steel' ? (d as { structureType?: string }).structureType
+    : eq.id === 'tsm' ? (d as { myomer?: string }).myomer : (d as { armorType?: string }).armorType;
   return (kind && by[kind]) ?? eq.name;
 }
 

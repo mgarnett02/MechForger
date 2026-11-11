@@ -35,7 +35,7 @@ export function technicalReadout(design: MechDesign, summary: MechSummary = comp
   lines.push('');
   lines.push(row('Equipment', 'Mass'));
   lines.push(row(`Internal Structure: ${design.structureType === 'standard' ? '' : STRUCTURE_NAMES[design.structureType]}`.trimEnd(), s.weights.structure));
-  const engineName = { standard: 'Fusion', xl: 'XL', xxl: 'XXL', light: 'Light', compact: 'Compact' }[design.engineType];
+  const engineName = { standard: 'Fusion', xl: 'XL', xxl: 'XXL', light: 'Light', compact: 'Compact', ice: 'I.C.E.', 'fuel-cell': 'Fuel Cell', fission: 'Fission' }[design.engineType];
   lines.push(row(`Engine: ${s.rating} ${engineName}`, s.weights.engine));
   lines.push(`    Walking MP: ${design.walkMP}`);
   lines.push(`    Running MP: ${s.runMP}${s.mascRunMP ? ` [${s.mascRunMP}]` : ''}`);
@@ -50,7 +50,7 @@ export function technicalReadout(design: MechDesign, summary: MechSummary = comp
   lines.push(row(`Heat Sinks:${hsLabel} ${s.heatSinks.total} [${s.heatSinks.dissipation}]`, s.weights.heatSinks));
   const gyroName = { standard: '', xl: ' XL', 'heavy-duty': ' Heavy-Duty', compact: ' Compact' }[design.gyroType];
   lines.push(row(`Gyro:${gyroName}`, s.weights.gyro));
-  const cockpitName = { standard: '', small: ' Small', 'torso-mounted': ' Torso-Mounted', 'command-console': ' Command Console' }[design.cockpitType];
+  const cockpitName = { standard: '', small: ' Small', 'torso-mounted': ' Torso-Mounted', 'command-console': ' Command Console', industrial: ' Industrial (no AFC)' }[design.cockpitType];
   lines.push(row(`Cockpit:${cockpitName}`, s.weights.cockpit));
   if (s.weights.conversion) lines.push(row('LAM Conversion Equipment:', s.weights.conversion));
   if (design.fullHeadEjection) lines.push('Full Head Ejection System');

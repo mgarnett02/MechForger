@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import type { ArmorFacing, Location, MechDesign } from '../../rules/types';
-import { LAM_TYPE_NAMES, TECH_BASE_NAMES, isQuad, locationName } from '../../rules/types';
+import { LAM_TYPE_NAMES, TECH_BASE_NAMES, isIndustrial, isQuad, locationName } from '../../rules/types';
 import { computeMech } from '../../rules/construction';
 import { getEra } from '../../rules/eras';
 import { ARMOR_NAMES, ENGINE_NAMES } from '../../rules/tables';
@@ -229,7 +229,7 @@ export function MechRecordSheet({ design }: { design: MechDesign }) {
 
   return (
     <article className="record-sheet mech">
-      <SheetHeader kind={design.lam ? "Land-Air 'Mech Record Sheet" : 'BattleMech Record Sheet'} name={config ? `${name} (${config})` : name} />
+      <SheetHeader kind={design.lam ? "Land-Air 'Mech Record Sheet" : isIndustrial(design) ? 'IndustrialMech Record Sheet' : 'BattleMech Record Sheet'} name={config ? `${name} (${config})` : name} />
       <div className="rs-grid-mech">
         <Panel title="'Mech Data" className="area-data">
           <div className="rs-fields">
@@ -318,7 +318,7 @@ export function MechRecordSheet({ design }: { design: MechDesign }) {
             <div className="rs-hs-label">Dissipation: <b>{s.heatSinks.dissipation}</b></div>
             <Circles n={s.heatSinks.total} />
           </div>
-          <p className="rs-note">* All weapons: {s.heat.weapons} heat · {design.engineType === 'xxl' ? 'stand +2 · walk +4' : 'walk +1'} · run +{s.heat.running}{s.jumpMP ? ` · jump +${s.heat.jumping}` : ''}{design.armorType === 'stealth' ? ' · stealth +10' : ''}</p>
+          <p className="rs-note">* All weapons: {s.heat.weapons} heat · {isIndustrial(design) ? 'no movement heat' : `${design.engineType === 'xxl' ? 'stand +2 · walk +4' : 'walk +1'} · run +${s.heat.running}`}{s.jumpMP ? ` · jump +${s.heat.jumping}` : ''}{design.armorType === 'stealth' ? ' · stealth +10' : ''}</p>
         </Panel>
 
         <div className="rs-heat-scale area-scale" aria-label="Heat scale">

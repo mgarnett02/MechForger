@@ -11,7 +11,8 @@ import { isAvailableIn } from './eras';
  * standard gyro and cockpit, single heat sinks).
  */
 
-export const TONNAGES = [20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100];
+/** 10 and 15 tons are ultralight 'Mechs (IndustrialMechs and ultralight BattleMechs). */
+export const TONNAGES = [10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100];
 
 export const MIN_ENGINE_RATING = 10;
 export const MAX_ENGINE_RATING = 400;
@@ -40,6 +41,8 @@ export function standardFusionEngineWeight(rating: number): number | null {
 
 /** Internal structure points by tonnage: [CT, side torso, arm, leg]. Head is always 3. */
 const INTERNAL_STRUCTURE: Record<number, [number, number, number, number]> = {
+  10: [4, 3, 1, 2],
+  15: [5, 4, 2, 3],
   20: [6, 5, 3, 4],
   25: [8, 6, 4, 6],
   30: [10, 7, 5, 7],
@@ -96,7 +99,8 @@ export function engineHeatSinkCapacity(rating: number): number {
 }
 
 export function weightClass(tonnage: number): WeightClass | null {
-  if (tonnage < 20 || tonnage > 100) return null;
+  if (tonnage < 10 || tonnage > 100) return null;
+  if (tonnage < 20) return 'Ultralight';
   if (tonnage <= 35) return 'Light';
   if (tonnage <= 55) return 'Medium';
   if (tonnage <= 75) return 'Heavy';
@@ -140,7 +144,23 @@ export function xxlEngineWeight(rating: number): number | null {
   return std === null ? null : Math.ceil((std / 3) * 2 - 1e-9) / 2;
 }
 
+/** Non-fusion engines (TechManual): I.C.E. twice standard fusion weight, fuel cell ×1.2, fission ×1.75 (at least 5 t). */
+function scaledEngineWeight(rating: number, factor: number, min = 0): number | null {
+  const std = standardFusionEngineWeight(rating);
+  return std === null ? null : Math.max(min, Math.ceil(std * factor * 2 - 1e-9) / 2);
+}
+
+/** Heat sinks that come free with the engine: fusion 10, fission 5, fuel cell 1, I.C.E. none. */
+export function freeHeatSinks(type: EngineType): number {
+  return type === 'ice' ? 0 : type === 'fuel-cell' ? 1 : type === 'fission' ? 5 : FREE_HEAT_SINKS;
+}
+
+export const isFusion = (type: EngineType) => !['ice', 'fuel-cell', 'fission'].includes(type);
+
 export function engineWeight(type: EngineType, rating: number): number | null {
+  if (type === 'ice') return scaledEngineWeight(rating, 2);
+  if (type === 'fuel-cell') return scaledEngineWeight(rating, 1.2);
+  if (type === 'fission') return scaledEngineWeight(rating, 1.75, 5);
   if (type === 'xl') return xlEngineWeight(rating);
   if (type === 'xxl') return xxlEngineWeight(rating);
   if (type === 'light') return lightEngineWeight(rating);
@@ -178,12 +198,12 @@ export function gyroSlots(type: GyroType): number {
 
 /** Cockpit weight: small 2, standard 3, torso-mounted 4, command console 6 (cockpit plus console). */
 export function cockpitWeight(type: CockpitType): number {
-  return { small: 2, standard: COCKPIT_WEIGHT, 'torso-mounted': 4, 'command-console': 6 }[type];
+  return { small: 2, standard: COCKPIT_WEIGHT, 'torso-mounted': 4, 'command-console': 6, industrial: COCKPIT_WEIGHT }[type];
 }
 
 /** Structure weight as a share of standard structure (10% of tonnage), each rounded up to the half ton. */
 const STRUCTURE_WEIGHT_SHARE: Record<StructureType, number> = {
-  standard: 1, 'endo-steel': 0.5, 'endo-prototype': 0.5, 'endo-composite': 0.75, composite: 0.5, reinforced: 2,
+  standard: 1, 'endo-steel': 0.5, 'endo-prototype': 0.5, 'endo-composite': 0.75, composite: 0.5, reinforced: 2, industrial: 2,
 };
 
 /** Endo Steel weighs 5% of tonnage, Endo-Composite 7.5%, Composite 5%, Reinforced 20%; rounded up to the half ton. */
@@ -221,7 +241,7 @@ export function armorSlots(type: ArmorType, techBase: TechBase): number {
 
 const ARMOR_PPT_MULTIPLIER: Partial<Record<ArmorType, number>> = {
   'light-ferro': 1.06, 'heavy-ferro': 1.24, hardened: 0.5, 'ferro-lamellor': 0.875, 'ballistic-reinforced': 0.75,
-  'anti-penetrative': 0.75, 'heat-dissipating': 0.625, 'impact-resistant': 0.875,
+  'anti-penetrative': 0.75, 'heat-dissipating': 0.625, 'impact-resistant': 0.875, commercial: 1.5, industrial: 0.67,
 };
 
 /** Armor points per ton: standard 16; Ferro-Fibrous ×1.12 (IS) / ×1.2 (Clan); others by their multiplier. */
@@ -233,16 +253,18 @@ export function armorPointsPerTon(type: ArmorType, techBase: TechBase): number {
 /** Display names for structure, engine and armor types. */
 export const STRUCTURE_NAMES: Record<StructureType, string> = {
   standard: 'Standard', 'endo-steel': 'Endo Steel', 'endo-prototype': 'Endo Steel Prototype',
-  'endo-composite': 'Endo-Composite', composite: 'Composite', reinforced: 'Reinforced',
+  'endo-composite': 'Endo-Composite', composite: 'Composite', reinforced: 'Reinforced', industrial: 'Industrial',
 };
 export const ENGINE_NAMES: Record<EngineType, string> = {
   standard: 'Fusion', xl: 'XL Fusion', xxl: 'XXL Fusion', light: 'Light Fusion', compact: 'Compact Fusion',
+  ice: 'I.C.E.', 'fuel-cell': 'Fuel Cell', fission: 'Fission',
 };
 export const ARMOR_NAMES: Record<ArmorType, string> = {
   standard: 'Standard', 'ferro-fibrous': 'Ferro-Fibrous', 'light-ferro': 'Light Ferro-Fibrous', 'heavy-ferro': 'Heavy Ferro-Fibrous',
   stealth: 'Stealth', reactive: 'Reactive', reflective: 'Reflective', hardened: 'Hardened', 'ferro-lamellor': 'Ferro-Lamellor',
   'ballistic-reinforced': 'Ballistic-Reinforced', 'anti-penetrative': 'Anti-Penetrative Ablation',
   'heat-dissipating': 'Heat-Dissipating', 'impact-resistant': 'Impact-Resistant',
+  commercial: 'Commercial', industrial: 'Industrial', 'heavy-industrial': 'Heavy Industrial',
 };
 
 /** MASC: IS 1 ton per 20 tons of mech, Clan 1 per 25, rounded to the nearest ton. Slots = tons. */
@@ -273,11 +295,15 @@ export const STRUCTURE_OPTIONS: Record<StructureType, ComponentOption> = {
   'endo-composite': opt('Endo-Composite structure', 'Both', '3062', '3068'),
   composite: opt('Composite structure', 'IS', '3050'),
   reinforced: opt('Reinforced structure', 'Both', '3050'),
+  industrial: opt('Industrial structure', 'Both', '3025'),
 };
 export const ENGINE_OPTIONS: Record<EngineType, ComponentOption> = {
   standard: opt('Standard fusion engines', 'Both', '3025'),
   xl: opt('XL engines', 'Both', '3050'),
   xxl: opt('XXL engines', 'Both', '3050'),
+  ice: opt('Internal combustion engines', 'Both', '3025'),
+  'fuel-cell': opt('Fuel cell engines', 'Both', '3025'),
+  fission: opt('Fission engines', 'Both', '3025'),
   light: opt('Light engines', 'IS', '3062'),
   compact: opt('Compact engines', 'IS', '3068'),
 };
@@ -292,6 +318,7 @@ export const COCKPIT_OPTIONS: Record<CockpitType, ComponentOption> = {
   small: opt('Small cockpits', 'IS', '3062'),
   'command-console': opt('Command consoles', 'Both', '3025'),
   'torso-mounted': opt('Torso-mounted cockpits', 'Both', '3050'),
+  industrial: opt('Industrial cockpits', 'Both', '3025'),
 };
 export const HEAT_SINK_OPTIONS: Record<HeatSinkType, ComponentOption> = {
   single: opt('Single heat sinks', 'Both', '3025'),
@@ -311,6 +338,9 @@ export const ARMOR_OPTIONS: Record<ArmorType, ComponentOption> = {
   'anti-penetrative': opt('Anti-Penetrative Ablation armor', 'IS', '3081'),
   'ballistic-reinforced': opt('Ballistic-Reinforced armor', 'IS', '3101'),
   'heat-dissipating': opt('Heat-Dissipating armor', 'Both', '3101'),
+  commercial: opt('Commercial armor', 'Both', '3025'),
+  industrial: opt('Industrial armor', 'Both', '3025'),
+  'heavy-industrial': opt('Heavy industrial armor', 'Both', '3025'),
 };
 export const JUMP_JET_OPTIONS: Record<JumpJetType, ComponentOption> = {
   standard: opt('Standard jump jets', 'Both', '3025'),
@@ -320,6 +350,7 @@ export const JUMP_JET_OPTIONS: Record<JumpJetType, ComponentOption> = {
 export const MYOMER_OPTIONS: Record<MyomerType, ComponentOption> = {
   standard: opt('Standard myomer', 'Both', '3025'),
   tsm: opt('Triple-Strength Myomer', 'IS', '3050'),
+  'industrial-tsm': opt('Industrial Triple-Strength Myomer', 'IS', '3025'),
 };
 
 export function componentFirstEra(o: ComponentOption, techBase: TechBase = 'IS'): EraId {

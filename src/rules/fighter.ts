@@ -97,7 +97,7 @@ export const FIGHTER_ENGINE_LABELS: Record<FighterEngineType, string> = {
 
 export const FIGHTER_ENGINE_OPTIONS: Record<FighterEngineType, ComponentOption> = {
   ice: { label: 'ICE engines', techBase: 'Both', firstEra: '3025' },
-  ...ENGINE_OPTIONS,
+  standard: ENGINE_OPTIONS.standard, xl: ENGINE_OPTIONS.xl, light: ENGINE_OPTIONS.light, compact: ENGINE_OPTIONS.compact,
 };
 
 /** Aerospace armor names (ferro-aluminum is the aerospace counterpart of ferro-fibrous). */

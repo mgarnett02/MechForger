@@ -194,6 +194,8 @@ export const ITEM_VALUES: Record<string, ItemValue> = {
 
   // Utility equipment (vehicles only)
   searchlight: v(0, 2000), 'searchlight-handheld': v(0, 500), 'lift-hoist': v(0, 50000),
+  'mining-drill': v(0, 10000), sprayer: v(0, 1000), 'im-ejection-seat': v(0, 25000),
+  'cargo-1': v(0, 0), 'cargo-half': v(0, 0), 'liquid-storage-1': v(0, 0), 'liquid-storage-half': v(0, 0),
   'paramedic-equipment': v(0, 7500), 'cargo-container': v(0, 0), 'communications-equipment': v(0, 10000),
   bulldozer: v(0, 50000), backhoe: v(0, 50000), chainsaw: v(0, 100000), 'dual-saw': v(0, 100000),
   'rock-cutter': v(0, 100000), combine: v(0, 75000), 'salvage-arm': v(0, 50000), 'spot-welder': v(0, 75000),

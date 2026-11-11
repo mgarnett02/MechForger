@@ -95,8 +95,8 @@ describe('XXL engines', () => {
 
 describe('canon designs with advanced structure, armor and engines', () => {
   it('are bundled and nearly all build exactly', () => {
-    const adv = M.map((e) => decodeMech(e.d)).filter((d) => d.engineType === 'xxl'
-      || !['standard', 'endo-steel'].includes(d.structureType) || !['standard', 'ferro-fibrous', 'light-ferro', 'heavy-ferro'].includes(d.armorType));
+    const adv = M.map((e) => decodeMech(e.d)).filter((d) => d.structureType !== 'industrial' && (d.engineType === 'xxl'
+      || !['standard', 'endo-steel'].includes(d.structureType) || !['standard', 'ferro-fibrous', 'light-ferro', 'heavy-ferro', 'commercial', 'industrial', 'heavy-industrial'].includes(d.armorType)));
     expect(adv.length).toBeGreaterThan(100);
     expect(adv.filter((d) => computeMech(d).weights.total === d.tonnage).length / adv.length).toBeGreaterThan(0.95);
     expect(adv.filter((d) => errors(d).length === 0).length / adv.length).toBeGreaterThan(0.9);

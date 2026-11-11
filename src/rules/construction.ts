@@ -1,7 +1,7 @@
 import type { Location, MechDesign, MountedItem, WeightClass } from './types';
-import { LOCATIONS, isQuad } from './types';
+import { LOCATIONS, isIndustrial, isQuad } from './types';
 import {
-  FREE_HEAT_SINKS, armorPointsPerTon, cockpitWeight, engineCenterSlots, engineHeatSinkCapacity,
+  freeHeatSinks, armorPointsPerTon, cockpitWeight, engineCenterSlots, engineHeatSinkCapacity,
   engineSideTorsoSlots, engineWeight, gyroSlots, gyroWeightFor, internalStructure, internalStructureWeight,
   STEALTH_LOCATIONS, jumpJetWeightFor, runMP,
   weightClass,
@@ -122,6 +122,7 @@ function claim(slots: (string | null)[], label: string): (string | null)[] {
 const LEG_SLOTS = ['Hip', 'Upper Leg Actuator', 'Lower Leg Actuator', 'Foot Actuator', null, null];
 
 const ENGINE_LABEL = {
+  ice: 'I.C.E.', 'fuel-cell': 'Fuel Cell', fission: 'Fission Engine',
   standard: 'Fusion Engine', xl: 'XL Fusion Engine', xxl: 'XXL Fusion Engine', light: 'Light Fusion Engine', compact: 'Compact Fusion Engine',
 } as const;
 const GYRO_LABEL = { standard: 'Gyro', xl: 'XL Gyro', 'heavy-duty': 'Heavy-Duty Gyro', compact: 'Compact Gyro' } as const;
@@ -250,13 +251,15 @@ export function computeMech(design: MechDesign): MechSummary {
     engine: engineWt ?? 0,
     gyro: gyroWeightFor(design.gyroType, rating),
     cockpit: cockpitWeight(design.cockpitType),
-    heatSinks: Math.max(0, totalHS - FREE_HEAT_SINKS),
+    heatSinks: Math.max(0, totalHS - freeHeatSinks(design.engineType)),
     jumpJets: jumpMP * jumpJetWeightFor(design.jumpJetType, tonnage),
     armor: armorTonnage(armorTotal, ppt),
     equipment: equipmentWeight,
     total: 0,
     free: 0,
   };
+  // Environmental sealing: a tenth of the tonnage, rounded up to the half ton.
+  if (design.environmentalSealing) weights.equipment += Math.ceil(tonnage / 10 * 2 - 1e-9) / 2;
   weights.total =
     weights.structure + weights.conversion + weights.engine + weights.gyro + weights.cockpit +
     weights.heatSinks + weights.jumpJets + weights.armor + weights.equipment;
@@ -294,7 +297,8 @@ export function computeMech(design: MechDesign): MechSummary {
     heat: {
       weapons: weaponHeat,
       // XXL engines run hot: 6 heat running, jumping 2 per MP (minimum 6). Stealth armor adds 10 when engaged.
-      running: xxl ? 6 : 2,
+      // IndustrialMechs take no movement heat (Total Warfare p. 158).
+      running: isIndustrial(design) ? 0 : xxl ? 6 : 2,
       jumping: jumpMP > 0 ? (xxl ? Math.max(6, jumpMP * 2) : Math.max(3, jumpMP)) : 0,
     },
     weights,

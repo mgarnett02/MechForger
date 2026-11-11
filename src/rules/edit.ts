@@ -4,10 +4,11 @@ import type {
 } from './types';
 import { ARMOR_FACINGS, LOCATIONS, REAR_FACING, isQuad, legLocations } from './types';
 import {
+  ARMOR_OPTIONS, COCKPIT_OPTIONS, ENGINE_OPTIONS, GYRO_OPTIONS, MYOMER_OPTIONS, STRUCTURE_OPTIONS,
   FREE_HEAT_SINKS, armorPointsPerTon, armorSlots, engineHeatSinkCapacity, maxWalkMP, structureSlots,
 } from './tables';
 import {
-  ENDO_STEEL_ID, FERRO_FIBROUS_ID, HEAT_SINK_IDS, JUMP_JET_IDS, TSM_ID, allowedLocations,
+  ENDO_STEEL_ID, ENV_SEAL_ID, FERRO_FIBROUS_ID, HEAT_SINK_IDS, JUMP_JET_IDS, TSM_ID, allowedLocations,
   canRearMount, getEquipment, heatSinkIdFor, itemSlots, jumpJetIdFor,
 } from './equipment';
 import { isFixedOnly } from './omni';
@@ -255,11 +256,18 @@ function normalizeHeatSinks(d: MechDesign): MechDesign {
 function syncFillers(d: MechDesign): MechDesign {
   const withEndo = syncCount(d, ENDO_STEEL_ID, structureSlots(d.structureType, d.techBase));
   const withFerro = syncCount(withEndo, FERRO_FIBROUS_ID, armorSlots(d.armorType, d.techBase));
-  return syncCount(withFerro, TSM_ID, d.myomer === 'tsm' ? TSM_SLOTS : 0);
+  const withTsm = syncCount(withFerro, TSM_ID, tsmSlots(d.myomer));
+  return syncCount(withTsm, ENV_SEAL_ID, d.environmentalSealing ? 8 : 0);
 }
 
 /** Triple-Strength Myomer occupies 6 critical slots spread over the mech. */
 export const TSM_SLOTS = 6;
+/** Myomer slots spread over the mech: TSM 6, Industrial TSM 12. */
+export const tsmSlots = (m: MyomerType) => (m === 'tsm' ? TSM_SLOTS : m === 'industrial-tsm' ? 12 : 0);
+
+export function setEnvironmentalSealing(d: MechDesign, on: boolean): MechDesign {
+  return syncFillers({ ...d, environmentalSealing: on || undefined });
+}
 
 export function setMyomer(d: MechDesign, myomer: MyomerType): MechDesign {
   return syncFillers({ ...d, myomer });
@@ -311,7 +319,7 @@ export function setHeatSinkType(d: MechDesign, heatSinkType: HeatSinkType): Mech
 
 const PLACE_ORDER: Location[] = ['LT', 'RT', 'CT', 'LA', 'RA', 'LL', 'RL', 'HD'];
 const FILLER_ORDER: Location[] = ['LA', 'RA', 'LL', 'RL', 'LT', 'RT', 'CT', 'HD'];
-const FILLERS = [ENDO_STEEL_ID, FERRO_FIBROUS_ID, TSM_ID];
+const FILLERS = [ENDO_STEEL_ID, FERRO_FIBROUS_ID, TSM_ID, ENV_SEAL_ID];
 
 /**
  * Place every unallocated item in the first location with room for it.
@@ -391,14 +399,15 @@ export function parseDesign(raw: unknown): MechDesign {
     schemaVersion: 1,
     era: getEra(String(r.era))?.id ?? DEFAULT_ERA,
     techBase: pick(r.techBase, ['IS', 'Clan'] as const, 'IS'),
-    structureType: pick(r.structureType, ['standard', 'endo-steel'] as const, 'standard'),
-    engineType: pick(r.engineType, ['standard', 'xl', 'light', 'compact'] as const, 'standard'),
-    gyroType: pick(r.gyroType, ['standard', 'xl', 'heavy-duty', 'compact'] as const, 'standard'),
+    structureType: pick(r.structureType, Object.keys(STRUCTURE_OPTIONS) as StructureType[], 'standard'),
+    engineType: pick(r.engineType, Object.keys(ENGINE_OPTIONS) as EngineType[], 'standard'),
+    gyroType: pick(r.gyroType, Object.keys(GYRO_OPTIONS) as GyroType[], 'standard'),
     jumpJetType: pick(r.jumpJetType, ['standard', 'improved'] as const, 'standard'),
-    cockpitType: pick(r.cockpitType, ['standard', 'small', 'command-console', 'torso-mounted'] as const, 'standard'),
+    cockpitType: pick(r.cockpitType, Object.keys(COCKPIT_OPTIONS) as CockpitType[], 'standard'),
     heatSinkType: pick(r.heatSinkType, ['single', 'double'] as const, 'single'),
-    armorType: pick(r.armorType, ['standard', 'ferro-fibrous', 'light-ferro', 'heavy-ferro'] as const, 'standard'),
-    myomer: pick(r.myomer, ['standard', 'tsm'] as const, 'standard'),
+    armorType: pick(r.armorType, Object.keys(ARMOR_OPTIONS) as ArmorType[], 'standard'),
+    myomer: pick(r.myomer, Object.keys(MYOMER_OPTIONS) as MyomerType[], 'standard'),
+    ...(r.environmentalSealing ? { environmentalSealing: true } : {}),
     mixedTech: r.mixedTech === true,
     config: pick(r.config, ['biped', 'quad'] as const, 'biped'),
     lam: r.config !== 'quad' && (r.lam === 'standard' || r.lam === 'bimodal') ? r.lam : null,

@@ -76,6 +76,7 @@ const UTILITY_NAMES: Record<string, string> = {
   trailerhitch: 'trailer-hitch', hitch: 'trailer-hitch', vehicularminedispenser: 'mine-dispenser',
   minesweeper: 'mine-sweeper', remotesensordispenser: 'remote-sensor-dispenser',
   manipulatornonmechnonbattlearmor: 'manipulator', reconcamera: 'recon-camera',
+  miningdrill: 'mining-drill', mechsprayer: 'sprayer', sprayermech: 'sprayer', ejectionseatindustrialmech: 'im-ejection-seat',
 };
 
 /** Structural crit names handled outside the equipment list. */
@@ -168,7 +169,9 @@ function resolveName(raw: string, unitTech: TechBase): Resolved {
   const b = norm(base);
   const structural: Record<string, string> = {
     endosteel: 'endo-steel', ferrofibrous: 'ferro-fibrous', lightferrofibrous: 'ferro-fibrous',
-    heavyferrofibrous: 'ferro-fibrous', triplestrengthmyomer: 'tsm', heatsink: 'heat-sink',
+    heavyferrofibrous: 'ferro-fibrous', triplestrengthmyomer: 'tsm', industrialtriplestrengthmyomer: 'tsm',
+    commercial: 'ferro-fibrous', industrial: 'ferro-fibrous', heavyindustrial: 'ferro-fibrous',
+    environmentalsealingmech: 'environmental-sealing', heatsink: 'heat-sink',
     jumpjet: 'jump-jet', improvedjumpjet: 'improved-jump-jet', case: 'case',
     endocomposite: 'endo-steel', endosteelprototype: 'endo-steel', ferrolamellor: 'ferro-fibrous', reactive: 'ferro-fibrous',
     reflective: 'ferro-fibrous', ballisticreinforced: 'ferro-fibrous', impactresistant: 'ferro-fibrous',
@@ -268,19 +271,20 @@ function parseMtf(text: string): ParsedMech {
   const techBase: TechBase = /^Clan|Clan Chassis/.test(tbRaw) ? 'Clan' : 'IS';
   const mixedTech = /^Mixed/.test(tbRaw);
   const tonnage = Number(get('mass'));
-  if (!(tonnage >= 20 && tonnage <= 100 && tonnage % 5 === 0)) fail(`tonnage ${tonnage}`);
+  if (!(tonnage >= 10 && tonnage <= 100 && tonnage % 5 === 0)) fail(`tonnage ${tonnage}`);
   const walkMP = Number(get('walk mp'));
 
   const eng = get('engine');
   const rating = Number(/^(\d+)/.exec(eng)?.[1]);
   if (rating !== tonnage * walkMP) fail('engine rating does not match walking MP');
-  const engineType: EngineType = /Large|ICE|Fuel|Fission/.test(eng) ? fail(`engine ${eng}`)
+  const engineType: EngineType = /Large/.test(eng) ? fail(`engine ${eng}`)
+    : /ICE/.test(eng) ? 'ice' : /Fuel Cell/.test(eng) ? 'fuel-cell' : /Fission/.test(eng) ? 'fission'
     : /XXL/.test(eng) ? 'xxl' : /XL/.test(eng) ? 'xl' : /Light/.test(eng) ? 'light' : /Compact/.test(eng) ? 'compact' : 'standard';
 
   const st = get('structure');
   const STRUCTURES: Record<string, MechDesign['structureType']> = {
     Standard: 'standard', 'Endo Steel': 'endo-steel', 'Endo Steel Prototype': 'endo-prototype', 'Endo-Composite': 'endo-composite',
-    Composite: 'composite', Reinforced: 'reinforced',
+    Composite: 'composite', Reinforced: 'reinforced', Industrial: 'industrial',
   };
   const structureType = st === '' ? 'standard' : STRUCTURES[st.replace(/^(IS|Clan) /, '')] ?? fail(`structure ${st}`);
   const ar = get('armor');
@@ -289,6 +293,7 @@ function parseMtf(text: string): ParsedMech {
     Stealth: 'stealth', Reactive: 'reactive', Reflective: 'reflective', Hardened: 'hardened', 'Ferro-Lamellor': 'ferro-lamellor',
     'Ballistic-Reinforced': 'ballistic-reinforced', 'Anti-Penetrative Ablation': 'anti-penetrative',
     'Heat-Dissipating': 'heat-dissipating', 'Impact-Resistant': 'impact-resistant',
+    Commercial: 'commercial', Industrial: 'industrial', 'Heavy Industrial': 'heavy-industrial',
   };
   const armorType: MechDesign['armorType'] = ARMORS[ar.replace(/\(.*$/, '').trim()] ?? fail(`armor ${ar}`);
   const hs = get('heat sinks');
@@ -299,9 +304,11 @@ function parseMtf(text: string): ParsedMech {
     : /^Compact/.test(gy) ? 'compact' : /^Heavy Duty/.test(gy) ? 'heavy-duty' : fail(`gyro ${gy}`);
   const ck = get('cockpit');
   const cockpitType: CockpitType = !ck || /^Standard/.test(ck) ? 'standard' : /^Small/.test(ck) ? 'small'
-    : /^Command Console/.test(ck) ? 'command-console' : /^Torso-Mounted/.test(ck) ? 'torso-mounted' : fail(`cockpit ${ck}`);
+    : /^Command Console/.test(ck) ? 'command-console' : /^Torso-Mounted/.test(ck) ? 'torso-mounted'
+    // An industrial cockpit with advanced fire control is built like a standard cockpit.
+    : /^Industrial Cockpit/.test(ck) ? (/adv\. FCS/i.test(ck) ? 'standard' : 'industrial') : fail(`cockpit ${ck}`);
   const my = get('myomer');
-  const myomer = !my || my === 'Standard' ? 'standard' : my === 'Triple-Strength' ? 'tsm' : fail(`myomer ${my}`);
+  const myomer = !my || my === 'Standard' ? 'standard' : my === 'Triple-Strength' ? 'tsm' : my === 'Industrial Triple-Strength' ? 'industrial-tsm' : fail(`myomer ${my}`);
   // A Full Head Ejection System (Hatchetman, Axman…) takes no slots or weight; other systems aren't supported.
   if (kv.has('ejection') && !/^Full Head Ejection System$/i.test(get('ejection'))) fail('special systems');
 
@@ -331,6 +338,20 @@ function parseMtf(text: string): ParsedMech {
       while (j < slots.length && slots[j] === raw) j++;
       const run = j - i;
       i = j;
+      // Sized cargo / liquid storage / communications: whole tons plus a half-ton part, one slot each.
+      const sized = /^(Cargo|Liquid Storage|Communications Equipment):SIZE:([\d.]+)/i.exec(raw.replace(/\s*\((OMNIPOD|R)\)/g, ''));
+      if (sized) {
+        const tons = Number(sized[2]);
+        const count = run / Math.max(1, Math.ceil(tons));
+        if (!Number.isInteger(count)) fail(`split or mis-sized item "${raw}"`);
+        const kind = /^cargo/i.test(sized[1]) ? 'cargo' : /^liquid/i.test(sized[1]) ? 'liquid-storage' : 'communications';
+        for (let c = 0; c < count; c++) {
+          const ids = kind === 'communications' ? Array(Math.round(tons)).fill('communications-equipment')
+            : [...Array(Math.floor(tons)).fill(`${kind}-1`), ...(tons % 1 ? [`${kind}-half`] : [])];
+          for (const id of ids) equipment.push({ uid: `c${uid++}`, equipmentId: id, location: l });
+        }
+        continue;
+      }
       const r = resolveName(raw, techBase);
       if (r.kind === 'fixed') continue;
       if (r.kind === 'unknown') fail(`unknown item "${r.name}"`);
@@ -354,6 +375,7 @@ function parseMtf(text: string): ParsedMech {
   const design: MechDesign = {
     schemaVersion: 1, era: '3025', techBase, mixedTech,
     structureType, engineType, gyroType, cockpitType, heatSinkType,
+    ...(equipment.some((e) => e.equipmentId === 'environmental-sealing') ? { environmentalSealing: true } : {}),
     jumpJetType: jets.some((e) => e.equipmentId === 'improved-jump-jet') ? 'improved' : 'standard',
     armorType, myomer, config: quad ? 'quad' : 'biped', lam, omni: null,
     ...(kv.has('ejection') ? { fullHeadEjection: true } : {}),

@@ -1,6 +1,7 @@
 import type {
   CockpitType, EngineType, GyroType, HeatSinkType, JumpJetType, LamType, MechConfig, MechDesign, MyomerType, StructureType, TechBase,
 } from '../rules/types';
+import { isIndustrial } from '../rules/types';
 import type { ComponentOption } from '../rules/tables';
 import {
   COCKPIT_OPTIONS, ENGINE_OPTIONS, GYRO_OPTIONS, HEAT_SINK_OPTIONS, JUMP_JET_OPTIONS, MYOMER_OPTIONS,
@@ -9,11 +10,11 @@ import {
 import { ARM_LOCATIONS, LAM_TYPE_NAMES, LOCATION_NAMES, TECH_BASE_NAMES, isQuad } from '../rules/types';
 import { ERAS, getEra, isAvailableIn } from '../rules/eras';
 import type { MechSummary } from '../rules/construction';
-import { TONNAGES, maxWalkMP } from '../rules/tables';
+import { TONNAGES, freeHeatSinks, maxWalkMP } from '../rules/tables';
 import {
   setActuator, setCockpitType, setConfig, setFullHeadEjection, setLam, setEngineHeatSinks, setEngineType, setGyroType, setHeatSinkTotal,
   setHeatSinkType, setJumpJetType, setJumpMP,
-  setMixedTech, setMyomer, setStructureType, setTechBase, setTonnage, setWalkMP,
+  setEnvironmentalSealing, setMixedTech, setMyomer, setStructureType, setTechBase, setTonnage, setWalkMP,
 } from '../rules/edit';
 import { setOmni } from '../rules/omni';
 import { NumberField } from './NumberField';
@@ -28,6 +29,7 @@ interface Props {
 const ADVANCED_ERA = '3050';
 
 const STRUCTURE_NOTES: Partial<Record<StructureType, string>> = {
+  industrial: ' — makes an IndustrialMech',
   composite: ' — half BV, fragile', reinforced: ' — double BV, tough',
 };
 
@@ -106,6 +108,13 @@ export function ChassisPanel({ design, summary, update }: Props) {
               onChange={(e) => update((d) => setFullHeadEjection(d, e.target.checked))} />
             Full head ejection
           </label>
+          {isIndustrial(design) && (
+            <label className="check" title="Environmental sealing: one slot in every location, a tenth of the tonnage">
+              <input type="checkbox" checked={!!design.environmentalSealing}
+                onChange={(e) => update((d) => setEnvironmentalSealing(d, e.target.checked))} />
+              Environmental sealing
+            </label>
+          )}
         </div>
 
         <label>Structure</label>
@@ -148,6 +157,15 @@ export function ChassisPanel({ design, summary, update }: Props) {
             <option value="compact" disabled={!ok(ENGINE_OPTIONS.compact)} title={why(ENGINE_OPTIONS.compact)}>
               {summary.rating} Compact (3 center-torso slots)
             </option>
+            <option value="fission" disabled={!ok(ENGINE_OPTIONS.fission)} title="Fission: 1.75× fusion weight, 5 free heat sinks">
+              {summary.rating} Fission
+            </option>
+            <option value="fuel-cell" disabled={!ok(ENGINE_OPTIONS['fuel-cell'])} title="Fuel cell: 1.2× fusion weight, 1 free heat sink">
+              {summary.rating} Fuel Cell
+            </option>
+            <option value="ice" disabled={!ok(ENGINE_OPTIONS.ice)} title="Internal combustion: twice fusion weight, no free heat sinks">
+              {summary.rating} I.C.E.
+            </option>
           </select>
           <span className="muted"> {summary.engineWeight ?? '—'} t</span>
         </div>
@@ -158,8 +176,12 @@ export function ChassisPanel({ design, summary, update }: Props) {
             title={advanced ? undefined : lockedTitle}
             onChange={(e) => update((d) => setMyomer(d, e.target.value as MyomerType))}>
             <option value="standard">Standard</option>
-            <option value="tsm" disabled={!ok(MYOMER_OPTIONS.tsm)} title={why(MYOMER_OPTIONS.tsm)}>
+            <option value="tsm" disabled={!ok(MYOMER_OPTIONS.tsm) || isIndustrial(design)} title={why(MYOMER_OPTIONS.tsm)}>
               Triple-Strength (6 slots)
+            </option>
+            <option value="industrial-tsm" disabled={!ok(MYOMER_OPTIONS['industrial-tsm']) || !isIndustrial(design)}
+              title={isIndustrial(design) ? why(MYOMER_OPTIONS['industrial-tsm']) : 'IndustrialMechs only'}>
+              Industrial TSM (12 slots)
             </option>
           </select>
           {summary.tsmMP && (
@@ -197,6 +219,9 @@ export function ChassisPanel({ design, summary, update }: Props) {
             <option value="command-console" disabled={!ok(COCKPIT_OPTIONS['command-console'])} title={why(COCKPIT_OPTIONS['command-console'])}>
               Command console (+2 initiative, heavy/assault)
             </option>
+            <option value="industrial" disabled={!isIndustrial(design)} title={isIndustrial(design) ? 'Cheaper; no advanced fire control (+1 to hit, BV ×0.9)' : 'IndustrialMechs only'}>
+              Industrial (no adv. fire control)
+            </option>
           </select>
           <span className="muted"> {summary.weights.cockpit} t</span>
         </div>
@@ -218,8 +243,8 @@ export function ChassisPanel({ design, summary, update }: Props) {
 
         <label>Heat sinks</label>
         <div>
-          <NumberField label="Total heat sinks" value={hs.total} min={10}
-            invalid={hs.total < 10}
+          <NumberField label="Total heat sinks" value={hs.total} min={freeHeatSinks(design.engineType)}
+            invalid={hs.total < freeHeatSinks(design.engineType)}
             onChange={(n) => update((d) => setHeatSinkTotal(d, n))} />
           <select aria-label="Heat sink type" value={design.heatSinkType}
             onChange={(e) => update((d) => setHeatSinkType(d, e.target.value as HeatSinkType))}>

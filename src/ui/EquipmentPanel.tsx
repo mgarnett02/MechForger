@@ -1,3 +1,4 @@
+import { isIndustrial } from '../rules/types';
 import { useState } from 'react';
 import type { Location, MechDesign, MountedItem } from '../rules/types';
 import { isQuad, locationName } from '../rules/types';
@@ -27,6 +28,7 @@ const TABS: { id: EquipmentCategory; label: string }[] = [
   { id: 'Ammo', label: 'Ammo' },
   { id: 'Physical', label: 'Melee' },
   { id: 'Other', label: 'Equipment' },
+  { id: 'Utility', label: 'Industrial' },
 ];
 
 function rangeText(eq: Equipment): string {
@@ -38,7 +40,7 @@ function rangeText(eq: Equipment): string {
 export function EquipmentPanel({ design, summary, update, selected, setSelected }: Props) {
   const [tab, setTab] = useState<EquipmentCategory>('Energy');
   const available = ALL_EQUIPMENT.filter(
-    (e) => !e.managed && e.category !== 'Utility' && !e.capitalClass && (!e.lamOnly || !!design.lam)
+    (e) => !e.managed && (e.category !== 'Utility' || isIndustrial(design)) && !e.capitalClass && (!e.lamOnly || !!design.lam)
       && isEquipmentAvailable(e, design.era, design.techBase, design.mixedTech),
   );
   const tabs = TABS.filter((t) => available.some((e) => e.category === t.id));

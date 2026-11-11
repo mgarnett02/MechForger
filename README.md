@@ -118,6 +118,12 @@ Everything above, plus:
 - **Superchargers** (10% of engine weight, one slot in a location with engine slots; run at twice walking
   MP, 2.5× with MASC), **PPC Capacitors** (1 t, linked to a PPC in the same location; adds MegaMek's
   capacitor BV and 5 heat, explosive) and the **Angel ECM Suite** (2 t, 2 slots, 100 BV)
+- **IndustrialMechs**: industrial structure (twice standard weight), fusion, fission, fuel cell and internal
+  combustion engines (with 10/5/1/0 free heat sinks), commercial, industrial and heavy industrial armor,
+  the industrial cockpit (no advanced fire control: +1 to hit, offensive BV ×0.9), Industrial TSM,
+  environmental sealing, industrial equipment (lift hoists, saws, drills, backhoes, cargo and liquid
+  storage…), no movement heat, the IndustrialMech restrictions and cost multiplier, 10–15-ton
+  ultralight 'Mechs, and an IndustrialMech record sheet
 - **Artillery**: Arrow IV (IS and Clan), Long Tom, Sniper and Thumper (indirect fire, range in mapsheets)
   and the Long Tom, Sniper and Thumper artillery cannons, with ammunition; usable on 'Mechs, vehicles and
   as infantry field artillery (one piece per platoon)
@@ -180,7 +186,7 @@ fixed-wing.
 - Critical slot allocation (click to place, or **Auto-allocate**) with live validation
 - Red / amber / green status light: illegal, legal but incomplete (unused tonnage,
   unallocated armor), or fully legal
-- **Canon units**: about 2,480 canon BattleMechs, including 47 quads, 19 Land-Air 'Mechs and around 100 melee-armed designs (OmniMechs with all their
+- **Canon units**: about 2,610 canon 'Mechs (about 110 of them IndustrialMechs), including 47 quads, 19 Land-Air 'Mechs and around 100 melee-armed designs (OmniMechs with all their
   configurations), 700 canon combat vehicles, 120 support vehicles, about 400 aerospace, Omni and
   conventional fighters and about 290 spacecraft (small craft, DropShips, JumpShips, WarShips and
   space stations), about 1,190 battle armor squads and about 1,940 infantry platoons, searchable by name, era, tech base,

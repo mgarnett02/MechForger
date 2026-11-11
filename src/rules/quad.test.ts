@@ -91,7 +91,8 @@ describe('quad BattleMechs', () => {
   });
 
   it('bundles canon quads, including quad OmniMechs', () => {
-    const quads = M.filter((e) => e.k === 'quad' || e.k.startsWith('quadomni:'));
+    // IndustrialMech quads are covered by the IndustrialMech tests.
+    const quads = M.filter((e) => (e.k === 'quad' || e.k.startsWith('quadomni:')) && decodeMech(e.d).structureType !== 'industrial');
     expect(quads.length).toBeGreaterThan(40);
     expect(quads.some((e) => e.k.startsWith('quadomni:'))).toBe(true);
     expect(quads.filter((e) => e.w).length / quads.length).toBeGreaterThan(0.95);

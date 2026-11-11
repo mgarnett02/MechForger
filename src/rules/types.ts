@@ -117,13 +117,14 @@ export interface ArmActuators {
 export type TechBase = 'IS' | 'Clan';
 export const TECH_BASE_NAMES: Record<TechBase, string> = { IS: 'Inner Sphere', Clan: 'Clan' };
 
-export type StructureType = 'standard' | 'endo-steel' | 'endo-prototype' | 'endo-composite' | 'composite' | 'reinforced';
-export type EngineType = 'standard' | 'xl' | 'xxl' | 'light' | 'compact';
+export type StructureType = 'standard' | 'endo-steel' | 'endo-prototype' | 'endo-composite' | 'composite' | 'reinforced' | 'industrial';
+export type EngineType = 'standard' | 'xl' | 'xxl' | 'light' | 'compact' | 'ice' | 'fuel-cell' | 'fission';
 export type GyroType = 'standard' | 'xl' | 'heavy-duty' | 'compact';
 export type JumpJetType = 'standard' | 'improved';
 /** Cockpits shared with fighters. */
 export type BasicCockpitType = 'standard' | 'small';
-export type CockpitType = BasicCockpitType | 'command-console' | 'torso-mounted';
+/** 'industrial': an IndustrialMech cockpit without advanced fire control (a standard cockpit on an IndustrialMech has it). */
+export type CockpitType = BasicCockpitType | 'command-console' | 'torso-mounted' | 'industrial';
 export type HeatSinkType = 'single' | 'double';
 /** Armor types shared by vehicles and fighters. */
 export type BasicArmorType = 'standard' | 'ferro-fibrous' | 'light-ferro' | 'heavy-ferro';
@@ -132,8 +133,9 @@ export type BasicStructureType = 'standard' | 'endo-steel';
 export type ArmorType =
   | 'standard' | 'ferro-fibrous' | 'light-ferro' | 'heavy-ferro'
   | 'stealth' | 'reactive' | 'reflective' | 'hardened' | 'ferro-lamellor'
-  | 'ballistic-reinforced' | 'anti-penetrative' | 'heat-dissipating' | 'impact-resistant';
-export type MyomerType = 'standard' | 'tsm';
+  | 'ballistic-reinforced' | 'anti-penetrative' | 'heat-dissipating' | 'impact-resistant'
+  | 'commercial' | 'industrial' | 'heavy-industrial';
+export type MyomerType = 'standard' | 'tsm' | 'industrial-tsm';
 
 export interface MechDesign {
   /** Master Unit List id, for designs loaded from the canon list. */
@@ -156,6 +158,8 @@ export interface MechDesign {
   config: MechConfig;
   /** Land-Air 'Mech type (bipeds only); absent or null for an ordinary 'Mech. */
   lam?: LamType | null;
+  /** IndustrialMechs: environmental sealing (one slot per location, a tenth of the tonnage). */
+  environmentalSealing?: boolean;
   /** Full Head Ejection System (Hatchetman, Axman…): no weight or slots, adds cost. */
   fullHeadEjection?: boolean;
   /** Set for OmniMechs: configurations of pod-mounted equipment. */
@@ -173,4 +177,7 @@ export interface MechDesign {
   equipment: MountedItem[];
 }
 
-export type WeightClass = 'Light' | 'Medium' | 'Heavy' | 'Assault';
+/** An IndustrialMech: built on industrial internal structure. */
+export const isIndustrial = (d: { structureType?: string }) => d.structureType === 'industrial';
+
+export type WeightClass = 'Ultralight' | 'Light' | 'Medium' | 'Heavy' | 'Assault';

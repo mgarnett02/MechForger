@@ -3,15 +3,16 @@ import { ARM_LOCATIONS, ARMOR_FACINGS, LAM_TYPE_NAMES, LOCATIONS, facingName, is
 import type { MeleeKind } from './equipment';
 import { HAND_WEAPONS, NEEDS_HAND } from './melee';
 import {
-  FREE_HEAT_SINKS, engineCenterSlots, engineSideTorsoSlots, gyroSlots, MAX_ENGINE_RATING, MIN_ENGINE_RATING, TONNAGES,
+  freeHeatSinks, engineCenterSlots, engineSideTorsoSlots, gyroSlots, MAX_ENGINE_RATING, MIN_ENGINE_RATING, TONNAGES,
 } from './tables';
 import {
-  ENDO_STEEL_ID, FERRO_FIBROUS_ID, HEAT_SINK_IDS, TSM_ID, allowedLocations, canRearMount, getEquipment, isPPC,
+  ENDO_STEEL_ID, ENV_SEAL_ID, FERRO_FIBROUS_ID, HEAT_SINK_IDS, TSM_ID, allowedLocations, canRearMount, getEquipment, isPPC,
   JUMP_JET_IDS, heatSinkIdFor, isDirectFire, isEquipmentAvailable, jumpJetIdFor, usesAmmo,
 } from './equipment';
 import { configurationDesigns, isFixedOnly } from './omni';
 import { getEra, isAvailableIn } from './eras';
-import { TECH_BASE_NAMES } from './types';
+import { TECH_BASE_NAMES, isIndustrial } from './types';
+import { tsmSlots } from './edit';
 import type { ComponentOption } from './tables';
 import {
   ARMOR_OPTIONS, COCKPIT_OPTIONS, ENGINE_OPTIONS, GYRO_OPTIONS, HEAT_SINK_OPTIONS, JUMP_JET_OPTIONS,
@@ -57,7 +58,7 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
 
   // Chassis
   if (!TONNAGES.includes(design.tonnage)) {
-    error(`Tonnage must be 20–100 tons in 5-ton steps (got ${design.tonnage}).`);
+    error(`Tonnage must be 10–100 tons in 5-ton steps (got ${design.tonnage}).`);
   }
   if (!Number.isInteger(design.walkMP) || design.walkMP < 1) {
     error('Walking MP must be a whole number of at least 1.');
@@ -149,8 +150,36 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
   if (wrongHS.length) {
     error(`Single and double heat sinks cannot be mixed (${wrongHS.length} heat sink(s) do not match the chosen type).`);
   }
-  if (hs.total < FREE_HEAT_SINKS) {
-    error(`A mech must carry at least ${FREE_HEAT_SINKS} heat sinks (has ${hs.total}).`);
+  // Fusion engines bring 10 heat sinks; fission 5, fuel cells 1, internal combustion none.
+  const minHS = freeHeatSinks(design.engineType);
+  if (hs.total < minHS) {
+    error(`A mech with this engine must carry at least ${minHS} heat sinks (has ${hs.total}).`);
+  }
+
+  // IndustrialMechs (TechManual pp. 47–70, as MegaMek checks them)
+  const industrial = isIndustrial(design);
+  if (industrial) {
+    if (!['standard', 'ice', 'fuel-cell', 'fission'].includes(design.engineType)) {
+      error('IndustrialMechs can only use standard fusion, fission, fuel cell or internal combustion engines.');
+    }
+    if (design.gyroType !== 'standard') error('IndustrialMechs can only mount standard gyros.');
+    if (design.jumpJetType !== 'standard') error('IndustrialMechs can only mount standard jump jets.');
+    if (design.heatSinkType !== 'single') error('IndustrialMechs may only mount standard single heat sinks.');
+    if (design.myomer === 'tsm') error('IndustrialMechs use Industrial TSM, not combat Triple-Strength Myomer.');
+    if (design.cockpitType === 'industrial' && design.equipment.some((e) => /^(c3|improved-c3)/.test(e.equipmentId))) {
+      error('IndustrialMechs without advanced fire control cannot use C3 equipment.');
+    }
+    if (design.cockpitType === 'industrial') info('Industrial cockpit without advanced fire control: +1 to hit, and Battle Value ×0.9.');
+    if (design.environmentalSealing) {
+      for (const loc of LOCATIONS) {
+        const n = design.equipment.filter((e) => e.equipmentId === ENV_SEAL_ID && e.location === loc).length;
+        if (n !== 1) error(`Environmental sealing needs one slot in every location (${locationName(design, loc)} has ${n}).`);
+      }
+    }
+  } else {
+    if (design.environmentalSealing) error('Only IndustrialMechs can be environmentally sealed.');
+    if (design.cockpitType === 'industrial') error('Only IndustrialMechs use an industrial cockpit.');
+    if (design.myomer === 'industrial-tsm') error('Only IndustrialMechs can mount Industrial TSM.');
   }
 
   // Jump jets
@@ -222,7 +251,7 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
   const fillerCheck: [string, number, string][] = [
     [ENDO_STEEL_ID, structureSlots(design.structureType, design.techBase), STRUCTURE_NAMES[design.structureType]],
     [FERRO_FIBROUS_ID, armorSlots(design.armorType, design.techBase), `${ARMOR_NAMES[design.armorType]} armor`],
-    [TSM_ID, design.myomer === 'tsm' ? 6 : 0, 'Triple-Strength Myomer'],
+    [TSM_ID, tsmSlots(design.myomer), design.myomer === 'industrial-tsm' ? 'Industrial TSM' : 'Triple-Strength Myomer'],
   ];
   for (const [id, required, name] of fillerCheck) {
     const have = design.equipment.filter((e) => e.equipmentId === id).length;
@@ -237,9 +266,9 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
       error(`Unknown equipment "${item.equipmentId}".`);
       continue;
     }
-    if (eq.category === 'Utility' && !unavailable.has(`u-${eq.id}`)) {
+    if (eq.category === 'Utility' && !industrial && !unavailable.has(`u-${eq.id}`)) {
       unavailable.add(`u-${eq.id}`);
-      error(`${eq.name} is vehicle equipment and cannot be mounted on a BattleMech.`);
+      error(`${eq.name} is industrial equipment: only IndustrialMechs (and vehicles) can mount it.`);
     }
     if (item.pod && (!design.omni || isFixedOnly(eq.id))) {
       error(design.omni ? `${eq.name} cannot be pod-mounted; it must be fixed equipment.` : `${eq.name} is marked as a pod but this is not an OmniMech.`);

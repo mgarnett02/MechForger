@@ -1,6 +1,6 @@
 import type { MechDesign, MountedItem } from './types';
 import { FILLER_IDS, HEAT_SINK_IDS, getEquipment, itemWeight } from './equipment';
-import { FREE_HEAT_SINKS } from './tables';
+import { freeHeatSinks } from './tables';
 
 /**
  * OmniMechs share a fixed base chassis (structure, engine, armor, fixed equipment)
@@ -148,7 +148,7 @@ export interface OmniWeights {
  */
 export function omniWeights(d: MechDesign, totalWeight: number): OmniWeights {
   const fixedHS = d.engineHeatSinks + fixedItems(d).filter((e) => HEAT_SINK_IDS.includes(e.equipmentId)).length;
-  const freeLeft = Math.max(0, FREE_HEAT_SINKS - fixedHS);
+  const freeLeft = Math.max(0, freeHeatSinks(d.engineType) - fixedHS);
   let podHS = 0;
   let podUsed = 0;
   for (const item of podItems(d)) {
