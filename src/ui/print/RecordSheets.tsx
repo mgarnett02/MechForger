@@ -24,6 +24,8 @@ import type { BAItem, BattleArmorDesign } from '../../rules/battlearmor';
 import { BA_MOTION_NAMES, BA_WEIGHT_CLASS_NAMES, battleArmorBV, battleArmorCost, canMakeAntiMek, computeBattleArmor } from '../../rules/battlearmor';
 import type { MMItem } from '../../rules/mmEquipment';
 import { getMM, mmName } from '../../rules/mmEquipment';
+import type { InfantryDesign } from '../../rules/infantry';
+import { INFANTRY_MOTION_NAMES, SPECIALIZATION_NAMES, computeInfantry, damageTable, infantryBV, infantryCost } from '../../rules/infantry';
 import type { AmmoRow, EquipmentRow, WeaponRow } from '../../rules/recordSheet';
 import { CONSCIOUSNESS, HEAT_SCALE, mechSheetData, vehicleSheetData } from '../../rules/recordSheet';
 import type { VehicleArmorLocation, VehicleDesign } from '../../rules/vehicle';
@@ -949,6 +951,86 @@ export function BattleArmorRecordSheet({ design }: { design: BattleArmorDesign }
             <Field label="Gunnery Skill" /><Field label="Anti-'Mech Skill" />
           </div>
           <p className="rs-note left">BV per trooper {Math.round(bv.perTrooper)} · each trooper weighs {Math.round(s.weights.total * 1000)} kg (limit {Math.round(s.trooperLimit * 1000)} kg).</p>
+        </Panel>
+      </div>
+      <Footer />
+    </article>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Conventional infantry
+// ---------------------------------------------------------------------------
+
+export function InfantryRecordSheet({ design }: { design: InfantryDesign }) {
+  const s = computeInfantry(design);
+  const name = `${design.chassis} ${design.model}`.trim() || 'Unnamed';
+  const p = getMM(design.primary);
+  const sec = design.secondary ? getMM(design.secondary) : null;
+  const kit = design.armorKit ? getMM(design.armorKit) : null;
+  const table = damageTable(design);
+  const rows = Math.ceil(table.length / 15);
+  const range = Math.max(p?.infantryRange ?? 0, sec?.infantryRange ?? 0);
+  const weaponRow = (e: MMItem, n: number, label: string) => (
+    <tr key={label}><td className="left">{label}: {mmName(e)}</td><td>{n}</td><td>{e.infantryDamage}</td><td>{e.infantryRange ? `${e.infantryRange}/${e.infantryRange * 2}/${e.infantryRange * 3}` : '0'}</td></tr>
+  );
+  return (
+    <article className="record-sheet vehicle infantry">
+      <SheetHeader kind="Infantry Record Sheet" name={name} />
+      <div className="rs-grid-inf">
+        <Panel title="Platoon Data" className="area-data">
+          <div className="rs-fields">
+            <Field label="Type" value={`${INFANTRY_MOTION_NAMES[design.motion]}${design.beast ? ` (${design.beast})` : ''}`} wide />
+            <div className="rs-move">
+              <span className="rs-label">Movement:</span>
+              <Field label="Ground" value={s.mp.walk} />
+              {s.mp.jump > 0 && <Field label={design.motion === 'jump' ? 'Jump' : 'VTOL'} value={s.mp.jump} />}
+              {s.mp.umu > 0 && <Field label="UMU" value={s.mp.umu} />}
+            </div>
+            <Field label="Troopers" value={`${s.troopers} (${design.squads} × ${design.squadSize})`} />
+            <Field label="Tech Base" value={techBase(design)} />
+            <Field label="Era" value={eraName(design)} />
+            <Field label="Rules Level" value={rulesLevel(design)} />
+            <Field label="Battle Value" value={infantryBV(design).total.toLocaleString('en-US')} />
+            <Field label="Cost" value={`${infantryCost(design).total.toLocaleString('en-US')} C-bills`} />
+            <Field label="Armor" value={`${kit ? mmName(kit) : design.customArmor ? 'Custom' : 'None'} (divisor ${s.damageDivisor})`} wide />
+            <Field label="Anti-'Mech" value={s.canAntiMek ? (design.antiMek ? 'Trained' : 'Untrained (+4)') : 'No'} />
+            <Field label="Transport" value={`${s.weight} t`} />
+          </div>
+          <div className="rs-inventory">
+            <div className="rs-subtitle">Weapons</div>
+            <table className="rs-table">
+              <thead><tr><th className="left">Weapon</th><th>Qty</th><th>Dmg</th><th>Range</th></tr></thead>
+              <tbody>
+                {p && weaponRow(p, s.troopers - (sec ? design.secondaryPerSquad * design.squads : 0), 'Primary')}
+                {sec && weaponRow(sec, design.secondaryPerSquad * design.squads, 'Secondary')}
+                {design.fieldGuns.length > 0 && (
+                  <tr><td className="left">Field gun: {getEquipment(design.fieldGuns[0].equipmentId)?.name}</td><td>{design.fieldGuns.length}</td><td>{getEquipment(design.fieldGuns[0].equipmentId)?.damage}</td><td>crew {s.fieldGunCrew}</td></tr>
+                )}
+              </tbody>
+            </table>
+            {design.specializations.length > 0 && <p className="rs-note left">Specializations: {design.specializations.map((x) => SPECIALIZATION_NAMES[x]).join(', ')}</p>}
+          </div>
+        </Panel>
+        <Panel title="Crew" className="area-crew">
+          <div className="rs-fields">
+            <Field label="Gunnery Skill" /><Field label="Anti-'Mech Skill" />
+          </div>
+          <p className="rs-note left">Range brackets: short ≤ {range}, medium ≤ {range * 2}, long ≤ {range * 3} hexes.</p>
+        </Panel>
+        <Panel title="Troopers and Damage" className="area-dmg">
+          <table className="rs-inf-damage">
+            <tbody>
+              {Array.from({ length: rows }, (_, r) => {
+                const slice = table.slice(r * 15, r * 15 + 15);
+                return [
+                  <tr key={`t${r}`}><th>Troopers</th>{slice.map((_, i) => <td key={i}>{r * 15 + i + 1}</td>)}</tr>,
+                  <tr key={`d${r}`}><th>Damage</th>{slice.map((v, i) => <td key={i}>{v}</td>)}</tr>,
+                ];
+              })}
+            </tbody>
+          </table>
+          <p className="rs-note left">Cross off troopers from the right as they fall; the damage under the last one standing is the platoon&apos;s attack.</p>
         </Panel>
       </div>
       <Footer />

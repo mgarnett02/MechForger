@@ -653,3 +653,13 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 .rs-troopers .pips > span { width: 10px; height: 10px; }
 .rs-trooper-track { display: inline-flex; align-items: center; gap: 6px; flex-wrap: nowrap; }
 .rs-trooper-track .pips { display: inline-flex; flex-wrap: nowrap; }
+
+/* Infantry damage-by-troopers strip (editor and record sheet) */
+.inf-damage { display: grid; grid-template-columns: repeat(auto-fill, minmax(2.2rem, 1fr)); gap: 2px; font-size: 0.8rem; text-align: center; }
+.inf-damage span { border: 1px solid var(--border, #ccc); border-radius: 3px; padding: 1px 0; display: flex; flex-direction: column; }
+.inf-damage b { font-weight: 500; color: var(--muted, #777); font-size: 0.7rem; }
+.rs-inf-damage { width: 100%; border-collapse: collapse; font-size: 7pt; margin-top: 4px; }
+.rs-inf-damage td, .rs-inf-damage th { border: 1px solid #111; text-align: center; padding: 1px 0; }
+.rs-inf-damage th { background: #eee; font-weight: 600; }
+.rs-grid-inf { flex: 1; display: grid; gap: 4px 7px; grid-template-columns: 1.25fr 1fr; grid-template-rows: auto auto; grid-template-areas: "data crew" "dmg dmg"; align-items: start; align-content: start; }
+.rs-grid-inf .area-dmg { grid-area: dmg; }

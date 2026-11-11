@@ -9,6 +9,8 @@ import type { VesselDesign, VesselItem } from '../rules/vessel';
 import { newVesselUid } from '../rules/vessel';
 import type { BAItem, BattleArmorDesign } from '../rules/battlearmor';
 import { newBAUid } from '../rules/battlearmor';
+import type { FieldGun, InfantryDesign } from '../rules/infantry';
+import { newInfantryUid } from '../rules/infantry';
 import type { VehicleDesign, VehicleLocation } from '../rules/vehicle';
 import { newUid } from '../rules/edit';
 import { newVehicleUid } from '../rules/vehicle';
@@ -138,4 +140,12 @@ export function encodeBattleArmor(d: BattleArmorDesign): unknown {
 export function decodeBattleArmor(raw: unknown): BattleArmorDesign {
   const r = raw as Omit<BattleArmorDesign, 'equipment'> & { equipment: Omit<BAItem, 'uid'>[] };
   return { ...r, equipment: r.equipment.map((e) => ({ ...e, uid: newBAUid() })) };
+}
+
+export function encodeInfantry(d: InfantryDesign): unknown {
+  return { ...d, fieldGuns: d.fieldGuns.map(({ uid: _uid, ...rest }) => rest) };
+}
+export function decodeInfantry(raw: unknown): InfantryDesign {
+  const r = raw as Omit<InfantryDesign, 'fieldGuns'> & { fieldGuns: Omit<FieldGun, 'uid'>[] };
+  return { ...r, fieldGuns: r.fieldGuns.map((g) => ({ ...g, uid: newInfantryUid() })) };
 }

@@ -8,7 +8,7 @@ import { DISCLAIMER_SHORT } from './legal';
 interface Props {
   current: EraId;
   currentTechBase: TechBase;
-  onSelect: (era: EraId, techBase: TechBase, unit: 'mech' | 'vehicle' | 'support' | 'fighter' | 'vessel' | 'battlearmor') => void;
+  onSelect: (era: EraId, techBase: TechBase, unit: 'mech' | 'vehicle' | 'support' | 'fighter' | 'vessel' | 'battlearmor' | 'infantry') => void;
   /** When provided the dialog can be dismissed without choosing (Esc / Cancel). */
   onCancel?: () => void;
   theme: ThemeChoice;
@@ -66,8 +66,8 @@ export function EraDialog({ current, currentTechBase, onSelect, onCancel, theme,
     setPending(era);
     setStep('unit');
   };
-  const [unit, setUnit] = useState<'mech' | 'vehicle' | 'support' | 'fighter' | 'vessel' | 'battlearmor'>('mech');
-  const pickUnit = (u: 'mech' | 'vehicle' | 'support' | 'fighter' | 'vessel' | 'battlearmor') => {
+  const [unit, setUnit] = useState<'mech' | 'vehicle' | 'support' | 'fighter' | 'vessel' | 'battlearmor' | 'infantry'>('mech');
+  const pickUnit = (u: 'mech' | 'vehicle' | 'support' | 'fighter' | 'vessel' | 'battlearmor' | 'infantry') => {
     if (!pending) return;
     setUnit(u);
     if (pending.techBases.length === 1) onSelect(pending.id, pending.techBases[0], u);
@@ -123,6 +123,13 @@ export function EraDialog({ current, currentTechBase, onSelect, onCancel, theme,
                 </span>
                 <span className="era-year">Battle Armor</span>
                 <span className="era-desc">Powered armor squads: weight class, manipulators, jump/VTOL/UMU, weapons and anti-personnel mounts.</span>
+              </button>
+              <button className="era-btn" onClick={() => pickUnit('infantry')}>
+                <span className="unit-icon" aria-hidden="true">
+                  <svg viewBox="0 0 48 48" width="40" height="40"><path d="M10 8a4 4 0 1 0 8 0 4 4 0 1 0-8 0M30 8a4 4 0 1 0 8 0 4 4 0 1 0-8 0M8 14h12v14h-2v14h-3V30h-2v12h-3V28H8zM28 14h12v14h-2v14h-3V30h-2v12h-3V28h-2z" fill="currentColor" /></svg>
+                </span>
+                <span className="era-year">Infantry</span>
+                <span className="era-desc">Conventional platoons: foot, jump, motorized, mechanized and beast-mounted, with weapons, armor kits and field guns.</span>
               </button>
             </div>
           </>

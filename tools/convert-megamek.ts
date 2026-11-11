@@ -25,10 +25,12 @@ import { fighterBV, mechBV, mechCost, vehicleBV, vehicleCost, vesselBV } from '.
 import type { MotiveType, VehicleDesign, VehicleEngineType, VehicleLocation } from '../src/rules/vehicle';
 import { computeVehicle, emptyVehicleArmor, validateVehicle } from '../src/rules/vehicle';
 import { armorPointsPerTon } from '../src/rules/tables';
-import { encodeBattleArmor, encodeFighter, encodeMech, encodeSupport, encodeVehicle, encodeVessel } from '../src/data/canonFormat';
+import { encodeBattleArmor, encodeInfantry, encodeFighter, encodeMech, encodeSupport, encodeVehicle, encodeVessel } from '../src/data/canonFormat';
 import type { BAItem, BattleArmorDesign } from '../src/rules/battlearmor';
 import { battleArmorBV, computeBattleArmor, syncArmorSlots, validateBattleArmor } from '../src/rules/battlearmor';
 import { MM_EQUIPMENT, findMM } from '../src/rules/mmEquipment';
+import type { FieldGun, InfantryDesign, InfantryMotion } from '../src/rules/infantry';
+import { BEASTS, SPECIALIZATIONS, computeInfantry, infantryBV, validateInfantry } from '../src/rules/infantry';
 import type { FighterDesign, FighterItem, FighterLocation } from '../src/rules/fighter';
 import { computeFighter, emptyFighterArmor, validateFighter } from '../src/rules/fighter';
 import type { BayKind, QuartersKind, VesselDesign, VesselItem, VesselLocation } from '../src/rules/vessel';
@@ -605,6 +607,82 @@ function parseBattleArmorBlk(text: string): { design: BattleArmorDesign; year: n
   return { design, year: Number(one('year')) || 3050, mulId: Number(one('mul id:')) || undefined, source: one('source') };
 }
 
+// ---------------------------------------------------------------------------------------------------------------
+// Conventional infantry
+// ---------------------------------------------------------------------------------------------------------------
+
+const INF_MOTION: Record<string, InfantryMotion> = {
+  leg: 'leg', jump: 'jump', motorized: 'motorized', hover: 'hover', wheeled: 'wheeled', tracked: 'tracked',
+  submarine: 'submarine', 'motorized scuba': 'motorized-umu', microlite: 'microlite', microcopter: 'vtol', umu: 'umu', scuba: 'umu',
+};
+
+function parseInfantryBlk(text: string): { design: InfantryDesign; year: number; mulId?: number; source: string } {
+  const tags = new Map<string, string[]>();
+  const re = /<([^/>]+)>\s*\n([\s\S]*?)\n<\/\1>/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text))) tags.set(m[1].toLowerCase(), m[2].split(/\r?\n/).map((x) => x.trim()).filter(Boolean));
+  const one = (k: string) => tags.get(k.toLowerCase())?.[0] ?? '';
+  const int = (k: string) => Number(one(k)) || 0;
+  const typeStr = one('type');
+  const techBase: TechBase = /^Clan|Clan Chassis/.test(typeStr) ? 'Clan' : 'IS';
+  const mixedTech = /^Mixed/.test(typeStr);
+  if (tags.has('augmentation')) fail('augmentations');
+  if ([...tags.keys()].some((k) => /prosthetic/i.test(k))) fail('prosthetics');
+  if (tags.has('disposableweapon')) fail('disposable weapons');
+  const motionRaw = one('motion_type');
+  const beastM = /^Beast:(.+)$/.exec(motionRaw);
+  const motion: InfantryMotion = beastM ? 'beast' : INF_MOTION[motionRaw.toLowerCase()] ?? fail(`motion ${motionRaw}`);
+  if (beastM && !BEASTS.some((b) => b.name === beastM[1])) fail(`beast ${beastM[1]}`);
+  const weapon = (name: string) => {
+    const e = findMM(name, techBase);
+    if (!e || e.kind !== 'infantryWeapon') fail(`infantry weapon "${name}"`);
+    return e!.id;
+  };
+  let armorKit: string | null = null;
+  let antiMek = false;
+  const tools: string[] = [];
+  for (const raw of tags.get('troopers equipment') ?? []) {
+    if (/^AntiMekGear$/i.test(raw)) { antiMek = true; continue; }
+    const e = findMM(raw, techBase) ?? fail(`trooper item "${raw}"`);
+    if (e.flags.includes('F_ARMOR_KIT')) armorKit = e.id;
+    else if (e.flags.includes('F_TOOLS')) tools.push(e.id);
+    else fail(`trooper item "${raw}"`);
+  }
+  const fieldGuns: FieldGun[] = [];
+  let ammoTons = 0;
+  let uid = 0;
+  for (const raw of tags.get('field guns equipment') ?? []) {
+    if (/ammo/i.test(raw)) { ammoTons += 1; continue; }
+    const r = resolveName(raw, techBase);
+    if (r.kind !== 'item') fail(`field gun "${raw}"`);
+    fieldGuns.push({ uid: `g${uid++}`, equipmentId: (r as { id: string }).id });
+  }
+  // Ammunition is carried by the guns (one ton per listed bin).
+  if (fieldGuns.length && ammoTons) {
+    const per = ammoTons / fieldGuns.length;
+    fieldGuns.forEach((g) => { g.ammoTons = per; });
+  }
+  const specBits = int('specialization');
+  const custom = !armorKit && (tags.has('armordivisor') || tags.has('encumberingarmor') || tags.has('spacesuit') || tags.has('dest') || tags.has('sneakcamo') || tags.has('sneakir') || tags.has('sneakecm'));
+  const design: InfantryDesign = {
+    schemaVersion: 1, unitType: 'infantry', era: '3025', techBase, mixedTech,
+    chassis: one('Name'), model: one('Model'), motion, ...(beastM ? { beast: beastM[1] } : {}),
+    squadSize: int('squad_size'), squads: int('squadn'),
+    primary: weapon(one('Primary')),
+    secondary: tags.has('secondary') ? weapon(one('Secondary')) : null,
+    secondaryPerSquad: tags.has('secondary') ? int('secondn') : 0,
+    armorKit,
+    customArmor: custom ? {
+      divisor: Number(one('armordivisor')) || 1, encumbering: one('encumberingarmor') === 'true', spaceSuit: one('spacesuit') === 'true',
+      dest: one('dest') === 'true', sneakCamo: one('sneakcamo') === 'true', sneakIR: one('sneakir') === 'true', sneakECM: one('sneakecm') === 'true',
+    } : null,
+    antiMek,
+    specializations: SPECIALIZATIONS.filter((_, i) => specBits & (1 << i)),
+    tools, fieldGuns,
+  };
+  return { design, year: Number(one('year')) || 3025, mulId: Number(one('mul id:')) || undefined, source: one('source') };
+}
+
 function parseVesselBlk(text: string): { design: VesselDesign; year: number; mulId?: number; source: string } {
   const tags = new Map<string, string[]>();
   const re = /<([^/>]+)>\s*\n([\s\S]*?)\n<\/\1>/g;
@@ -1004,6 +1082,37 @@ function main() {
   battlearmor.sort((a, b) => a.n.localeCompare(b.n));
   fs.writeFileSync(path.join(outDir, 'battlearmor.json'), JSON.stringify(battlearmor));
   console.log(`Battle armor: ${battlearmor.length} converted, ${baSkipped} skipped; within weight ${battlearmor.filter((e) => e.w).length}, fully legal ${battlearmor.filter((e) => e.ok).length}`);
+
+  // --- Conventional infantry
+  const infFiles = walk(path.join(root, 'data/mekfiles/infantry'), '.blk').sort();
+  const infantry: CanonEntry[] = [];
+  let infSkipped = 0;
+  const infseen = new Set<string>();
+  for (const f of infFiles) {
+    const text = fs.readFileSync(f, 'utf8');
+    if (!/<UnitType>\s*\nInfantry\n/.test(text)) continue;
+    try {
+      const p = parseInfantryBlk(text);
+      const key = `${p.design.chassis} ${p.design.model}`;
+      if (infseen.has(key)) continue;
+      infseen.add(key);
+      const d = settleEra(p.design, p.year, (x) => validateInfantry(x).map((i) => i.message));
+      const s = computeInfantry(d);
+      const issues = validateInfantry(d, s);
+      infantry.push({
+        n: `${d.chassis} ${d.model}`.trim(), t: s.weight, tb: d.techBase, era: d.era, y: p.year,
+        k: d.motion, bv: infantryBV(d).total, ok: issues.every((i) => i.severity !== 'error'), w: true,
+        src: p.source, mul: p.mulId, d: encodeInfantry(d),
+      });
+    } catch (e) {
+      if (!(e instanceof Unsupported)) throw new Error(`${f}: ${(e as Error).stack}`);
+      infSkipped++;
+      note(`infantry: ${e.message}`);
+    }
+  }
+  infantry.sort((a, b) => a.n.localeCompare(b.n));
+  fs.writeFileSync(path.join(outDir, 'infantry.json'), JSON.stringify(infantry));
+  console.log(`Infantry: ${infantry.length} converted, ${infSkipped} skipped; fully legal ${infantry.filter((e) => e.ok).length}`);
 
   // --- Fighters
   const fighterFiles = ['fighters', 'convfighter'].flatMap((dir) => walk(path.join(root, 'data/mekfiles', dir), '.blk')).sort();

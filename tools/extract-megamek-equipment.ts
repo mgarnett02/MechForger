@@ -186,7 +186,7 @@ function factories(file: string, prefix: string): Parsed[] {
 }
 
 const misc = factories('equipment/MiscType.java', 'misc.')
-  .filter((p) => p.flagsAdd.some((f) => f === 'F_BA_EQUIPMENT' || f === 'F_INF_EQUIPMENT' || f === 'F_BA_MANIPULATOR' || f === 'F_ARMOR_KIT'))
+  .filter((p) => p.flagsAdd.some((f) => f === 'F_BA_EQUIPMENT' || f === 'F_INF_EQUIPMENT' || f === 'F_BA_MANIPULATOR' || f === 'F_ARMOR_KIT' || f === 'F_ANTI_MEK_GEAR'))
   .map((p) => record('misc', p, { factory: p.cls ?? null }));
 
 const ammo = factories('equipment/AmmoType.java', 'ammo.')
@@ -199,7 +199,7 @@ const armor = factories('equipment/ArmorType.java', 'armor.')
 
 // ---------------------------------------------------------------- compact output for MechForger
 const num = (v: unknown) => (typeof v === 'number' ? v : undefined);
-const KEEP_FLAGS = /^(F_BA_WEAPON|F_INFANTRY|F_INF_\w+|F_MISSILE|F_BALLISTIC|F_ENERGY|F_PLASMA|F_LASER|F_PULSE|F_FLAMER|F_AMS|F_NARC|F_TAG|F_ARTILLERY|F_ONESHOT|F_DOUBLE_ONESHOT|F_BURST_FIRE|F_DIRECT_FIRE|F_BA_EQUIPMENT|F_BA_MANIPULATOR|F_AP_MOUNT|F_ARMORED_GLOVE|F_BASIC_MANIPULATOR|F_BATTLE_CLAW|F_MAGNET_CLAW|F_VIBROCLAW|F_MAGNETIC_CLAMP|F_CAMO_SYSTEM|F_ECM|F_ANGEL_ECM|F_BAP|F_JUMP_BOOSTER|F_MECHANICAL_JUMP_BOOSTER|F_MASC|F_PARTIAL_WING|F_DETACHABLE_WEAPON_PACK|F_SPACE_ADAPTATION|F_HEAT_SENSOR|F_ARMOR_KIT|F_INF_EQUIPMENT|F_BATTLEARMOR|F_ENCUMBERING|F_TOOLS|F_FIRE_RESISTANT|S_\w+)$/;
+const KEEP_FLAGS = /^(F_BA_WEAPON|F_INFANTRY|F_INF_\w+|F_MISSILE|F_BALLISTIC|F_ENERGY|F_PLASMA|F_LASER|F_PULSE|F_FLAMER|F_AMS|F_NARC|F_TAG|F_ARTILLERY|F_ONESHOT|F_DOUBLE_ONESHOT|F_BURST_FIRE|F_DIRECT_FIRE|F_BA_EQUIPMENT|F_BA_MANIPULATOR|F_AP_MOUNT|F_ARMORED_GLOVE|F_BASIC_MANIPULATOR|F_BATTLE_CLAW|F_MAGNET_CLAW|F_VIBROCLAW|F_MAGNETIC_CLAMP|F_CAMO_SYSTEM|F_ECM|F_ANGEL_ECM|F_BAP|F_JUMP_BOOSTER|F_MECHANICAL_JUMP_BOOSTER|F_MASC|F_PARTIAL_WING|F_DETACHABLE_WEAPON_PACK|F_SPACE_ADAPTATION|F_HEAT_SENSOR|F_ARMOR_KIT|F_INF_EQUIPMENT|F_ANTI_MEK_GEAR|F_BATTLEARMOR|F_ENCUMBERING|F_TOOLS|F_FIRE_RESISTANT|S_\w+)$/;
 function compact(e: ReturnType<typeof record>) {
   const f = e as Record<string, unknown>;
   const t = e.tech as Raw;

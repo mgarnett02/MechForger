@@ -10,12 +10,14 @@ import type { VesselDesign } from '../rules/vessel';
 import { isVessel, parseVessel } from '../rules/vessel';
 import type { BattleArmorDesign } from '../rules/battlearmor';
 import { isBattleArmor, parseBattleArmor } from '../rules/battlearmor';
+import type { InfantryDesign } from '../rules/infantry';
+import { isInfantry, parseInfantry } from '../rules/infantry';
 
-export type AnyDesign = MechDesign | VehicleDesign | SupportVehicleDesign | FighterDesign | VesselDesign | BattleArmorDesign;
-export type UnitType = 'mech' | 'vehicle' | 'support' | 'fighter' | 'vessel' | 'battlearmor';
+export type AnyDesign = MechDesign | VehicleDesign | SupportVehicleDesign | FighterDesign | VesselDesign | BattleArmorDesign | InfantryDesign;
+export type UnitType = 'mech' | 'vehicle' | 'support' | 'fighter' | 'vessel' | 'battlearmor' | 'infantry';
 
 export function unitTypeOf(d: AnyDesign): UnitType {
-  return isBattleArmor(d) ? 'battlearmor' : isVessel(d) ? 'vessel' : isFighter(d) ? 'fighter' : isSupport(d) ? 'support' : isVehicle(d) ? 'vehicle' : 'mech';
+  return isInfantry(d) ? 'infantry' : isBattleArmor(d) ? 'battlearmor' : isVessel(d) ? 'vessel' : isFighter(d) ? 'fighter' : isSupport(d) ? 'support' : isVehicle(d) ? 'vehicle' : 'mech';
 }
 
 const KEY = 'mechforger.designs.v1';
@@ -25,10 +27,12 @@ const CURRENT_SUPPORT = 'mechforger.currentSupport.v1';
 const CURRENT_FIGHTER = 'mechforger.currentFighter.v1';
 const CURRENT_VESSEL = 'mechforger.currentVessel.v1';
 const CURRENT_BA = 'mechforger.currentBattleArmor.v1';
+const CURRENT_INF = 'mechforger.currentInfantry.v1';
 const UNIT = 'mechforger.unit.v1';
 
 /** Parse a saved or imported file as whichever kind of design it is. */
 export function parseAny(raw: unknown): AnyDesign {
+  if (isInfantry(raw)) return parseInfantry(raw);
   if (isBattleArmor(raw)) return parseBattleArmor(raw);
   if (isVessel(raw)) return parseVessel(raw);
   if (isFighter(raw)) return parseFighter(raw);
@@ -110,7 +114,7 @@ export function saveCurrentVehicle(d: VehicleDesign) {
 
 export function loadUnit(): UnitType {
   const u = read(UNIT);
-  return u === 'vehicle' || u === 'support' || u === 'fighter' || u === 'vessel' || u === 'battlearmor' ? u : 'mech';
+  return u === 'vehicle' || u === 'support' || u === 'fighter' || u === 'vessel' || u === 'battlearmor' || u === 'infantry' ? u : 'mech';
 }
 
 export function loadCurrentSupport(): SupportVehicleDesign | null {
@@ -167,6 +171,20 @@ export function loadCurrentBattleArmor(): BattleArmorDesign | null {
 
 export function saveCurrentBattleArmor(d: BattleArmorDesign) {
   write(CURRENT_BA, d);
+}
+
+export function loadCurrentInfantry(): InfantryDesign | null {
+  const raw = read(CURRENT_INF);
+  if (!raw) return null;
+  try {
+    return parseInfantry(raw);
+  } catch {
+    return null;
+  }
+}
+
+export function saveCurrentInfantry(d: InfantryDesign) {
+  write(CURRENT_INF, d);
 }
 
 export function saveUnit(unit: UnitType) {
