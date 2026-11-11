@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import M from '../data/canon/mechs.json';
 import type { CanonEntry } from '../data/canonFormat';
-import { decodeMech } from '../data/canonFormat';
 import {
   addEquipment, computeMech, getEquipment, itemSlots, itemWeight, mechBV, mechCost, newDesign, removeEquipment, validate,
 } from './index';
