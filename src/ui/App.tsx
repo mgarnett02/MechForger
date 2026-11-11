@@ -190,7 +190,7 @@ export function App() {
         <h1>
           MechForger{' '}
           <span className="muted small">
-            {unit === 'vehicle' ? 'Vehicle · ' : unit === 'support' ? 'Support Vehicle · ' : unit === 'fighter' ? 'Fighter · ' : unit === 'vessel' ? 'Small craft / DropShip · ' : ''}
+            {unit === 'vehicle' ? 'Vehicle · ' : unit === 'support' ? 'Support Vehicle · ' : unit === 'fighter' ? 'Fighter · ' : unit === 'vessel' ? 'Spacecraft · ' : ''}
             {era
               ? `${era.name} · ${active.mixedTech ? `Mixed tech (${TECH_BASE_NAMES[active.techBase]} chassis) · Advanced` : `${TECH_BASE_NAMES[active.techBase]} · ${era.rulesLevel}`} · ${era.year}`
               : active.era}

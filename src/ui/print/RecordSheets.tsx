@@ -16,7 +16,7 @@ import type { FighterWeaponRow } from '../../rules/recordSheet';
 import { fighterSheetData } from '../../rules/recordSheet';
 import { fighterBV, fighterCost } from '../../rules/battleValue';
 import type { VesselArc, VesselDesign } from '../../rules/vessel';
-import { BAY_INFO, VESSEL_ARMOR_NAMES, VESSEL_LOCATION_NAMES, armorThreshold as vesselThreshold, computeVessel } from '../../rules/vessel';
+import { BAY_INFO, VESSEL_ARMOR_NAMES, VESSEL_LOCATION_NAMES, VESSEL_TYPE_NAMES, armorThreshold as vesselThreshold, computeVessel, isLargeCraft, kfIntegrity } from '../../rules/vessel';
 import { vesselSheetData } from '../../rules/recordSheet';
 import { vesselBV, vesselCost } from '../../rules/battleValue';
 import type { AmmoRow, EquipmentRow, WeaponRow } from '../../rules/recordSheet';
@@ -708,13 +708,17 @@ export function FighterRecordSheet({ design }: { design: FighterDesign }) {
 // ---------------------------------------------------------------------------
 
 const VESSEL_PLATES: [VesselArc, string][] = [['NOS', 'no'], ['LS', 'lw'], ['RS', 'rw'], ['AFT', 'af']];
+const LARGE_PLATES: [VesselArc, string][] = [['NOS', 'no'], ['FLS', 'fl'], ['FRS', 'fr'], ['ALS', 'al'], ['ARS', 'ar'], ['AFT', 'af']];
+const DRIVE_NAMES = { standard: 'Standard', compact: 'Compact', subcompact: 'Sub-compact', none: 'None' } as const;
 
 export function VesselRecordSheet({ design }: { design: VesselDesign }) {
   const s = computeVessel(design);
   const data = vesselSheetData(design);
   const dropship = design.vesselType === 'dropship';
+  const large = isLargeCraft(design);
   const name = `${design.chassis} ${design.model}`.trim() || 'Unnamed';
-  const kind = dropship ? 'DropShip Record Sheet' : 'Small Craft Record Sheet';
+  const kind = `${VESSEL_TYPE_NAMES[design.vesselType]} Record Sheet`;
+  const hasCapital = data.bays.some((b) => b.capital);
   const capped = (n: number) => Math.min(n, 120);
   return (
     <article className="record-sheet vehicle fighter vessel">
@@ -722,7 +726,7 @@ export function VesselRecordSheet({ design }: { design: VesselDesign }) {
       <div className="rs-grid-fighter rs-grid-vessel">
         <Panel title="Craft Data" className="area-data">
           <div className="rs-fields">
-            <Field label="Type" value={`${name} (${design.military ? 'military' : 'civilian'} ${design.shape})`} wide />
+            <Field label="Type" value={large ? name : `${name} (${design.military ? 'military' : 'civilian'} ${design.shape})`} wide />
             <div className="rs-move">
               <span className="rs-label">Thrust:</span>
               <Field label="Safe" value={design.safeThrust} />
@@ -736,14 +740,16 @@ export function VesselRecordSheet({ design }: { design: VesselDesign }) {
             <Field label="Cost" value={`${vesselCost(design).total.toLocaleString('en-US')} C-bills`} />
             <Field label="Fuel" value={`${s.fuelPoints.toLocaleString('en-US')} points`} />
             <Field label="Crew" value={`${design.crew.crew} (${design.crew.officers} off., ${design.crew.gunners} gun.)`} />
+            {large && <Field label="K-F Drive" value={`${DRIVE_NAMES[design.driveCore]}${design.driveCore !== 'none' ? ` (integrity ${kfIntegrity(design)})` : ''}${design.lfBattery ? ', L-F battery' : ''}`} />}
+            {large && <Field label="Fittings" value={[design.sail && 'jump sail', design.hpg && 'HPG', design.dockingCollars && `${design.dockingCollars} docking collar${design.dockingCollars === 1 ? '' : 's'}`, design.gravDecks.length && `${design.gravDecks.length} grav deck${design.gravDecks.length === 1 ? '' : 's'}`].filter(Boolean).join(', ') || '—'} wide />}
           </div>
           <div className="rs-inventory">
-            <div className="rs-subtitle">{dropship ? 'Weapon Bays' : 'Weapons'} <span>(attack values by range bracket)</span></div>
+            <div className="rs-subtitle">{dropship || large ? 'Weapon Bays' : 'Weapons'} <span>(attack values by range bracket{hasCapital ? '; [C] = capital scale' : ''})</span></div>
             <table className="rs-table">
-              <thead><tr><th className="left">{dropship ? 'Bay' : 'Type'}</th><th>Loc</th><th>Ht</th><th>SRV</th><th>MRV</th><th>LRV</th><th>ERV</th></tr></thead>
+              <thead><tr><th className="left">{dropship || large ? 'Bay' : 'Type'}</th><th>Loc</th><th>Ht</th><th>SRV</th><th>MRV</th><th>LRV</th><th>ERV</th></tr></thead>
               <tbody>
                 {data.bays.map((r, i) => (
-                  <tr key={i}><td className="left">{r.name}</td><td>{r.location}</td><td>{r.heat}</td>{r.av.map((v, j) => <td key={j}>{v}</td>)}</tr>
+                  <tr key={i}><td className="left">{r.name}{r.capital ? ' [C]' : ''}</td><td>{r.location}</td><td>{r.heat}</td>{r.av.map((v, j) => <td key={j}>{v}</td>)}</tr>
                 ))}
                 {data.equipment.map((r, i) => (
                   <tr key={`e${i}`}><td className="left">{r.qty > 1 ? `${r.qty} ${r.name}` : r.name}</td><td>{r.location}</td><td>—</td><td>[E]</td><td>—</td><td>—</td><td>—</td></tr>
@@ -755,6 +761,21 @@ export function VesselRecordSheet({ design }: { design: VesselDesign }) {
         </Panel>
 
         <Panel title="Armor Diagram" className="area-armor">
+          {large ? (
+            <div className="rs-large-armor">
+              {LARGE_PLATES.map(([arc, area]) => (
+                <div key={arc} className="rs-plate" style={{ gridArea: area }}>
+                  <div className="rs-plate-label">{VESSEL_LOCATION_NAMES[arc]}</div>
+                  <div className="rs-large-armor-value"><b>{design.armor[arc].toLocaleString('en-US')}</b> · TH {vesselThreshold(design.armor[arc])}</div>
+                  <div className="rs-large-armor-damage">Damage: ____________</div>
+                </div>
+              ))}
+              <div className="rs-vehicle-body rs-fighter-si" style={{ gridArea: 'body' }}>
+                <span>Structural Integrity ({design.si})</span>
+                <Pips count={capped(design.si)} kind="structure" />
+              </div>
+            </div>
+          ) : (
           <div className="rs-vehicle-figure aero">
             {VESSEL_PLATES.map(([arc, area]) => (
               <div key={arc} className={`rs-plate vplate-${area}`} style={{ gridArea: area }}>
@@ -768,6 +789,7 @@ export function VesselRecordSheet({ design }: { design: VesselDesign }) {
               <Pips count={capped(design.si)} kind="structure" />
             </div>
           </div>
+          )}
           <div className="rs-armor-total">Armor: <b>{s.armorTotal.toLocaleString('en-US')}</b> ({VESSEL_ARMOR_NAMES[design.armorType]}) · SI: <b>{design.si}</b></div>
         </Panel>
 
@@ -793,9 +815,13 @@ export function VesselRecordSheet({ design }: { design: VesselDesign }) {
             <div><span>Sensors</span><span className="rs-check" /><i>+1</i><span className="rs-check" /><i>+2</i><span className="rs-check" /><i>+5</i></div>
             <div><span>Engine</span><span className="rs-check" /><span className="rs-check" /><span className="rs-check" /><span className="rs-check" /><span className="rs-check" /><span className="rs-check" /></div>
             <div><span>Crew</span><span className="rs-check" /><i>+1</i><span className="rs-check" /><i>+2</i><span className="rs-check" /><i>+3</i><span className="rs-check" /><i>+4</i></div>
-            <div><span>Thrusters</span><label>Left <span className="rs-check" /></label><label>Right <span className="rs-check" /></label></div>
+            {!large && <div><span>Thrusters</span><label>Left <span className="rs-check" /></label><label>Right <span className="rs-check" /></label></div>}
             <div><span>Life Support</span><span className="rs-check" /></div>
-            <div><span>Landing Gear</span><span className="rs-check" /></div>
+            {!large && <div><span>Landing Gear</span><span className="rs-check" /></div>}
+            {large && design.driveCore !== 'none' && <div><span>K-F Drive</span><span className="rs-check" /><span className="rs-check" /><span className="rs-check" /><span className="rs-check" /></div>}
+            {large && design.dockingCollars > 0 && <div><span>Docking Collars</span>{Array.from({ length: Math.min(design.dockingCollars, 8) }, (_, i) => <span key={i} className="rs-check" />)}</div>}
+            {large && design.gravDecks.length > 0 && <div><span>Grav Decks</span>{design.gravDecks.map((_, i) => <span key={i} className="rs-check" />)}</div>}
+            {large && <div><span>Bay Doors</span><span className="rs-check" /></div>}
             {dropship && <div><span>Docking Collar</span><span className="rs-check" /></div>}
             {dropship && <div><span>K-F Boom</span><span className="rs-check" /></div>}
           </div>

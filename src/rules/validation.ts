@@ -236,6 +236,7 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
         error(`${eq.name} is not available in the ${eraName} era.`);
       }
     }
+    if (eq.capitalClass) error(`${eq.name} is a large-craft weapon and cannot be mounted on a BattleMech.`);
     if (eq.lamOnly && !design.lam) error(`${eq.name} can only be fitted to a Land-Air 'Mech.`);
     if (item.location !== null && !allowedLocations(eq, design).includes(item.location)) {
       error(`${eq.name} cannot be mounted in the ${locationName(design, item.location)}.`);

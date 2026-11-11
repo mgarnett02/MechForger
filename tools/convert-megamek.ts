@@ -490,12 +490,21 @@ function parseFighterBlk(text: string): { design: FighterDesign; year: number; m
 
 const VESSEL_ARMOR: Record<string, VesselDesign['armorType']> = {
   41: 'standard', 0: 'standard', 19: 'ferro-aluminum', 20: 'heavy-ferro-aluminum', 21: 'light-ferro-aluminum',
+  13: 'improved-ferro-aluminum', 11: 'ferro-carbide', 12: 'lamellor-ferro-carbide',
 };
+/** Capital ammunition by MegaMek's internal name ("Ammo NAC/20", "Ammo KrakenT", …). */
+const CAPITAL_AMMO = new Map<string, string>();
+for (const eq of ALL_EQUIPMENT) {
+  if (eq.capitalClass && eq.category === 'Ammo') CAPITAL_AMMO.set(norm(`Ammo ${eq.name.replace(/ Ammo$/, '')}`), eq.id);
+}
+CAPITAL_AMMO.set('ammoscreen', 'ammo-screen-launcher');
+CAPITAL_AMMO.set('ammokrakent', 'ammo-kraken-t');
 const BAY_NAMES: Record<string, BayKind> = {
   mekbay: 'mek', mechbay: 'mek', asfbay: 'fighter', smallcraftbay: 'small-craft', lightvehiclebay: 'light-vehicle',
   heavyvehiclebay: 'heavy-vehicle', superheavyvehiclebay: 'superheavy-vehicle', protomekbay: 'protomek',
   battlearmorbay: 'battle-armor', cargobay: 'cargo', liquidcargobay: 'liquid-cargo', refrigeratedcargobay: 'refrigerated-cargo',
   insulatedcargobay: 'insulated-cargo', livestockcargobay: 'livestock-cargo',
+  navalrepairpressurized: 'repair-pressurized', navalrepairunpressurized: 'repair-unpressurized', dropshuttlebay: 'drop-shuttle',
 };
 const QUARTERS_BLK: Record<string, [QuartersKind, number]> = {
   crewquarters: ['crew', 7], '1stclassquarters': ['first-class', 10], '2ndclassquarters': ['second-class', 7], steeragequarters: ['steerage', 5],
@@ -510,7 +519,8 @@ function parseVesselBlk(text: string): { design: VesselDesign; year: number; mul
   const one = (k: string) => tags.get(k)?.[0] ?? '';
   const int = (k: string) => Number(one(k)) || 0;
   const unitType = one('UnitType');
-  const vesselType = unitType === 'SmallCraft' ? 'small-craft' : unitType === 'Dropship' ? 'dropship' : fail(`unit type ${unitType}`);
+  const vesselType = ({ SmallCraft: 'small-craft', Dropship: 'dropship', Jumpship: 'jumpship', Warship: 'warship', SpaceStation: 'space-station' } as const)[unitType as 'SmallCraft'] ?? fail(`unit type ${unitType}`);
+  const large = vesselType === 'jumpship' || vesselType === 'warship' || vesselType === 'space-station';
   const typeStr = one('type');
   if (/Primitive/i.test(typeStr)) fail('primitive craft');
   const techBase: TechBase = /^Clan|Clan Chassis/.test(typeStr) ? 'Clan' : 'IS';
@@ -518,14 +528,20 @@ function parseVesselBlk(text: string): { design: VesselDesign; year: number; mul
   const shape = one('motion_type') === 'Spheroid' ? 'spheroid' : one('motion_type') === 'Aerodyne' ? 'aerodyne' : fail(`motion ${one('motion_type')}`);
   const armorType = VESSEL_ARMOR[one('armor_type')] ?? fail(`armor type ${one('armor_type')}`);
   if (one('collartype') === '1') fail('prototype docking collar');
-  const [nose, ls, rs, aft] = (tags.get('armor') ?? []).map(Number);
-  const armor = { ...emptyVesselArmor(), NOS: nose ?? 0, LS: ls ?? 0, RS: rs ?? 0, AFT: aft ?? 0 };
+  const av = (tags.get('armor') ?? []).map(Number);
+  // Small craft / DropShips: nose, left, right, aft. Large craft: nose, FLS, FRS, aft, ALS, ARS.
+  const armor = large
+    ? { ...emptyVesselArmor(), NOS: av[0] ?? 0, FLS: av[1] ?? 0, FRS: av[2] ?? 0, AFT: av[3] ?? 0, ALS: av[4] ?? 0, ARS: av[5] ?? 0 }
+    : { ...emptyVesselArmor(), NOS: av[0] ?? 0, LS: av[1] ?? 0, RS: av[2] ?? 0, AFT: av[3] ?? 0 };
 
   const quarters = { crew: 0, 'first-class': 0, 'second-class': 0, steerage: 0 };
   const bays: VesselDesign['bays'] = [];
+  let dockingCollars = 0;
   for (const t of tags.get('transporters') ?? []) {
     const [kind, size0, doors0, , platoon] = t.split(':');
     const k = kind.toLowerCase();
+    if (k === 'dockingcollar') { dockingCollars++; continue; }
+    if (k === 'dropshuttlebay') { bays.push({ kind: 'drop-shuttle', size: 1, doors: Number(doors0) || 0 }); continue; }
     const size = Number(size0) || 0;
     if (QUARTERS_BLK[k]) { const [q, per] = QUARTERS_BLK[k]; quarters[q] += Math.floor(size / per + 1e-9); continue; }
     if (k === 'infantrybay') { bays.push({ kind: INFANTRY_BAYS[(platoon ?? 'foot').toLowerCase()] ?? fail(`infantry bay ${platoon}`), size, doors: Number(doors0) || 0 }); continue; }
@@ -533,9 +549,11 @@ function parseVesselBlk(text: string): { design: VesselDesign; year: number; mul
     bays.push({ kind: bk, size, doors: Number(doors0) || 0 });
   }
 
-  const blocks: [string, VesselLocation][] = [
-    ['Nose Equipment', 'NOS'], ['Left Side Equipment', 'LS'], ['Right Side Equipment', 'RS'], ['Aft Equipment', 'AFT'], ['Hull Equipment', 'HULL'],
-  ];
+  const blocks: [string, VesselLocation][] = large
+    ? [['Nose Equipment', 'NOS'], ['Left Front Side Equipment', 'FLS'], ['Right Front Side Equipment', 'FRS'],
+      ['Aft Left Side Equipment', 'ALS'], ['Aft Right Side Equipment', 'ARS'], ['Aft Equipment', 'AFT'],
+      ['Left Broadsides Equipment', 'LBS'], ['Right Broadsides Equipment', 'RBS'], ['Hull Equipment', 'HULL']]
+    : [['Nose Equipment', 'NOS'], ['Left Side Equipment', 'LS'], ['Right Side Equipment', 'RS'], ['Aft Equipment', 'AFT'], ['Hull Equipment', 'HULL']];
   const equipment: VesselItem[] = [];
   let uid = 0;
   for (const [tag, loc] of blocks) {
@@ -548,7 +566,8 @@ function parseVesselBlk(text: string): { design: VesselDesign; year: number; mul
       let shots: number | undefined;
       const sm = /^(.*\bAmmo\b.*):(\d+)$/i.exec(raw) ?? /^(.*):(\d+)$/.exec(raw);
       if (sm && /ammo/i.test(sm[1])) { raw = sm[1]; shots = Number(sm[2]); }
-      const r = resolveName(raw, techBase);
+      const capAmmo = CAPITAL_AMMO.get(norm(raw));
+      const r = capAmmo ? { kind: 'item' as const, id: capAmmo } : resolveName(raw, techBase);
       if (r.kind === 'fixed') continue;
       if (r.kind === 'unknown') fail(`unknown item "${r.name}"`);
       const id = (r as { id: string }).id;
@@ -558,22 +577,32 @@ function parseVesselBlk(text: string): { design: VesselDesign; year: number; mul
       if (id === 'case' && techBase === 'Clan') continue;
       const item: VesselItem = { uid: `s${uid++}`, equipmentId: id, location: loc };
       if (rear) item.rear = true;
-      if (eq.isWeapon && vesselType === 'dropship') { if (newBay || bay === 0) bay++; item.bay = bay; }
+      if (eq.isWeapon && vesselType !== 'small-craft') { if (newBay || bay === 0) bay++; item.bay = bay; }
       if (eq.category === 'Ammo') item.shots = shots ?? Number(/\((\d+)\)\s*$/.exec(eq.name)?.[1] ?? 1);
       equipment.push(item);
     }
   }
   fixAmmoTech(equipment);
+  // Some canon files are marked Inner Sphere yet carry Clan equipment (or vice versa).
+  const mixed = mixedTech || equipment.some((e) => { const tb = getEquipment(e.equipmentId)!.techBase; return tb !== 'Both' && tb !== techBase; });
   const tonnage = Number(one('tonnage'));
   const dropship = vesselType === 'dropship';
-  const fppt = !dropship ? 80 : tonnage < 400 ? 80 : tonnage < 800 ? 70 : tonnage < 1200 ? 60 : tonnage < 1900 ? 50 : tonnage < 3000 ? 40 : tonnage < 20000 ? 30 : tonnage < 40000 ? 20 : 10;
+  const fppt = large ? (tonnage < 110000 ? 10 : tonnage < 250000 ? 5 : 2.5) : !dropship ? 80 : tonnage < 400 ? 80 : tonnage < 800 ? 70 : tonnage < 1200 ? 60 : tonnage < 1900 ? 50 : tonnage < 3000 ? 40 : tonnage < 20000 ? 30 : tonnage < 40000 ? 20 : 10;
   const design: VesselDesign = {
-    schemaVersion: 1, unitType: 'vessel', vesselType, shape, military: one('designtype') !== '0', era: '3025', techBase, mixedTech,
+    schemaVersion: 1, unitType: 'vessel', vesselType, shape, military: one('designtype') !== '0', era: '3025', techBase, mixedTech: mixed,
     chassis: one('Name'), model: one('Model'), tonnage, safeThrust: int('SafeThrust'), si: int('structural_integrity'),
     heatSinkType: one('sink_type') === '1' ? 'double' : 'single', heatSinks: int('heatsinks'), fuelTons: int('fuel') / fppt,
     armorType, armor,
     crew: { crew: int('crew'), officers: int('officers'), gunners: int('gunners'), passengers: int('passengers'), marines: int('marines'), battleArmor: int('battlearmor') },
-    quarters, bays, lifeboats: int('lifeboat') || int('life_boat'), escapePods: int('escape_pod'), equipment,
+    quarters, bays,
+    driveCore: large ? ({ 0: 'standard', 1: 'compact', 2: 'subcompact' } as const)[(tags.has('kf_core') ? int('kf_core') : vesselType === 'warship' ? 1 : vesselType === 'jumpship' ? 0 : 3) as 0] ?? (vesselType === 'space-station' ? 'none' : fail(`K-F core ${one('kf_core')}`)) : 'none',
+    sail: large && (tags.has('sail') ? one('sail') !== '0' : vesselType === 'jumpship'),
+    lfBattery: tags.has('lithium-fusion'),
+    hpg: tags.has('hpg'),
+    gravDecks: (tags.get('grav_decks') ?? []).flatMap((x) => x.split(/[\s,]+/)).map(Number).filter((n) => n > 0)
+      .concat(Array(int('grav_deck')).fill(50), Array(int('grav_deck_large')).fill(175), Array(int('grav_deck_huge')).fill(1000)),
+    dockingCollars,
+    lifeboats: int('lifeboat') || int('life_boat'), escapePods: int('escape_pod'), equipment,
   };
   return { design, year: Number(one('year')) || 3025, mulId: Number(one('mul id:')) || undefined, source: one('source') };
 }
@@ -820,13 +849,13 @@ function main() {
     }
   }
   // --- Small craft and DropShips
-  const vesselFiles = ['smallcraft', 'dropships'].flatMap((dir) => walk(path.join(root, 'data/mekfiles', dir), '.blk')).sort();
+  const vesselFiles = ['smallcraft', 'dropships', 'jumpships', 'warship', 'spacestation'].flatMap((dir) => walk(path.join(root, 'data/mekfiles', dir), '.blk')).sort();
   const vessels: CanonEntry[] = [];
   let vslSkipped = 0;
   const vsseen = new Set<string>();
   for (const f of vesselFiles) {
     const text = fs.readFileSync(f, 'utf8');
-    if (!/<UnitType>\s*\n(SmallCraft|Dropship)\n/.test(text)) continue;
+    if (!/<UnitType>\s*\n(SmallCraft|Dropship|Jumpship|Warship|SpaceStation)\n/.test(text)) continue;
     try {
       const p = parseVesselBlk(text);
       const key = `${p.design.chassis} ${p.design.model}`;
@@ -848,7 +877,7 @@ function main() {
   }
   vessels.sort((a, b) => a.n.localeCompare(b.n));
   fs.writeFileSync(path.join(outDir, 'vessels.json'), JSON.stringify(vessels));
-  console.log(`Small craft / DropShips: ${vessels.length} converted, ${vslSkipped} skipped; exact tonnage ${vessels.filter((e) => e.w).length}, fully legal ${vessels.filter((e) => e.ok).length}`);
+  console.log(`Small craft / DropShips / large craft: ${vessels.length} converted, ${vslSkipped} skipped; exact tonnage ${vessels.filter((e) => e.w).length}, fully legal ${vessels.filter((e) => e.ok).length}`);
 
   // --- Fighters
   const fighterFiles = ['fighters', 'convfighter'].flatMap((dir) => walk(path.join(root, 'data/mekfiles', dir), '.blk')).sort();

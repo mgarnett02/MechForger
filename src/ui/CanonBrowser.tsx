@@ -20,7 +20,13 @@ function weightClass(t: number, unit: UnitType, k = ''): string {
     const size = sizeClass({ svType: (k in SV_TYPES ? k : 'wheeled') as SVType, tonnage: t });
     return size[0].toUpperCase() + size.slice(1);
   }
-  if (unit === 'vessel') return k.startsWith('small-craft') ? 'Small craft' : t < 2500 ? 'Small DropShip' : t < 10000 ? 'Medium DropShip' : 'Large DropShip';
+  if (unit === 'vessel') {
+    if (k.startsWith('small-craft')) return 'Small craft';
+    if (k.startsWith('dropship')) return t < 2500 ? 'Small DropShip' : t < 10000 ? 'Medium DropShip' : 'Large DropShip';
+    if (k.startsWith('jumpship')) return 'JumpShip';
+    if (k.startsWith('space-station')) return 'Space station';
+    return t < 500000 ? 'Light WarShip' : t < 1000000 ? 'Medium WarShip' : 'Heavy WarShip';
+  }
   if (unit === 'fighter') return k === 'conventional' ? (t <= 15 ? 'Light' : t <= 30 ? 'Medium' : 'Heavy') : t <= 45 ? 'Light' : t <= 70 ? 'Medium' : 'Heavy';
   if (unit === 'mech') return t <= 35 ? 'Light' : t <= 55 ? 'Medium' : t <= 75 ? 'Heavy' : 'Assault';
   return t < 40 ? 'Light' : t < 60 ? 'Medium' : t < 80 ? 'Heavy' : t <= 100 ? 'Assault' : 'Super-heavy';
@@ -34,6 +40,9 @@ function kindLabel(k: string): string {
     const [type, shape] = k.split(':');
     return `${shape === 'spheroid' ? 'Spheroid' : 'Aerodyne'} ${type === 'dropship' ? 'DropShip' : 'small craft'}`;
   }
+  if (k.startsWith('jumpship')) return 'JumpShip';
+  if (k.startsWith('warship')) return 'WarShip';
+  if (k.startsWith('space-station')) return 'Space station';
   if (k === 'aerospace') return 'Aerospace fighter';
   if (k === 'omnifighter') return 'OmniFighter';
   if (k === 'conventional') return 'Conventional fighter';
@@ -109,7 +118,7 @@ export function CanonBrowser({ unit, onLoad, onClose }: Props) {
             <button role="radio" aria-checked={kind === 'vehicle'} className={kind === 'vehicle' ? 'active' : ''} onClick={() => setKind('vehicle')}>Vehicles</button>
             <button role="radio" aria-checked={kind === 'support'} className={kind === 'support' ? 'active' : ''} onClick={() => setKind('support')}>Support vehicles</button>
             <button role="radio" aria-checked={kind === 'fighter'} className={kind === 'fighter' ? 'active' : ''} onClick={() => setKind('fighter')}>Fighters</button>
-            <button role="radio" aria-checked={kind === 'vessel'} className={kind === 'vessel' ? 'active' : ''} onClick={() => setKind('vessel')}>Small craft &amp; DropShips</button>
+            <button role="radio" aria-checked={kind === 'vessel'} className={kind === 'vessel' ? 'active' : ''} onClick={() => setKind('vessel')}>Spacecraft</button>
           </div>
           <span className="spacer" />
           <button onClick={onClose}>Close</button>

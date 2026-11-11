@@ -364,7 +364,7 @@ export function svItemWeight(eq: Equipment, d: SupportVehicleDesign): number {
 }
 
 export function isSupportEquipment(eq: Equipment): boolean {
-  return !eq.managed && eq.variableWeight !== 'masc' && !eq.lamOnly && !eq.melee;
+  return !eq.managed && eq.variableWeight !== 'masc' && !eq.lamOnly && !eq.melee && !eq.capitalClass;
 }
 
 // ---------------------------------------------------------------------------

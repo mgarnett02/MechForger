@@ -118,3 +118,23 @@ export const AERO_AV: Record<string, readonly [number, number, number, number]> 
   "uac-20": [30, 30, 0, 0],
   "uac-5": [7, 7, 7, 0],
 };
+
+/**
+ * Capital and sub-capital weapons, in standard-scale AV (MegaMek's weapon definitions, with capital-scale
+ * values × 10). A bay of capital weapons is printed in capital scale: its summed AV ÷ 10, rounded.
+ */
+const CAPITAL_AV: Record<string, readonly [number, number, number, number]> = {
+  "nac-10": [10, 10, 10, 0], "nac-20": [20, 20, 20, 0], "nac-25": [25, 25, 25, 0], "nac-30": [30, 30, 30, 0],
+  "nac-35": [35, 35, 0, 0], "nac-40": [40, 40, 0, 0],
+  "ngauss-light": [15, 15, 15, 15], "ngauss-medium": [25, 25, 25, 25], "ngauss-heavy": [30, 30, 30, 30],
+  "nl-35": [35, 35, 35, 0], "nl-45": [45, 45, 45, 45], "nl-55": [55, 55, 55, 55],
+  "nppc-light": [70, 70, 70, 0], "nppc-medium": [90, 90, 90, 90], "nppc-heavy": [150, 150, 150, 150],
+  "barracuda": [20, 20, 20, 20], "white-shark": [30, 30, 30, 30], "killer-whale": [40, 40, 40, 40], "ar10": [20, 20, 20, 20],
+  "barracuda-t": [20, 20, 20, 20], "white-shark-t": [30, 30, 30, 30], "killer-whale-t": [40, 40, 40, 40], "kraken-t": [100, 100, 100, 100],
+  "scl-1": [10, 10, 10, 0], "scl-2": [20, 20, 0, 0], "scl-3": [30, 30, 0, 0],
+  "scc-light": [20, 20, 20, 0], "scc-medium": [50, 50, 0, 0], "scc-heavy": [70, 70, 0, 0],
+  "piranha": [30, 30, 30, 0], "stingray": [35, 35, 0, 0], "swordfish": [40, 0, 0, 0], "manta-ray": [50, 0, 0, 0],
+  "screen-launcher": [0, 0, 0, 0],
+  "mass-driver-light": [60, 60, 60, 0], "mass-driver-medium": [100, 100, 100, 0], "mass-driver-heavy": [140, 140, 140, 0],
+};
+Object.assign(AERO_AV, CAPITAL_AV);

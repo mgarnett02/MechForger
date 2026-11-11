@@ -16,7 +16,7 @@ import { meleeBV, meleeCost } from './melee';
 import type { FighterDesign } from './fighter';
 import { computeFighter, fighterItemWeight } from './fighter';
 import type { VesselDesign, VesselItem } from './vessel';
-import { BAY_INFO, VESSEL_ARMOR_COST, computeVessel, shotsPerBin, vesselItemWeight } from './vessel';
+import { BAY_INFO, VESSEL_ARMOR_COST, VESSEL_TYPE_NAMES, computeVessel, isLargeCraft, kfIntegrity, shotsPerBin, vesselItemWeight } from './vessel';
 import type { VehicleDesign } from './vehicle';
 import { computeVehicle, vehicleItemWeight } from './vehicle';
 import { DEFENSIVE_IDS, ITEM_VALUES, MML_AMMO_BV, isGaussType } from './values';
@@ -58,6 +58,7 @@ function value(id: string) {
 
 /** BV and cost of one ammo bin (half-ton bins count half). */
 function ammoValue(eq: Equipment): { bv: number; cost: number } {
+  if (eq.shotBV !== undefined) return { bv: eq.shotBV, cost: eq.shotCost ?? 0 }; // capital ammo: per shot
   const weapon = eq.ammoFor ?? '';
   const scale = eq.tons; // 1 or 0.5
   if (MML_AMMO_BV[weapon]) {
@@ -463,25 +464,40 @@ export function fighterCost(d: FighterDesign): CostBreakdown {
 // Small craft and DropShips (MegaMek's AeroBVCalculator / DropShipBVCalculator and cost calculators)
 // ---------------------------------------------------------------------------
 
-/** BV arcs: nose, left, left-rear, aft, right-rear, right (in MegaMek's order). */
+/** BV arcs: nose, left, left-rear, aft, right-rear, right, then WarShip broadsides (MegaMek's order). */
 function bvArc(item: VesselItem): number {
   switch (item.location) {
     case 'NOS': return 0;
     case 'LS': return item.rear ? 2 : 1;
+    case 'FLS': return 1;
+    case 'ALS': return 2;
     case 'AFT': return 3;
+    case 'ARS': return 4;
     case 'RS': return item.rear ? 4 : 5;
+    case 'FRS': return 5;
+    case 'LBS': return 6;
+    case 'RBS': return 7;
     default: return -1;
   }
 }
 
+/** WarShip arc neighbours (MegaMek's WarShipBVCalculator tables). */
+const WS_CW = [5, 0, 6, 2, 3, 7, 1, 4];
+const WS_CCW = [1, 6, 3, 4, 7, 0, 2, 5];
+const WS_OPPOSITE = [3, 4, 5, 0, 1, 2, 7, 6];
+
 export function vesselBV(d: VesselDesign): BVBreakdown {
   const s = computeVessel(d);
   const lines: [string, number][] = [];
-  const dropship = d.vesselType === 'dropship';
+  const dropship = d.vesselType !== 'small-craft';
+  const large = isLargeCraft(d);
+  const warship = d.vesselType === 'warship';
+  const station = d.vesselType === 'space-station';
 
   // Defensive: armor, SI, defensive equipment; small craft lose BV for unprotected explosives.
-  const armor = s.armorTotal * 2.5;
-  const structure = d.si * 2;
+  // Large craft armor and SI are capital scale: ×25 and ×20.
+  const armor = s.armorTotal * (large ? 25 : 2.5);
+  const structure = d.si * (large ? 20 : 2);
   const defEquip = defensiveEquipmentBV(d.equipment);
   let explosive = 0;
   if (!dropship && d.techBase !== 'Clan' && !d.equipment.some((e) => e.equipmentId === 'case')) {
@@ -494,10 +510,12 @@ export function vesselBV(d: VesselDesign): BVBreakdown {
     }
     explosive += 15 * ammoTypes.size;
   }
-  const defensive = Math.max(1, armor + structure + defEquip - explosive);
+  const typeModifier = large ? (station ? 0.7 : 0.75) : 1;
+  const defensive = Math.max(1, armor + structure + defEquip - explosive) * typeModifier;
   lines.push(['Armor', armor], ['Structural integrity', structure]);
   if (defEquip) lines.push(['Defensive equipment', defEquip]);
   if (explosive) lines.push(['Explosive ammo / components', -explosive]);
+  if (large) lines.push([`Type modifier (${VESSEL_TYPE_NAMES[d.vesselType]})`, typeModifier]);
 
   const ammoBin = (item: VesselItem, eq: Equipment) => ammoValue(eq).bv * Math.max(1, Math.floor((item.shots ?? shotsPerBin(eq)) / shotsPerBin(eq)));
   const tc = d.equipment.filter((e) => getEquipment(e.equipmentId)?.variableWeight === 'targetingComputer');
@@ -529,24 +547,28 @@ export function vesselBV(d: VesselDesign): BVBreakdown {
   } else {
     // DropShips: six arcs. The strongest arc counts in full; its neighbours count full and half
     // (dropping to half and quarter once heat efficiency is exceeded); the rest count a quarter.
-    const arcItems: VesselItem[][] = [[], [], [], [], [], []];
-    for (const item of d.equipment) { const a = bvArc(item); if (a >= 0) arcItems[a].push(item); }
+    const nArcs = warship ? 8 : 6;
+    const arcItems: VesselItem[][] = Array.from({ length: nArcs }, () => []);
+    for (const item of d.equipment) { const a = bvArc(item); if (a >= 0 && a < nArcs) arcItems[a].push(item); }
     const arcWeapons = arcItems.map((items) => weaponEntries([...items, ...tc]));
     const arcBV = arcWeapons.map((ws) => ws.reduce((a, w) => a + w.bv, 0));
     const arcHeat = arcWeapons.map((ws) => ws.reduce((a, w) => a + w.heat, 0));
-    const max = Math.max(...arcBV);
-    const nose = arcBV.indexOf(max);
-    const ccw = (nose + 1) % 6;
-    const cw = (nose + 5) % 6;
-    const [left, right] = arcBV[ccw] > arcBV[cw] ? [ccw, cw] : [cw, ccw];
+    // WarShips take their primary arc from the nose, aft or a broadside; the "right" arc is then the opposite one.
+    const candidates = warship ? [0, 3, 6, 7] : [0, 1, 2, 3, 4, 5];
+    const max = Math.max(...candidates.map((a) => arcBV[a]));
+    const nose = candidates.find((a) => arcBV[a] === max)!;
+    const ccw = warship ? WS_CCW[nose] : (nose + 1) % 6;
+    const cw = warship ? WS_CW[nose] : (nose + 5) % 6;
+    const [left, other] = arcBV[ccw] > arcBV[cw] ? [ccw, cw] : [cw, ccw];
+    const right = warship ? WS_OPPOSITE[nose] : other;
     const heatEfficiency = s.heatSinks.dissipation;
-    const factor: number[] = [0.25, 0.25, 0.25, 0.25, 0.25, 0.25];
+    const factor: number[] = Array(nArcs).fill(0.25);
     factor[nose] = 1;
     let heat = arcHeat[nose];
     factor[left] = heat > heatEfficiency ? 0.5 : 1;
     heat += arcHeat[left];
     factor[right] = heat > heatEfficiency ? 0.25 : 0.5;
-    for (let a = 0; a < 6; a++) {
+    for (let a = 0; a < nArcs; a++) {
       weaponBV += arcBV[a] * factor[a];
       // Ammo counts in the arc it feeds, up to the BV of that arc's weapons of the type.
       const perWeapon = new Map<string, number>();
@@ -559,14 +581,16 @@ export function vesselBV(d: VesselDesign): BVBreakdown {
         ammo += Math.min(bv, cap) * factor[a];
       }
     }
-    const names = ['nose', 'left', 'left rear', 'aft', 'right rear', 'right'];
+    const names = ['nose', 'left', 'left rear', 'aft', 'right rear', 'right', 'left broadside', 'right broadside'];
     lines.push([`Primary arc: ${names[nose]}`, arcBV[nose]]);
   }
-  const sf = speedFactor(s.maxThrust);
+  // Large craft use a fixed speed factor: 1 MP (stations 0).
+  const sfMP = large ? (station ? 0 : 1) : s.maxThrust;
+  const sf = speedFactor(sfMP);
   const offensive = (weaponBV + ammo + offEquip) * sf;
   lines.push(['Weapons', weaponBV], ['Ammunition', ammo]);
   if (offEquip) lines.push(['Offensive equipment', offEquip]);
-  lines.push([`Speed factor (max thrust ${s.maxThrust})`, sf]);
+  lines.push([large ? `Speed factor (${sfMP} MP)` : `Speed factor (max thrust ${s.maxThrust})`, sf]);
   return { total: round(defensive + offensive), defensive, offensive, lines, approximate: false };
 }
 
@@ -598,6 +622,7 @@ export function vesselCost(d: VesselDesign): CostBreakdown {
     ['Heat sinks', (d.heatSinkType === 'double' ? 6000 : 2000) * d.heatSinks],
     ['Weapons & equipment', equipment],
   ];
+  if (isLargeCraft(d)) return largeCraftCost(d, s, lines.slice(0, 7), equipment);
   let multiplier = 1 + t / 50;
   if (d.vesselType === 'dropship') {
     const bays = d.bays.reduce((a, b) => a + BAY_INFO[b.kind].cost * Math.ceil(BAY_INFO[b.kind].cargo ? BAY_INFO[b.kind].tons * b.size : b.size), 0);
@@ -606,5 +631,50 @@ export function vesselCost(d: VesselDesign): CostBreakdown {
   }
   const subtotal = lines.reduce((a, [, v]) => a + v, 0);
   lines.push([d.vesselType === 'dropship' ? `× ${multiplier} (${d.shape} DropShip)` : '× (1 + tonnage/50)', multiplier]);
+  return { total: round(subtotal * multiplier), lines, approximate: false };
+}
+
+/** JumpShip, WarShip and space station cost (MegaMek's JumpShip / WarShip / SpaceStation cost calculators). */
+function largeCraftCost(d: VesselDesign, s: ReturnType<typeof computeVessel>, common: [string, number][], equipment: number): CostBreakdown {
+  const t = d.tonnage;
+  const warship = d.vesselType === 'warship';
+  const station = d.vesselType === 'space-station';
+  const docks = d.dockingCollars;
+  const lines: [string, number][] = [...common];
+  if (warship) {
+    lines.push(['Drive unit', 500 * d.safeThrust * (t / 100)], ['Engine', 1000 * d.safeThrust * t * 0.06]);
+  } else {
+    lines.push(['Engine (station-keeping)', 1000 * t * 0.012]);
+  }
+  lines.push(['Engine control unit', 1000]);
+  if (!station) {
+    let drive = 60000000 + 75000000 * docks + 25000000 + 5000000 * docks + 50000000 + 50000 * kfIntegrity(d)
+      + 50000 * (30 + t / (warship ? 20000 : 7500)) + 500000 + 200000 * docks;
+    if (warship) drive *= 5;
+    if (d.lfBattery) drive *= 3;
+    lines.push(['K-F drive', drive]);
+    lines.push([warship ? 'K-F drive support systems' : 'K-F field initiator', warship ? 20000000 * (50 + t / 10000) : 10000000 * (t / 10000)]);
+  }
+  const bays = d.bays.reduce((a, b) => {
+    const info = BAY_INFO[b.kind];
+    const units = info.cargo ? info.tons * b.size : b.size;
+    return a + info.cost * Math.ceil(units);
+  }, 0);
+  const decks = d.gravDecks.reduce((a, g) => a + (g < 100 ? 5000000 : g <= 250 ? 10000000 : 40000000), 0);
+  lines.push(
+    ['Attitude thrusters', 25000],
+    ['Docking collars', 100000 * docks],
+    ['Fuel tanks', 200 * d.fuelTons * 1.02],
+    ['Armor', VESSEL_ARMOR_COST[d.armorType] * s.weights.armor],
+    ['Heat sinks', (d.heatSinkType === 'double' ? 6000 : 2000) * d.heatSinks],
+    ['Life boats / escape pods', 5000 * (d.lifeboats + d.escapePods)],
+    ['Grav decks', decks],
+    ['Bays and doors', bays + 1000 * s.bayDoors],
+    ['HPG', d.hpg ? 1000000000 : 0],
+    ['Weapons & equipment', equipment],
+  );
+  const multiplier = warship ? 2 : station ? 5 : 1.25;
+  const subtotal = lines.reduce((a, [, v]) => a + v, 0);
+  lines.push([`× ${multiplier} (${VESSEL_TYPE_NAMES[d.vesselType]})`, multiplier]);
   return { total: round(subtotal * multiplier), lines, approximate: false };
 }

@@ -202,6 +202,8 @@ export function fighterSheetData(d: FighterDesign): { weapons: FighterWeaponRow[
 
 export interface VesselBayRow {
   name: string;
+  /** Capital-scale attack values. */
+  capital: boolean;
   location: string;
   heat: number;
   av: [string, string, string, string];
@@ -213,15 +215,19 @@ export function vesselSheetData(d: VesselDesign): { bays: VesselBayRow[]; equipm
     const counts = new Map<string, number>();
     const av = [0, 0, 0, 0];
     let heat = 0;
+    let capital = false;
     for (const item of g.items) {
       const eq = getEquipment(item.equipmentId)!;
       const name = shortEquipmentName(eq, d);
       counts.set(name, (counts.get(name) ?? 0) + 1);
       heat += eq.heat;
+      if (eq.capitalClass) capital = true;
       (AERO_AV[eq.id] ?? [0, 0, 0, 0]).forEach((v, i) => { av[i] += v; });
     }
     const name = [...counts].map(([n, c]) => (c > 1 ? `${c} ${n}` : n)).join(', ');
-    return { name, location: g.arc + (g.rear ? ' (R)' : ''), heat, av: av.map((v) => (v ? String(v) : '—')) as VesselBayRow['av'] };
+    // Capital bays are printed in capital scale (standard AV ÷ 10).
+    const shown = capital ? av.map((v) => Math.round(v / 10)) : av;
+    return { name, location: g.arc + (g.rear ? ' (R)' : ''), heat, capital, av: shown.map((v) => (v ? String(v) : '—')) as VesselBayRow['av'] };
   });
   const equipment = group(
     d.equipment.filter((e) => { const eq = getEquipment(e.equipmentId); return eq && !eq.isWeapon && eq.category !== 'Ammo'; }),
@@ -230,6 +236,12 @@ export function vesselSheetData(d: VesselDesign): { bays: VesselBayRow[]; equipm
   const ammo = d.equipment
     .map((e) => ({ e, eq: getEquipment(e.equipmentId) }))
     .filter((x): x is { e: VesselItem; eq: Equipment } => !!x.eq && x.eq.category === 'Ammo')
-    .map(({ e, eq }) => ({ name: shortEquipmentName(eq, d).replace(/\s*\(\d+\)$/, ''), location: e.location ?? '—', shots: e.shots ?? shotsPerBin(eq) }));
+    .map(({ e, eq }) => ({ name: shortEquipmentName(eq, d).replace(/\s*\(\d+\)$/, ''), location: e.location ?? '—', shots: e.shots ?? shotsPerBin(eq) }))
+    // Bins of the same ammunition in the same arc share one line.
+    .reduce<AmmoRow[]>((rows, a) => {
+      const same = rows.find((r) => r.name === a.name && r.location === a.location);
+      if (same) same.shots += a.shots; else rows.push(a);
+      return rows;
+    }, []);
   return { bays, equipment, ammo };
 }

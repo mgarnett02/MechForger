@@ -149,6 +149,20 @@ export const ITEM_VALUES: Record<string, ItemValue> = {
   'clan-active-probe': v(12, 200000),
   'clan-ecm': v(61, 200000),
   'bomb-bay': v(0, 5000),
+
+  // Capital and sub-capital weapons (ammo BV and cost are carried per shot on the ammo itself)
+  'nl-35': v(830, 500000), 'nl-45': v(1134, 850000), 'nl-55': v(1386, 1250000),
+  'nppc-light': v(1659, 2000000), 'nppc-medium': v(2268, 3250000), 'nppc-heavy': v(3780, 9050000),
+  'nac-10': v(1896, 2000000), 'nac-20': v(3792, 5000000), 'nac-25': v(4740, 7500000), 'nac-30': v(5688, 10500000),
+  'nac-35': v(4956, 14000000), 'nac-40': v(5664, 18000000),
+  'ngauss-light': v(3024, 20300000), 'ngauss-medium': v(5040, 30350000), 'ngauss-heavy': v(6048, 50050000),
+  barracuda: v(522, 90000), 'white-shark': v(577, 130000), 'killer-whale': v(769, 150000), ar10: v(961, 250000),
+  'barracuda-t': v(461, 100000), 'white-shark-t': v(692, 145000), 'killer-whale-t': v(923, 165000), 'kraken-t': v(2306, 500000),
+  'scl-1': v(237, 220000), 'scl-2': v(354, 335000), 'scl-3': v(531, 450000),
+  'scc-light': v(379, 330000), 'scc-medium': v(708, 780000), 'scc-heavy': v(991, 1300000),
+  piranha: v(589, 75000), stingray: v(496, 85000), swordfish: v(317, 110000), 'manta-ray': v(396, 150000),
+  'screen-launcher': v(160, 250000),
+  'mass-driver-light': v(7056, 150000000), 'mass-driver-medium': v(11760, 280000000), 'mass-driver-heavy': v(16464, 500000000),
   'lam-fuel-tank': v(0, 200),
 
   // Utility equipment (vehicles only)

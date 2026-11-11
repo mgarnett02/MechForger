@@ -4,7 +4,10 @@ import type { EraId } from './eras';
 import { isAvailableIn } from './eras';
 import { jumpJetWeight, mascWeight } from './tables';
 
-export type EquipmentCategory = 'Energy' | 'Ballistic' | 'Missile' | 'Ammo' | 'Physical' | 'Other' | 'Utility';
+export type EquipmentCategory = 'Energy' | 'Ballistic' | 'Missile' | 'Ammo' | 'Physical' | 'Capital' | 'Other' | 'Utility';
+
+/** Large-craft weapon classes: which vessels may mount them. */
+export type CapitalClass = 'capital' | 'sub-capital' | 'capital-missile' | 'screen' | 'mass-driver';
 
 /** Physical (melee) weapons. Their weight, slots, damage, BV and cost mostly scale with the mech's tonnage. */
 export type MeleeKind = 'hatchet' | 'sword' | 'mace' | 'claw' | 'retractable-blade' | 'chain-whip' | 'talons' | 'spikes';
@@ -51,6 +54,11 @@ export interface Equipment {
   lamOnly?: boolean;
   /** Explodes when hit (counts like ammunition for Battle Value). */
   explosive?: boolean;
+  /** Capital-scale and sub-capital weapons (and their ammunition). */
+  capitalClass?: CapitalClass;
+  /** Capital ammunition is counted per shot: `tons` is the weight of one shot, with this BV and cost. */
+  shotBV?: number;
+  shotCost?: number;
   /** Which tech base can mount it ('Both' = generic, e.g. jump jets). */
   techBase: TechBase | 'Both';
   /** First era in which the item is available. */
@@ -410,7 +418,82 @@ export const UTILITY_EQUIPMENT: readonly Equipment[] = [
   utility('recon-camera', 'Recon Camera', 0.5),
 ];
 
-export const ALL_EQUIPMENT: readonly Equipment[] = [...WEAPONS, ...AMMO, ...OTHER_EQUIPMENT, ...UTILITY_EQUIPMENT];
+// Capital and sub-capital weapons (values from MegaMek's weapon and ammo definitions)
+const CAPITAL_ERA: Record<CapitalClass, Avail> = {
+  capital: ANY_3025, 'capital-missile': ANY_3025, 'sub-capital': { techBase: 'Both', firstEra: '3068' },
+  screen: ANY_3050, 'mass-driver': { techBase: 'Both', firstEra: '3081' },
+};
+/** [id, name, class, tons, heat, damage (capital), ammo: [tons per shot, BV per shot, cost per shot] | null, era override] */
+const CAPITAL_DEFS: [string, string, CapitalClass, number, number, string, [number, number, number] | null, Avail?][] = [
+  ['nl-35', 'Naval Laser 35', 'capital', 700, 52, '3.5', null],
+  ['nl-45', 'Naval Laser 45', 'capital', 900, 70, '4.5', null],
+  ['nl-55', 'Naval Laser 55', 'capital', 1100, 85, '5.5', null],
+  ['nppc-light', 'Naval PPC (Light)', 'capital', 1400, 105, '7', null],
+  ['nppc-medium', 'Naval PPC (Medium)', 'capital', 1800, 135, '9', null],
+  ['nppc-heavy', 'Naval PPC (Heavy)', 'capital', 3000, 225, '15', null],
+  ['nac-10', 'Naval Autocannon (NAC/10)', 'capital', 2000, 30, '10', [0.2, 237, 30000]],
+  ['nac-20', 'Naval Autocannon (NAC/20)', 'capital', 2500, 60, '20', [0.4, 474, 60000]],
+  ['nac-25', 'Naval Autocannon (NAC/25)', 'capital', 3000, 85, '25', [0.6, 593, 75000]],
+  ['nac-30', 'Naval Autocannon (NAC/30)', 'capital', 3500, 100, '30', [0.8, 711, 90000]],
+  ['nac-35', 'Naval Autocannon (NAC/35)', 'capital', 4000, 120, '35', [1, 620, 105000]],
+  ['nac-40', 'Naval Autocannon (NAC/40)', 'capital', 4500, 135, '40', [1.2, 708, 120000]],
+  ['ngauss-light', 'Naval Gauss (Light)', 'capital', 4500, 9, '15', [0.2, 378, 45000]],
+  ['ngauss-medium', 'Naval Gauss (Medium)', 'capital', 5500, 15, '25', [0.4, 630, 75000]],
+  ['ngauss-heavy', 'Naval Gauss (Heavy)', 'capital', 7000, 18, '30', [0.5, 756, 90000]],
+  ['barracuda', 'Capital Missile Launcher (Barracuda)', 'capital-missile', 90, 10, '2', [30, 65, 8000]],
+  ['white-shark', 'Capital Missile Launcher (White Shark)', 'capital-missile', 120, 15, '3', [40, 72, 14000]],
+  ['killer-whale', 'Capital Missile Launcher (Killer Whale)', 'capital-missile', 150, 20, '4', [50, 96, 20000]],
+  ['ar10', 'Capital Missile Launcher (AR10 Launcher)', 'capital-missile', 250, 20, '2–4', null],
+  ['barracuda-t', 'Tele-operated Missile (Barracuda-T)', 'capital-missile', 100, 10, '2', [30, 65, 8000], ANY_3050],
+  ['white-shark-t', 'Tele-operated Missile (White Shark-T)', 'capital-missile', 130, 15, '3', [40, 72, 14000], ANY_3050],
+  ['killer-whale-t', 'Tele-operated Missile (Killer Whale-T)', 'capital-missile', 160, 20, '4', [50, 96, 20000], ANY_3050],
+  ['kraken-t', 'Tele-operated Missile (Kraken T)', 'capital-missile', 220, 50, '10', [100, 288, 55000], ANY_3050],
+  ['scl-1', 'Sub-Capital Laser /1', 'sub-capital', 150, 24, '1', null],
+  ['scl-2', 'Sub-Capital Laser /2', 'sub-capital', 200, 28, '2', null],
+  ['scl-3', 'Sub-Capital Laser /3', 'sub-capital', 250, 32, '3', null],
+  ['scc-light', 'Sub-Capital Cannon (Light)', 'sub-capital', 200, 12, '2', [0.5, 47, 10000]],
+  ['scc-medium', 'Sub-Capital Cannon (Medium)', 'sub-capital', 500, 30, '5', [1, 89, 18000]],
+  ['scc-heavy', 'Sub-Capital Cannon (Heavy)', 'sub-capital', 700, 42, '7', [2, 124, 25000]],
+  ['piranha', 'Sub-Capital Missile Launcher (Piranha)', 'sub-capital', 100, 9, '3', [10, 71, 15000]],
+  ['stingray', 'Sub-Capital Missile Launcher (Stingray)', 'sub-capital', 120, 9, '3.5', [12, 62, 19000]],
+  ['swordfish', 'Sub-Capital Missile Launcher (Swordfish)', 'sub-capital', 140, 15, '4', [15, 40, 25000]],
+  ['manta-ray', 'Sub-Capital Missile Launcher (Manta Ray)', 'sub-capital', 160, 21, '5', [18, 50, 30000]],
+  ['screen-launcher', 'Screen Launcher', 'screen', 40, 10, 'screen', [10, 20, 10000]],
+  ['mass-driver-light', 'Mass Driver (Light)', 'mass-driver', 30000, 30, '60', [30, 882, 150000]],
+  ['mass-driver-medium', 'Mass Driver (Medium)', 'mass-driver', 50000, 60, '100', [60, 1470, 300000]],
+  ['mass-driver-heavy', 'Mass Driver (Heavy)', 'mass-driver', 100000, 90, '140', [90, 2058, 600000]],
+];
+/** "Naval Autocannon (NAC/20)" → "NAC/20 Ammo", "Naval Gauss (Heavy)" → "Heavy N-Gauss Ammo", "Screen Launcher" → "Screen Launcher Ammo". */
+function capitalAmmoName(weapon: string): string {
+  const g = /^Naval Gauss \((\w+)\)$/.exec(weapon);
+  if (g) return `${g[1]} N-Gauss Ammo`;
+  const m = /^Mass Driver \((\w+)\)$/.exec(weapon);
+  if (m) return `${m[1]} Mass Driver Ammo`;
+  const c = /^Sub-Capital Cannon \((\w+)\)$/.exec(weapon);
+  if (c) return `${c[1]} SCC Ammo`;
+  const p = /\((.+)\)$/.exec(weapon);
+  return `${p ? p[1].replace(/ T$/, '-T') : weapon} Ammo`;
+}
+const CAPITAL_EQUIPMENT: Equipment[] = CAPITAL_DEFS.flatMap(([id, name, cls, tons, heat, damage, ammo, era]): Equipment[] => {
+  const avail = era ?? CAPITAL_ERA[cls];
+  const w: Equipment = { id, name, category: 'Capital', tons, slots: 1, heat, damage, isWeapon: true, capitalClass: cls, ...avail };
+  if (!ammo) return [w];
+  const [shotTons, shotBV, shotCost] = ammo;
+  return [w, {
+    id: `ammo-${id}`, name: capitalAmmoName(name), category: 'Ammo', tons: shotTons, slots: 0, heat: 0,
+    isWeapon: false, ammoFor: id, capitalClass: cls, shotBV, shotCost, ...avail,
+  }];
+});
+// The AR10 fires Barracuda, White Shark or Killer Whale missiles.
+for (const [m, t, bv, cost] of [['Barracuda', 30, 65, 8000], ['White Shark', 40, 72, 14000], ['Killer Whale', 50, 96, 20000]] as const) {
+  CAPITAL_EQUIPMENT.push({
+    id: `ammo-ar10-${m.toLowerCase().replace(' ', '-')}`, name: `AR10 ${m} Ammo`, category: 'Ammo', tons: t, slots: 0, heat: 0,
+    isWeapon: false, ammoFor: 'ar10', capitalClass: 'capital-missile', shotBV: bv, shotCost: cost, ...ANY_3025,
+  });
+}
+
+
+export const ALL_EQUIPMENT: readonly Equipment[] = [...WEAPONS, ...AMMO, ...OTHER_EQUIPMENT, ...UTILITY_EQUIPMENT, ...CAPITAL_EQUIPMENT];
 
 const BY_ID = new Map(ALL_EQUIPMENT.map((e) => [e.id, e]));
 const AMMO_FED = new Set(AMMO.map((a) => a.ammoFor));
@@ -473,6 +556,10 @@ const ABBREVIATIONS: [RegExp, string][] = [
   [/Paramedic Equipment/g, 'Paramedic Equip.'], [/Manipulator \(industrial\)/g, 'Manipulator'],
   [/Heavy-Duty Pile Driver/g, 'HD Pile Driver'], [/Lifeboat \(Atmospheric\)/g, 'Lifeboat (Atmo)'],
   [/ \((\d+) tons?\)/g, ' ($1 t)'],
+  [/^Naval Autocannon \((NAC\/\d+)\)/, '$1'], [/^Naval Laser (\d+)/, 'NL$1'], [/^Naval PPC \((\w+)\)/, '$1 NPPC'],
+  [/^Naval Gauss \((\w+)\)/, '$1 N-Gauss'], [/^(Capital Missile Launcher|Tele-operated Missile) \((.+?)( Launcher)?\)/, '$2'],
+  [/^Sub-Capital Laser \/(\d)/, 'SCL/$1'], [/^Sub-Capital Cannon \((\w+)\)/, '$1 SCC'],
+  [/^Sub-Capital Missile Launcher \((.+)\)/, '$1'], [/^Mass Driver \((\w+)\)/, '$1 Mass Driver'],
 ];
 
 /** Further short forms, used only while a name is still longer than COMPACT_LENGTH. */

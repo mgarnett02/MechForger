@@ -7,13 +7,14 @@ import type { Equipment, EquipmentCategory } from '../rules/equipment';
 import { ALL_EQUIPMENT, equipmentName, getEquipment, isEquipmentAvailable } from '../rules/equipment';
 import type { Issue } from '../rules/validation';
 import type {
-  BayKind, QuartersKind, VesselArmorType, VesselDesign, VesselLocation, VesselShape, VesselSummary, VesselType,
+  BayKind, DriveCore, QuartersKind, VesselArmorType, VesselDesign, VesselLocation, VesselShape, VesselSummary, VesselType,
 } from '../rules/vessel';
 import {
-  BAY_INFO, BAY_KINDS, QUARTERS_KINDS, QUARTERS_NAMES, QUARTERS_TONS, VESSEL_ARCS, VESSEL_ARMOR_NAMES, VESSEL_ARMOR_OPTIONS,
-  VESSEL_LOCATION_NAMES, VESSEL_SLOTS_PER_ARC, VESSEL_TONNAGE, VESSEL_TYPE_NAMES, addVesselItem, armorThreshold,
-  distributeVesselArmor, emptyVesselArmor, isVesselEquipment, maxBayDoors, removeVesselItem, setVesselArmorTonnage,
-  setVesselType, shotsPerBin, updateVesselItem, vesselItemLocations, vesselItemWeight, vesselReadout,
+  BAY_INFO, BAY_KINDS, LARGE_CRAFT_ARMORS, QUARTERS_KINDS, QUARTERS_NAMES, QUARTERS_TONS, SMALL_CRAFT_ARMORS,
+  VESSEL_ARMOR_NAMES, VESSEL_ARMOR_OPTIONS, VESSEL_LOCATION_NAMES, VESSEL_TYPE_NAMES, addVesselItem, armorArcs,
+  armorThreshold, bayWeight, distributeVesselArmor, emptyVesselArmor, gravDeckWeight, isLargeCraft, isVesselEquipment,
+  maxBayDoors, maxGravDecks, removeVesselItem, setVesselArmorTonnage, setVesselType, shotsPerBin, updateVesselItem,
+  vesselItemLocations, vesselItemWeight, vesselReadout, vesselTonnageLimits, weaponArcs,
 } from '../rules/vessel';
 import { AERO_AV } from '../rules/aeroAV';
 import { vesselBV, vesselCost } from '../rules/battleValue';
@@ -29,7 +30,7 @@ interface Props {
 
 const t = (n: number) => (Number.isInteger(n) ? n.toLocaleString('en-US') : n.toFixed(1));
 
-/** All panels for building a small craft or DropShip. */
+/** All panels for building a small craft, DropShip, JumpShip, WarShip or space station. */
 export function VesselEditor(props: Props) {
   return (
     <main className="layout">
@@ -51,8 +52,9 @@ export function VesselEditor(props: Props) {
 function VesselChassisPanel({ design, summary, update }: Props) {
   const era = getEra(design.era);
   const advanced = isAvailableIn('3050', design.era);
-  const lim = VESSEL_TONNAGE[design.vesselType];
-  const max = lim.max[design.shape];
+  const lim = vesselTonnageLimits(design);
+  const max = lim.max;
+  const large = isLargeCraft(design);
   const hs = summary.heatSinks;
   return (
     <section className="panel">
@@ -64,12 +66,17 @@ function VesselChassisPanel({ design, summary, update }: Props) {
             onChange={(e) => update((d) => setVesselType(d, e.target.value as VesselType))}>
             <option value="small-craft">Small craft (up to 200 t)</option>
             <option value="dropship">DropShip</option>
+            <option value="jumpship">JumpShip</option>
+            <option value="warship">WarShip</option>
+            <option value="space-station">Space station</option>
           </select>
-          <select aria-label="Hull shape" value={design.shape}
-            onChange={(e) => update((d) => ({ ...d, shape: e.target.value as VesselShape }))}>
-            <option value="aerodyne">Aerodyne</option>
-            <option value="spheroid">Spheroid</option>
-          </select>
+          {!large && (
+            <select aria-label="Hull shape" value={design.shape}
+              onChange={(e) => update((d) => ({ ...d, shape: e.target.value as VesselShape }))}>
+              <option value="aerodyne">Aerodyne</option>
+              <option value="spheroid">Spheroid</option>
+            </select>
+          )}
           <label className="check" title="Military DropShips get more weight-free heat sinks">
             <input type="checkbox" checked={design.military} onChange={(e) => update((d) => ({ ...d, military: e.target.checked }))} />
             Military
@@ -78,7 +85,7 @@ function VesselChassisPanel({ design, summary, update }: Props) {
 
         <label>Tonnage</label>
         <div>
-          <NumberField label="Tonnage" value={design.tonnage} min={lim.min} max={max} step={design.vesselType === 'dropship' ? 100 : 5}
+          <NumberField label="Tonnage" value={design.tonnage} min={lim.min} max={max} step={large ? 1000 : design.vesselType === 'dropship' ? 100 : 5} width="7rem"
             invalid={design.tonnage > max || design.tonnage < lim.min}
             onChange={(n) => update((d) => ({ ...d, tonnage: Math.max(1, Math.round(n)) }))} />
           <span className="muted"> tons ({lim.min.toLocaleString('en-US')}–{max.toLocaleString('en-US')})</span>
@@ -101,7 +108,7 @@ function VesselChassisPanel({ design, summary, update }: Props) {
         <div>
           <NumberField label="Safe thrust" value={design.safeThrust} min={0}
             onChange={(n) => update((d) => ({ ...d, safeThrust: Math.max(0, Math.round(n)) }))} />
-          <span className="muted"> Max {summary.maxThrust} · engine {t(summary.weights.engine)} t</span>
+          <span className="muted"> {design.safeThrust === 0 ? 'station-keeping drive' : `Max ${summary.maxThrust}`} · engine {t(summary.weights.engine)} t</span>
         </div>
 
         <label>Structural integrity</label>
@@ -110,6 +117,49 @@ function VesselChassisPanel({ design, summary, update }: Props) {
             onChange={(n) => update((d) => ({ ...d, si: Math.max(1, Math.round(n)) }))} />
           <span className="muted"> {t(summary.weights.structure)} t · allows {t(summary.armorMaxWeight)} t of armor</span>
         </div>
+
+        {large && (
+          <>
+            <label>K-F drive</label>
+            <div className="row wrap">
+              <select aria-label="Drive core" value={design.driveCore} disabled={design.vesselType === 'space-station'}
+                onChange={(e) => update((d) => ({ ...d, driveCore: e.target.value as DriveCore }))}>
+                <option value="standard">Standard core (95%)</option>
+                <option value="compact">Compact core (45.25%)</option>
+                <option value="subcompact">Sub-compact core (50%)</option>
+                <option value="none">None</option>
+              </select>
+              <span className="muted">{t(summary.weights.kfDrive)} t</span>
+              <label className="check"><input type="checkbox" checked={design.sail} onChange={(e) => update((d) => ({ ...d, sail: e.target.checked }))} /> Jump sail</label>
+              <label className="check"><input type="checkbox" checked={design.lfBattery} onChange={(e) => update((d) => ({ ...d, lfBattery: e.target.checked }))} /> L-F battery</label>
+              <label className="check"><input type="checkbox" checked={design.hpg} onChange={(e) => update((d) => ({ ...d, hpg: e.target.checked }))} /> HPG</label>
+            </div>
+
+            <label>Docking collars</label>
+            <div>
+              <NumberField label="Docking collars" value={design.dockingCollars} min={0} max={summary.maxDockingCollars}
+                invalid={design.dockingCollars > summary.maxDockingCollars}
+                onChange={(n) => update((d) => ({ ...d, dockingCollars: Math.max(0, Math.round(n)) }))} />
+              <span className="muted"> of {summary.maxDockingCollars} hardpoints · 1,000 t each</span>
+            </div>
+
+            <label>Grav decks</label>
+            <div className="row wrap">
+              {design.gravDecks.map((g, i) => (
+                <span key={i} className="row">
+                  <NumberField label={`Grav deck ${i + 1} diameter`} value={g} min={1} width="4.5rem"
+                    onChange={(n) => update((d) => ({ ...d, gravDecks: d.gravDecks.map((x, j) => (j === i ? Math.max(1, Math.round(n)) : x)) }))} />
+                  <span className="muted small">m ({gravDeckWeight(g)} t)</span>
+                  <button className="small danger" aria-label={`Remove grav deck ${i + 1}`}
+                    onClick={() => update((d) => ({ ...d, gravDecks: d.gravDecks.filter((_, j) => j !== i) }))}>✕</button>
+                </span>
+              ))}
+              <button className="small" disabled={design.gravDecks.length >= maxGravDecks(design)}
+                onClick={() => update((d) => ({ ...d, gravDecks: [...d.gravDecks, 95] }))}>Add grav deck</button>
+              <span className="muted small">up to {maxGravDecks(design)}</span>
+            </div>
+          </>
+        )}
 
         <label>Heat sinks</label>
         <div>
@@ -144,7 +194,7 @@ function VesselArmorPanel({ design, summary, update }: Props) {
         Armor{' '}
         <select aria-label="Armor type" value={design.armorType}
           onChange={(e) => update((d) => ({ ...d, armorType: e.target.value as VesselArmorType }))}>
-          {(Object.keys(VESSEL_ARMOR_NAMES) as VesselArmorType[]).map((k) => (
+          {(isLargeCraft(design) ? LARGE_CRAFT_ARMORS : SMALL_CRAFT_ARMORS).map((k: VesselArmorType) => (
             <option key={k} value={k} disabled={!componentAvailable(VESSEL_ARMOR_OPTIONS[k], design.era, design.techBase, design.mixedTech)}>
               {VESSEL_ARMOR_NAMES[k]}
             </option>
@@ -155,7 +205,7 @@ function VesselArmorPanel({ design, summary, update }: Props) {
       <table className="armor-table">
         <thead><tr><th>Arc</th><th>Armor</th><th>Threshold</th></tr></thead>
         <tbody>
-          {VESSEL_ARCS.map((l) => (
+          {armorArcs(design).map((l) => (
             <tr key={l}>
               <td>{VESSEL_LOCATION_NAMES[l]}</td>
               <td>
@@ -174,7 +224,9 @@ function VesselArmorPanel({ design, summary, update }: Props) {
           </tr>
         </tfoot>
       </table>
-      <p className="muted small">{t(summary.weights.armor)} of {t(summary.armorMaxWeight)} tons · includes {4 * design.si} free points from structural integrity</p>
+      <p className="muted small">
+        {t(summary.weights.armor)} of {t(summary.armorMaxWeight)} tons{isLargeCraft(design) ? ' · capital armor points' : ''} · includes free points from structural integrity
+      </p>
       <div className="row wrap">
         <button onClick={() => update((d) => distributeVesselArmor(d, summary.armorMax))}>Maximize</button>
         <button onClick={() => update((d) => ({ ...d, armor: emptyVesselArmor() }))}>Clear</button>
@@ -240,7 +292,7 @@ function VesselCrewPanel({ design, summary, update }: Props) {
           <li key={i}>
             <span className="item-name">
               <strong style={{ fontWeight: 500 }}>{BAY_INFO[b.kind].name}</strong>
-              <span className="muted small">{t(BAY_INFO[b.kind].tons * b.size)} t</span>
+              <span className="muted small">{t(bayWeight(b))} t</span>
             </span>
             <span className="spacer" />
             <NumberField label={`${BAY_INFO[b.kind].name} size`} value={b.size} min={0} width="5rem" step={BAY_INFO[b.kind].cargo ? 0.5 : 1}
@@ -256,7 +308,7 @@ function VesselCrewPanel({ design, summary, update }: Props) {
       </ul>
       <div className="row wrap">
         <select aria-label="Bay type" value={newBay} onChange={(e) => setNewBay(e.target.value as BayKind)}>
-          {BAY_KINDS.map((k) => <option key={k} value={k}>{BAY_INFO[k].name} ({t(BAY_INFO[k].tons)} t per {BAY_INFO[k].unit.replace(/s$/, '')})</option>)}
+          {BAY_KINDS.filter((k) => isLargeCraft(design) || !BAY_INFO[k].largeOnly).map((k) => <option key={k} value={k}>{BAY_INFO[k].name} ({t(BAY_INFO[k].tons)} t per {BAY_INFO[k].unit.replace(/s$/, '')})</option>)}
         </select>
         <button onClick={() => update((d) => ({ ...d, bays: [...d.bays, { kind: newBay, size: BAY_INFO[newBay].cargo ? 10 : 1, doors: BAY_INFO[newBay].cargo ? 1 : 1 }] }))}>Add bay</button>
       </div>
@@ -265,6 +317,7 @@ function VesselCrewPanel({ design, summary, update }: Props) {
 }
 
 const TABS: { id: EquipmentCategory; label: string }[] = [
+  { id: 'Capital', label: 'Capital' },
   { id: 'Energy', label: 'Energy' },
   { id: 'Ballistic', label: 'Ballistic' },
   { id: 'Missile', label: 'Missile' },
@@ -279,20 +332,21 @@ function avText(eq: Equipment): string {
 
 function VesselEquipmentPanel({ design, summary, update }: Props) {
   const [tab, setTab] = useState<EquipmentCategory>('Energy');
-  const dropship = design.vesselType === 'dropship';
-  const available = ALL_EQUIPMENT.filter((e) => isVesselEquipment(e) && isEquipmentAvailable(e, design.era, design.techBase, design.mixedTech));
+  const dropship = design.vesselType !== 'small-craft';
+  const large = isLargeCraft(design);
+  const available = ALL_EQUIPMENT.filter((e) => isVesselEquipment(e, design) && isEquipmentAvailable(e, design.era, design.techBase, design.mixedTech));
   const inTab = (e: Equipment, id: EquipmentCategory) => e.category === id || (id === 'Other' && e.category === 'Utility');
   const tabs = TABS.filter((x) => available.some((e) => inTab(e, x.id)));
-  const active = tabs.some((x) => x.id === tab) ? tab : 'Energy';
+  const active = tabs.some((x) => x.id === tab) ? tab : tabs.find((x) => x.id === 'Energy')?.id ?? 'Energy';
   const catalog = available.filter((e) => inTab(e, active));
   const combat = active !== 'Ammo';
   return (
     <section className="panel">
       <h2>Equipment</h2>
       <div className="arc-slots">
-        {VESSEL_ARCS.map((l) => (
-          <span key={l} className={summary.slots[l] > VESSEL_SLOTS_PER_ARC ? 'warn' : 'muted'}>
-            {VESSEL_LOCATION_NAMES[l]} {summary.slots[l]}/{VESSEL_SLOTS_PER_ARC}
+        {weaponArcs(design).map((l) => (
+          <span key={l} className={summary.slots[l] > summary.slotsPerArc ? 'warn' : 'muted'}>
+            {l} {summary.slots[l]}/{summary.slotsPerArc}
           </span>
         ))}
         {dropship && <span className="muted">· {summary.weaponBays.length} weapon bays</span>}
@@ -337,7 +391,7 @@ function VesselEquipmentPanel({ design, summary, update }: Props) {
         {design.equipment.map((item) => {
           const eq = getEquipment(item.equipmentId);
           if (!eq) return null;
-          const side = item.location === 'LS' || item.location === 'RS';
+          const side = !large && (item.location === 'LS' || item.location === 'RS');
           return (
             <li key={item.uid} className={item.location ? '' : 'unallocated'}>
               <span className="item-name">
@@ -359,7 +413,7 @@ function VesselEquipmentPanel({ design, summary, update }: Props) {
               <select aria-label={`${eq.name} location`} value={item.location ?? ''}
                 onChange={(e) => update((d) => updateVesselItem(d, item.uid, { location: (e.target.value || null) as VesselLocation | null }))}>
                 <option value="">— unallocated —</option>
-                {vesselItemLocations(eq).map((l) => <option key={l} value={l}>{VESSEL_LOCATION_NAMES[l]}</option>)}
+                {vesselItemLocations(eq, design).map((l) => <option key={l} value={l}>{VESSEL_LOCATION_NAMES[l]}</option>)}
               </select>
               {eq.isWeapon && side && (
                 <label className="check small">
@@ -383,6 +437,7 @@ function VesselSummaryPanel({ design, summary, issues }: Props) {
     ['Structure', w.structure], ['Engine', w.engine], ['Control systems', w.controls], ['Fuel (with pumps)', w.fuel],
     ['Heat sinks', w.heatSinks], ['Armor', w.armor], ['Extra fire control', w.fireControl], ['Life boats / escape pods', w.lifeboats],
     ['Weapons & equipment', w.equipment], ['Ammunition', w.ammo], ['Transport bays', w.bays], ['Quarters', w.quarters],
+    ['K-F drive', w.kfDrive], ['Jump sail', w.sail], ['L-F battery', w.lfBattery], ['Grav decks', w.gravDecks], ['Docking collars', w.dockingCollars],
   ] as [string, number][]).filter(([l, v]) => v > 0 || ['Structure', 'Engine', 'Armor'].includes(l));
   const pct = Math.min(100, (w.total / Math.max(1, design.tonnage)) * 100);
   const errors = issues.filter((i) => i.severity === 'error');

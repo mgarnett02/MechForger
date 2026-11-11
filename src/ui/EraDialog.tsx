@@ -114,8 +114,8 @@ export function EraDialog({ current, currentTechBase, onSelect, onCancel, theme,
                 <span className="unit-icon" aria-hidden="true">
                   <svg viewBox="0 0 48 48" width="40" height="40"><path d="M24 3c8 0 14 9 14 20v12l5 8H5l5-8V23C10 12 16 3 24 3zm0 9a5 5 0 1 0 0 10 5 5 0 1 0 0-10z" fill="currentColor" /></svg>
                 </span>
-                <span className="era-year">Small Craft / DropShip</span>
-                <span className="era-desc">Shuttles, assault boats and DropShips, with weapon bays, transport bays and crew.</span>
+                <span className="era-year">Spacecraft</span>
+                <span className="era-desc">Small craft, DropShips, JumpShips, WarShips and space stations, with weapon bays, transport bays and crew.</span>
               </button>
             </div>
           </>

@@ -632,3 +632,12 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
     "notes notes";
 }
 .record-sheet.vessel .rs-table td, .record-sheet.vessel .rs-table th { padding-top: 0; padding-bottom: 0; }
+.rs-large-armor {
+  display: grid; gap: 6px; grid-template-columns: 1fr 1fr;
+  grid-template-areas: "no no" "fl fr" "body body" "al ar" "af af";
+}
+.rs-large-armor .rs-plate { border-radius: 8px; padding: 4px 6px; text-align: center; }
+.rs-large-armor-value { font-size: 9pt; margin: 2px 0; }
+.rs-large-armor-damage { font-size: 7pt; color: #444; }
+.rs-large-armor .pips > span { width: 7px; height: 7px; border-width: 1px; }
+.rs-large-armor .pips { gap: 1.5px; }

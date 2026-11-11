@@ -46,6 +46,11 @@ Everything above, plus:
 - **Small craft and DropShips**: aerodyne and spheroid hulls, structural integrity, engine and fuel by
   tonnage, armor scaled to size, weapon bays, transport bays with doors, crew, quarters, life boats and
   escape pods, extra fire control, six-arc BV and cost as in MegaMek, and DropShip record sheets
+- **JumpShips, WarShips and space stations**: K-F drive (standard, compact and sub-compact cores), jump
+  sail, lithium-fusion battery, HPG, grav decks, docking collars, capital armor and structure, broadsides,
+  capital and sub-capital weapons (naval lasers, PPCs, autocannon and Gauss, capital missiles, mass
+  drivers, screen launchers) with capital-scale attack values, eight-arc WarShip BV, cost as in MegaMek,
+  and large-craft record sheets
 - **Fighters**: aerospace fighters (including OmniFighters) and conventional fighters: engine rating from
   thrust, structural integrity, fuel, heat sinks, armor arcs with thresholds, five weapon slots per arc
   (less ferro-aluminum armor), matched wings, BV and cost as in MegaMek, and aerospace record sheets
@@ -144,7 +149,8 @@ fixed-wing.
   unallocated armor), or fully legal
 - **Canon units**: about 2,000 canon BattleMechs, including 47 quads, 19 Land-Air 'Mechs and around 100 melee-armed designs (OmniMechs with all their
   configurations), 630 canon combat vehicles, 120 support vehicles, about 400 aerospace, Omni and
-  conventional fighters and 150 small craft and DropShips, searchable by name, era, tech base,
+  conventional fighters and about 290 spacecraft (small craft, DropShips, JumpShips, WarShips and
+  space stations), searchable by name, era, tech base,
   weight and type, ready to load, modify and print (see *Canon unit data* below)
 - **Battle Value (BV 2.0) and C-bill cost**, with the working shown; mech values
   reproduce published canon figures (e.g. Atlas AS7-D: BV 1,897, 9,626,000 C-bills).
