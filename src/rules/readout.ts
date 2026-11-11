@@ -50,7 +50,8 @@ export function technicalReadout(design: MechDesign, summary: MechSummary = comp
   lines.push(row(`Heat Sinks:${hsLabel} ${s.heatSinks.total} [${s.heatSinks.dissipation}]`, s.weights.heatSinks));
   const gyroName = { standard: '', xl: ' XL', 'heavy-duty': ' Heavy-Duty', compact: ' Compact' }[design.gyroType];
   lines.push(row(`Gyro:${gyroName}`, s.weights.gyro));
-  lines.push(row(`Cockpit:${design.cockpitType === 'small' ? ' Small' : ''}`, s.weights.cockpit));
+  const cockpitName = { standard: '', small: ' Small', 'torso-mounted': ' Torso-Mounted', 'command-console': ' Command Console' }[design.cockpitType];
+  lines.push(row(`Cockpit:${cockpitName}`, s.weights.cockpit));
   if (s.weights.conversion) lines.push(row('LAM Conversion Equipment:', s.weights.conversion));
   if (design.fullHeadEjection) lines.push('Full Head Ejection System');
   const ff = design.armorType === 'standard' ? '' : ` (${ARMOR_NAMES[design.armorType]})`;

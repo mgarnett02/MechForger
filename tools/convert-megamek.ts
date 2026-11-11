@@ -167,6 +167,7 @@ function resolveName(raw: string, unitTech: TechBase): Resolved {
   if (b === 'stealth') return { kind: 'fixed' };
   if (structural[b]) return { kind: 'item', id: structural[b] };
   if (UTILITY_NAMES[b]) return { kind: 'item', id: UTILITY_NAMES[b] };
+  if (b === 'caseii') return { kind: 'item', id: (tech ?? unitTech) === 'Clan' ? 'clan-case-ii' : 'case-ii' };
   if (b === 'doubleheatsink') {
     return { kind: 'item', id: (tech ?? unitTech) === 'Clan' ? 'clan-double-heat-sink' : 'double-heat-sink' };
   }
@@ -286,7 +287,8 @@ function parseMtf(text: string): ParsedMech {
   const gyroType: GyroType = !gy || /^Standard/.test(gy) ? 'standard' : /^XL/.test(gy) ? 'xl'
     : /^Compact/.test(gy) ? 'compact' : /^Heavy Duty/.test(gy) ? 'heavy-duty' : fail(`gyro ${gy}`);
   const ck = get('cockpit');
-  const cockpitType: CockpitType = !ck || /^Standard/.test(ck) ? 'standard' : /^Small/.test(ck) ? 'small' : fail(`cockpit ${ck}`);
+  const cockpitType: CockpitType = !ck || /^Standard/.test(ck) ? 'standard' : /^Small/.test(ck) ? 'small'
+    : /^Command Console/.test(ck) ? 'command-console' : /^Torso-Mounted/.test(ck) ? 'torso-mounted' : fail(`cockpit ${ck}`);
   const my = get('myomer');
   const myomer = !my || my === 'Standard' ? 'standard' : my === 'Triple-Strength' ? 'tsm' : fail(`myomer ${my}`);
   // A Full Head Ejection System (Hatchetman, Axman…) takes no slots or weight; other systems aren't supported.

@@ -395,7 +395,7 @@ export function parseDesign(raw: unknown): MechDesign {
     engineType: pick(r.engineType, ['standard', 'xl', 'light', 'compact'] as const, 'standard'),
     gyroType: pick(r.gyroType, ['standard', 'xl', 'heavy-duty', 'compact'] as const, 'standard'),
     jumpJetType: pick(r.jumpJetType, ['standard', 'improved'] as const, 'standard'),
-    cockpitType: pick(r.cockpitType, ['standard', 'small'] as const, 'standard'),
+    cockpitType: pick(r.cockpitType, ['standard', 'small', 'command-console', 'torso-mounted'] as const, 'standard'),
     heatSinkType: pick(r.heatSinkType, ['single', 'double'] as const, 'single'),
     armorType: pick(r.armorType, ['standard', 'ferro-fibrous', 'light-ferro', 'heavy-ferro'] as const, 'standard'),
     myomer: pick(r.myomer, ['standard', 'tsm'] as const, 'standard'),

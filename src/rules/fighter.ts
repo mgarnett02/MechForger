@@ -7,7 +7,7 @@
  * "weapon slots" each, less any taken by advanced armor — and a fuselage for ammunition and
  * other equipment.
  */
-import type { BasicArmorType, CockpitType, HeatSinkType, TechBase } from './types';
+import type { BasicArmorType, BasicCockpitType, HeatSinkType, TechBase } from './types';
 import { TECH_BASE_NAMES } from './types';
 import type { EraId } from './eras';
 import { DEFAULT_ERA, getEra, isAvailableIn } from './eras';
@@ -64,7 +64,7 @@ export interface FighterDesign {
   tonnage: number;
   safeThrust: number;
   engineType: FighterEngineType;
-  cockpitType: CockpitType;
+  cockpitType: BasicCockpitType;
   heatSinkType: HeatSinkType;
   /** Total heat sinks (aerospace fighters; fusion engines carry 10 for free). */
   heatSinks: number;

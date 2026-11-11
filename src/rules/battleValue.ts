@@ -160,7 +160,9 @@ export function mechBV(d: MechDesign): BVBreakdown {
   const isClan = d.techBase === 'Clan';
 
   // --- Defensive battle rating
-  const armor = s.armorTotal * 2.5 * (ARMOR_BV_MULTIPLIER[d.armorType] ?? 1);
+  // A torso-mounted cockpit counts the center torso armor twice.
+  const cockpitArmor = d.cockpitType === 'torso-mounted' ? d.armor.CT + d.armor.CTR : 0;
+  const armor = (s.armorTotal + cockpitArmor) * 2.5 * (ARMOR_BV_MULTIPLIER[d.armorType] ?? 1);
   const isPoints = s.structure ? LOCATIONS.reduce((a, l) => a + s.structure![l], 0) : 0;
   // Engine multiplier from the side-torso engine slots (as MegaMek): 6+ → 0.25, 3+ → 0.5, 2 → 0.75.
   const sideSlots = engineSideTorsoSlots(d.engineType, d.techBase);
@@ -171,16 +173,17 @@ export function mechBV(d: MechDesign): BVBreakdown {
   const defEquip = defensiveEquipmentBV(d.equipment);
 
   // Explosive ammo (−15 per slot) and Gauss weapons (−1 per slot) where CASE does not protect.
-  const caseIn = new Set(d.equipment.filter((e) => e.equipmentId === 'case').map((e) => e.location));
-  const isXL = (d.engineType === 'xl' || d.engineType === 'xxl') && !isClan;
+  // As MegaMek: CASE II protects any location; CASE protects arms and side torsos unless the side torso
+  // holds 3+ engine slots (IS XL, any XXL); arms are protected by CASE in the arm or its side torso.
+  const at = (ids: string[]) => new Set(d.equipment.filter((e) => ids.includes(e.equipmentId)).map((e) => e.location));
+  const caseII = at(['case-ii', 'clan-case-ii']);
+  const caseIn = at(['case']);
+  const hasCase = (loc: Location) => isClan || caseIn.has(loc) || caseII.has(loc);
   const protectedLoc = (loc: Location): boolean => {
+    if (caseII.has(loc)) return true;
     if (loc === 'CT' || loc === 'HD' || legLocations(d).includes(loc)) return false;
-    // Clan CASE is built into every location, but cannot save a Clan XXL engine in a side torso.
-    if (isClan) return !((loc === 'LT' || loc === 'RT') && sideSlots > 2);
-    if (isXL) return false; // losing the side torso destroys an IS XL engine anyway
-    if (loc === 'LT' || loc === 'RT') return caseIn.has(loc);
-    const torso: Location = loc === 'LA' ? 'LT' : 'RT';
-    return caseIn.has(loc) || caseIn.has(torso);
+    if (loc === 'LT' || loc === 'RT') return hasCase(loc) && sideSlots < 3;
+    return hasCase(loc) || protectedLoc(loc === 'LA' ? 'LT' : 'RT');
   };
   let explosive = 0;
   for (const item of d.equipment) {
@@ -238,8 +241,11 @@ export function mechBV(d: MechDesign): BVBreakdown {
   lines.push(['Weapons (heat-adjusted)', weaponBV], ['Ammunition', ammo]);
   if (offEquip) lines.push(['Offensive equipment', offEquip]);
   lines.push(['Tonnage', tonnage], ['Speed factor', sf]);
+  // Small and torso-mounted cockpits cost 5% of the total.
+  const cockpitMod = d.cockpitType === 'small' || d.cockpitType === 'torso-mounted' ? 0.95 : 1;
+  if (cockpitMod !== 1) lines.push([`× 0.95 ${d.cockpitType === 'small' ? 'small' : 'torso-mounted'} cockpit`, cockpitMod]);
 
-  return { total: round(defensive + offensive), defensive, offensive, lines, approximate: false };
+  return { total: round((defensive + offensive) * cockpitMod), defensive, offensive, lines, approximate: false };
 }
 
 const ENGINE_COST: Record<string, number> = { standard: 5000, xl: 20000, xxl: 100000, light: 15000, compact: 10000, ice: 1250 };
@@ -287,7 +293,7 @@ export function mechCost(d: MechDesign): CostBreakdown {
   const jumpCost = (d.jumpJetType === 'improved' ? 500 : 200) * t * s.jumpMP ** 2;
   const hsCost = (d.heatSinkType === 'double' ? 6000 : 2000) * Math.max(0, s.heatSinks.total - 10);
   const lines: [string, number][] = [
-    ['Cockpit', d.cockpitType === 'small' ? 175000 : 200000],
+    ['Cockpit', { standard: 200000, small: 175000, 'torso-mounted': 750000, 'command-console': 700000 }[d.cockpitType]],
     ['Life support', 50000],
     ['Sensors', 2000 * t],
     ['Musculature', (d.myomer === 'tsm' ? 16000 : 2000) * t],

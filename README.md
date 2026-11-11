@@ -97,6 +97,11 @@ Everything above, plus:
   efficiency in BV), Reactive, Reflective, Hardened (8 points/ton, −1 running MP), Ferro-Lamellor,
   Ballistic-Reinforced, Anti-Penetrative Ablation, Heat-Dissipating and Impact-Resistant, with MegaMek's
   points per ton, slots, BV multipliers and costs
+- **CASE II** (1 t IS / 0.5 t Clan, 1 slot, any location; protects ammo even in the head, center torso,
+  legs and XL/XXL side torsos)
+- **Torso-mounted cockpits** (4 t; cockpit and sensors in the center torso, life support in each side torso,
+  two sensor slots in the head; BV counts center torso armor twice, ×0.95) and **command consoles**
+  (6 t, fills the head; initiative bonus on heavy and assault 'Mechs)
 - **XXL engines** (a third of standard weight; 6 slots per side torso IS / 4 Clan; walk 4, run 6 and
   jump 2 per MP heat, 2 standing; BV structure ×0.25 IS / ×0.5 Clan)
 - **Improved jump jets** (double weight and slots; jump up to running MP) — the Inner
@@ -155,7 +160,7 @@ fixed-wing.
 - Critical slot allocation (click to place, or **Auto-allocate**) with live validation
 - Red / amber / green status light: illegal, legal but incomplete (unused tonnage,
   unallocated armor), or fully legal
-- **Canon units**: about 2,140 canon BattleMechs, including 47 quads, 19 Land-Air 'Mechs and around 100 melee-armed designs (OmniMechs with all their
+- **Canon units**: about 2,240 canon BattleMechs, including 47 quads, 19 Land-Air 'Mechs and around 100 melee-armed designs (OmniMechs with all their
   configurations), 630 canon combat vehicles, 120 support vehicles, about 400 aerospace, Omni and
   conventional fighters and about 290 spacecraft (small craft, DropShips, JumpShips, WarShips and
   space stations), searchable by name, era, tech base,
@@ -251,7 +256,7 @@ npm run dist:win   # build the Windows installer + portable exe into release/
 ## Not yet supported
 
 Split critical slots across locations, some Advanced / Experimental equipment (e.g. rifles,
-VSP and X-pulse lasers, CASE II, superchargers), industrial structure and armor, patchwork armor,
+VSP and X-pulse lasers, superchargers), industrial structure and armor, patchwork armor,
 and ICE / fuel-cell 'Mech engines.
 Mixed tech applies to equipment only: structure, engine, heat
 sinks and armor follow the chassis tech base.

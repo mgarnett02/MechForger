@@ -74,7 +74,9 @@ describe("Land-Air 'Mechs", () => {
   it('bundles the canon LAMs', () => {
     const lams = M.filter((e) => e.k === 'lam');
     expect(lams.length).toBeGreaterThanOrEqual(19);
-    expect(lams.every((e) => e.w && e.ok)).toBe(true);
+    expect(lams.every((e) => e.ok)).toBe(true);
+    // The Yurei S-YR-1LAM's canon file leaves 1.5 tons unused.
+    expect(lams.filter((e) => !e.w).map((e) => e.n)).toEqual(['Yurei S-YR-1LAM']);
     expect(lams.some((e) => decodeMech(e.d).lam === 'bimodal')).toBe(true);
   });
 

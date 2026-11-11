@@ -332,6 +332,9 @@ export const OTHER_EQUIPMENT: readonly Equipment[] = [
     id: 'case', name: 'CASE', category: 'Other', tons: 0.5, slots: 1, heat: 0, isWeapon: false,
     allowedLocations: TORSO, ...IS_3050,
   },
+  // CASE II: fits in any location and also protects the head, center torso and legs (and XL side torsos).
+  { id: 'case-ii', name: 'CASE II', category: 'Other', tons: 1, slots: 1, heat: 0, isWeapon: false, ...IS_3062 },
+  { id: 'clan-case-ii', name: 'CASE II', category: 'Other', tons: 0.5, slots: 1, heat: 0, isWeapon: false, ...CLAN_3062 },
   {
     id: 'masc', name: 'MASC', category: 'Other', tons: 0, slots: 0, heat: 0, isWeapon: false,
     variableWeight: 'masc', allowedLocations: NOT_HEAD, fixedOnly: true, ...IS_3050,

@@ -176,8 +176,9 @@ export function gyroSlots(type: GyroType): number {
   return 4;
 }
 
+/** Cockpit weight: small 2, standard 3, torso-mounted 4, command console 6 (cockpit plus console). */
 export function cockpitWeight(type: CockpitType): number {
-  return type === 'small' ? 2 : COCKPIT_WEIGHT;
+  return { small: 2, standard: COCKPIT_WEIGHT, 'torso-mounted': 4, 'command-console': 6 }[type];
 }
 
 /** Structure weight as a share of standard structure (10% of tonnage), each rounded up to the half ton. */
@@ -289,6 +290,8 @@ export const GYRO_OPTIONS: Record<GyroType, ComponentOption> = {
 export const COCKPIT_OPTIONS: Record<CockpitType, ComponentOption> = {
   standard: opt('Standard cockpits', 'Both', '3025'),
   small: opt('Small cockpits', 'IS', '3062'),
+  'command-console': opt('Command consoles', 'Both', '3025'),
+  'torso-mounted': opt('Torso-mounted cockpits', 'Both', '3050'),
 };
 export const HEAT_SINK_OPTIONS: Record<HeatSinkType, ComponentOption> = {
   single: opt('Single heat sinks', 'Both', '3025'),

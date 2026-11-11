@@ -121,7 +121,9 @@ export type StructureType = 'standard' | 'endo-steel' | 'endo-prototype' | 'endo
 export type EngineType = 'standard' | 'xl' | 'xxl' | 'light' | 'compact';
 export type GyroType = 'standard' | 'xl' | 'heavy-duty' | 'compact';
 export type JumpJetType = 'standard' | 'improved';
-export type CockpitType = 'standard' | 'small';
+/** Cockpits shared with fighters. */
+export type BasicCockpitType = 'standard' | 'small';
+export type CockpitType = BasicCockpitType | 'command-console' | 'torso-mounted';
 export type HeatSinkType = 'single' | 'double';
 /** Armor types shared by vehicles and fighters. */
 export type BasicArmorType = 'standard' | 'ferro-fibrous' | 'light-ferro' | 'heavy-ferro';

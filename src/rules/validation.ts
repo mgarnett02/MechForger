@@ -3,7 +3,7 @@ import { ARM_LOCATIONS, ARMOR_FACINGS, LAM_TYPE_NAMES, LOCATIONS, facingName, is
 import type { MeleeKind } from './equipment';
 import { HAND_WEAPONS, NEEDS_HAND } from './melee';
 import {
-  FREE_HEAT_SINKS, MAX_ENGINE_RATING, MIN_ENGINE_RATING, TONNAGES,
+  FREE_HEAT_SINKS, engineCenterSlots, gyroSlots, MAX_ENGINE_RATING, MIN_ENGINE_RATING, TONNAGES,
 } from './tables';
 import {
   ENDO_STEEL_ID, FERRO_FIBROUS_ID, HEAT_SINK_IDS, TSM_ID, allowedLocations, canRearMount, getEquipment,
@@ -199,6 +199,18 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
     if (a.hand && !a.lowerArm) {
       error(`${locationName(design, arm)}: a hand actuator requires a lower arm actuator.`);
     }
+  }
+
+  // Cockpits
+  if (design.cockpitType === 'torso-mounted') {
+    const coreSlots = engineCenterSlots(design.engineType) + gyroSlots(design.gyroType);
+    if (coreSlots > 10) error('A torso-mounted cockpit needs two free center-torso slots (not possible with this engine and gyro).');
+  }
+  if (design.fullHeadEjection && (design.cockpitType === 'torso-mounted' || design.cockpitType === 'command-console')) {
+    error('A full head ejection system cannot be combined with a torso-mounted cockpit or command console.');
+  }
+  if (design.cockpitType === 'command-console' && design.tonnage < 60) {
+    warn('A command console only gives its initiative bonus on heavy and assault \'Mechs.');
   }
 
   // Stealth armor works through an ECM suite.

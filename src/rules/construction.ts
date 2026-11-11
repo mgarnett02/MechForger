@@ -145,9 +145,13 @@ export function fixedSlots(design: MechDesign, loc: Location): (string | null)[]
 function baseFixedSlots(design: MechDesign, loc: Location): (string | null)[] {
   switch (loc) {
     case 'HD':
-      return design.cockpitType === 'small'
-        ? ['Life Support', 'Sensors', 'Small Cockpit', 'Sensors', null, null]
-        : ['Life Support', 'Sensors', 'Cockpit', null, 'Sensors', 'Life Support'];
+      switch (design.cockpitType) {
+        case 'small': return ['Life Support', 'Sensors', 'Small Cockpit', 'Sensors', null, null];
+        case 'command-console': return ['Life Support', 'Sensors', 'Cockpit', 'Command Console', 'Sensors', 'Life Support'];
+        // Torso-mounted cockpit: two sensor slots stay in the head (as MegaMek places them).
+        case 'torso-mounted': return ['Sensors', 'Sensors', null, null, null, null];
+        default: return ['Life Support', 'Sensors', 'Cockpit', null, 'Sensors', 'Life Support'];
+      }
     case 'CT': {
       const e = ENGINE_LABEL[design.engineType];
       const g = GYRO_LABEL[design.gyroType];
@@ -155,12 +159,17 @@ function baseFixedSlots(design: MechDesign, loc: Location): (string | null)[] {
       const engine: string[] = Array(engineCenterSlots(design.engineType)).fill(e);
       // The gyro sits between the two halves of a full-size engine.
       const fixed = [...engine.slice(0, 3), ...gyro, ...engine.slice(3)];
-      return [...fixed, ...Array(12 - fixed.length).fill(null)];
+      // A torso-mounted cockpit and a sensor slot take the next open center-torso slots.
+      if (design.cockpitType === 'torso-mounted') fixed.push('Cockpit', 'Sensors');
+      return [...fixed, ...Array(Math.max(0, 12 - fixed.length)).fill(null)].slice(0, 12);
     }
     case 'LT':
     case 'RT': {
       const n = engineSideTorsoSlots(design.engineType, design.techBase);
-      return [...Array(n).fill(ENGINE_LABEL[design.engineType]), ...Array(12 - n).fill(null)];
+      // A torso-mounted cockpit puts life support in the first slot of each side torso.
+      const ls = design.cockpitType === 'torso-mounted' ? ['Life Support'] : [];
+      const fixed = [...ls, ...Array(n).fill(ENGINE_LABEL[design.engineType])];
+      return [...fixed, ...Array(Math.max(0, 12 - fixed.length)).fill(null)].slice(0, 12);
     }
     case 'LA':
     case 'RA': {

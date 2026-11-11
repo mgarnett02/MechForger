@@ -191,6 +191,12 @@ export function ChassisPanel({ design, summary, update }: Props) {
             <option value="small" disabled={!ok(COCKPIT_OPTIONS.small)} title={why(COCKPIT_OPTIONS.small)}>
               Small (+1 piloting)
             </option>
+            <option value="torso-mounted" disabled={!ok(COCKPIT_OPTIONS['torso-mounted'])} title={why(COCKPIT_OPTIONS['torso-mounted'])}>
+              Torso-mounted (cockpit in center torso)
+            </option>
+            <option value="command-console" disabled={!ok(COCKPIT_OPTIONS['command-console'])} title={why(COCKPIT_OPTIONS['command-console'])}>
+              Command console (+2 initiative, heavy/assault)
+            </option>
           </select>
           <span className="muted"> {summary.weights.cockpit} t</span>
         </div>

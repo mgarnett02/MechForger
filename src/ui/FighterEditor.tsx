@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { BasicArmorType, CockpitType, HeatSinkType, TechBase } from '../rules/types';
+import type { BasicArmorType, BasicCockpitType, HeatSinkType, TechBase } from '../rules/types';
 import { TECH_BASE_NAMES } from '../rules/types';
 import { ERAS, getEra, isAvailableIn } from '../rules/eras';
 import type { ComponentOption } from '../rules/tables';
@@ -149,7 +149,7 @@ function FighterChassisPanel({ design, summary, update }: Props) {
             <label>Cockpit</label>
             <div>
               <select aria-label="Cockpit" value={design.cockpitType}
-                onChange={(e) => update((d) => ({ ...d, cockpitType: e.target.value as CockpitType }))}>
+                onChange={(e) => update((d) => ({ ...d, cockpitType: e.target.value as BasicCockpitType }))}>
                 <option value="standard">Standard</option>
                 <option value="small" disabled={!ok(COCKPIT_OPTIONS.small)} title={why(COCKPIT_OPTIONS.small)}>Small</option>
               </select>
