@@ -54,7 +54,7 @@ export function SummaryPanel({ design, summary, issues }: Props) {
       </table>
 
       <div className="stats">
-        <div><span className="muted">Move</span> {design.walkMP}/{summary.runMP}/{summary.jumpMP}</div>
+        <div><span className="muted">Move</span> {design.walkMP}/{summary.runMP}/{summary.totalJumpMP}</div>
         <div><span className="muted">Heat sinks</span> {summary.heatSinks.total}</div>
         <div><span className="muted">Weapon heat</span> {summary.heat.weapons}</div>
         <div><span className="muted">Armor</span> {summary.armorTotal}/{summary.armorMaxTotal}</div>

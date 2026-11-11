@@ -127,6 +127,15 @@ Everything above, plus:
   ACs** and IS **re-engineered lasers**
 - **Artemis V** (Clan, 1.5 t, 2 slots): ×1.3 BV for the linked Clan LRM/SRM launcher. Artemis V ammo
   also gets ×1.3 BV and costs twice as much.
+- **Actuator Enhancement System (AES):**
+  - One per arm, or one in every leg. Weight is tonnage ÷ 35, rounded up to the half ton (÷ 50 for quads); slots are 1–4 by weight class.
+  - Weapons and melee weapons in an AES arm count ×1.25 BV, and the BV tonnage factor rises.
+  - It can't be combined with MASC or a targeting computer.
+- **Partial wings:** a pair of pieces in the side torsos, weighing 7% of tonnage (Clan 5%). They add +2 jump MP (+1 over 55 t) and 3 heat capacity.
+- **Null-signature, void-signature and chameleon systems:** one slot in every location except the head (the chameleon shield also skips the centre torso).
+  - Their BV effects follow MegaMek: movement modifier and heat efficiency.
+  - The void-signature system needs ECM. None of them can be combined with stealth armor, and the null- and void-signature systems can't be combined with C3 or a targeting computer.
+- **Laser AMS** (Inner Sphere and Clan; defensive, no ammo) and the **C3 Boosted System** (master 6 t, slave 3 t)
 - **Armored components** (Tactical Operations, from 3061): armor any equipment item ("Armored" in the
   equipment list) or system slot (engine, gyro, cockpit, sensors, life support, actuators; tick
   "Armor components" in the critical slot panel and click a slot). Each armored slot weighs 0.5 t; an
@@ -215,7 +224,7 @@ fixed-wing support).
 - Critical slot allocation (click to place, or **Auto-allocate**) with live validation
 - Red / amber / green status light: illegal, legal but incomplete (unused tonnage,
   unallocated armor), or fully legal
-- **Canon units**: about 2,780 canon 'Mechs (about 110 of them IndustrialMechs), including 47 quads, 19 Land-Air 'Mechs and around 100 melee-armed designs (OmniMechs with all their
+- **Canon units**: about 2,880 canon 'Mechs (about 110 of them IndustrialMechs), including 47 quads, 19 Land-Air 'Mechs and around 100 melee-armed designs (OmniMechs with all their
   configurations), 715 canon combat vehicles, 160 support vehicles, about 440 aerospace, Omni and
   conventional fighters and about 290 spacecraft (small craft, DropShips, JumpShips, WarShips and
   space stations), about 1,190 battle armor squads and about 1,940 infantry platoons, searchable by name, era, tech base,

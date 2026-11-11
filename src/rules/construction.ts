@@ -65,7 +65,12 @@ export interface MechSummary {
   omni: OmniWeights | null;
   /** Land-Air 'Mech movement in its other modes. */
   lam: LamMovement | null;
+  /** Jump jets (the partial wing's bonus is separate). */
   jumpMP: number;
+  /** Partial wing: extra jump MP (when the 'Mech has jump jets) and heat capacity. */
+  partialWing: { jumpBonus: number; heatBonus: number } | null;
+  /** Jumping MP including the partial wing bonus. */
+  totalJumpMP: number;
   weightClass: WeightClass | null;
   engineWeight: number | null;
   structure: Record<Location, number> | null;
@@ -267,6 +272,10 @@ export function computeMech(design: MechDesign): MechSummary {
 
   const count = (pred: (id: string) => boolean) => design.equipment.filter((e) => pred(e.equipmentId)).length;
   const jumpMP = count((id) => JUMP_JET_IDS.includes(id));
+  // Partial wing: +2 jump MP for light and medium 'Mechs, +1 for heavier ones (standard atmosphere), +3 heat capacity.
+  const hasWing = design.equipment.some((e) => getEquipment(e.equipmentId)?.variableWeight === 'partialWing');
+  const wing = hasWing ? { jumpBonus: jumpMP > 0 ? (tonnage <= 55 ? 2 : 1) : 0, heatBonus: 3 } : null;
+  const totalJumpMP = jumpMP + (wing?.jumpBonus ?? 0);
   const externalHS = count((id) => HEAT_SINK_IDS.includes(id));
   const totalHS = design.engineHeatSinks + externalHS;
   const hasMasc = design.equipment.some((e) => getEquipment(e.equipmentId)?.variableWeight === 'masc');
@@ -319,6 +328,8 @@ export function computeMech(design: MechDesign): MechSummary {
     omni: design.omni ? omniWeights(design, weights.total) : null,
     lam: lamMovement(design, jumpMP),
     jumpMP,
+    partialWing: wing,
+    totalJumpMP,
     weightClass: weightClass(tonnage),
     engineWeight: engineWt,
     structure,
@@ -338,7 +349,7 @@ export function computeMech(design: MechDesign): MechSummary {
       // XXL engines run hot: 6 heat running, jumping 2 per MP (minimum 6). Stealth armor adds 10 when engaged.
       // IndustrialMechs take no movement heat (Total Warfare p. 158).
       running: isIndustrial(design) ? 0 : xxl ? 6 : 2,
-      jumping: jumpMP > 0 ? (xxl ? Math.max(6, jumpMP * 2) : Math.max(3, jumpMP)) : 0,
+      jumping: totalJumpMP > 0 ? (xxl ? Math.max(6, totalJumpMP * 2) : Math.max(3, totalJumpMP)) : 0,
     },
     weights,
     slots,

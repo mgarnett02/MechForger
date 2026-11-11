@@ -9,7 +9,7 @@ import {
 } from './tables';
 import {
   ENDO_STEEL_ID, ENV_SEAL_ID, FERRO_FIBROUS_ID, HEAT_SINK_IDS, JUMP_JET_IDS, TSM_ID, allowedLocations,
-  canRearMount, getEquipment, heatSinkIdFor, itemSlots, jumpJetIdFor,
+  canRearMount, getEquipment, heatSinkIdFor, itemSlots, jumpJetIdFor, spreadLocations,
 } from './equipment';
 import { isFixedOnly } from './omni';
 import { computeMech } from './construction';
@@ -199,6 +199,13 @@ export function setArmorTonnage(d: MechDesign, tons: number): MechDesign {
 
 export function addEquipment(d: MechDesign, equipmentId: string, location: Location | null = null): MechDesign {
   const pod = d.omni && !isFixedOnly(equipmentId) ? { pod: true } : {};
+  // Spread systems (partial wings, stealth systems) come as a set: one piece in each of their locations.
+  const spreadEq = getEquipment(equipmentId);
+  if (spreadEq?.spread && location === null) {
+    if (d.equipment.some((e) => e.equipmentId === equipmentId)) return d;
+    const set = spreadLocations(spreadEq, d).map((loc): MountedItem => ({ uid: newUid(), equipmentId, location: loc }));
+    return { ...d, equipment: [...d.equipment, ...set] };
+  }
   // Talons come as a set: one in every leg.
   if (equipmentId === 'talons' && location === null) {
     if (d.equipment.some((e) => e.equipmentId === 'talons')) return d;
@@ -211,8 +218,10 @@ export function addEquipment(d: MechDesign, equipmentId: string, location: Locat
 
 export function removeEquipment(d: MechDesign, uid: string): MechDesign {
   const target = d.equipment.find((e) => e.uid === uid);
-  // Removing one talon removes the whole set.
-  if (target?.equipmentId === 'talons') return { ...d, equipment: d.equipment.filter((e) => e.equipmentId !== 'talons') };
+  // Removing one talon (or one piece of a spread system) removes the whole set.
+  if (target?.equipmentId === 'talons' || (target && getEquipment(target.equipmentId)?.spread)) {
+    return { ...d, equipment: d.equipment.filter((e) => e.equipmentId !== target.equipmentId) };
+  }
   return { ...d, equipment: d.equipment.filter((e) => e.uid !== uid) };
 }
 

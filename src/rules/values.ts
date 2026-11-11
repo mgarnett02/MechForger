@@ -194,6 +194,18 @@ export const ITEM_VALUES: Record<string, ItemValue> = {
   'clan-light-active-probe': v(7, 50000),
   'clan-artemis-v': v(0, 250000),
   'coolant-pod': v(0, 50000),
+  'laser-ams': v(45, 225000),
+  'clan-laser-ams': v(45, 225000),
+  'c3-boosted-master': v(0, 3000000),
+  'c3-boosted-slave': v(0, 500000),
+  // Stealth systems: the system's cost spread over its slots (1,400,000 / 2,000,000 / 600,000).
+  'null-signature-system': v(0, 200000),
+  'void-signature-system': v(0, 2000000 / 7),
+  'chameleon-lps': v(0, 100000),
+  // AES and partial wing costs depend on the 'Mech (computed in mechCost).
+  aes: v(0, 0),
+  'partial-wing': v(0, 0),
+  'clan-partial-wing': v(0, 0),
 
   // Capital and sub-capital weapons (ammo BV and cost are carried per shot on the ammo itself)
   'nl-35': v(830, 500000), 'nl-45': v(1134, 850000), 'nl-55': v(1386, 1250000),
@@ -232,7 +244,7 @@ export const MML_AMMO_BV: Record<string, [number, number]> = {
 /** Equipment that counts towards defensive rather than offensive BV. */
 export const DEFENSIVE_IDS = new Set([
   'ams', 'clan-ams', 'guardian-ecm', 'clan-ecm', 'angel-ecm', 'beagle-active-probe', 'clan-active-probe',
-  'clan-light-active-probe', 'b-pod', 'm-pod', 'ap-pod',
+  'clan-light-active-probe', 'b-pod', 'm-pod', 'ap-pod', 'laser-ams', 'clan-laser-ams',
 ]);
 
 /** Gauss-type weapons: their ammo does not explode, but the weapon itself does. */

@@ -40,7 +40,7 @@ export function technicalReadout(design: MechDesign, summary: MechSummary = comp
   lines.push(`    Walking MP: ${design.walkMP}`);
   lines.push(`    Running MP: ${s.runMP}${s.mascRunMP ? ` [${s.mascRunMP}]` : ''}`);
   if (s.tsmMP) lines.push(`    (Triple-Strength Myomer: ${s.tsmMP.walk}/${s.tsmMP.run} at 9+ heat)`);
-  lines.push(`    Jumping MP: ${s.jumpMP}`);
+  lines.push(`    Jumping MP: ${s.totalJumpMP}${s.partialWing?.jumpBonus ? ` (${s.jumpMP} + ${s.partialWing.jumpBonus} partial wing)` : ''}`);
   if (s.lam?.airMech) {
     const a = s.lam.airMech;
     lines.push(`    AirMech MP: ${a.walk}/${a.run} ground, ${a.cruise}/${a.flank} flight`);

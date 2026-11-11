@@ -64,7 +64,10 @@ const ALIASES: Record<string, string> = {
   c3masterunit: 'c3mastercomputer', c3iunit: 'improvedc3computer', artemisiv: 'artemisivfcs',
   ams: 'antimissilesystem', ecmsuite: 'ecmsuite', guardianecm: 'guardianecmsuite',
   flamervehicle: 'flamer', erflamer: 'erflamer',
-  artemisv: 'artemisvfcs', antipersonnelpod: 'apod', antipersonnelpodsapods: 'apod', antibattlearmorpodsbpods: 'bpod',
+  artemisv: 'artemisvfcs', aes: 'actuatorenhancementsystem', actuatorenhancementsystemaes: 'actuatorenhancementsystem',
+  laserantimissilesystem: 'laserams', laserams: 'laserams', meknullsignaturesystem: 'nullsignaturesystem',
+  mekvoidsignaturesystem: 'voidsignaturesystem', chameleonlightpolarizationfield: 'chameleonlightpolarizationshield',
+  c3boostedsystemslaveunit: 'c3boostedslave', c3masterboostedsystemunit: 'c3boostedmaster', c3computerboosted: 'c3boostedmaster', antipersonnelpod: 'apod', antipersonnelpodsapods: 'apod', antibattlearmorpodsbpods: 'bpod',
 };
 
 /** MegaMek names (normalized, tech prefix removed) of utility equipment. */

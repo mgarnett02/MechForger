@@ -86,6 +86,7 @@ interface WeaponEntry {
   heat: number;
   rear: boolean;
   id: string;
+  loc?: string | null;
 }
 
 /** Weapon BV with targeting-computer and Artemis IV bonuses. */
@@ -126,7 +127,7 @@ function weaponEntries(
       artemisLeft.set(k, artemisLeft.get(k)! - 1);
       bv *= 1.2;
     }
-    out.push({ bv, heat, rear: !!i.rear, id: eq.id });
+    out.push({ bv, heat, rear: !!i.rear, id: eq.id, loc: i.location });
   }
   return out;
 }
@@ -277,13 +278,20 @@ export function mechBV(d: MechDesign): BVBreakdown {
   }
 
   const run = s.mascRunMP ?? s.tsmMP?.run ?? s.runMP;
-  const jump = s.jumpMP;
+  // Jumping MP includes a partial wing's bonus (as MegaMek's BV calculation).
+  const jump = s.totalJumpMP;
   // Standard LAMs are rated on AirMech flank speed, with +1 for being airborne (IO p. 192, as in MegaMek).
   const airMechFlank = d.lam === 'standard' ? s.lam?.airMech?.flank ?? 0 : null;
   const runTMM = airMechFlank !== null ? (airMechFlank ? targetMovementModifier(airMechFlank) + 1 : 0) : targetMovementModifier(run);
-  // Stealth armor adds 2 to the target movement modifier.
+  // Stealth armor or a null-signature system: +2 TMM; a chameleon shield: +2; a void-signature system
+  // raises the modifier to at least 3 (+1 if it is exactly 3), as MegaMek.
+  const has = (id: string) => d.equipment.some((e) => e.equipmentId === id);
+  const nullSig = has('null-signature-system');
+  const voidSig = has('void-signature-system');
+  const chameleon = has('chameleon-lps');
   const stealth = d.armorType === 'stealth' ? 2 : 0;
-  const tmm = Math.max(runTMM, jump > 0 ? targetMovementModifier(jump) + 1 : 0) + stealth;
+  let tmm = Math.max(runTMM, jump > 0 ? targetMovementModifier(jump) + 1 : 0) + (stealth || nullSig ? 2 : 0) + (chameleon ? 2 : 0);
+  if (voidSig) tmm = tmm < 3 ? 3 : tmm === 3 ? 4 : tmm;
   const defensive = Math.max(1, armor + structure + gyro + defEquip + armoredBV - explosive) * (1 + tmm / 10);
   lines.push(['Armor', armor], ['Internal structure', structure], ['Gyro', gyro]);
   if (defEquip) lines.push(['Defensive equipment', defEquip]);
@@ -295,8 +303,11 @@ export function mechBV(d: MechDesign): BVBreakdown {
   const weapons = weaponEntries(d.equipment);
   for (const item of d.equipment) {
     const eq = getEquipment(item.equipmentId);
-    if (eq?.melee) weapons.push({ bv: meleeBV(eq.melee, d), heat: 0, rear: false, id: eq.id });
+    if (eq?.melee) weapons.push({ bv: meleeBV(eq.melee, d), heat: 0, rear: false, id: eq.id, loc: item.location });
   }
+  // Weapons (and melee weapons) in an arm with an Actuator Enhancement System: ×1.25.
+  const aesArms = isQuad(d) ? new Set<string>() : new Set(d.equipment.filter((e) => e.equipmentId === 'aes' && (e.location === 'LA' || e.location === 'RA')).map((e) => e.location as string));
+  for (const w of weapons) if (w.loc && aesArms.has(w.loc)) w.bv *= 1.25;
   const frontBV = weapons.filter((w) => !w.rear).reduce((a, w) => a + w.bv, 0);
   const rearBV = weapons.filter((w) => w.rear).reduce((a, w) => a + w.bv, 0);
   for (const w of weapons) {
@@ -306,7 +317,8 @@ export function mechBV(d: MechDesign): BVBreakdown {
   // Coolant pods: + ⌈heat sinks × pods / 5⌉ heat efficiency (as MegaMek).
   const coolantPods = d.equipment.filter((e) => e.equipmentId === 'coolant-pod').length;
   const coolant = coolantPods ? Math.ceil((s.heatSinks.total * coolantPods) / 5) : 0;
-  const heatEfficiency = 6 + s.heatSinks.dissipation + coolant + (airMechFlank !== null ? 3 : 0) - moveHeat - (stealth ? 10 : 0);
+  const heatEfficiency = 6 + s.heatSinks.dissipation + coolant + (s.partialWing?.heatBonus ?? 0) + (airMechFlank !== null ? 3 : 0) - moveHeat
+    - (stealth ? 10 : 0) - (nullSig ? 10 : 0) - (voidSig ? 10 : 0) - (chameleon ? 6 : 0);
   weapons.sort((a, b) => b.bv - a.bv || a.heat - b.heat);
   let heat = 0;
   let weaponBV = 0;
@@ -321,7 +333,10 @@ export function mechBV(d: MechDesign): BVBreakdown {
     const eq = getEquipment(i.equipmentId);
     return eq && !eq.isWeapon && eq.category !== 'Ammo' && !DEFENSIVE_IDS.has(eq.id) ? a + (value(eq.id)?.bv ?? 0) : a;
   }, 0);
-  const tonnage = d.tonnage * (d.myomer === 'tsm' ? 1.5 : d.myomer === 'industrial-tsm' ? 1.15 : 1);
+  // AES: +0.1 per arm, +0.2 (biped) / +0.4 (quad) when every leg has one.
+  const legAES = legLocations(d).every((l) => d.equipment.some((e) => e.equipmentId === 'aes' && e.location === l));
+  const aesMod = 1 + 0.1 * aesArms.size + (legAES ? (isQuad(d) ? 0.4 : 0.2) : 0);
+  const tonnage = d.tonnage * aesMod * (d.myomer === 'tsm' ? 1.5 : d.myomer === 'industrial-tsm' ? 1.15 : 1);
   const sf = speedFactor(run + Math.round((airMechFlank ?? jump) / 2));
   // IndustrialMechs without advanced fire control: offensive rating × 0.9.
   const afcMod = d.cockpitType === 'industrial' ? 0.9 : 1;
@@ -357,7 +372,7 @@ const ARMOR_BV_MULTIPLIER: Partial<Record<MechDesign['armorType'], number>> = {
 };
 
 /** Cost of mounted weapons, ammo and equipment. */
-function equipmentCost<T extends { equipmentId: string }>(
+function equipmentCost<T extends { equipmentId: string; location?: string | null }>(
   items: T[], weight: (eq: Equipment) => number, rating: number, mech?: MechDesign,
 ): number {
   let total = 0;
@@ -369,6 +384,9 @@ function equipmentCost<T extends { equipmentId: string }>(
     else if (eq.variableWeight === 'masc') total += rating * weight(eq) * 1000;
     else if (eq.variableWeight === 'supercharger') total += rating * 10000;
     else if (eq.variableWeight === 'targetingComputer') total += weight(eq) * 10000;
+    // AES: tonnage × 500 per arm, × 700 per leg; partial wing: 50,000 per ton.
+    else if (eq.variableWeight === 'aes' && mech) total += mech.tonnage * (legLocations(mech).includes(i.location as Location) ? 700 : 500);
+    else if (eq.variableWeight === 'partialWing') total += weight(eq) * 50000;
     else total += value(eq.id)?.cost ?? 0;
   }
   return total;

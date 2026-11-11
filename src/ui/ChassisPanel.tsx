@@ -238,7 +238,7 @@ export function ChassisPanel({ design, summary, update }: Props) {
               Improved (up to run MP)
             </option>
           </select>
-          <span className="muted"> {summary.weights.jumpJets} t</span>
+          <span className="muted"> {summary.weights.jumpJets} t{summary.partialWing?.jumpBonus ? ` · +${summary.partialWing.jumpBonus} partial wing = ${summary.totalJumpMP}` : ''}</span>
         </div>
 
         <label>Heat sinks</label>
@@ -306,7 +306,7 @@ function LamInfo({ design, summary }: { design: MechDesign; summary: MechSummary
       </p>
       <table className="lam-modes">
         <tbody>
-          <tr><th>'Mech</th><td>Walk {design.walkMP} · Run {summary.runMP} · Jump {summary.jumpMP}</td></tr>
+          <tr><th>'Mech</th><td>Walk {design.walkMP} · Run {summary.runMP} · Jump {summary.totalJumpMP}</td></tr>
           {lam.airMech && (
             <tr><th>AirMech</th><td>Walk {lam.airMech.walk} · Run {lam.airMech.run} · Flight {lam.airMech.cruise} / {lam.airMech.flank}</td></tr>
           )}

@@ -37,7 +37,9 @@ export interface Equipment {
   allowedLocations?: readonly Location[];
   isWeapon: boolean;
   /** Weight (and for MASC / targeting computers, slots) depends on the mech. */
-  variableWeight?: 'jumpJet' | 'improvedJumpJet' | 'masc' | 'supercharger' | 'targetingComputer';
+  variableWeight?: 'jumpJet' | 'improvedJumpJet' | 'masc' | 'supercharger' | 'targetingComputer' | 'aes' | 'partialWing';
+  /** Systems spread one piece per location (added and removed as a set). */
+  spread?: 'all-but-head' | 'all-but-head-ct' | 'side-torsos';
   /** LRM/SRM launchers that can be linked to an Artemis IV fire-control system. */
   artemisCapable?: boolean;
   /** Ammo bins: Artemis IV-capable ammunition. */
@@ -165,6 +167,8 @@ const IS_3050_WEAPONS: Equipment[] = [
   weapon(IS_3050, 'mrm-40', 'MRM 40', 'Missile', 12, 7, 12, '1/missile', [0, 3, 8, 15], 6),
   weapon(IS_3050, 'narc', 'Narc Missile Beacon', 'Missile', 3, 2, 0, 'beacon', [0, 3, 6, 9], 6),
   weapon(IS_3050, 'ams', 'Anti-Missile System', 'Other', 0.5, 1, 1, 'defensive', null, 12),
+  // Laser anti-missile systems (3059): no ammunition, more heat.
+  weapon(IS_3050, 'laser-ams', 'Laser AMS', 'Other', 1.5, 2, 7, 'defensive', null),
   // Introduced 3056–3061, so available by the end of the Clan Invasion era.
   weapon(IS_3050, 'light-gauss-rifle', 'Light Gauss Rifle', 'Ballistic', 12, 5, 1, '8', [3, 8, 17, 25], 16),
   weapon(IS_3050, 'heavy-gauss-rifle', 'Heavy Gauss Rifle', 'Ballistic', 18, 11, 2, '25/20/10', [4, 6, 13, 20], 4),
@@ -280,6 +284,7 @@ const CLAN_WEAPONS: Equipment[] = [
   weapon(CLAN_3050, 'clan-atm-12', 'ATM 12', 'Missile', 7, 5, 8, '2/missile', [4, 5, 10, 15], 5),
   weapon(CLAN_3050, 'clan-narc', 'Narc Missile Beacon', 'Missile', 2, 1, 0, 'beacon', [0, 4, 8, 12], 6),
   weapon(CLAN_3050, 'clan-ams', 'Anti-Missile System', 'Other', 0.5, 1, 1, 'defensive', null, 24),
+  weapon(CLAN_3050, 'clan-laser-ams', 'Laser AMS', 'Other', 1, 1, 5, 'defensive', null),
   // Introduced 3054–3060, so available by the end of the Clan Invasion era.
   weapon(CLAN_3050, 'clan-er-micro-laser', 'ER Micro Laser', 'Energy', 0.25, 1, 1, '2', [0, 1, 2, 4]),
   weapon(CLAN_3050, 'clan-micro-pulse-laser', 'Micro Pulse Laser', 'Energy', 0.5, 1, 1, '3', [0, 1, 2, 3]),
@@ -468,6 +473,37 @@ export const OTHER_EQUIPMENT: readonly Equipment[] = [
     id: 'supercharger', name: 'Supercharger', category: 'Other', tons: 0, slots: 1, heat: 0, isWeapon: false,
     variableWeight: 'supercharger', allowedLocations: TORSO, techBase: 'Both', firstEra: '3025',
   },
+  // Actuator Enhancement System (3070): one per arm (or in every leg); weight tonnage/35 (quads /50),
+  // 1–4 slots by weight class. Weapons in an AES arm count ×1.25 BV.
+  {
+    id: 'aes', name: 'Actuator Enhancement System', category: 'Other', tons: 0, slots: 0, heat: 0, isWeapon: false,
+    variableWeight: 'aes', allowedLocations: ['LA', 'RA', 'LL', 'RL'], fixedOnly: true, techBase: 'Both', firstEra: '3068',
+  },
+  // Partial wing (3067): one piece in each side torso; 7% (IS) / 5% (Clan) of tonnage. +2 jump MP (≤55 t) or +1, +3 heat capacity.
+  {
+    id: 'partial-wing', name: 'Partial Wing', category: 'Other', tons: 0, slots: 4, heat: 0, isWeapon: false,
+    variableWeight: 'partialWing', spread: 'side-torsos', allowedLocations: ['LT', 'RT'], fixedOnly: true, ...IS_3062,
+  },
+  {
+    id: 'clan-partial-wing', name: 'Partial Wing', category: 'Other', tons: 0, slots: 3, heat: 0, isWeapon: false,
+    variableWeight: 'partialWing', spread: 'side-torsos', allowedLocations: ['LT', 'RT'], fixedOnly: true, ...CLAN_3062,
+  },
+  // 'Mech stealth systems: one slot in each location except the head (Chameleon: nor the center torso).
+  {
+    id: 'null-signature-system', name: 'Null Signature System', category: 'Other', tons: 0, slots: 1, heat: 0, isWeapon: false,
+    spread: 'all-but-head', fixedOnly: true, ...IS_3025,
+  },
+  {
+    id: 'void-signature-system', name: 'Void Signature System', category: 'Other', tons: 0, slots: 1, heat: 0, isWeapon: false,
+    spread: 'all-but-head', fixedOnly: true, ...IS_3068,
+  },
+  {
+    id: 'chameleon-lps', name: 'Chameleon Light Polarization Shield', category: 'Other', tons: 0, slots: 1, heat: 0, isWeapon: false,
+    spread: 'all-but-head-ct', fixedOnly: true, ...IS_3025,
+  },
+  // C3 Boosted System (3073): C3 that ECM does not block.
+  { id: 'c3-boosted-master', name: 'C3 Boosted Master', category: 'Other', tons: 6, slots: 6, heat: 0, isWeapon: false, ...IS_3068 },
+  { id: 'c3-boosted-slave', name: 'C3 Boosted Slave', category: 'Other', tons: 3, slots: 2, heat: 0, isWeapon: false, ...IS_3068 },
   // PPC Capacitor: linked to a PPC in the same location, +5 damage and +5 heat when charged.
   {
     id: 'ppc-capacitor', name: 'PPC Capacitor', category: 'Other', tons: 1, slots: 1, heat: 0, isWeapon: false,
@@ -704,7 +740,8 @@ const ABBREVIATIONS: [RegExp, string][] = [
   [/Artemis (IV|V) FCS/g, 'Artemis $1'], [/ Artemis IV Ammo/g, ' Art. Ammo'], [/ Artemis V Ammo/g, ' Art.V Ammo'], [/Re-engineered/g, 'Re-eng.'], [/ Ammo, Half/g, ' Ammo ½'],
   [/Improved Heavy (Small|Medium|Large) Laser/g, 'Imp. Heavy $1 L.'], [/Rocket Launcher (\d+)/g, 'RL $1'],
   [/Long Tom Cannon Ammo/g, 'LT Cannon Ammo'], [/(Sniper|Thumper) Cannon Ammo/g, '$1 C. Ammo'], [/Targeting Computer/g, 'Targeting Comp.'], [/Triple-Strength Myomer/g, 'TSM'],
-  [/Beagle Active Probe/g, 'Beagle Probe'], [/Guardian ECM Suite/g, 'Guardian ECM'],
+  [/Beagle Active Probe/g, 'Beagle Probe'], [/Chameleon Light Polarization Shield/g, 'Chameleon LPS'],
+  [/Actuator Enhancement System/g, 'AES'], [/Null Signature System/g, 'Null-Sig System'], [/Void Signature System/g, 'Void-Sig System'], [/Guardian ECM Suite/g, 'Guardian ECM'],
   [/C3 Master Computer/g, 'C3 Master'], [/C3 Slave Unit/g, 'C3 Slave'], [/Improved C3 Computer/g, 'C3i'],
   [/Improved Jump Jet/g, 'Imp. Jump Jet'], [/Snub-Nose PPC/g, 'SN PPC'], [/Retractable Blade/g, 'Ret. Blade'],
   [/Communications Equipment/g, 'Comms Equip.'], [/Lift Hoist \/ Arresting Hoist/g, 'Lift Hoist'],
@@ -763,6 +800,15 @@ export function targetingComputerWeight(eq: Equipment, d: SizingDesign): number 
   return Math.max(1, Math.ceil(tons / (eq.techBase === 'Clan' ? 5 : 4) - 1e-9));
 }
 
+/** Locations a spread system occupies, one piece each. */
+export function spreadLocations(eq: Equipment, d: { config?: MechConfig }): Location[] {
+  void d;
+  if (eq.spread === 'side-torsos') return ['LT', 'RT'];
+  if (eq.spread === 'all-but-head') return LOCATIONS.filter((l) => l !== 'HD');
+  if (eq.spread === 'all-but-head-ct') return LOCATIONS.filter((l) => l !== 'HD' && l !== 'CT');
+  return [];
+}
+
 export function itemWeight(eq: Equipment, d: SizingDesign): number {
   if (eq.variableWeight === 'jumpJet') return jumpJetWeight(d.tonnage);
   if (eq.variableWeight === 'improvedJumpJet') return jumpJetWeight(d.tonnage) * 2;
@@ -773,12 +819,17 @@ export function itemWeight(eq: Equipment, d: SizingDesign): number {
     return Math.ceil((engine / 10) * 2 - 1e-9) / 2;
   }
   if (eq.variableWeight === 'targetingComputer') return targetingComputerWeight(eq, d);
+  if (eq.variableWeight === 'aes') return upHalf(d.tonnage / (d.config === 'quad' ? 50 : 35));
+  // The wing's weight is split between its two side-torso pieces.
+  if (eq.variableWeight === 'partialWing') return upHalf(d.tonnage * (eq.techBase === 'Clan' ? 0.05 : 0.07)) / 2;
   if (eq.melee) return meleeWeight(eq.melee, d);
   return eq.tons;
 }
 
 export function itemSlots(eq: Equipment, d: SizingDesign): number {
   if (eq.melee) return meleeSlots(eq.melee, d.tonnage);
+  // AES: 1 / 2 / 3 / 4 slots for light / medium / heavy / assault 'Mechs.
+  if (eq.variableWeight === 'aes') return d.tonnage <= 35 ? 1 : d.tonnage <= 55 ? 2 : d.tonnage <= 75 ? 3 : 4;
   return eq.variableWeight === 'masc' || eq.variableWeight === 'targetingComputer'
     ? itemWeight(eq, d)
     : eq.slots;

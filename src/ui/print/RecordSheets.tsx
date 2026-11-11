@@ -238,7 +238,7 @@ export function MechRecordSheet({ design }: { design: MechDesign }) {
               <span className="rs-label">Movement Points:</span>
               <Field label="Walking" value={design.walkMP} />
               <Field label="Running" value={s.mascRunMP ? `${s.runMP} [${s.mascRunMP}]` : s.runMP} />
-              <Field label="Jumping" value={s.jumpMP} />
+              <Field label="Jumping" value={s.totalJumpMP} />
             </div>
             <Field label="Tonnage" value={design.tonnage} />
             <Field label="Tech Base" value={techBase(design)} />
@@ -319,7 +319,7 @@ export function MechRecordSheet({ design }: { design: MechDesign }) {
             <div className="rs-hs-label">Dissipation: <b>{s.heatSinks.dissipation}</b></div>
             <Circles n={s.heatSinks.total} />
           </div>
-          <p className="rs-note">* All weapons: {s.heat.weapons} heat · {isIndustrial(design) ? 'no movement heat' : `${design.engineType === 'xxl' ? 'stand +2 · walk +4' : 'walk +1'} · run +${s.heat.running}`}{s.jumpMP ? ` · jump +${s.heat.jumping}` : ''}{design.armorType === 'stealth' ? ' · stealth +10' : ''}</p>
+          <p className="rs-note">* All weapons: {s.heat.weapons} heat · {isIndustrial(design) ? 'no movement heat' : `${design.engineType === 'xxl' ? 'stand +2 · walk +4' : 'walk +1'} · run +${s.heat.running}`}{s.jumpMP ? ` · jump +${s.heat.jumping}` : ''}{design.armorType === 'stealth' ? ' · stealth +10' : ''}{design.equipment.some((e) => e.equipmentId === 'null-signature-system') ? ' · null-sig +10' : ''}{design.equipment.some((e) => e.equipmentId === 'void-signature-system') ? ' · void-sig +10' : ''}{design.equipment.some((e) => e.equipmentId === 'chameleon-lps') ? ' · chameleon +6' : ''}</p>
         </Panel>
 
         <div className="rs-heat-scale area-scale" aria-label="Heat scale">

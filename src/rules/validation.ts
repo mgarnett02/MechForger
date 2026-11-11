@@ -6,7 +6,7 @@ import {
   freeHeatSinks, engineCenterSlots, engineSideTorsoSlots, gyroSlots, MAX_ENGINE_RATING, MIN_ENGINE_RATING, TONNAGES,
 } from './tables';
 import {
-  ENDO_STEEL_ID, ENV_SEAL_ID, canArmor, FERRO_FIBROUS_ID, HEAT_SINK_IDS, TSM_ID, allowedLocations, canRearMount, getEquipment, isArtemisVCapable, isPPC,
+  ENDO_STEEL_ID, ENV_SEAL_ID, canArmor, spreadLocations, FERRO_FIBROUS_ID, HEAT_SINK_IDS, TSM_ID, allowedLocations, canRearMount, getEquipment, isArtemisVCapable, isPPC,
   JUMP_JET_IDS, heatSinkIdFor, isDirectFire, isEquipmentAvailable, jumpJetIdFor, usesAmmo,
 } from './equipment';
 import { configurationDesigns, isFixedOnly } from './omni';
@@ -256,6 +256,58 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
   // Stealth armor works through an ECM suite.
   if (design.armorType === 'stealth' && !design.equipment.some((e) => /(^|-)ecm$/.test(e.equipmentId) && e.location)) {
     error('Stealth armor needs an ECM suite.');
+  }
+
+  // Actuator Enhancement System, partial wings and 'Mech stealth systems (Tactical / Interstellar Operations)
+  const ids = design.equipment.map((e) => e.equipmentId);
+  const hasId = (re: RegExp) => ids.some((id) => re.test(id));
+  const hasTC = design.equipment.some((e) => getEquipment(e.equipmentId)?.variableWeight === 'targetingComputer');
+  const hasC3 = hasId(/^(c3-|improved-c3)/);
+  const aes = design.equipment.filter((e) => e.equipmentId === 'aes');
+  if (aes.length) {
+    for (const loc of LOCATIONS) {
+      if (aes.filter((e) => e.location === loc).length > 1) error(`Only one AES can be mounted in the ${locationName(design, loc)}.`);
+    }
+    const legs = legLocations(design);
+    const inLegs = legs.filter((l) => aes.some((e) => e.location === l)).length;
+    if (inLegs > 0 && inLegs < legs.length) error('If an AES is mounted in a leg, every leg must mount one.');
+    // A supercharger is allowed (as MegaMek); MASC is not.
+    if (design.equipment.some((e) => getEquipment(e.equipmentId)?.variableWeight === 'masc')) error('AES cannot be combined with MASC.');
+    if (hasTC) error('AES cannot be combined with a targeting computer.');
+    if (design.myomer !== 'standard') error('AES cannot be combined with Triple-Strength Myomer.');
+  }
+  for (const eq of [getEquipment('partial-wing')!, getEquipment('clan-partial-wing')!, getEquipment('null-signature-system')!,
+    getEquipment('void-signature-system')!, getEquipment('chameleon-lps')!]) {
+    const pieces = design.equipment.filter((e) => e.equipmentId === eq.id);
+    if (!pieces.length) continue;
+    for (const loc of spreadLocations(eq, design)) {
+      const n = pieces.filter((e) => e.location === loc).length;
+      if (n !== 1) error(`${eq.name} needs one piece in the ${locationName(design, loc)} (has ${n}).`);
+    }
+  }
+  if (hasId(/partial-wing$/)) {
+    if (hasId(/^partial-wing$/) && hasId(/^clan-partial-wing$/)) error('Only one partial wing can be fitted.');
+    if (design.lam) error("Land-Air 'Mechs cannot mount a partial wing.");
+  }
+  const nullSig = ids.includes('null-signature-system');
+  const voidSig = ids.includes('void-signature-system');
+  const chameleon = ids.includes('chameleon-lps');
+  const stealthArmor = design.armorType === 'stealth';
+  if (nullSig) {
+    if (stealthArmor) error('A null-signature system cannot be combined with stealth armor.');
+    if (voidSig) error('A null-signature system cannot be combined with a void-signature system.');
+    if (hasTC) error('A null-signature system cannot be combined with a targeting computer.');
+    if (hasC3) error('A null-signature system cannot be combined with C3 equipment.');
+  }
+  if (voidSig) {
+    if (!design.equipment.some((e) => /(^|-)ecm$/.test(e.equipmentId) && e.location)) error('A void-signature system needs an ECM suite.');
+    if (stealthArmor) error('A void-signature system cannot be combined with stealth armor.');
+    if (hasTC) error('A void-signature system cannot be combined with a targeting computer.');
+    if (hasC3) error('A void-signature system cannot be combined with C3 equipment.');
+  }
+  if (chameleon) {
+    if (stealthArmor) error('A chameleon light polarization shield cannot be combined with stealth armor.');
+    if (voidSig) error('A chameleon light polarization shield cannot be combined with a void-signature system.');
   }
 
   // Endo Steel / Ferro-Fibrous slot placeholders
