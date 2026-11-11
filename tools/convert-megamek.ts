@@ -37,8 +37,8 @@ import type { FighterDesign, FighterItem, FighterLocation } from '../src/rules/f
 import { computeFighter, emptyFighterArmor, validateFighter } from '../src/rules/fighter';
 import type { BayKind, QuartersKind, VesselDesign, VesselItem, VesselLocation } from '../src/rules/vessel';
 import { computeVessel, emptyVesselArmor, validateVessel } from '../src/rules/vessel';
-import type { SVItem, SVLocation, SVType, SupportVehicleDesign, TechRating } from '../src/rules/support';
-import { TECH_RATINGS, computeSupport, emptyTransport, isLargeSupportTank, kgPerFuelPoint, validateSupport } from '../src/rules/support';
+import type { SVBayKind, SVItem, SVLocation, SVType, SupportVehicleDesign, TechRating } from '../src/rules/support';
+import { SV_BAY_INFO, TECH_RATINGS, computeSupport, emptyTransport, isLargeSupportTank, kgPerFuelPoint, validateSupport } from '../src/rules/support';
 import type { CanonEntry } from '../src/data/canonFormat';
 
 class Unsupported extends Error {}
@@ -547,7 +547,13 @@ function parseFighterBlk(text: string): { design: FighterDesign; year: number; m
   const armorType = FIGHTER_ARMOR[one('armor_type')] ?? fail(`armor type ${one('armor_type')}`);
   const cockpit = one('cockpit_type');
   const cockpitType = cockpit === '0' || cockpit === '' ? 'standard' : cockpit === '1' ? 'small' : fail(`cockpit ${cockpit}`);
-  if (tags.has('transporters')) fail('transport bays');
+  // Infantry compartments and cargo bays (tons); other bays are not modeled for fighters.
+  let cargo = 0;
+  for (const t of tags.get('transporters') ?? []) {
+    const m = /^(troopspace|cargobay):([\d.]+)/i.exec(t);
+    if (m) cargo += Number(m[2]);
+    else fail(`fighter transporter ${t.split(':')[0]}`);
+  }
   const [nose, lw, rw, aft] = (tags.get('armor') ?? []).map(Number);
   const armor = { ...emptyFighterArmor(), NOS: nose ?? 0, LWG: lw ?? 0, RWG: rw ?? 0, AFT: aft ?? 0 };
   const blocks: [string, FighterLocation][] = [
@@ -574,7 +580,7 @@ function parseFighterBlk(text: string): { design: FighterDesign; year: number; m
   fixAmmoTech(equipment);
   const ppt = fighterType === 'conventional' ? 160 : 80;
   const design: FighterDesign = {
-    schemaVersion: 1, unitType: 'fighter', fighterType, era: '3025', techBase, mixedTech, omni: one('omni') === '1',
+    schemaVersion: 1, unitType: 'fighter', fighterType, era: '3025', techBase, mixedTech, omni: one('omni') === '1', ...(cargo ? { cargo } : {}),
     chassis: one('Name'), model: one('Model'), tonnage, safeThrust: Number(one('SafeThrust')), engineType, cockpitType,
     heatSinkType: one('sink_type') === '1' ? 'double' : 'single', heatSinks: Number(one('heatsinks')) || 0,
     fuelTons: Math.round((2 * Number(one('fuel'))) / ppt) / 2, armorType, armor, vstol: one('vstol') === '1', equipment,
@@ -792,15 +798,19 @@ function parseVesselBlk(text: string): { design: VesselDesign; year: number; mul
   const bays: VesselDesign['bays'] = [];
   let dockingCollars = 0;
   for (const t of tags.get('transporters') ?? []) {
-    const [kind, size0, doors0, , platoon] = t.split(':');
+    const [kind, size0, doors0, , platoon, , bits0] = t.split(':');
     const k = kind.toLowerCase();
     if (k === 'dockingcollar') { dockingCollars++; continue; }
     if (k === 'dropshuttlebay') { bays.push({ kind: 'drop-shuttle', size: 1, doors: Number(doors0) || 0 }); continue; }
     const size = Number(size0) || 0;
     if (QUARTERS_BLK[k]) { const [q, per] = QUARTERS_BLK[k]; quarters[q] += Math.floor(size / per + 1e-9); continue; }
     if (k === 'infantrybay') { bays.push({ kind: INFANTRY_BAYS[(platoon ?? 'foot').toLowerCase()] ?? fail(`infantry bay ${platoon}`), size, doors: Number(doors0) || 0 }); continue; }
+    if (k === 'troopspace') { bays.push({ kind: 'troop-space', size, doors: 0 }); continue; }
     const bk = BAY_NAMES[k] ?? fail(`bay ${kind}`);
-    bays.push({ kind: bk, size, doors: Number(doors0) || 0 });
+    // Bitmap field: 1 = ComStar battle armor bay, 2 = Clan bay.
+    const bits = Number(bits0) || 0;
+    const variant = bk === 'battle-armor' ? (bits & 1 ? 'comstar' : bits & 2 ? 'clan' : undefined) : undefined;
+    bays.push({ kind: bk, size, doors: Number(doors0) || 0, ...(variant ? { variant } : {}) });
   }
 
   const blocks: [string, VesselLocation][] = large
@@ -980,6 +990,21 @@ function parseSupportBlk(text: string): { design: SupportVehicleDesign; year: nu
       case 'insulatedcargobay': case 'refrigeratedcargobay': transport.cargo += Math.round((n / 0.87) * 1000) / 1000; break;
       case 'troopspace': transport.troops += n; break;
       case 'battlearmorhandles - troopers': break;
+      // Unit bays: infantrybay:<platoons>:<doors>:<bay>:<platoon type>, others <size>:<doors>:…
+      case 'infantrybay': case 'battlearmorbay': case 'lightvehiclebay': case 'heavyvehiclebay': case 'mekbay':
+      case 'protomekbay': case 'livestockcargobay': {
+        const parts = t.split(':');
+        const k = kind.toLowerCase();
+        const platoon = (parts[4] ?? 'Foot').toLowerCase();
+        const bayKind: SVBayKind = k === 'infantrybay' ? (`infantry-${platoon}` as SVBayKind)
+          : ({ battlearmorbay: 'battle-armor', lightvehiclebay: 'light-vehicle', heavyvehiclebay: 'heavy-vehicle', mekbay: 'mek', protomekbay: 'protomek', livestockcargobay: 'livestock-cargo' } as const)[k as 'mekbay'];
+        if (!SV_BAY_INFO[bayKind]) fail(`bay ${t}`);
+        // Field 6 is a bitmap: 1 = ComStar bay, 2 = Clan bay.
+        const bits = Number(parts[6]) || 0;
+        const variant = bayKind === 'battle-armor' ? (bits & 1 ? 'comstar' : bits & 2 ? 'clan' : undefined) : undefined;
+        transport.bays = [...(transport.bays ?? []), { kind: bayKind, size: n, doors: Number(parts[2]) || 0, ...(variant ? { variant } : {}) }];
+        break;
+      }
       default: fail(`transporter ${kind}`);
     }
   }

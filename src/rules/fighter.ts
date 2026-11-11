@@ -75,6 +75,8 @@ export interface FighterDesign {
   armor: Record<FighterArc, number>;
   /** Conventional fighters: vertical / short take-off and landing gear. */
   vstol: boolean;
+  /** Troop compartment and cargo bay space, in tons. */
+  cargo?: number;
   equipment: FighterItem[];
 }
 
@@ -237,6 +239,7 @@ export interface FighterWeights {
   powerAmplifiers: number;
   armor: number;
   equipment: number;
+  cargo: number;
   total: number;
   free: number;
 }
@@ -308,11 +311,12 @@ export function computeFighter(d: FighterDesign): FighterSummary {
     powerAmplifiers: conventional && d.engineType === 'ice' ? halfUp(0.1 * energyTons) : 0,
     armor: armorTonnage(armorTotal, ppt),
     equipment,
+    cargo: d.cargo ?? 0,
     total: 0,
     free: 0,
   };
   weights.total = weights.engine + weights.controls + weights.fuel + weights.heatSinks + weights.vstol
-    + weights.powerAmplifiers + weights.armor + weights.equipment;
+    + weights.powerAmplifiers + weights.armor + weights.equipment + weights.cargo;
   weights.free = d.tonnage - weights.total;
 
   return {
@@ -389,6 +393,7 @@ export function validateFighter(d: FighterDesign, s: FighterSummary = computeFig
   // Fuel
   if (d.fuelTons < 0 || Math.round(d.fuelTons * 2) !== d.fuelTons * 2) error('Fuel comes in half-ton steps.');
   if (d.fuelTons === 0) warn('No fuel carried.');
+  if ((d.cargo ?? 0) < 0 || ((d.cargo ?? 0) * 2) % 1 !== 0) error('Troop / cargo space must be a non-negative number of half tons.');
 
   // Armor
   for (const l of FIGHTER_ARCS) {
@@ -542,6 +547,7 @@ export function parseFighter(raw: unknown): FighterDesign {
     heatSinkType: pick(r.heatSinkType, ['single', 'double'] as const, 'single'),
     heatSinks: typeof r.heatSinks === 'number' ? r.heatSinks : fighterType === 'conventional' ? 0 : 10,
     fuelTons: typeof r.fuelTons === 'number' ? r.fuelTons : 0,
+    ...(typeof r.cargo === 'number' && r.cargo > 0 ? { cargo: r.cargo } : {}),
     armorType: pick(r.armorType, ['standard', 'ferro-fibrous', 'light-ferro', 'heavy-ferro'] as const, 'standard'),
     armor,
     vstol: r.vstol === true,
@@ -582,6 +588,7 @@ export function fighterReadout(
   lines.push(row(`Fuel: ${s.fuelPoints} points`, s.weights.fuel));
   lines.push(row(conventional ? 'Controls:' : `Cockpit:${d.cockpitType === 'small' ? ' Small' : ''}`, s.weights.controls));
   if (s.weights.vstol) lines.push(row('VSTOL Gear:', s.weights.vstol));
+  if (s.weights.cargo) lines.push(row('Troop / Cargo Space:', s.weights.cargo));
   if (s.weights.powerAmplifiers) lines.push(row('Power Amplifiers:', s.weights.powerAmplifiers));
   const armorLabel = d.armorType === 'standard' ? '' : ` (${FIGHTER_ARMOR_NAMES[d.armorType]})`;
   lines.push(row(`Armor Factor${armorLabel}: ${s.armorTotal}`, s.weights.armor));

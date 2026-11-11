@@ -6,12 +6,12 @@ import type { Equipment, EquipmentCategory } from '../rules/equipment';
 import { ALL_EQUIPMENT, equipmentName, getEquipment, isEquipmentAvailable } from '../rules/equipment';
 import type { Issue } from '../rules/validation';
 import type {
-  SVArmorLocation, SVEngine, SVLocation, SVTransport, SVType, SupportSummary, SupportVehicleDesign, TechRating,
+  SVArmorLocation, SVBay, SVBayKind, SVEngine, SVLocation, SVTransport, SVType, SupportSummary, SupportVehicleDesign, TechRating,
 } from '../rules/support';
 import {
-  CHASSIS_MODS, SV_ENGINE_NAMES, SV_LOCATION_NAMES, SV_TYPES, SV_TYPE_ORDER, TECH_RATINGS, addSupportItem,
+  CHASSIS_MODS, SV_BAY_INFO, SV_BAY_KINDS, SV_ENGINE_NAMES, SV_LOCATION_NAMES, SV_TYPES, SV_TYPE_ORDER, TECH_RATINGS, addSupportItem,
   barWeightPerPoint, distributeSupportArmor, isSupportEquipment, kgPerFuelPoint, needsFuel, setSupportType,
-  supportReadout, svEngineMultiplier, svEnginesFor, svItemLocations, svItemWeight,
+  supportReadout, svEngineMultiplier, svEnginesFor, svBayWeight, svItemLocations, svItemWeight,
 } from '../rules/support';
 import { NumberField } from './NumberField';
 
@@ -216,7 +216,7 @@ function SupportArmorPanel({ design, summary, update }: Props) {
   );
 }
 
-const TRANSPORT_FIELDS: { key: keyof SVTransport; label: string; unit: string; step: number }[] = [
+const TRANSPORT_FIELDS: { key: Exclude<keyof SVTransport, 'bays'>; label: string; unit: string; step: number }[] = [
   { key: 'seats', label: 'Standard seats', unit: 'seats · 75 kg each', step: 1 },
   { key: 'pillionSeats', label: 'Pillion seats', unit: 'seats · 25 kg each', step: 1 },
   { key: 'ejectionSeats', label: 'Ejection seats', unit: 'seats · 100 kg each', step: 1 },
@@ -244,8 +244,55 @@ function TransportPanel({ design, summary, update }: Props) {
           </div>
         ))}
       </div>
+      <h3>Transport bays</h3>
+      {(design.transport.bays ?? []).length > 0 && (
+        <table className="armor-table bay-table">
+          <thead><tr><th>Bay</th><th>Capacity</th><th>Doors</th><th>Tons</th><th /></tr></thead>
+          <tbody>
+            {(design.transport.bays ?? []).map((b, i) => {
+              const set = (patch: Partial<SVBay>) => update((d) => ({
+                ...d, transport: { ...d.transport, bays: (d.transport.bays ?? []).map((x, j) => (j === i ? { ...x, ...patch } : x)) },
+              }));
+              return (
+                <tr key={i}>
+                  <td>
+                    <select aria-label="Bay type" value={b.kind} onChange={(e) => set({ kind: e.target.value as SVBayKind })}>
+                      {SV_BAY_KINDS.map((k) => <option key={k} value={k}>{SV_BAY_INFO[k].name}</option>)}
+                    </select>
+                    {b.kind === 'battle-armor' && (
+                      <select aria-label="Battle armor bay type" value={b.variant ?? ''}
+                        onChange={(e) => set({ variant: (e.target.value || undefined) as SVBay['variant'] })}>
+                        <option value="">Inner Sphere (8 t/squad)</option>
+                        <option value="clan">Clan (10 t/point)</option>
+                        <option value="comstar">ComStar (12 t/squad)</option>
+                      </select>
+                    )}
+                  </td>
+                  <td>
+                    <NumberField label={`${SV_BAY_INFO[b.kind].name} capacity`} value={b.size} min={0} step={b.kind === 'livestock-cargo' ? 0.5 : 1} width="4rem"
+                      onChange={(n) => set({ size: Math.max(0, b.kind === 'livestock-cargo' ? n : Math.round(n)) })} />
+                    <span className="muted small"> {SV_BAY_INFO[b.kind].unit}</span>
+                  </td>
+                  <td>
+                    <NumberField label="Bay doors" value={b.doors} min={0} width="3rem" onChange={(n) => set({ doors: Math.max(0, Math.round(n)) })} />
+                  </td>
+                  <td className="num">{t(svBayWeight(b))}</td>
+                  <td>
+                    <button className="small danger" aria-label={`Remove ${SV_BAY_INFO[b.kind].name}`}
+                      onClick={() => update((d) => ({ ...d, transport: { ...d.transport, bays: (d.transport.bays ?? []).filter((_, j) => j !== i) } }))}>✕</button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+      <button className="small" onClick={() => update((d) => ({
+        ...d, transport: { ...d.transport, bays: [...(d.transport.bays ?? []), { kind: 'infantry-foot', size: 1, doors: 1 }] },
+      }))}>Add bay</button>
       <p className="small muted" style={{ marginBottom: 0 }}>
         Accommodations {t(summary.weights.accommodations)} t · cargo / troops {t(summary.weights.cargo)} t
+        {summary.weights.bays ? ` · bays ${t(summary.weights.bays)} t` : ''}
       </p>
     </section>
   );
@@ -328,6 +375,7 @@ function SupportSummaryPanel({ design, summary, issues }: Props) {
     ['Chassis / structure', w.structure], ['Engine', w.engine], ['Fuel', w.fuel], ['Armor', w.armor],
     ['Turret', w.turret], ['Fire control', w.fireControl], ['Power amplifiers', w.powerAmplifiers],
     ['Heat sinks', w.heatSinks], ['Accommodations', w.accommodations], ['Cargo / troops', w.cargo],
+    ...(w.bays ? [['Transport bays', w.bays] as [string, number]] : []),
     ['Equipment', w.equipment],
   ] as [string, number][]).filter(([k, v]) => v !== 0 || ['Chassis / structure', 'Engine', 'Armor'].includes(k));
   const errors = issues.filter((i) => i.severity === 'error');

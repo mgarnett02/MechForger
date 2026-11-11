@@ -67,7 +67,7 @@ export function armorArcs(d: { vesselType: VesselType }): readonly VesselArc[] {
 export type BayKind =
   | 'mek' | 'fighter' | 'small-craft' | 'light-vehicle' | 'heavy-vehicle' | 'superheavy-vehicle' | 'protomek'
   | 'infantry-foot' | 'infantry-jump' | 'infantry-motorized' | 'infantry-mechanized' | 'battle-armor'
-  | 'cargo' | 'liquid-cargo' | 'refrigerated-cargo' | 'insulated-cargo' | 'livestock-cargo'
+  | 'troop-space' | 'cargo' | 'liquid-cargo' | 'refrigerated-cargo' | 'insulated-cargo' | 'livestock-cargo'
   | 'repair-pressurized' | 'repair-unpressurized' | 'drop-shuttle';
 
 export interface BayInfo {
@@ -104,6 +104,7 @@ export const BAY_INFO: Record<BayKind, BayInfo> = {
   'infantry-motorized': { name: 'Infantry bay (motorized)', unit: 'platoons', tons: 7, cost: 0, personnel: 28, clanPersonnel: 25, cargo: false },
   'infantry-mechanized': { name: 'Infantry bay (mechanized)', unit: 'squads', tons: 8, cost: 0, personnel: 7, clanPersonnel: 5, cargo: false },
   'battle-armor': { name: 'Battle armor bay', unit: 'squads', tons: 8, cost: 0, personnel: 6, cargo: false },
+  'troop-space': { name: 'Infantry compartment', unit: 'tons', tons: 1, cost: 0, personnel: 0, cargo: true },
   cargo: { name: 'Cargo bay', unit: 'tons', tons: 1, cost: 0, personnel: 0, cargo: true },
   'liquid-cargo': { name: 'Liquid cargo bay', unit: 'tons', tons: 1 / 0.91, cost: 100, personnel: 0, cargo: true },
   'refrigerated-cargo': { name: 'Refrigerated cargo bay', unit: 'tons', tons: 1 / 0.87, cost: 200, personnel: 0, cargo: true },
@@ -116,7 +117,9 @@ export const BAY_INFO: Record<BayKind, BayInfo> = {
 
 export function bayWeight(b: TransportBay): number {
   const info = BAY_INFO[b.kind];
-  return info.roundHalf ? Math.ceil(b.size * info.tons * 2 - 1e-9) / 2 : info.tons * b.size;
+  // Battle armor bays: 8 t per IS squad, 10 t per Clan point, 12 t per ComStar Level II (as MegaMek).
+  const per = b.kind === 'battle-armor' && b.variant ? (b.variant === 'clan' ? 10 : 12) : info.tons;
+  return info.roundHalf ? Math.ceil(b.size * per * 2 - 1e-9) / 2 : per * b.size;
 }
 export const BAY_KINDS = Object.keys(BAY_INFO) as BayKind[];
 
@@ -124,6 +127,8 @@ export interface TransportBay {
   kind: BayKind;
   size: number;
   doors: number;
+  /** Battle armor bays: Clan or ComStar instead of Inner Sphere. */
+  variant?: 'clan' | 'comstar';
 }
 
 export type QuartersKind = 'crew' | 'first-class' | 'second-class' | 'steerage';
@@ -888,7 +893,8 @@ export function parseVessel(raw: unknown): VesselDesign {
   const bays: TransportBay[] = Array.isArray(r.bays)
     ? r.bays.flatMap((x) => {
         const b = x as Record<string, unknown>;
-        return BAY_KINDS.includes(b?.kind as BayKind) ? [{ kind: b.kind as BayKind, size: n(b.size), doors: n(b.doors) }] : [];
+        const variant = b?.kind === 'battle-armor' && (b.variant === 'clan' || b.variant === 'comstar') ? { variant: b.variant as 'clan' | 'comstar' } : {};
+        return BAY_KINDS.includes(b?.kind as BayKind) ? [{ kind: b.kind as BayKind, size: n(b.size), doors: n(b.doors), ...variant }] : [];
       })
     : [];
   return {
@@ -962,7 +968,7 @@ export function vesselReadout(d: VesselDesign, s: VesselSummary = computeVessel(
   if (d.hpg) lines.push('HPG');
   if (s.weights.fireControl) lines.push(row('Extra Fire Control:', s.weights.fireControl));
   if (s.weights.lifeboats) lines.push(row(`Life Boats / Escape Pods: ${d.lifeboats} / ${d.escapePods}`, s.weights.lifeboats));
-  for (const b of d.bays) lines.push(row(`${BAY_INFO[b.kind].name}: ${b.size} ${BAY_INFO[b.kind].unit} (${b.doors} doors)`, bayWeight(b)));
+  for (const b of d.bays) lines.push(row(`${BAY_INFO[b.kind].name}${b.variant ? ` (${b.variant === 'clan' ? 'Clan' : 'ComStar'})` : ''}: ${b.size} ${BAY_INFO[b.kind].unit} (${b.doors} doors)`, bayWeight(b)));
   for (const q of QUARTERS_KINDS) if (d.quarters[q]) lines.push(row(`${QUARTERS_NAMES[q]}: ${d.quarters[q]}`, QUARTERS_TONS[q] * d.quarters[q]));
   lines.push('');
   lines.push(`Crew: ${d.crew.crew} (${d.crew.officers} officers, ${d.crew.gunners} gunners)` +

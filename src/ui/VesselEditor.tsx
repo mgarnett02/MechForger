@@ -7,7 +7,7 @@ import type { Equipment, EquipmentCategory } from '../rules/equipment';
 import { ALL_EQUIPMENT, equipmentName, getEquipment, isEquipmentAvailable } from '../rules/equipment';
 import type { Issue } from '../rules/validation';
 import type {
-  BayKind, DriveCore, QuartersKind, VesselArmorType, VesselDesign, VesselLocation, VesselShape, VesselSummary, VesselType,
+  BayKind, DriveCore, QuartersKind, VesselArmorType, VesselDesign, TransportBay, VesselLocation, VesselShape, VesselSummary, VesselType,
 } from '../rules/vessel';
 import {
   BAY_INFO, BAY_KINDS, LARGE_CRAFT_ARMORS, QUARTERS_KINDS, QUARTERS_NAMES, QUARTERS_TONS, SMALL_CRAFT_ARMORS,
@@ -298,6 +298,14 @@ function VesselCrewPanel({ design, summary, update }: Props) {
             <NumberField label={`${BAY_INFO[b.kind].name} size`} value={b.size} min={0} width="5rem" step={BAY_INFO[b.kind].cargo ? 0.5 : 1}
               onChange={(n) => update((d) => ({ ...d, bays: d.bays.map((x, j) => (j === i ? { ...x, size: Math.max(0, n) } : x)) }))} />
             <span className="muted small">{BAY_INFO[b.kind].unit}</span>
+            {b.kind === 'battle-armor' && (
+              <select aria-label="Battle armor bay type" value={b.variant ?? ''}
+                onChange={(e) => update((d) => ({ ...d, bays: d.bays.map((x, j) => (j === i ? { ...x, variant: (e.target.value || undefined) as TransportBay['variant'] } : x)) }))}>
+                <option value="">IS (8 t)</option>
+                <option value="clan">Clan (10 t)</option>
+                <option value="comstar">ComStar (12 t)</option>
+              </select>
+            )}
             <NumberField label="Doors" value={b.doors} min={0} width="3.5rem"
               onChange={(n) => update((d) => ({ ...d, bays: d.bays.map((x, j) => (j === i ? { ...x, doors: Math.max(0, Math.round(n)) } : x)) }))} />
             <span className="muted small">doors</span>

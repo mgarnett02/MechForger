@@ -8,7 +8,7 @@ import { activeConfigName } from '../../rules/omni';
 import { mechBV, mechCost, vehicleBV, vehicleCost } from '../../rules/battleValue';
 import type { SupportVehicleDesign } from '../../rules/support';
 import {
-  CHASSIS_MODS, SV_ENGINE_NAMES, SV_LOCATION_NAMES, SV_TYPES, computeSupport, isLargeSupportTank, svItemWeight,
+  CHASSIS_MODS, SV_BAY_INFO, SV_ENGINE_NAMES, SV_LOCATION_NAMES, SV_TYPES, computeSupport, isLargeSupportTank, svItemWeight,
 } from '../../rules/support';
 import { COMPACT_LENGTH, getEquipment, shortEquipmentName } from '../../rules/equipment';
 import type { FighterArc, FighterDesign } from '../../rules/fighter';
@@ -531,6 +531,9 @@ export function SupportRecordSheet({ design }: { design: SupportVehicleDesign })
             {quarters > 0 && <Field label="Quarters" value={`${quarters} people`} />}
             {tr.cargo > 0 && <Field label="Cargo" value={`${fmt(tr.cargo)} t`} />}
             {tr.troops > 0 && <Field label="Troops" value={`${fmt(tr.troops)} t`} />}
+            {(tr.bays ?? []).map((b, i) => (
+              <Field key={i} label={SV_BAY_INFO[b.kind].name} value={`${fmt(b.size)} ${SV_BAY_INFO[b.kind].unit} (${b.doors} door${b.doors === 1 ? '' : 's'})`} wide />
+            ))}
           </div>
           <div className="rs-crit-boxes">
             <div><span>Commander Hit</span><span className="rs-check" /><i>+1</i></div>
@@ -622,6 +625,7 @@ export function FighterRecordSheet({ design }: { design: FighterDesign }) {
             <Field label="Cost" value={`${fighterCost(design).total.toLocaleString('en-US')} C-bills`} />
             <Field label="Engine" value={`${s.rating} ${FIGHTER_ENGINE_LABELS[design.engineType]}`} />
             <Field label="Fuel" value={`${s.fuelPoints} points`} />
+            {(design.cargo ?? 0) > 0 && <Field label="Troop / Cargo" value={`${design.cargo} tons`} />}
           </div>
           <FighterInventory rows={data.weapons} equipment={data.equipment} />
         </Panel>

@@ -180,6 +180,13 @@ function FighterChassisPanel({ design, summary, update }: Props) {
             onChange={(n) => update((d) => ({ ...d, fuelTons: Math.max(0, Math.round(n * 2) / 2) }))} />
           <span className="muted"> tons · {summary.fuelPoints} points ({FUEL_POINTS_PER_TON[design.fighterType]}/ton)</span>
         </div>
+
+        <label>Troops / cargo</label>
+        <div>
+          <NumberField label="Troop and cargo space" value={design.cargo ?? 0} min={0} step={0.5}
+            onChange={(n) => update((d) => ({ ...d, cargo: Math.max(0, Math.round(n * 2) / 2) || undefined }))} />
+          <span className="muted"> tons (infantry compartment / cargo bay)</span>
+        </div>
       </div>
       <p className="small muted" style={{ marginBottom: 0 }}>
         {conventional

@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   addSupportItem, barWeightPerPoint, computeSupport, kgPerFuelPoint, newSupportVehicle, parseSupport,
-  isLargeSupportTank, setSupportType, sizeClass, supportReadout, svArmorLocations, svMaxArmor, validateSupport,
+  isLargeSupportTank, setSupportType, svBayWeight, sizeClass, supportReadout, svArmorLocations, svMaxArmor, validateSupport,
 } from './index';
-import type { SupportVehicleDesign } from './support';
+import type { SVBay, SupportVehicleDesign } from './support';
 import support from '../data/canon/support.json';
 import type { CanonEntry } from '../data/canonFormat';
 import { decodeSupport } from '../data/canonFormat';
@@ -119,5 +119,37 @@ describe('large support tanks, WiGE and OmniVehicles', () => {
     expect(d.chassisMods).toContain('omni');
     expect(computeSupport(d).weights.total).toBe(7);
     expect(S.filter((e) => decodeSupport(e.d).chassisMods.includes('omni')).length).toBeGreaterThan(10);
+  });
+});
+
+describe('transport bays', () => {
+  const base = { ...newSupportVehicle('3068'), svType: 'tracked' as const, tonnage: 60 };
+  const withBays = (bays: SVBay[]) => ({ ...base, transport: { ...base.transport, bays } });
+
+  it('weigh per unit of capacity, as MegaMek', () => {
+    expect(svBayWeight({ kind: 'infantry-foot', size: 2, doors: 1 })).toBe(10);
+    expect(svBayWeight({ kind: 'infantry-mechanized', size: 1, doors: 1 })).toBe(8);
+    expect(svBayWeight({ kind: 'battle-armor', size: 1, doors: 1 })).toBe(8);
+    expect(svBayWeight({ kind: 'battle-armor', size: 1, doors: 1, variant: 'clan' })).toBe(10);
+    expect(svBayWeight({ kind: 'battle-armor', size: 1, doors: 1, variant: 'comstar' })).toBe(12);
+    expect(svBayWeight({ kind: 'light-vehicle', size: 1, doors: 1 })).toBe(50);
+    expect(svBayWeight({ kind: 'livestock-cargo', size: 8.3, doors: 1 })).toBeCloseTo(10);
+    const d = withBays([{ kind: 'infantry-jump', size: 1, doors: 1 }]);
+    expect(computeSupport(d).weights.bays).toBe(6);
+    expect(computeSupport(d).weights.total - computeSupport(base).weights.total).toBe(6);
+  });
+
+  it('are validated, saved and shown in the readout', () => {
+    expect(validateSupport(withBays([{ kind: 'light-vehicle', size: 1, doors: 0 }])).some((i) => /no doors/.test(i.message))).toBe(true);
+    expect(errors(withBays([{ kind: 'mek', size: 1.5, doors: 1 }])).some((m) => /whole number/.test(m))).toBe(true);
+    const d = withBays([{ kind: 'battle-armor', size: 2, doors: 1, variant: 'clan' }]);
+    expect(parseSupport(JSON.parse(JSON.stringify(d))).transport.bays).toEqual(d.transport.bays);
+    expect(supportReadout(d)).toMatch(/Battle armor bay: 2 squads, 1 door, Clan/);
+  });
+
+  it('canon units with bays convert, including Clan battle armor bays', () => {
+    const tgv = canon('TGV Omni Railcar B (Military Support)');
+    expect(tgv.transport.bays).toContainEqual({ kind: 'battle-armor', size: 3, doors: 1, variant: 'clan' });
+    expect(canon('Croyle Systems Cortez Series N').transport.bays?.[0].kind).toBe('infantry-foot');
   });
 });

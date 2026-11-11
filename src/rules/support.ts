@@ -52,6 +52,41 @@ export interface SVTransport {
   crewQuarters: number;
   cargo: number;
   troops: number;
+  /** Transport bays for units (infantry, battle armor, vehicles, 'Mechs) and livestock. */
+  bays?: SVBay[];
+}
+
+export type SVBayKind =
+  | 'infantry-foot' | 'infantry-jump' | 'infantry-motorized' | 'infantry-mechanized' | 'battle-armor'
+  | 'protomek' | 'light-vehicle' | 'heavy-vehicle' | 'mek' | 'livestock-cargo';
+
+export interface SVBay {
+  kind: SVBayKind;
+  /** Capacity in the bay's units (platoons, squads, vehicles, 'Mechs, or tons of livestock). */
+  size: number;
+  doors: number;
+  /** Battle armor bays: Clan (10 t per point) or ComStar (12 t per Level II) instead of Inner Sphere (8 t per squad). */
+  variant?: 'clan' | 'comstar';
+}
+
+/** Bay weights per unit of capacity (as MegaMek). */
+export const SV_BAY_INFO: Record<SVBayKind, { name: string; unit: string; tons: number }> = {
+  'infantry-foot': { name: 'Infantry bay (foot)', unit: 'platoons', tons: 5 },
+  'infantry-jump': { name: 'Infantry bay (jump)', unit: 'platoons', tons: 6 },
+  'infantry-motorized': { name: 'Infantry bay (motorized)', unit: 'platoons', tons: 7 },
+  'infantry-mechanized': { name: 'Infantry bay (mechanized)', unit: 'squads', tons: 8 },
+  'battle-armor': { name: 'Battle armor bay', unit: 'squads', tons: 8 },
+  protomek: { name: 'ProtoMech bay', unit: 'points', tons: 50 },
+  'light-vehicle': { name: 'Light vehicle bay', unit: 'vehicles (≤50 t)', tons: 50 },
+  'heavy-vehicle': { name: 'Heavy vehicle bay', unit: 'vehicles (≤100 t)', tons: 100 },
+  mek: { name: "'Mech bay", unit: "'Mechs", tons: 150 },
+  'livestock-cargo': { name: 'Livestock cargo bay', unit: 't of livestock', tons: 1 / 0.83 },
+};
+export const SV_BAY_KINDS = Object.keys(SV_BAY_INFO) as SVBayKind[];
+
+export function svBayWeight(b: SVBay): number {
+  const perUnit = b.kind === 'battle-armor' && b.variant ? (b.variant === 'clan' ? 10 : 12) : SV_BAY_INFO[b.kind].tons;
+  return Math.round(b.size * perUnit * 1000) / 1000;
 }
 
 export interface SupportVehicleDesign {
@@ -269,6 +304,8 @@ export interface SVWeights {
   heatSinks: number;
   accommodations: number;
   cargo: number;
+  /** Transport bays. */
+  bays: number;
   equipment: number;
   total: number;
   free: number;
@@ -340,13 +377,14 @@ export function computeSupport(d: SupportVehicleDesign): SupportSummary {
     accommodations: Math.round((t.seats * 0.075 + t.pillionSeats * 0.025 + t.ejectionSeats * 0.1 +
       t.steerage + t.secondClass + t.firstClass + t.crewQuarters) * 1000) / 1000,
     cargo: t.cargo + t.troops,
+    bays: Math.round((t.bays ?? []).reduce((a, b) => a + svBayWeight(b), 0) * 1000) / 1000,
     equipment,
     total: 0,
     free: 0,
   };
   const sum = weights.structure + weights.engine + weights.fuel + weights.armor + weights.turret +
     weights.fireControl + weights.powerAmplifiers + weights.heatSinks + weights.accommodations +
-    weights.cargo + weights.equipment;
+    weights.cargo + weights.bays + weights.equipment;
   weights.total = Math.round(sum * 1000) / 1000;
   weights.free = Math.round((d.tonnage - weights.total) * 1000) / 1000;
 
@@ -421,6 +459,12 @@ export function validateSupport(d: SupportVehicleDesign, s: SupportSummary = com
   }
   if (d.chassisMods.includes('hydrofoil') && d.tonnage > 100) error('Hydrofoils are limited to 100 tons.');
 
+  for (const b of d.transport.bays ?? []) {
+    const info = SV_BAY_INFO[b.kind];
+    if (!(b.size > 0)) error(`${info.name} needs a capacity.`);
+    if (b.kind !== 'livestock-cargo' && !Number.isInteger(b.size)) error(`${info.name}: capacity must be a whole number of ${info.unit}.`);
+    if (b.doors < 1 && b.kind !== 'livestock-cargo') warn(`${info.name} has no doors, so units cannot load or unload.`);
+  }
   if (s.weights.free < -1e-9) error(`Overweight by ${fmt(-s.weights.free)} tons.`);
   else if (s.weights.free > 1e-9) warn(`${fmt(s.weights.free)} tons unused.`);
 
@@ -554,7 +598,16 @@ export function parseSupport(raw: unknown): SupportVehicleDesign {
   const pick = <T extends string>(v: unknown, options: readonly T[], fallback: T): T => (options.includes(v as T) ? (v as T) : fallback);
   const num = (v: unknown, fallback: number) => (typeof v === 'number' && Number.isFinite(v) ? v : fallback);
   const tr = (v: unknown) => pick(v, TECH_RATINGS, 'D');
-  const transport = { ...emptyTransport(), ...(typeof r.transport === 'object' && r.transport ? r.transport as Partial<SVTransport> : {}) };
+  const transport: SVTransport = { ...emptyTransport(), ...(typeof r.transport === 'object' && r.transport ? r.transport as Partial<SVTransport> : {}) };
+  const rawBays = (r.transport as { bays?: unknown } | undefined)?.bays;
+  const bays = Array.isArray(rawBays)
+    ? rawBays.filter((b): b is SVBay => !!b && SV_BAY_KINDS.includes((b as SVBay).kind) && typeof (b as SVBay).size === 'number' && (b as SVBay).size > 0)
+      .map((b) => ({
+        kind: b.kind, size: b.size, doors: Math.max(0, Math.round(Number(b.doors) || 0)),
+        ...(b.kind === 'battle-armor' && (b.variant === 'clan' || b.variant === 'comstar') ? { variant: b.variant } : {}),
+      }))
+    : [];
+  if (bays.length) transport.bays = bays; else delete transport.bays;
   const equipment: SVItem[] = Array.isArray(r.equipment)
     ? r.equipment.map((e: Record<string, unknown>) => ({
       uid: newSupportUid(),
@@ -614,6 +667,9 @@ export function supportReadout(d: SupportVehicleDesign, s: SupportSummary = comp
   if (d.turret) lines.push(row('Turret:', w.turret));
   if (w.accommodations) lines.push(row('Crew & Passenger Accommodations:', w.accommodations));
   if (w.cargo) lines.push(row('Cargo / Troop Space:', w.cargo));
+  for (const b of d.transport.bays ?? []) {
+    lines.push(row(`${SV_BAY_INFO[b.kind].name}: ${fmt(b.size)} ${SV_BAY_INFO[b.kind].unit}, ${b.doors} door${b.doors === 1 ? '' : 's'}${b.variant ? `, ${b.variant === 'clan' ? 'Clan' : 'ComStar'}` : ''}`, svBayWeight(b)));
+  }
   lines.push(row(`Armor: BAR ${d.bar}, ${s.armorTotal} points`, w.armor));
   lines.push('');
   for (const l of s.armorLocations) lines.push(`    ${SV_LOCATION_NAMES[l].padEnd(18)}${String(d.armor[l] ?? 0).padStart(5)}`);

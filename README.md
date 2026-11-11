@@ -196,6 +196,15 @@ fixed-wing support).
 - Basic / advanced fire control, turrets, power amplifiers and heat sinks for
   energy weapons
 - Crew and passenger accommodations (seats, quarters) and cargo / troop space
+- **Transport bays**, weighed as in MegaMek:
+  - **Infantry bays:** 5, 6 or 7 t per foot, jump or motorized platoon; 8 t per mechanized squad.
+  - **Battle armor bays:** 8 t per squad (Clan 10 t per point, ComStar 12 t).
+  - **Unit bays:** ProtoMech 50 t per point, light vehicle 50 t, heavy vehicle 100 t, 'Mech 150 t.
+  - **Livestock bays:** capacity ÷ 0.83.
+
+  Each bay has its own door count. Bays appear in the readout and on the record sheet.
+  Spacecraft battle armor bays also take the Clan / ComStar variants, and spacecraft can have
+  infantry compartments. Fighters can carry troop / cargo space.
 - **Utility equipment** (searchlights, lift hoists, cargo containers, field
   kitchens, bulldozers, MASH units, ladders, sprayers, …), also available to combat vehicles
 - Battle Value and cost are not calculated for support vehicles, and item
