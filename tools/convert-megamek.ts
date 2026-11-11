@@ -25,7 +25,10 @@ import { fighterBV, mechBV, mechCost, vehicleBV, vehicleCost, vesselBV } from '.
 import type { MotiveType, VehicleDesign, VehicleEngineType, VehicleLocation } from '../src/rules/vehicle';
 import { computeVehicle, emptyVehicleArmor, validateVehicle } from '../src/rules/vehicle';
 import { armorPointsPerTon } from '../src/rules/tables';
-import { encodeFighter, encodeMech, encodeSupport, encodeVehicle, encodeVessel } from '../src/data/canonFormat';
+import { encodeBattleArmor, encodeFighter, encodeMech, encodeSupport, encodeVehicle, encodeVessel } from '../src/data/canonFormat';
+import type { BAItem, BattleArmorDesign } from '../src/rules/battlearmor';
+import { battleArmorBV, computeBattleArmor, syncArmorSlots, validateBattleArmor } from '../src/rules/battlearmor';
+import { MM_EQUIPMENT, findMM } from '../src/rules/mmEquipment';
 import type { FighterDesign, FighterItem, FighterLocation } from '../src/rules/fighter';
 import { computeFighter, emptyFighterArmor, validateFighter } from '../src/rules/fighter';
 import type { BayKind, QuartersKind, VesselDesign, VesselItem, VesselLocation } from '../src/rules/vessel';
@@ -528,6 +531,80 @@ const QUARTERS_BLK: Record<string, [QuartersKind, number]> = {
 };
 const INFANTRY_BAYS: Record<string, BayKind> = { foot: 'infantry-foot', jump: 'infantry-jump', motorized: 'infantry-motorized', mechanized: 'infantry-mechanized' };
 
+// ---------------------------------------------------------------------------------------------------------------
+// Battle armor
+// ---------------------------------------------------------------------------------------------------------------
+
+const BA_ARMOR_CODES: Record<string, string> = {
+  28: 'BA_STANDARD', 29: 'BA_STANDARD_PROTOTYPE', 30: 'BA_STANDARD_ADVANCED', 31: 'BA_STEALTH_BASIC', 32: 'BA_STEALTH',
+  33: 'BA_STEALTH_IMP', 34: 'BA_STEALTH_PROTOTYPE', 35: 'BA_FIRE_RESIST', 36: 'BA_MIMETIC', 37: 'BA_REFLECTIVE', 38: 'BA_REACTIVE',
+};
+const CLAN_TECH_LEVELS = new Set([2, 6, 8, 10, 12]);
+
+function parseBattleArmorBlk(text: string): { design: BattleArmorDesign; year: number; mulId?: number; source: string } {
+  const tags = new Map<string, string[]>();
+  const re = /<([^/>]+)>\s*\n([\s\S]*?)\n<\/\1>/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text))) tags.set(m[1].toLowerCase(), m[2].split(/\r?\n/).map((x) => x.trim()).filter(Boolean));
+  const one = (k: string) => tags.get(k.toLowerCase())?.[0] ?? '';
+  const int = (k: string) => Number(one(k)) || 0;
+  const typeStr = one('type');
+  const techBase: TechBase = /^Clan|Clan Chassis/.test(typeStr) ? 'Clan' : 'IS';
+  const mixedTech = /^Mixed/.test(typeStr);
+  const turretM = /^(\w+):(\d+)/.exec(one('turret'));
+  const turret = turretM ? { size: Number(turretM[2]), modular: /^(modular|configurable)/i.test(turretM[1]) } : null;
+  const motionRaw = one('motion_type').toLowerCase();
+  const motion = ({ jump: 'jump', leg: 'leg', vtol: 'vtol', umu: 'umu' } as const)[motionRaw as 'jump'] ?? fail(`motion ${motionRaw}`);
+  const armorCode = BA_ARMOR_CODES[one('armor_type') || '28'] ?? fail(`BA armor ${one('armor_type')}`);
+  const armorTech = tags.has('armor_tech') ? int('armor_tech') : -1;
+  const armorClan = armorTech >= 0 ? CLAN_TECH_LEVELS.has(armorTech) : techBase === 'Clan';
+  const armorEntry = MM_EQUIPMENT.find((e) => e.kind === 'baArmor' && e.armorType === armorCode && (e.techBase === 'Clan') === armorClan)
+    ?? MM_EQUIPMENT.find((e) => e.kind === 'baArmor' && e.armorType === armorCode) ?? fail(`BA armor ${armorCode}`);
+
+  const equipment: BAItem[] = [];
+  let uid = 0;
+  const blocks: [string, number | undefined][] = [['Squad Equipment', undefined], ['Point Equipment', undefined], ...[1, 2, 3, 4, 5, 6].map((t) => [`Trooper ${t} Equipment`, t] as [string, number])];
+  for (const [tag, trooper] of blocks) {
+    for (const raw0 of tags.get(tag.toLowerCase()) ?? []) {
+      let raw = raw0;
+      const mount = /:Body\b/.test(raw) ? 'body' : /:LA\b/.test(raw) ? 'LA' : /:RA\b/.test(raw) ? 'RA' : /:TU\b/.test(raw) ? 'turret' : null;
+      const dwp = /:DWP\b/.test(raw);
+      const ssw = /:SSWM\b/.test(raw);
+      const apm = /:APM\b/.test(raw);
+      const shotsM = /:Shots(\d+)#/.exec(raw);
+      raw = raw.replace(/:(Body|LA|RA|TU|DWP|SSWM|APM)\b/g, '').replace(/:Shots\d+#/, '').replace(/:SIZE:.*$/i, '').trim();
+      let e = findMM(raw, armorClan ? 'Clan' : techBase) ?? fail(`unknown BA item "${raw}"`);
+      if (e.kind === 'baArmor' && e.id !== armorEntry.id) {
+        if (e.armorType !== armorEntry.armorType) fail(`armor slots ${e.id} vs ${armorEntry.id}`);
+        e = armorEntry;
+      }
+      const item: BAItem = { uid: `b${uid++}`, equipmentId: e.id, mount };
+      if (trooper) item.trooper = trooper;
+      if (apm) item.apm = true;
+      if (ssw) item.ssw = true;
+      if (dwp) item.dwp = true;
+      if (e.kind === 'ammo') item.shots = shotsM ? Number(shotsM[1]) : 1;
+      equipment.push(item);
+    }
+  }
+  // AP weapons sit in the mount (or glove) listed just before them.
+  for (let k = 1; k < equipment.length; k++) if (equipment[k].apm && !equipment[k].mount) equipment[k].mount = equipment[k - 1].mount;
+  const design0: BattleArmorDesign = {
+    schemaVersion: 1, unitType: 'battlearmor', era: '3025', techBase, mixedTech,
+    chassis: one('Name'), model: one('Model'),
+    weightClass: Math.min(4, Math.max(0, int('weightclass'))) as BattleArmorDesign['weightClass'],
+    chassisType: one('chassis').toLowerCase() === 'quad' ? 'quad' : 'biped',
+    squadSize: int('Trooper Count') || 4, motion, walkMP: int('cruiseMP'), jumpMP: int('jumpingMP'),
+    armorId: armorEntry.id, armor: int('armor'),
+    ...(one('exoskeleton').toLowerCase() === 'true' ? { exoskeleton: true } : {}),
+    ...(turret ? { turret } : {}),
+    equipment,
+  };
+  // Older files leave out the armor's slot pieces; place them in free slots.
+  const design = syncArmorSlots(design0);
+  return { design, year: Number(one('year')) || 3050, mulId: Number(one('mul id:')) || undefined, source: one('source') };
+}
+
 function parseVesselBlk(text: string): { design: VesselDesign; year: number; mulId?: number; source: string } {
   const tags = new Map<string, string[]>();
   const re = /<([^/>]+)>\s*\n([\s\S]*?)\n<\/\1>/g;
@@ -895,6 +972,38 @@ function main() {
   vessels.sort((a, b) => a.n.localeCompare(b.n));
   fs.writeFileSync(path.join(outDir, 'vessels.json'), JSON.stringify(vessels));
   console.log(`Small craft / DropShips / large craft: ${vessels.length} converted, ${vslSkipped} skipped; exact tonnage ${vessels.filter((e) => e.w).length}, fully legal ${vessels.filter((e) => e.ok).length}`);
+
+  // --- Battle armor
+  const baFiles = walk(path.join(root, 'data/mekfiles/battlearmor'), '.blk').sort();
+  const battlearmor: CanonEntry[] = [];
+  let baSkipped = 0;
+  const baseen = new Set<string>();
+  for (const f of baFiles) {
+    const text = fs.readFileSync(f, 'utf8');
+    if (!/<UnitType>\s*\nBattleArmor\n/.test(text)) continue;
+    try {
+      const p = parseBattleArmorBlk(text);
+      const key = `${p.design.chassis} ${p.design.model}`;
+      if (baseen.has(key)) continue;
+      baseen.add(key);
+      const d = settleEra(p.design, p.year, (x) => validateBattleArmor(x).map((i) => i.message));
+      const s = computeBattleArmor(d);
+      const issues = validateBattleArmor(d, s);
+      battlearmor.push({
+        n: `${d.chassis} ${d.model}`.trim(), t: s.weights.total, tb: d.techBase, era: d.era, y: p.year,
+        k: `${d.weightClass}:${d.chassisType}:${d.motion}`, bv: battleArmorBV(d).total,
+        ok: issues.every((i) => i.severity !== 'error'), w: s.weights.total <= s.trooperLimit + 1e-9,
+        src: p.source, mul: p.mulId, d: encodeBattleArmor(d),
+      });
+    } catch (e) {
+      if (!(e instanceof Unsupported)) throw new Error(`${f}: ${(e as Error).stack}`);
+      baSkipped++;
+      note(`battle armor: ${e.message}`);
+    }
+  }
+  battlearmor.sort((a, b) => a.n.localeCompare(b.n));
+  fs.writeFileSync(path.join(outDir, 'battlearmor.json'), JSON.stringify(battlearmor));
+  console.log(`Battle armor: ${battlearmor.length} converted, ${baSkipped} skipped; within weight ${battlearmor.filter((e) => e.w).length}, fully legal ${battlearmor.filter((e) => e.ok).length}`);
 
   // --- Fighters
   const fighterFiles = ['fighters', 'convfighter'].flatMap((dir) => walk(path.join(root, 'data/mekfiles', dir), '.blk')).sort();

@@ -27,12 +27,15 @@ import { FighterEditor } from './FighterEditor';
 import type { VesselDesign } from '../rules/vessel';
 import { computeVessel, newVessel, validateVessel } from '../rules/vessel';
 import { VesselEditor } from './VesselEditor';
+import type { BattleArmorDesign } from '../rules/battlearmor';
+import { computeBattleArmor, newBattleArmor, validateBattleArmor } from '../rules/battlearmor';
+import { BattleArmorEditor } from './BattleArmorEditor';
 import { PrintPreview } from './print/PrintPreview';
 import { AboutDialog } from './AboutDialog';
 import { CanonBrowser } from './CanonBrowser';
 import type { AnyDesign, UnitType } from './storage';
 import {
-  clearLegacySaved, listLegacySaved, loadCurrent, loadCurrentFighter, loadCurrentSupport, loadCurrentVessel, loadCurrentVehicle, loadUnit,
+  clearLegacySaved, listLegacySaved, loadCurrent, loadCurrentBattleArmor, saveCurrentBattleArmor, loadCurrentFighter, loadCurrentSupport, loadCurrentVessel, loadCurrentVehicle, loadUnit,
   saveCurrent, saveCurrentFighter, saveCurrentSupport, saveCurrentVessel, saveCurrentVehicle, saveUnit, unitTypeOf,
 } from './storage';
 import { loadDesignFile, saveDesignFile, saveDesignFiles } from './designFiles';
@@ -44,6 +47,7 @@ export function App() {
   const [support, setSupport] = useState<SupportVehicleDesign>(() => loadCurrentSupport() ?? newSupportVehicle());
   const [fighter, setFighter] = useState<FighterDesign>(() => loadCurrentFighter() ?? newFighter());
   const [vessel, setVessel] = useState<VesselDesign>(() => loadCurrentVessel() ?? newVessel());
+  const [ba, setBA] = useState<BattleArmorDesign>(() => loadCurrentBattleArmor() ?? newBattleArmor());
   const [selected, setSelected] = useState<string | null>(null);
   const [legacy, setLegacy] = useState(() => Object.values(listLegacySaved()));
   const [notice, setNotice] = useState<string | null>(null);
@@ -65,12 +69,15 @@ export function App() {
   const fIssues = useMemo(() => validateFighter(fighter, fSummary), [fighter, fSummary]);
   const vsSummary = useMemo(() => computeVessel(vessel), [vessel]);
   const vsIssues = useMemo(() => validateVessel(vessel, vsSummary), [vessel, vsSummary]);
+  const baSummary = useMemo(() => computeBattleArmor(ba), [ba]);
+  const baIssues = useMemo(() => validateBattleArmor(ba, baSummary), [ba, baSummary]);
 
   useEffect(() => saveCurrent(design), [design]);
   useEffect(() => saveCurrentVehicle(vehicle), [vehicle]);
   useEffect(() => saveCurrentSupport(support), [support]);
   useEffect(() => saveCurrentFighter(fighter), [fighter]);
   useEffect(() => saveCurrentVessel(vessel), [vessel]);
+  useEffect(() => saveCurrentBattleArmor(ba), [ba]);
   useEffect(() => saveUnit(unit), [unit]);
   useEffect(() => {
     if (!notice) return;
@@ -83,21 +90,26 @@ export function App() {
   const updateSupport = useCallback((fn: (d: SupportVehicleDesign) => SupportVehicleDesign) => setSupport((d) => fn(d)), []);
   const updateFighter = useCallback((fn: (d: FighterDesign) => FighterDesign) => setFighter((d) => fn(d)), []);
   const updateVessel = useCallback((fn: (d: VesselDesign) => VesselDesign) => setVessel((d) => fn(d)), []);
+  const updateBA = useCallback((fn: (d: BattleArmorDesign) => BattleArmorDesign) => setBA((d) => fn(d)), []);
 
   /** The design being edited, whichever kind it is. */
-  const active: AnyDesign = unit === 'vessel' ? vessel : unit === 'fighter' ? fighter : unit === 'support' ? support : unit === 'vehicle' ? vehicle : design;
-  const issues = unit === 'vessel' ? vsIssues : unit === 'fighter' ? fIssues : unit === 'support' ? sIssues : unit === 'vehicle' ? vIssues : mechIssues;
+  const active: AnyDesign = unit === 'battlearmor' ? ba : unit === 'vessel' ? vessel : unit === 'fighter' ? fighter : unit === 'support' ? support : unit === 'vehicle' ? vehicle : design;
+  const issues = unit === 'battlearmor' ? baIssues : unit === 'vessel' ? vsIssues : unit === 'fighter' ? fIssues : unit === 'support' ? sIssues : unit === 'vehicle' ? vIssues : mechIssues;
   const setName = (patch: { chassis?: string; model?: string }) =>
-    unit === 'vessel' ? updateVessel((d) => ({ ...d, ...patch }))
+    unit === 'battlearmor' ? updateBA((d) => ({ ...d, ...patch }))
+      : unit === 'vessel' ? updateVessel((d) => ({ ...d, ...patch }))
       : unit === 'fighter' ? updateFighter((d) => ({ ...d, ...patch }))
       : unit === 'support' ? updateSupport((d) => ({ ...d, ...patch }))
       : unit === 'vehicle' ? updateVehicle((d) => ({ ...d, ...patch })) : update((d) => ({ ...d, ...patch }));
   const newOf = (u: UnitType, era: EraId, tb: TechBase): AnyDesign =>
-    u === 'vessel' ? newVessel(era, tb) : u === 'fighter' ? newFighter(era, tb) : u === 'support' ? newSupportVehicle(era, tb) : u === 'vehicle' ? newVehicle(era, tb) : newDesign(era, tb);
+    u === 'battlearmor' ? newBattleArmor(era, tb) : u === 'vessel' ? newVessel(era, tb) : u === 'fighter' ? newFighter(era, tb) : u === 'support' ? newSupportVehicle(era, tb) : u === 'vehicle' ? newVehicle(era, tb) : newDesign(era, tb);
 
   const load = (d: AnyDesign) => {
     const kind = unitTypeOf(d);
-    if (kind === 'vessel') {
+    if (kind === 'battlearmor') {
+      setBA(d as BattleArmorDesign);
+      setUnit('battlearmor');
+    } else if (kind === 'vessel') {
       setVessel(d as VesselDesign);
       setUnit('vessel');
     } else if (kind === 'fighter') {
@@ -120,9 +132,10 @@ export function App() {
     d.equipment.some((e) => e.equipmentId !== 'heat-sink') || Object.values(d.armor).some((v) => v > 0);
 
   const chooseEra = (era: EraId, techBase: TechBase, chosen: UnitType) => {
-    const current: AnyDesign = chosen === 'vessel' ? vessel : chosen === 'fighter' ? fighter : chosen === 'support' ? support : chosen === 'vehicle' ? vehicle : design;
+    const current: AnyDesign = chosen === 'battlearmor' ? ba : chosen === 'vessel' ? vessel : chosen === 'fighter' ? fighter : chosen === 'support' ? support : chosen === 'vehicle' ? vehicle : design;
     if (techBase === current.techBase) {
-      if (chosen === 'vessel') updateVessel((d) => (d.era === era ? d : { ...d, era }));
+      if (chosen === 'battlearmor') updateBA((d) => (d.era === era ? d : { ...d, era }));
+      else if (chosen === 'vessel') updateVessel((d) => (d.era === era ? d : { ...d, era }));
       else if (chosen === 'fighter') updateFighter((d) => (d.era === era ? d : { ...d, era }));
       else if (chosen === 'support') updateSupport((d) => (d.era === era ? d : { ...d, era }));
       else if (chosen === 'vehicle') updateVehicle((d) => (d.era === era ? d : { ...d, era }));
@@ -190,7 +203,7 @@ export function App() {
         <h1>
           MechForger{' '}
           <span className="muted small">
-            {unit === 'vehicle' ? 'Vehicle · ' : unit === 'support' ? 'Support Vehicle · ' : unit === 'fighter' ? 'Fighter · ' : unit === 'vessel' ? 'Spacecraft · ' : ''}
+            {unit === 'vehicle' ? 'Vehicle · ' : unit === 'support' ? 'Support Vehicle · ' : unit === 'fighter' ? 'Fighter · ' : unit === 'vessel' ? 'Spacecraft · ' : unit === 'battlearmor' ? 'Battle Armor · ' : ''}
             {era
               ? `${era.name} · ${active.mixedTech ? `Mixed tech (${TECH_BASE_NAMES[active.techBase]} chassis) · Advanced` : `${TECH_BASE_NAMES[active.techBase]} · ${era.rulesLevel}`} · ${era.year}`
               : active.era}
@@ -220,7 +233,9 @@ export function App() {
         {notice && <div className="notice" role="status">{notice}</div>}
       </header>
 
-      {unit === 'vessel' ? (
+      {unit === 'battlearmor' ? (
+        <BattleArmorEditor design={ba} summary={baSummary} issues={baIssues} update={updateBA} />
+      ) : unit === 'vessel' ? (
         <VesselEditor design={vessel} summary={vsSummary} issues={vsIssues} update={updateVessel} />
       ) : unit === 'fighter' ? (
         <FighterEditor design={fighter} summary={fSummary} issues={fIssues} update={updateFighter} />

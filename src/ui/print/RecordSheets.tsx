@@ -20,6 +20,10 @@ import type { VesselArc, VesselDesign } from '../../rules/vessel';
 import { BAY_INFO, VESSEL_ARMOR_NAMES, VESSEL_LOCATION_NAMES, VESSEL_TYPE_NAMES, armorThreshold as vesselThreshold, computeVessel, isLargeCraft, kfIntegrity } from '../../rules/vessel';
 import { vesselSheetData } from '../../rules/recordSheet';
 import { vesselBV, vesselCost } from '../../rules/battleValue';
+import type { BAItem, BattleArmorDesign } from '../../rules/battlearmor';
+import { BA_MOTION_NAMES, BA_WEIGHT_CLASS_NAMES, battleArmorBV, battleArmorCost, canMakeAntiMek, computeBattleArmor } from '../../rules/battlearmor';
+import type { MMItem } from '../../rules/mmEquipment';
+import { getMM, mmName } from '../../rules/mmEquipment';
 import type { AmmoRow, EquipmentRow, WeaponRow } from '../../rules/recordSheet';
 import { CONSCIOUSNESS, HEAT_SCALE, mechSheetData, vehicleSheetData } from '../../rules/recordSheet';
 import type { VehicleArmorLocation, VehicleDesign } from '../../rules/vehicle';
@@ -850,6 +854,101 @@ export function VesselRecordSheet({ design }: { design: VesselDesign }) {
               <tr><th>Altitude</th>{Array.from({ length: 10 }, (_, i) => <td key={i} />)}</tr>
             </tbody>
           </table>
+        </Panel>
+      </div>
+      <Footer />
+    </article>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Battle armor
+// ---------------------------------------------------------------------------
+
+export function BattleArmorRecordSheet({ design }: { design: BattleArmorDesign }) {
+  const s = computeBattleArmor(design);
+  const name = `${design.chassis} ${design.model}`.trim() || 'Unnamed';
+  const bv = battleArmorBV(design);
+  const items = design.equipment.map((i) => ({ i, e: getMM(i.equipmentId) })).filter((x): x is { i: BAItem; e: MMItem } => !!x.e && x.e.kind !== 'baArmor');
+  const weapons = items.filter(({ e }) => e.kind === 'baWeapon' || e.kind === 'infantryWeapon');
+  const other = items.filter(({ e }) => e.kind !== 'baWeapon' && e.kind !== 'infantryWeapon');
+  const loc = (i: BAItem) => (i.mount ? { body: 'Body', LA: 'LA', RA: 'RA', turret: 'Tur' }[i.mount] : i.dwp ? 'DWP' : '—') + (i.trooper ? ` T${i.trooper}` : '');
+  const dmg = (e: MMItem) => {
+    if (e.kind === 'infantryWeapon') return `${e.infantryDamage ?? '—'} (AP)`;
+    if (e.damageShort) return `${e.damageShort}/${e.damageMedium}/${e.damageLong}`;
+    if (typeof e.damage === 'number') return String(e.damage);
+    if (e.rackSize && /cluster/.test(String(e.damage))) return `${/SRM/.test(e.ammoType ?? '') ? 2 : 1}/Msl [${e.rackSize}]`;
+    return 'special';
+  };
+  const range = (e: MMItem) => (e.range ? e.range : e.infantryRange ? [0, e.infantryRange, e.infantryRange * 2, e.infantryRange * 3] : [0, 0, 0, 0]);
+  const armorType = getMM(design.armorId);
+  const antiMek = canMakeAntiMek(design);
+  return (
+    <article className="record-sheet vehicle battlearmor">
+      <SheetHeader kind="Battle Armor Record Sheet" name={name} />
+      <div className="rs-grid-ba">
+        <Panel title="Squad Data" className="area-data">
+          <div className="rs-fields">
+            <Field label="Type" value={`${name} — ${BA_WEIGHT_CLASS_NAMES[design.weightClass]} ${design.chassisType}${design.exoskeleton ? ' exoskeleton' : ''}`} wide />
+            <div className="rs-move">
+              <span className="rs-label">Movement:</span>
+              <Field label="Ground" value={design.walkMP} />
+              {design.motion !== 'leg' && <Field label={BA_MOTION_NAMES[design.motion]} value={design.jumpMP} />}
+            </div>
+            <Field label="Squad" value={`${design.squadSize} troopers`} />
+            <Field label="Tech Base" value={techBase(design)} />
+            <Field label="Era" value={eraName(design)} />
+            <Field label="Rules Level" value={rulesLevel(design)} />
+            <Field label="Battle Value" value={bv.total.toLocaleString('en-US')} />
+            <Field label="Cost" value={`${battleArmorCost(design).total.toLocaleString('en-US')} C-bills`} />
+            <Field label="Armor" value={`${mmName(armorType ?? ({ name: design.armorId } as MMItem))}`} />
+            <Field label="Anti-'Mech" value={antiMek ? 'Swarm / leg attacks' : 'No'} />
+          </div>
+          <div className="rs-inventory">
+            <div className="rs-subtitle">Weapons <span>(per trooper)</span></div>
+            <table className="rs-table">
+              <thead><tr><th className="left">Type</th><th>Loc</th><th>Dmg</th><th>Min</th><th>Sht</th><th>Med</th><th>Lng</th></tr></thead>
+              <tbody>
+                {weapons.map(({ i, e }) => {
+                  const r = range(e);
+                  return (
+                    <tr key={i.uid}>
+                      <td className="left">{mmName(e)}{i.ssw ? ' (SSW)' : ''}{i.apm ? ' (AP mount)' : ''}</td>
+                      <td>{loc(i)}</td><td>{dmg(e)}</td><td>{r[0] || '—'}</td><td>{r[1] || '—'}</td><td>{r[2] || '—'}</td><td>{r[3] || '—'}</td>
+                    </tr>
+                  );
+                })}
+                {weapons.length === 0 && <tr><td colSpan={7} className="rs-empty">No weapons</td></tr>}
+              </tbody>
+            </table>
+            <div className="rs-subtitle" style={{ marginTop: 4 }}>Equipment</div>
+            <table className="rs-table">
+              <tbody>
+                {other.map(({ i, e }) => (
+                  <tr key={i.uid}><td className="left">{mmName(e)}{e.kind === 'ammo' ? ` (${i.shots ?? 1} shots)` : ''}</td><td>{loc(i)}</td></tr>
+                ))}
+                {other.length === 0 && <tr><td colSpan={2} className="rs-empty">None</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </Panel>
+
+        <Panel title="Troopers" className="area-armor">
+          <table className="rs-table rs-troopers">
+            <thead><tr><th>#</th><th className="left">Armor ({design.armor}) and structure (1)</th></tr></thead>
+            <tbody>
+              {Array.from({ length: design.squadSize }, (_, t) => (
+                <tr key={t}>
+                  <td>{t + 1}</td>
+                  <td className="left"><span className="rs-trooper-track"><Pips count={design.armor} kind="armor" /><Pips count={1} kind="structure" /></span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="rs-fields" style={{ marginTop: 6 }}>
+            <Field label="Gunnery Skill" /><Field label="Anti-'Mech Skill" />
+          </div>
+          <p className="rs-note left">BV per trooper {Math.round(bv.perTrooper)} · each trooper weighs {Math.round(s.weights.total * 1000)} kg (limit {Math.round(s.trooperLimit * 1000)} kg).</p>
         </Panel>
       </div>
       <Footer />

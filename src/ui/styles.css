@@ -641,3 +641,15 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 .rs-large-armor-damage { font-size: 7pt; color: #444; }
 .rs-large-armor .pips > span { width: 7px; height: 7px; border-width: 1px; }
 .rs-large-armor .pips { gap: 1.5px; }
+
+/* Battle armor record sheet */
+.rs-grid-ba {
+  flex: 1; display: grid; gap: 4px 7px;
+  grid-template-columns: 1.25fr 1fr;
+  grid-template-areas: "data armor";
+  align-items: start;
+}
+.rs-troopers td { padding: 3px 2px !important; }
+.rs-troopers .pips > span { width: 10px; height: 10px; }
+.rs-trooper-track { display: inline-flex; align-items: center; gap: 6px; flex-wrap: nowrap; }
+.rs-trooper-track .pips { display: inline-flex; flex-wrap: nowrap; }

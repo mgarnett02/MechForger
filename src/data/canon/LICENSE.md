@@ -1,6 +1,6 @@
 # Canon unit data — license and attribution
 
-`mechs.json`, `vehicles.json`, `support.json`, `fighters.json` and `vessels.json` in this folder are converted from
+`mechs.json`, `vehicles.json`, `support.json`, `fighters.json`, `vessels.json` and `battlearmor.json` in this folder are converted from
 **MegaMek Data** by the MegaMek Development Team
 (<https://github.com/MegaMek/mm-data>), which is licensed under
 [Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International](https://creativecommons.org/licenses/by-nc-sa/4.0/)
@@ -21,3 +21,7 @@ Productions, LLC. MechWarrior Copyright Microsoft Corporation. MegaMek Data was
 created under Microsoft's "Game Content Usage Rules"
 <https://www.xbox.com/en-US/developers/rules> and it is not endorsed by or
 affiliated with Microsoft.
+
+`../megamek-equipment.json` (battle armor and infantry equipment) is extracted from the equipment
+definitions in MegaMek's source code (<https://github.com/MegaMek/megamek>, GPL v3) by
+`tools/extract-megamek-equipment.ts`, which reads the source as text.

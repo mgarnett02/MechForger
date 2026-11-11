@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CanonEntry } from '../data/canonFormat';
-import { decodeFighter, decodeMech, decodeSupport, decodeVehicle, decodeVessel } from '../data/canonFormat';
+import { decodeBattleArmor, decodeFighter, decodeMech, decodeSupport, decodeVehicle, decodeVessel } from '../data/canonFormat';
+import { BA_MOTION_NAMES, BA_WEIGHT_CLASS_NAMES } from '../rules/battlearmor';
+import type { BAMotion } from '../rules/battlearmor';
 import { SV_TYPES, sizeClass } from '../rules/support';
 import type { SVType } from '../rules/support';
 import { ERAS } from '../rules/eras';
@@ -16,6 +18,7 @@ interface Props {
 const PAGE = 150;
 
 function weightClass(t: number, unit: UnitType, k = ''): string {
+  if (unit === 'battlearmor') return BA_WEIGHT_CLASS_NAMES[Number(k.split(':')[0])] ?? '';
   if (unit === 'support') {
     const size = sizeClass({ svType: (k in SV_TYPES ? k : 'wheeled') as SVType, tonnage: t });
     return size[0].toUpperCase() + size.slice(1);
@@ -33,6 +36,8 @@ function weightClass(t: number, unit: UnitType, k = ''): string {
 }
 
 function kindLabel(k: string): string {
+  const ba = /^(\d):(biped|quad):(\w+)$/.exec(k);
+  if (ba) return `${BA_WEIGHT_CLASS_NAMES[Number(ba[1])]} ${ba[2]}${ba[3] === 'leg' ? '' : ` (${BA_MOTION_NAMES[ba[3] as BAMotion].toLowerCase()})`}`;
   if (k === 'mech') return 'BattleMech';
   if (k === 'quad') return 'Quad BattleMech';
   if (k === 'lam') return "Land-Air 'Mech";
@@ -69,7 +74,8 @@ export function CanonBrowser({ unit, onLoad, onClose }: Props) {
   useEffect(() => {
     setEntries(null);
     setSub('');
-    const load = kind === 'vessel' ? import('../data/canon/vessels.json')
+    const load = kind === 'battlearmor' ? import('../data/canon/battlearmor.json')
+      : kind === 'vessel' ? import('../data/canon/vessels.json')
       : kind === 'fighter' ? import('../data/canon/fighters.json')
       : kind === 'support' ? import('../data/canon/support.json')
       : kind === 'vehicle' ? import('../data/canon/vehicles.json') : import('../data/canon/mechs.json');
@@ -104,7 +110,7 @@ export function CanonBrowser({ unit, onLoad, onClose }: Props) {
   }, [entries, query, tech, era, cls, sub, legalOnly, kind]);
 
   const open = (e: CanonEntry) => {
-    onLoad(kind === 'vessel' ? decodeVessel(e.d) : kind === 'fighter' ? decodeFighter(e.d) : kind === 'support' ? decodeSupport(e.d) : kind === 'vehicle' ? decodeVehicle(e.d) : decodeMech(e.d));
+    onLoad(kind === 'battlearmor' ? decodeBattleArmor(e.d) : kind === 'vessel' ? decodeVessel(e.d) : kind === 'fighter' ? decodeFighter(e.d) : kind === 'support' ? decodeSupport(e.d) : kind === 'vehicle' ? decodeVehicle(e.d) : decodeMech(e.d));
     onClose();
   };
 
@@ -119,6 +125,7 @@ export function CanonBrowser({ unit, onLoad, onClose }: Props) {
             <button role="radio" aria-checked={kind === 'support'} className={kind === 'support' ? 'active' : ''} onClick={() => setKind('support')}>Support vehicles</button>
             <button role="radio" aria-checked={kind === 'fighter'} className={kind === 'fighter' ? 'active' : ''} onClick={() => setKind('fighter')}>Fighters</button>
             <button role="radio" aria-checked={kind === 'vessel'} className={kind === 'vessel' ? 'active' : ''} onClick={() => setKind('vessel')}>Spacecraft</button>
+            <button role="radio" aria-checked={kind === 'battlearmor'} className={kind === 'battlearmor' ? 'active' : ''} onClick={() => setKind('battlearmor')}>Battle armor</button>
           </div>
           <span className="spacer" />
           <button onClick={onClose}>Close</button>
@@ -136,7 +143,7 @@ export function CanonBrowser({ unit, onLoad, onClose }: Props) {
           </select>
           <select aria-label="Weight class" value={cls} onChange={(e) => setCls(e.target.value)}>
             <option value="">All weights</option>
-            {(kind === 'support' ? ['Small', 'Medium', 'Large'] : kind === 'fighter' ? ['Light', 'Medium', 'Heavy'] : kind === 'vessel' ? ['Small craft', 'Small DropShip', 'Medium DropShip', 'Large DropShip'] : ['Light', 'Medium', 'Heavy', 'Assault', ...(kind === 'vehicle' ? ['Super-heavy'] : [])]).map((c) => <option key={c}>{c}</option>)}
+            {(kind === 'battlearmor' ? [...BA_WEIGHT_CLASS_NAMES] : kind === 'support' ? ['Small', 'Medium', 'Large'] : kind === 'fighter' ? ['Light', 'Medium', 'Heavy'] : kind === 'vessel' ? ['Small craft', 'Small DropShip', 'Medium DropShip', 'Large DropShip'] : ['Light', 'Medium', 'Heavy', 'Assault', ...(kind === 'vehicle' ? ['Super-heavy'] : [])]).map((c) => <option key={c}>{c}</option>)}
           </select>
           <select aria-label="Type" value={sub} onChange={(e) => setSub(e.target.value)}>
             <option value="">All types</option>
@@ -155,7 +162,7 @@ export function CanonBrowser({ unit, onLoad, onClose }: Props) {
             <div className="canon-list">
               <table className="catalog">
                 <thead>
-                  <tr><th>Name</th><th>Type</th><th className="num">Tons</th><th>Tech</th><th>Era</th><th className="num">BV</th><th /></tr>
+                  <tr><th>Name</th><th>Type</th><th className="num">{kind === 'battlearmor' ? 'kg/suit' : 'Tons'}</th><th>Tech</th><th>Era</th><th className="num">BV</th><th /></tr>
                 </thead>
                 <tbody>
                   {filtered.slice(0, limit).map((e) => (
@@ -166,7 +173,7 @@ export function CanonBrowser({ unit, onLoad, onClose }: Props) {
                         {!e.ok && <span className="canon-flag" title="Does not pass all of MechForger's construction checks"> ⚠</span>}
                       </td>
                       <td className="small">{kindLabel(e.k)}</td>
-                      <td className="num">{e.t}</td>
+                      <td className="num">{kind === 'battlearmor' ? Math.round(e.t * 1000) : e.t}</td>
                       <td>{e.tb === 'IS' ? 'IS' : 'Clan'}</td>
                       <td className="small">{e.y}</td>
                       <td className="num">{kind === 'support' ? '—' : e.bv.toLocaleString()}</td>

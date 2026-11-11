@@ -8,7 +8,7 @@ import { DISCLAIMER_SHORT } from './legal';
 interface Props {
   current: EraId;
   currentTechBase: TechBase;
-  onSelect: (era: EraId, techBase: TechBase, unit: 'mech' | 'vehicle' | 'support' | 'fighter' | 'vessel') => void;
+  onSelect: (era: EraId, techBase: TechBase, unit: 'mech' | 'vehicle' | 'support' | 'fighter' | 'vessel' | 'battlearmor') => void;
   /** When provided the dialog can be dismissed without choosing (Esc / Cancel). */
   onCancel?: () => void;
   theme: ThemeChoice;
@@ -66,8 +66,8 @@ export function EraDialog({ current, currentTechBase, onSelect, onCancel, theme,
     setPending(era);
     setStep('unit');
   };
-  const [unit, setUnit] = useState<'mech' | 'vehicle' | 'support' | 'fighter' | 'vessel'>('mech');
-  const pickUnit = (u: 'mech' | 'vehicle' | 'support' | 'fighter' | 'vessel') => {
+  const [unit, setUnit] = useState<'mech' | 'vehicle' | 'support' | 'fighter' | 'vessel' | 'battlearmor'>('mech');
+  const pickUnit = (u: 'mech' | 'vehicle' | 'support' | 'fighter' | 'vessel' | 'battlearmor') => {
     if (!pending) return;
     setUnit(u);
     if (pending.techBases.length === 1) onSelect(pending.id, pending.techBases[0], u);
@@ -116,6 +116,13 @@ export function EraDialog({ current, currentTechBase, onSelect, onCancel, theme,
                 </span>
                 <span className="era-year">Spacecraft</span>
                 <span className="era-desc">Small craft, DropShips, JumpShips, WarShips and space stations, with weapon bays, transport bays and crew.</span>
+              </button>
+              <button className="era-btn" onClick={() => pickUnit('battlearmor')}>
+                <span className="unit-icon" aria-hidden="true">
+                  <svg viewBox="0 0 48 48" width="40" height="40"><path d="M19 4h10v8h-10zM15 14h18l4 14h-5l-2-7v23h-6V30h-2v14h-6V21l-2 7h-5z" fill="currentColor" /></svg>
+                </span>
+                <span className="era-year">Battle Armor</span>
+                <span className="era-desc">Powered armor squads: weight class, manipulators, jump/VTOL/UMU, weapons and anti-personnel mounts.</span>
               </button>
             </div>
           </>

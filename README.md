@@ -51,6 +51,11 @@ Everything above, plus:
   capital and sub-capital weapons (naval lasers, PPCs, autocannon and Gauss, capital missiles, mass
   drivers, screen launchers) with capital-scale attack values, eight-arc WarShip BV, cost as in MegaMek,
   and large-craft record sheets
+- **Battle armor**: PA(L) to assault suits, biped or quad (with turrets), squads of 1–6, ground, jump,
+  VTOL and UMU movement, every BA armor type, manipulators, anti-personnel mounts and armored gloves,
+  squad support weapons, detachable weapon packs, per-trooper equipment, slot and weapon limits per
+  location, BV and cost as in MegaMek (the Elemental [Laser] point is 447 BV, as on the MUL), and a
+  battle armor record sheet with each trooper's armor
 - **Fighters**: aerospace fighters (including OmniFighters) and conventional fighters: engine rating from
   thrust, structural integrity, fuel, heat sinks, armor arcs with thresholds, five weapon slots per arc
   (less ferro-aluminum armor), matched wings, BV and cost as in MegaMek, and aerospace record sheets
@@ -168,7 +173,7 @@ fixed-wing.
 - **Canon units**: about 2,410 canon BattleMechs, including 47 quads, 19 Land-Air 'Mechs and around 100 melee-armed designs (OmniMechs with all their
   configurations), 630 canon combat vehicles, 120 support vehicles, about 400 aerospace, Omni and
   conventional fighters and about 290 spacecraft (small craft, DropShips, JumpShips, WarShips and
-  space stations), searchable by name, era, tech base,
+  space stations) and about 1,190 battle armor squads, searchable by name, era, tech base,
   weight and type, ready to load, modify and print (see *Canon unit data* below)
 - **Battle Value (BV 2.0) and C-bill cost**, with the working shown; mech values
   reproduce published canon figures (e.g. Atlas AS7-D: BV 1,897, 9,626,000 C-bills).
