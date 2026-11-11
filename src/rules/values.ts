@@ -150,6 +150,18 @@ export const ITEM_VALUES: Record<string, ItemValue> = {
   'guardian-ecm': v(61, 200000),
   'clan-active-probe': v(12, 200000),
   'clan-ecm': v(61, 200000),
+  'angel-ecm': v(100, 750000),
+  'ppc-capacitor': v(0, 150000),
+  'clan-ppc-capacitor': v(0, 150000),
+  'small-x-pulse-laser': v(21, 31000),
+  'medium-x-pulse-laser': v(71, 110000),
+  'large-x-pulse-laser': v(178, 275000),
+  'small-vsp-laser': v(22, 60000),
+  'medium-vsp-laser': v(56, 200000),
+  'large-vsp-laser': v(123, 465000),
+  'clan-small-improved-heavy-laser': v(19, 30000),
+  'clan-medium-improved-heavy-laser': v(93, 150000),
+  'clan-large-improved-heavy-laser': v(296, 350000),
   'bomb-bay': v(0, 5000),
 
   // Capital and sub-capital weapons (ammo BV and cost are carried per shot on the ammo itself)
@@ -185,7 +197,7 @@ export const MML_AMMO_BV: Record<string, [number, number]> = {
 
 /** Equipment that counts towards defensive rather than offensive BV. */
 export const DEFENSIVE_IDS = new Set([
-  'ams', 'clan-ams', 'guardian-ecm', 'clan-ecm', 'beagle-active-probe', 'clan-active-probe',
+  'ams', 'clan-ams', 'guardian-ecm', 'clan-ecm', 'angel-ecm', 'beagle-active-probe', 'clan-active-probe',
 ]);
 
 /** Gauss-type weapons: their ammo does not explode, but the weapon itself does. */

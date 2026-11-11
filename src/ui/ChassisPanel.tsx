@@ -128,7 +128,7 @@ export function ChassisPanel({ design, summary, update }: Props) {
         <div>
           <NumberField label="Walking MP" value={design.walkMP} min={1} max={maxWalkMP(design.tonnage)}
             onChange={(n) => update((d) => setWalkMP(d, n))} />
-          <span className="muted"> Run {summary.runMP}{summary.mascRunMP ? ` (MASC ${summary.mascRunMP})` : ''}</span>
+          <span className="muted"> Run {summary.runMP}{summary.mascRunMP ? ` (boosted ${summary.mascRunMP})` : ''}</span>
         </div>
 
         <label>Engine</label>

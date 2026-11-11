@@ -3,10 +3,10 @@ import { ARM_LOCATIONS, ARMOR_FACINGS, LAM_TYPE_NAMES, LOCATIONS, facingName, is
 import type { MeleeKind } from './equipment';
 import { HAND_WEAPONS, NEEDS_HAND } from './melee';
 import {
-  FREE_HEAT_SINKS, engineCenterSlots, gyroSlots, MAX_ENGINE_RATING, MIN_ENGINE_RATING, TONNAGES,
+  FREE_HEAT_SINKS, engineCenterSlots, engineSideTorsoSlots, gyroSlots, MAX_ENGINE_RATING, MIN_ENGINE_RATING, TONNAGES,
 } from './tables';
 import {
-  ENDO_STEEL_ID, FERRO_FIBROUS_ID, HEAT_SINK_IDS, TSM_ID, allowedLocations, canRearMount, getEquipment,
+  ENDO_STEEL_ID, FERRO_FIBROUS_ID, HEAT_SINK_IDS, TSM_ID, allowedLocations, canRearMount, getEquipment, isPPC,
   JUMP_JET_IDS, heatSinkIdFor, isDirectFire, isEquipmentAvailable, jumpJetIdFor, usesAmmo,
 } from './equipment';
 import { configurationDesigns, isFixedOnly } from './omni';
@@ -268,6 +268,21 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
   const hasMasc = design.equipment.some((e) => getEquipment(e.equipmentId)?.variableWeight === 'masc');
   if (hasMasc && design.myomer === 'tsm') {
     error('MASC and Triple-Strength Myomer cannot be installed together.');
+  }
+  // Supercharger: one, in a location holding engine slots.
+  const superchargers = design.equipment.filter((e) => e.equipmentId === 'supercharger');
+  if (superchargers.length > 1) error('Only one supercharger may be installed.');
+  for (const sc of superchargers) {
+    const side = sc.location === 'LT' || sc.location === 'RT';
+    if (side && engineSideTorsoSlots(design.engineType, design.techBase) === 0) {
+      error('A supercharger must go in a location with engine slots (the center torso, or a side torso with an XL-type engine).');
+    }
+  }
+  // PPC capacitors: each links to a PPC in the same location.
+  for (const loc of LOCATIONS) {
+    const caps = design.equipment.filter((e) => e.location === loc && /ppc-capacitor$/.test(e.equipmentId)).length;
+    const ppcs = design.equipment.filter((e) => e.location === loc && isPPC(e.equipmentId)).length;
+    if (caps > ppcs) error(`${locationName(design, loc)}: each PPC Capacitor needs a PPC in the same location (${caps} capacitor(s), ${ppcs} PPC(s)).`);
   }
 
   // Melee weapons: actuators, one hand weapon per arm, talons in every leg

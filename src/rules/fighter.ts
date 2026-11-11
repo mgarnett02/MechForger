@@ -164,7 +164,7 @@ export function usesWeaponSlot(eq: Equipment): boolean {
 /** Equipment a fighter can carry. */
 export function isFighterEquipment(eq: Equipment): boolean {
   if (eq.id === 'remote-sensor-dispenser') return true; // the one utility item fighters carry (TM)
-  if (eq.managed || eq.melee || eq.lamOnly || eq.capitalClass || eq.category === 'Utility' || eq.variableWeight === 'masc') return false;
+  if (eq.managed || eq.melee || eq.lamOnly || eq.capitalClass || eq.category === 'Utility' || eq.variableWeight === 'masc' || eq.variableWeight === 'supercharger') return false;
   return true;
 }
 

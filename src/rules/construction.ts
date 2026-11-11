@@ -51,7 +51,7 @@ export interface WeightBreakdown {
 export interface MechSummary {
   rating: number;
   runMP: number;
-  /** Running MP with MASC engaged, when MASC is fitted. */
+  /** Running MP with MASC and/or a supercharger engaged, when fitted. */
   mascRunMP: number | null;
   /** Walking / running MP with Triple-Strength Myomer active (at 9+ heat). */
   tsmMP: { walk: number; run: number } | null;
@@ -231,6 +231,7 @@ export function computeMech(design: MechDesign): MechSummary {
   const externalHS = count((id) => HEAT_SINK_IDS.includes(id));
   const totalHS = design.engineHeatSinks + externalHS;
   const hasMasc = design.equipment.some((e) => getEquipment(e.equipmentId)?.variableWeight === 'masc');
+  const hasSupercharger = design.equipment.some((e) => getEquipment(e.equipmentId)?.variableWeight === 'supercharger');
 
   let equipmentWeight = 0;
   let weaponHeat = 0;
@@ -270,7 +271,8 @@ export function computeMech(design: MechDesign): MechSummary {
   return {
     rating,
     runMP: runMP(walkMP) - hardened,
-    mascRunMP: hasMasc ? walkMP * 2 - hardened : null,
+    // MASC or a supercharger: run at twice walking MP; both together: 2.5 times.
+    mascRunMP: hasMasc || hasSupercharger ? Math.ceil(walkMP * (hasMasc && hasSupercharger ? 2.5 : 2)) - hardened : null,
     tsmMP: design.myomer === 'tsm' ? { walk: walkMP + 1, run: runMP(walkMP + 1) - hardened } : null,
     omni: design.omni ? omniWeights(design, weights.total) : null,
     lam: lamMovement(design, jumpMP),

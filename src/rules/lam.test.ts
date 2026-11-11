@@ -74,9 +74,10 @@ describe("Land-Air 'Mechs", () => {
   it('bundles the canon LAMs', () => {
     const lams = M.filter((e) => e.k === 'lam');
     expect(lams.length).toBeGreaterThanOrEqual(19);
-    expect(lams.every((e) => e.ok)).toBe(true);
-    // The Yurei S-YR-1LAM's canon file leaves 1.5 tons unused.
-    expect(lams.filter((e) => !e.w).map((e) => e.n)).toEqual(['Yurei S-YR-1LAM']);
+    // Canon exceptions: the Yurei S-YR-1LAM's file leaves 1.5 tons unused; the Wasp LAM WSP-110 uses
+    // Endo Steel (not allowed on LAMs) and comes out 3 tons over.
+    expect(lams.filter((e) => !e.ok).map((e) => e.n)).toEqual(['Wasp LAM WSP-110']);
+    expect(lams.filter((e) => !e.w).map((e) => e.n).sort()).toEqual(['Wasp LAM WSP-110', 'Yurei S-YR-1LAM']);
     expect(lams.some((e) => decodeMech(e.d).lam === 'bimodal')).toBe(true);
   });
 

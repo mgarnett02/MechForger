@@ -2,7 +2,7 @@ import type { Location, MechDesign, TechBase, MechConfig } from './types';
 import { LOCATIONS } from './types';
 import type { EraId } from './eras';
 import { isAvailableIn } from './eras';
-import { jumpJetWeight, mascWeight } from './tables';
+import { engineWeight, jumpJetWeight, mascWeight } from './tables';
 
 export type EquipmentCategory = 'Energy' | 'Ballistic' | 'Missile' | 'Ammo' | 'Physical' | 'Capital' | 'Other' | 'Utility';
 
@@ -37,7 +37,7 @@ export interface Equipment {
   allowedLocations?: readonly Location[];
   isWeapon: boolean;
   /** Weight (and for MASC / targeting computers, slots) depends on the mech. */
-  variableWeight?: 'jumpJet' | 'improvedJumpJet' | 'masc' | 'targetingComputer';
+  variableWeight?: 'jumpJet' | 'improvedJumpJet' | 'masc' | 'supercharger' | 'targetingComputer';
   /** LRM/SRM launchers that can be linked to an Artemis IV fire-control system. */
   artemisCapable?: boolean;
   /** Ammo bins: Artemis IV-capable ammunition. */
@@ -54,6 +54,8 @@ export interface Equipment {
   lamOnly?: boolean;
   /** Explodes when hit (counts like ammunition for Battle Value). */
   explosive?: boolean;
+  /** Explosive, but only −1 BV per slot (improved heavy lasers, PPC capacitors). */
+  explosiveLow?: boolean;
   /** Capital-scale and sub-capital weapons (and their ammunition). */
   capitalClass?: CapitalClass;
   /** Capital ammunition is counted per shot: `tons` is the weight of one shot, with this BV and cost. */
@@ -156,6 +158,10 @@ const IS_3050_WEAPONS: Equipment[] = [
   weapon(IS_3050, 'light-gauss-rifle', 'Light Gauss Rifle', 'Ballistic', 12, 5, 1, '8', [3, 8, 17, 25], 16),
   weapon(IS_3050, 'heavy-gauss-rifle', 'Heavy Gauss Rifle', 'Ballistic', 18, 11, 2, '25/20/10', [4, 6, 13, 20], 4),
   weapon(IS_3050, 'tag', 'TAG', 'Other', 1, 1, 0, 'designator', [0, 5, 9, 15]),
+  // X-Pulse lasers (3057): −2 to hit like other pulse lasers, longer reach, more heat.
+  weapon(IS_3050, 'small-x-pulse-laser', 'Small X-Pulse Laser', 'Energy', 1, 1, 3, '3', [0, 2, 4, 5]),
+  weapon(IS_3050, 'medium-x-pulse-laser', 'Medium X-Pulse Laser', 'Energy', 2, 1, 6, '6', [0, 3, 6, 9]),
+  weapon(IS_3050, 'large-x-pulse-laser', 'Large X-Pulse Laser', 'Energy', 7, 2, 14, '9', [0, 5, 10, 15]),
 ];
 
 /** Inner Sphere weapons of the Civil War era (3062–3067). */
@@ -175,7 +181,7 @@ const IS_3062_WEAPONS: Equipment[] = [
 const JIHAD_WEAPONS: Equipment[] = [
   weapon(IS_3068, 'light-machine-gun', 'Light Machine Gun', 'Ballistic', 0.5, 1, 0, '1', [0, 2, 4, 6], 200),
   weapon(IS_3068, 'heavy-machine-gun', 'Heavy Machine Gun', 'Ballistic', 1, 1, 0, '3', [0, 1, 2, 0], 100),
-  weapon(IS_3068, 'magshot', 'Magshot Gauss Rifle', 'Ballistic', 0.5, 1, 1, '2', [0, 3, 6, 9], 50),
+  weapon(IS_3068, 'magshot', 'Magshot Gauss Rifle', 'Ballistic', 0.5, 2, 1, '2', [0, 3, 6, 9], 50),
   weapon(IS_3068, 'plasma-rifle', 'Plasma Rifle', 'Energy', 6, 2, 10, '10 + heat', [0, 5, 10, 15], 10),
   // Multi-Missile Launchers fire LRM (shown) or SRM ammunition; ammo is listed separately below.
   weapon(IS_3068, 'mml-3', 'MML 3', 'Missile', 1.5, 2, 2, '1 or 2/missile', [6, 7, 14, 21]),
@@ -191,6 +197,14 @@ const JIHAD_WEAPONS: Equipment[] = [
   weapon(CLAN_3068, 'clan-hag-20', 'Hyper-Assault Gauss 20', 'Ballistic', 10, 6, 4, '20 (cluster)', [2, 8, 16, 24], 6),
   weapon(CLAN_3068, 'clan-hag-30', 'Hyper-Assault Gauss 30', 'Ballistic', 13, 8, 6, '30 (cluster)', [2, 8, 16, 24], 4),
   weapon(CLAN_3068, 'clan-hag-40', 'Hyper-Assault Gauss 40', 'Ballistic', 16, 10, 8, '40 (cluster)', [2, 8, 16, 24], 3),
+  // Improved heavy lasers (3069): explosive when critically hit.
+  { ...weapon(CLAN_3068, 'clan-small-improved-heavy-laser', 'Improved Heavy Small Laser', 'Energy', 0.5, 1, 3, '6', [0, 1, 2, 3]), explosiveLow: true },
+  { ...weapon(CLAN_3068, 'clan-medium-improved-heavy-laser', 'Improved Heavy Medium Laser', 'Energy', 1, 2, 7, '10', [0, 3, 6, 9]), explosiveLow: true },
+  { ...weapon(CLAN_3068, 'clan-large-improved-heavy-laser', 'Improved Heavy Large Laser', 'Energy', 4, 3, 18, '16', [0, 5, 10, 15]), explosiveLow: true },
+  // Variable Speed Pulse lasers (3070): damage falls with range.
+  weapon(IS_3068, 'small-vsp-laser', 'Small VSP Laser', 'Energy', 2, 1, 3, '5/4/3', [0, 2, 4, 6]),
+  weapon(IS_3068, 'medium-vsp-laser', 'Medium VSP Laser', 'Energy', 4, 2, 7, '9/7/5', [0, 2, 5, 9]),
+  weapon(IS_3068, 'large-vsp-laser', 'Large VSP Laser', 'Energy', 9, 4, 10, '11/9/7', [0, 4, 8, 15]),
 ];
 
 /** MML ammunition: [launcher, LRM shots per ton, SRM shots per ton]. */
@@ -385,6 +399,21 @@ export const OTHER_EQUIPMENT: readonly Equipment[] = [
   { id: 'guardian-ecm', name: 'Guardian ECM Suite', category: 'Other', tons: 1.5, slots: 2, heat: 0, isWeapon: false, ...IS_3050 },
   { id: 'clan-active-probe', name: 'Active Probe', category: 'Other', tons: 1, slots: 1, heat: 0, isWeapon: false, ...CLAN_3050 },
   { id: 'clan-ecm', name: 'ECM Suite', category: 'Other', tons: 1, slots: 1, heat: 0, isWeapon: false, ...CLAN_3050 },
+  { id: 'angel-ecm', name: 'Angel ECM Suite', category: 'Other', tons: 2, slots: 2, heat: 0, isWeapon: false, ...ANY_3050 },
+  // Supercharger: 10% of the engine's weight, one slot in a location holding engine slots; ×2 walking MP to run.
+  {
+    id: 'supercharger', name: 'Supercharger', category: 'Other', tons: 0, slots: 1, heat: 0, isWeapon: false,
+    variableWeight: 'supercharger', allowedLocations: TORSO, techBase: 'Both', firstEra: '3025',
+  },
+  // PPC Capacitor: linked to a PPC in the same location, +5 damage and +5 heat when charged.
+  {
+    id: 'ppc-capacitor', name: 'PPC Capacitor', category: 'Other', tons: 1, slots: 1, heat: 0, isWeapon: false,
+    explosive: true, explosiveLow: true, ...IS_3050,
+  },
+  {
+    id: 'clan-ppc-capacitor', name: 'PPC Capacitor', category: 'Other', tons: 1, slots: 1, heat: 0, isWeapon: false,
+    explosive: true, explosiveLow: true, techBase: 'Clan', firstEra: '3101',
+  },
 ];
 
 /** Industrial and utility equipment carried by combat and support vehicles (not BattleMechs). */
@@ -530,6 +559,11 @@ export function canRearMount(eq: Equipment, location: Location | null, design?: 
   return design?.config === 'quad' && location !== 'HD';
 }
 
+/** PPCs that a PPC Capacitor can link to. */
+export function isPPC(id: string): boolean {
+  return /(^|-)(er-|light-|heavy-|snub-nose-)?ppc$/.test(id);
+}
+
 /** Mixed tech lets a design use equipment from either tech base. */
 export function isEquipmentAvailable(eq: Equipment, era: EraId, techBase: TechBase, mixedTech = false): boolean {
   const baseOk = eq.techBase === 'Both' || eq.techBase === techBase || mixedTech;
@@ -571,7 +605,7 @@ const ABBREVIATIONS: [RegExp, string][] = [
   [/Light Gauss Rifle/g, 'Light Gauss'], [/Heavy Gauss Rifle/g, 'Heavy Gauss'],
   [/Ultra AC\//g, 'UAC/'], [/Rotary AC\//g, 'RAC/'], [/(LB \d+-X) AC/g, '$1'],
   [/Artemis IV FCS/g, 'Artemis IV'], [/ Artemis IV Ammo/g, ' Art. Ammo'], [/ Ammo, Half/g, ' Ammo ½'],
-  [/Targeting Computer/g, 'Targeting Comp.'], [/Triple-Strength Myomer/g, 'TSM'],
+  [/Improved Heavy (Small|Medium|Large) Laser/g, 'Imp. Heavy $1 L.'], [/Targeting Computer/g, 'Targeting Comp.'], [/Triple-Strength Myomer/g, 'TSM'],
   [/Beagle Active Probe/g, 'Beagle Probe'], [/Guardian ECM Suite/g, 'Guardian ECM'],
   [/C3 Master Computer/g, 'C3 Master'], [/C3 Slave Unit/g, 'C3 Slave'], [/Improved C3 Computer/g, 'C3i'],
   [/Improved Jump Jet/g, 'Imp. Jump Jet'], [/Snub-Nose PPC/g, 'SN PPC'], [/Retractable Blade/g, 'Ret. Blade'],
@@ -611,7 +645,7 @@ export function shortEquipmentName(eq: Equipment, d: Pick<MechDesign, 'mixedTech
   return `${name} (${eq.techBase === 'Clan' ? 'C' : 'IS'})`;
 }
 
-type SizingDesign = Pick<MechDesign, 'tonnage' | 'techBase' | 'equipment'> & { config?: MechConfig };
+type SizingDesign = Pick<MechDesign, 'tonnage' | 'techBase' | 'equipment'> & { config?: MechConfig } & Partial<Pick<MechDesign, 'engineType' | 'walkMP'>>;
 
 /** Weapons a targeting computer is sized from: direct-fire energy and ballistic weapons. */
 export function isDirectFire(eq: Equipment): boolean {
@@ -632,6 +666,11 @@ export function itemWeight(eq: Equipment, d: SizingDesign): number {
   if (eq.variableWeight === 'jumpJet') return jumpJetWeight(d.tonnage);
   if (eq.variableWeight === 'improvedJumpJet') return jumpJetWeight(d.tonnage) * 2;
   if (eq.variableWeight === 'masc') return mascWeight(d.tonnage, eq.techBase === 'Clan' ? 'Clan' : 'IS');
+  if (eq.variableWeight === 'supercharger') {
+    // 10% of the engine weight, rounded up to the half ton.
+    const engine = d.walkMP && d.engineType ? engineWeight(d.engineType, d.tonnage * d.walkMP) ?? 0 : 0;
+    return Math.ceil((engine / 10) * 2 - 1e-9) / 2;
+  }
   if (eq.variableWeight === 'targetingComputer') return targetingComputerWeight(eq, d);
   if (eq.melee) return meleeWeight(eq.melee, d);
   return eq.tons;

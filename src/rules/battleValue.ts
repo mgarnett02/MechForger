@@ -9,7 +9,7 @@
 import type { Location, MechDesign } from './types';
 import { LOCATIONS, isQuad, legLocations } from './types';
 import type { Equipment } from './equipment';
-import { getEquipment, isDirectFire, itemWeight } from './equipment';
+import { getEquipment, isDirectFire, isPPC, itemWeight } from './equipment';
 import { computeMech } from './construction';
 import { engineSideTorsoSlots } from './tables';
 import { meleeBV, meleeCost } from './melee';
@@ -100,20 +100,50 @@ function weaponEntries(
       artemisLeft.set(k, (artemisLeft.get(k) ?? 0) + 1);
     }
   }
+  const capacitorsLeft = capacitorCounts(items);
   const out: WeaponEntry[] = [];
   for (const i of items) {
     const eq = getEquipment(i.equipmentId);
     if (!eq || !eq.isWeapon || DEFENSIVE_IDS.has(eq.id)) continue;
     let bv = value(eq.id)?.bv ?? 0;
+    let heat = bvHeat(eq);
+    // A PPC Capacitor adds its BV to the linked PPC (as MegaMek) and 5 heat.
+    if (takeCapacitor(capacitorsLeft, i)) {
+      bv += CAPACITOR_BV[eq.id] ?? 0;
+      heat += 5;
+    }
     if (hasTC && isDirectFire(eq)) bv *= 1.25;
     const k = i.location ?? '';
     if (eq.artemisCapable && (artemisLeft.get(k) ?? 0) > 0) {
       artemisLeft.set(k, artemisLeft.get(k)! - 1);
       bv *= 1.2;
     }
-    out.push({ bv, heat: bvHeat(eq), rear: !!i.rear, id: eq.id });
+    out.push({ bv, heat, rear: !!i.rear, id: eq.id });
   }
   return out;
+}
+
+/** BV a PPC Capacitor adds to each kind of PPC (MegaMek). */
+const CAPACITOR_BV: Record<string, number> = {
+  'light-ppc': 44, ppc: 88, 'heavy-ppc': 53, 'snub-nose-ppc': 87, 'er-ppc': 114, 'clan-er-ppc': 136,
+};
+
+/** PPC Capacitors per location, to be linked to that location's PPCs in turn. */
+function capacitorCounts(items: { equipmentId: string; location: string | null }[]): Map<string, number> {
+  const m = new Map<string, number>();
+  for (const i of items) {
+    if (/ppc-capacitor$/.test(i.equipmentId)) m.set(i.location ?? '', (m.get(i.location ?? '') ?? 0) + 1);
+  }
+  return m;
+}
+
+/** Link a capacitor to this PPC if one is left in its location. */
+function takeCapacitor(left: Map<string, number>, i: { equipmentId: string; location: string | null }): boolean {
+  if (!isPPC(i.equipmentId)) return false;
+  const k = i.location ?? '';
+  if ((left.get(k) ?? 0) <= 0) return false;
+  left.set(k, left.get(k)! - 1);
+  return true;
 }
 
 /** Ammo BV, capped per weapon type at the BV of the weapons that use it. */
@@ -186,11 +216,15 @@ export function mechBV(d: MechDesign): BVBreakdown {
     return hasCase(loc) || protectedLoc(loc === 'LA' ? 'LT' : 'RT');
   };
   let explosive = 0;
+  const capsLeft = capacitorCounts(d.equipment);
   for (const item of d.equipment) {
     const eq = getEquipment(item.equipmentId);
     if (!eq || !item.location || protectedLoc(item.location)) continue;
     if (eq.category === 'Ammo' && eq.ammoFor && !isGaussType(eq.ammoFor) && !/plasma/.test(eq.ammoFor)) explosive += 15;
+    else if (eq.explosiveLow) explosive += eq.slots;
     else if (eq.explosive) explosive += 15 * eq.slots;
+    // A PPC with a capacitor is explosive too (−1 per slot).
+    else if (takeCapacitor(capsLeft, item)) explosive += eq.slots;
     else if (eq.isWeapon && isGaussType(eq.id)) explosive += eq.slots;
   }
 
@@ -276,6 +310,7 @@ function equipmentCost<T extends { equipmentId: string }>(
     if (eq.melee && mech) total += meleeCost(eq.melee, mech);
     else if (eq.category === 'Ammo') total += ammoValue(eq).cost;
     else if (eq.variableWeight === 'masc') total += rating * weight(eq) * 1000;
+    else if (eq.variableWeight === 'supercharger') total += rating * 10000;
     else if (eq.variableWeight === 'targetingComputer') total += weight(eq) * 10000;
     else total += value(eq.id)?.cost ?? 0;
   }
