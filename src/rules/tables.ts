@@ -241,6 +241,18 @@ export function armorSlots(type: ArmorType, techBase: TechBase): number {
   }
 }
 
+/** Slots a patchwork location needs for its armor type (MegaMek's patchwork slot counts). */
+export function patchworkSlots(type: ArmorType, techBase: TechBase): number {
+  const clan = techBase === 'Clan';
+  switch (type) {
+    case 'ferro-fibrous': case 'reactive': case 'reflective': return clan ? 1 : 2;
+    case 'light-ferro': case 'heat-dissipating': case 'anti-penetrative': return 1;
+    case 'heavy-ferro': return 3;
+    case 'stealth': case 'ferro-lamellor': case 'impact-resistant': case 'ballistic-reinforced': return 2;
+    default: return 0;
+  }
+}
+
 const ARMOR_PPT_MULTIPLIER: Partial<Record<ArmorType, number>> = {
   'light-ferro': 1.06, 'heavy-ferro': 1.24, hardened: 0.5, 'ferro-lamellor': 0.875, 'ballistic-reinforced': 0.75,
   'anti-penetrative': 0.75, 'heat-dissipating': 0.625, 'impact-resistant': 0.875, commercial: 1.5, industrial: 0.67, primitive: 0.67,

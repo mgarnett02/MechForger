@@ -192,6 +192,8 @@ export interface MechDesign {
   armoredSlots?: Partial<Record<Location, number[]>>;
   jumpJetType: JumpJetType;
   armorType: ArmorType;
+  /** Patchwork armor (Tactical Operations): per-location armor types overriding `armorType`. */
+  patchwork?: Partial<Record<Location, ArmorType>>;
   myomer: MyomerType;
   /** Mixed tech (Advanced rules): equipment from either tech base on this chassis. */
   mixedTech: boolean;
@@ -229,3 +231,18 @@ export interface MechDesign {
 export const isIndustrial = (d: { structureType?: string }) => d.structureType === 'industrial';
 
 export type WeightClass = 'Ultralight' | 'Light' | 'Medium' | 'Heavy' | 'Assault';
+
+/** Patchwork armor: some location uses a different armor type from the rest. */
+export function isPatchwork(d: Pick<MechDesign, 'patchwork' | 'armorType'>): boolean {
+  return !!d.patchwork && Object.values(d.patchwork).some((t) => t && t !== d.armorType);
+}
+
+/** Armor type in a location (patchwork overrides, else the design's armor type). */
+export function armorTypeAt(d: Pick<MechDesign, 'patchwork' | 'armorType'>, loc: Location): ArmorType {
+  return d.patchwork?.[loc] ?? d.armorType;
+}
+
+/** Every armor type on the design. */
+export function armorTypesUsed(d: Pick<MechDesign, 'patchwork' | 'armorType'>): ArmorType[] {
+  return isPatchwork(d) ? [...new Set(LOCATIONS.map((l) => armorTypeAt(d, l)))] : [d.armorType];
+}

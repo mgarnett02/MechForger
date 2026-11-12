@@ -11,18 +11,18 @@ import {
 } from './equipment';
 import { configurationDesigns, isFixedOnly } from './omni';
 import { getEra, isAvailableIn } from './eras';
-import { SPLIT_ADJACENT, TECH_BASE_NAMES, isIndustrial, isPrimitive, techOf } from './types';
+import { SPLIT_ADJACENT, TECH_BASE_NAMES, armorTypeAt, armorTypesUsed, isIndustrial, isPatchwork, isPrimitive, techOf } from './types';
 import type { TechBase } from './types';
 import { canSplit, tsmSlots } from './edit';
 import type { ComponentOption } from './tables';
 import {
   ARMOR_OPTIONS, COCKPIT_OPTIONS, ENGINE_OPTIONS, GYRO_OPTIONS, HEAT_SINK_OPTIONS, JUMP_JET_OPTIONS,
-  MYOMER_OPTIONS, STRUCTURE_OPTIONS, ARMOR_NAMES, STRUCTURE_NAMES, armorSlots, componentEraOk, componentTechOk, structureSlots,
+  MYOMER_OPTIONS, STRUCTURE_OPTIONS, ARMOR_NAMES, STRUCTURE_NAMES, armorSlots, componentEraOk, patchworkSlots, componentTechOk, structureSlots,
 } from './tables';
 import { armorPointsForTons } from './armor';
 import { locationArmor } from './armor';
 import type { MechSummary } from './construction';
-import { armoredSystemSlots, computeMech, itemSlots } from './construction';
+import { armoredSystemSlots, computeMech, fixedSlots, itemSlots } from './construction';
 
 export type Severity = 'error' | 'warning' | 'info';
 
@@ -87,7 +87,7 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
       [GYRO_OPTIONS[design.gyroType], design.techBase],
       [COCKPIT_OPTIONS[design.cockpitType], design.techBase],
       [HEAT_SINK_OPTIONS[design.heatSinkType], techOf(design, 'heatSinks')],
-      [ARMOR_OPTIONS[design.armorType], techOf(design, 'armor')],
+      ...armorTypesUsed(design).map((t) => [ARMOR_OPTIONS[t], techOf(design, 'armor')] as [ComponentOption, TechBase]),
       [MYOMER_OPTIONS[design.myomer], design.techBase],
       [JUMP_JET_OPTIONS[design.jumpJetType], design.techBase],
     ];
@@ -255,8 +255,21 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
     warn('A command console only gives its initiative bonus on heavy and assault \'Mechs.');
   }
 
+  // Patchwork armor: each location needs room for its armor's slots.
+  if (isPatchwork(design)) {
+    for (const loc of LOCATIONS) {
+      const type = armorTypeAt(design, loc);
+      const need = patchworkSlots(type, techOf(design, 'armor'));
+      const have = fixedSlots(design, loc).filter((x) => x === ARMOR_NAMES[type]).length;
+      if (have < need) error(`${locationName(design, loc)}: no room for ${need} ${ARMOR_NAMES[type]} armor slots.`);
+    }
+    for (const t of ['commercial', 'industrial', 'heavy-industrial', 'primitive'] as const) {
+      if (armorTypesUsed(design).includes(t)) error(`${ARMOR_NAMES[t]} armor cannot be used as patchwork armor.`);
+    }
+  }
+
   // Stealth armor works through an ECM suite.
-  if (design.armorType === 'stealth' && !design.equipment.some((e) => /(^|-)ecm$/.test(e.equipmentId) && e.location)) {
+  if (armorTypesUsed(design).includes('stealth') && !design.equipment.some((e) => /(^|-)ecm$/.test(e.equipmentId) && e.location)) {
     error('Stealth armor needs an ECM suite.');
   }
 
@@ -337,7 +350,7 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
   // Endo Steel / Ferro-Fibrous slot placeholders
   const fillerCheck: [string, number, string][] = [
     [ENDO_STEEL_ID, structureSlots(design.structureType, techOf(design, 'structure')), STRUCTURE_NAMES[design.structureType]],
-    [FERRO_FIBROUS_ID, armorSlots(design.armorType, techOf(design, 'armor')), `${ARMOR_NAMES[design.armorType]} armor`],
+    [FERRO_FIBROUS_ID, isPatchwork(design) ? 0 : armorSlots(design.armorType, techOf(design, 'armor')), `${ARMOR_NAMES[design.armorType]} armor`],
     [TSM_ID, tsmSlots(design.myomer), design.myomer === 'industrial-tsm' ? 'Industrial TSM' : 'Triple-Strength Myomer'],
   ];
   for (const [id, required, name] of fillerCheck) {

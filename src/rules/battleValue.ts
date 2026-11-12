@@ -7,11 +7,11 @@
  * approximate.
  */
 import type { Location, MechDesign } from './types';
-import { LOCATIONS, isIndustrial, isQuad, legLocations, techOf } from './types';
+import { LOCATIONS, REAR_FACING, armorTypeAt, isIndustrial, isPatchwork, isQuad, legLocations, techOf } from './types';
 import type { Equipment } from './equipment';
 import { canArmor, getEquipment, isArtemisVCapable, isDirectFire, isPPC, itemSlots, itemWeight } from './equipment';
 import { armoredSystemSlots, computeMech, fixedSlots } from './construction';
-import { engineSideTorsoSlots, freeHeatSinks } from './tables';
+import { armorPointsPerTon, engineSideTorsoSlots, freeHeatSinks } from './tables';
 import { meleeBV, meleeCost } from './melee';
 import type { FighterDesign } from './fighter';
 import { computeFighter, fighterItemWeight } from './fighter';
@@ -255,7 +255,11 @@ export function mechBV(d: MechDesign): BVBreakdown {
   const bar = d.armorType === 'commercial' ? 0.5 : 1;
   // Modular armor: 10 extra armor points each.
   const modular = 10 * d.equipment.filter((e) => e.equipmentId === 'modular-armor').length;
-  const armor = (s.armorTotal + cockpitArmor + modular) * 2.5 * (ARMOR_BV_MULTIPLIER[d.armorType] ?? 1) * bar;
+  const armorMult = (t: MechDesign['armorType']) => ARMOR_BV_MULTIPLIER[t] ?? 1;
+  // Patchwork armor: each location's points at its own armor's multiplier.
+  const armor = isPatchwork(d)
+    ? (LOCATIONS.reduce((a, l) => a + locPoints(d, l) * armorMult(armorTypeAt(d, l)), 0) + (cockpitArmor + modular) * armorMult(d.armorType)) * 2.5 * bar
+    : (s.armorTotal + cockpitArmor + modular) * 2.5 * armorMult(d.armorType) * bar;
   const isPoints = s.structure ? LOCATIONS.reduce((a, l) => a + s.structure![l], 0) : 0;
   // Engine multiplier from the side-torso engine slots (as MegaMek): 6+ → 0.25, 3+ → 0.5, 2 → 0.75.
   const sideSlots = engineSideTorsoSlots(d.engineType, techOf(d, 'engine'));
@@ -305,7 +309,8 @@ export function mechBV(d: MechDesign): BVBreakdown {
   const nullSig = has('null-signature-system');
   const voidSig = has('void-signature-system');
   const chameleon = has('chameleon-lps');
-  const stealth = d.armorType === 'stealth' ? 2 : 0;
+  // Patchwork stealth armor only counts when it covers every location but the head and center torso.
+  const stealth = (isPatchwork(d) ? STEALTH_LOCS.every((l) => armorTypeAt(d, l) === 'stealth') : d.armorType === 'stealth') ? 2 : 0;
   // UMUs give their own (non-jump) modifier.
   let tmm = Math.max(runTMM, jump > 0 ? targetMovementModifier(jump) + 1 : 0, s.umuMP > 0 ? targetMovementModifier(s.umuMP) : 0)
     + (stealth || nullSig ? 2 : 0) + (chameleon ? 2 : 0);
@@ -386,6 +391,13 @@ const STRUCTURE_COST: Record<string, number> = {
   standard: 400, 'endo-steel': 1600, 'endo-prototype': 4800, 'endo-composite': 3200, composite: 1600, reinforced: 6400, industrial: 300,
 };
 /** Armor BV multipliers (MegaMek). */
+const STEALTH_LOCS = ['LT', 'RT', 'LA', 'RA', 'LL', 'RL'] as const;
+/** Front and rear armor points in a location. */
+function locPoints(d: MechDesign, l: Location): number {
+  const rear = REAR_FACING[l];
+  return (d.armor[l] ?? 0) + (rear ? d.armor[rear] ?? 0 : 0);
+}
+
 const ARMOR_BV_MULTIPLIER: Partial<Record<MechDesign['armorType'], number>> = {
   hardened: 2, reactive: 1.5, reflective: 1.5, 'ballistic-reinforced': 1.5, 'ferro-lamellor': 1.2, 'anti-penetrative': 1.2,
   'heat-dissipating': 1.1,
@@ -437,7 +449,9 @@ export function mechCost(d: MechDesign): CostBreakdown {
     ['Gyro', GYRO_COST[d.gyroType] * s.weights.gyro],
     ['Jump jets', jumpCost],
     ['Heat sinks', hsCost],
-    ['Armor', ARMOR_COST[d.armorType] * s.weights.armor],
+    ['Armor', isPatchwork(d)
+      ? LOCATIONS.reduce((a, l) => a + ARMOR_COST[armorTypeAt(d, l)] * locPoints(d, l) / armorPointsPerTon(armorTypeAt(d, l), techOf(d, 'armor')), 0)
+      : ARMOR_COST[d.armorType] * s.weights.armor],
     ['Weapons & equipment', equipmentCost(d.equipment, (eq) => itemWeight(eq, d), s.rating, d)],
   ];
   if (d.fullHeadEjection) lines.push(['Full Head Ejection System', 1725000]);

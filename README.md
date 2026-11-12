@@ -136,6 +136,9 @@ Everything above, plus:
   also gets ×1.3 BV and costs twice as much.
 - **Primitive 'Mechs:** primitive cockpit (5 t), engine rated at 1.2 × tonnage × walking MP (rounded up to 5), primitive armor (0.67 × points per ton). MegaMek's restrictions apply: standard or industrial structure, no XL / light / compact / XXL engines, standard myomer.
 - **Interface cockpits** (4 t, two head slots; the 'Mech may go without a gyro) and **Clan laser heat sinks** (built like Clan double heat sinks)
+- **Patchwork armor** (Tactical Operations, as MegaMek): a different armor type in any location. Each location
+  holds its own armor's slots (e.g. 2 for Inner Sphere ferro-fibrous, 3 for heavy ferro-fibrous); weight sums
+  every location at its own points per ton; BV and cost are figured per location
 - **Mixed tech:** a mixed-tech 'Mech can take Clan or Inner Sphere structure, armor, engine and double heat sinks independently of its chassis (an IS / Clan picker appears beside each). Slots, armor points and engine side-torso slots follow each component's own tech base. OmniMech configurations can be mixed tech, or use a different jump jet type, on their own; configurations built on a different base chassis become a separate OmniMech.
 - **Rules matching MegaMek:** Clan small cockpits (from 3080), rear-facing head and leg weapons, and industrial equipment on BattleMechs.
 - **Actuator Enhancement System (AES):**

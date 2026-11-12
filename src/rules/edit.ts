@@ -2,7 +2,7 @@ import type {
   ArmLocation, ArmorAllocation, ArmorFacing, ArmorType, CockpitType, EngineType, GyroType, HeatSinkType, JumpJetType, Location,
   LamType, MechConfig, MechDesign, MountedItem, MyomerType, OmniData, StructureType, TechBase, TechComponent,
 } from './types';
-import { ARMOR_FACINGS, LOCATIONS, REAR_FACING, SPLIT_ADJACENT, TECH_COMPONENTS, engineRatingFor, isQuad, legLocations, techOf } from './types';
+import { ARMOR_FACINGS, LOCATIONS, REAR_FACING, SPLIT_ADJACENT, TECH_COMPONENTS, engineRatingFor, isPatchwork, isQuad, legLocations, techOf } from './types';
 import {
   ARMOR_OPTIONS, COCKPIT_OPTIONS, ENGINE_OPTIONS, GYRO_OPTIONS, MYOMER_OPTIONS, STRUCTURE_OPTIONS,
   FREE_HEAT_SINKS, armorPointsPerTon, armorSlots, engineHeatSinkCapacity, maxWalkMP, structureSlots,
@@ -341,7 +341,7 @@ function normalizeHeatSinks(d: MechDesign): MechDesign {
 /** Keep Endo Steel / Ferro-Fibrous slot placeholders at the count the rules require. */
 function syncFillers(d: MechDesign): MechDesign {
   const withEndo = syncCount(d, ENDO_STEEL_ID, structureSlots(d.structureType, techOf(d, 'structure')));
-  const withFerro = syncCount(withEndo, FERRO_FIBROUS_ID, armorSlots(d.armorType, techOf(d, 'armor')));
+  const withFerro = syncCount(withEndo, FERRO_FIBROUS_ID, isPatchwork(d) ? 0 : armorSlots(d.armorType, techOf(d, 'armor')));
   const withTsm = syncCount(withFerro, TSM_ID, tsmSlots(d.myomer));
   return syncCount(withTsm, ENV_SEAL_ID, d.environmentalSealing ? 8 : 0);
 }
@@ -390,6 +390,30 @@ export function setStructureType(d: MechDesign, structureType: StructureType): M
 
 export function setArmorType(d: MechDesign, armorType: ArmorType): MechDesign {
   return syncFillers({ ...d, armorType });
+}
+
+function parsePatchwork(raw: unknown): { patchwork?: Partial<Record<Location, ArmorType>> } {
+  if (!raw || typeof raw !== 'object') return {};
+  const out: Partial<Record<Location, ArmorType>> = {};
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    if ((LOCATIONS as readonly string[]).includes(k) && typeof v === 'string' && v in ARMOR_OPTIONS) out[k as Location] = v as ArmorType;
+  }
+  return Object.keys(out).length ? { patchwork: out } : {};
+}
+
+/** Patchwork armor: set one location's armor type (the design's armor type clears the override). */
+export function setLocationArmorType(d: MechDesign, loc: Location, type: ArmorType): MechDesign {
+  const patchwork = { ...d.patchwork };
+  if (type === d.armorType) delete patchwork[loc];
+  else patchwork[loc] = type;
+  const { patchwork: _p, ...rest } = d;
+  return syncFillers(Object.keys(patchwork).length ? { ...rest, patchwork } : rest);
+}
+
+/** Turn patchwork armor off: every location back to the design's armor type. */
+export function clearPatchwork(d: MechDesign): MechDesign {
+  const { patchwork: _p, ...rest } = d;
+  return syncFillers(rest);
 }
 
 export function setEngineType(d: MechDesign, engineType: EngineType): MechDesign {
@@ -516,6 +540,7 @@ export function parseDesign(raw: unknown): MechDesign {
     cockpitType: pick(r.cockpitType, Object.keys(COCKPIT_OPTIONS) as CockpitType[], 'standard'),
     heatSinkType: pick(r.heatSinkType, ['single', 'double'] as const, 'single'),
     armorType: pick(r.armorType, Object.keys(ARMOR_OPTIONS) as ArmorType[], 'standard'),
+    ...parsePatchwork(r.patchwork),
     myomer: pick(r.myomer, Object.keys(MYOMER_OPTIONS) as MyomerType[], 'standard'),
     ...(r.environmentalSealing ? { environmentalSealing: true } : {}),
     ...parseArmoredSlots(r.armoredSlots),

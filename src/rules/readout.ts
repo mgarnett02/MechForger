@@ -1,5 +1,5 @@
 import type { MechDesign } from './types';
-import { LAM_TYPE_NAMES, LOCATIONS, REAR_FACING, TECH_BASE_NAMES, facingName, isQuad, locationAbbr, locationName, mountAbbr } from './types';
+import { LAM_TYPE_NAMES, LOCATIONS, REAR_FACING, TECH_BASE_NAMES, armorTypesUsed, facingName, isPatchwork, isQuad, locationAbbr, locationName, mountAbbr } from './types';
 import { getEra } from './eras';
 import { ARMOR_NAMES, STRUCTURE_NAMES } from './tables';
 import type { MountedItem } from './types';
@@ -64,7 +64,9 @@ export function technicalReadout(design: MechDesign, summary: MechSummary = comp
     lines.push(row(`Armored Components${sys ? `: ${sys}` : ''}`, s.weights.armored));
   }
   if (design.fullHeadEjection) lines.push('Full Head Ejection System');
-  const ff = design.armorType === 'standard' ? '' : ` (${ARMOR_NAMES[design.armorType]})`;
+  const ff = isPatchwork(design)
+    ? ` (Patchwork: ${armorTypesUsed(design).map((t) => ARMOR_NAMES[t]).join(' / ')})`
+    : design.armorType === 'standard' ? '' : ` (${ARMOR_NAMES[design.armorType]})`;
   lines.push(row(`Armor Factor${ff}: ${s.armorTotal}`, s.weights.armor));
   lines.push('');
   lines.push(`${''.padEnd(22)}Internal   Armor`);

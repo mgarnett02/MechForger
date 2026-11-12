@@ -1,15 +1,15 @@
 import { useEffect, useState } from 'react';
 import type { ArmorType, MechDesign } from '../rules/types';
-import { ARMOR_NAMES, ARMOR_OPTIONS, armorSlots, componentAvailable } from '../rules/tables';
+import { ARMOR_NAMES, ARMOR_OPTIONS, armorSlots, componentAvailable, patchworkSlots } from '../rules/tables';
 
 const ARMOR_NOTES: Partial<Record<ArmorType, string>> = {
   stealth: ' — needs ECM', hardened: ' — −1 running MP',
 };
-import { LOCATIONS, locationName, REAR_FACING, techOf } from '../rules/types';
+import { LOCATIONS, armorTypeAt, isPatchwork, locationName, REAR_FACING, techOf } from '../rules/types';
 import { TechPicker } from './TechPicker';
 import type { MechSummary } from '../rules/construction';
 import { armorPointsForTons, armorTonnage, locationArmor } from '../rules/armor';
-import { clearArmor, maximizeArmor, setArmor, setArmorTonnage, setArmorType } from '../rules/edit';
+import { clearArmor, clearPatchwork, maximizeArmor, setArmor, setArmorTonnage, setArmorType, setLocationArmorType } from '../rules/edit';
 import { NumberField } from './NumberField';
 
 interface Props {
@@ -20,6 +20,11 @@ interface Props {
 
 export function ArmorPanel({ design, summary, update }: Props) {
   const [tons, setTons] = useState(summary.weights.armor);
+  const [patch, setPatch] = useState(isPatchwork(design));
+  useEffect(() => { if (isPatchwork(design)) setPatch(true); }, [design]);
+  const NO_PATCHWORK = ['commercial', 'industrial', 'heavy-industrial', 'primitive'];
+  const patchOptions = (Object.keys(ARMOR_OPTIONS) as ArmorType[]).filter((k) => !NO_PATCHWORK.includes(k)
+    && (k === 'standard' || componentAvailable(ARMOR_OPTIONS[k], design.era, techOf(design, 'armor'), design.mixedTech)));
   useEffect(() => setTons(summary.weights.armor), [summary.weights.armor]);
   const ppt = summary.armorPointsPerTon;
   const maxTons = armorTonnage(summary.armorMaxTotal, ppt);
@@ -41,11 +46,16 @@ export function ArmorPanel({ design, summary, update }: Props) {
           })}
         </select>{' '}
         <TechPicker design={design} part="armor" update={update} />{' '}
-        <span className="muted small">{pptLabel} pts/ton</span>
+        <span className="muted small">{pptLabel} pts/ton</span>{' '}
+        <label className="check small" title="Patchwork armor (Tactical Operations): a different armor type in some locations">
+          <input type="checkbox" checked={patch}
+            onChange={(e) => { setPatch(e.target.checked); if (!e.target.checked) update(clearPatchwork); }} />
+          Patchwork
+        </label>
       </h2>
       <table className="armor-table">
         <thead>
-          <tr><th>Location</th><th>IS</th><th>Front</th><th>Rear</th><th>Max</th></tr>
+          <tr><th>Location</th>{patch && <th>Type</th>}<th>IS</th><th>Front</th><th>Rear</th><th>Max</th></tr>
         </thead>
         <tbody>
           {LOCATIONS.map((loc) => {
@@ -56,6 +66,17 @@ export function ArmorPanel({ design, summary, update }: Props) {
             return (
               <tr key={loc}>
                 <td>{locationName(design, loc)}</td>
+                {patch && (
+                  <td>
+                    <select aria-label={`${locationName(design, loc)} armor type`} value={armorTypeAt(design, loc)}
+                      onChange={(e) => update((d) => setLocationArmorType(d, loc, e.target.value as ArmorType))}>
+                      {patchOptions.map((k) => {
+                        const n = patchworkSlots(k, techOf(design, 'armor'));
+                        return <option key={k} value={k}>{ARMOR_NAMES[k]}{n ? ` (${n})` : ''}</option>;
+                      })}
+                    </select>
+                  </td>
+                )}
                 <td className="num muted">{summary.structure?.[loc] ?? '—'}</td>
                 <td>
                   <NumberField label={`${locationName(design, loc)} armor`} value={design.armor[loc]} min={0}
@@ -76,7 +97,7 @@ export function ArmorPanel({ design, summary, update }: Props) {
         </tbody>
         <tfoot>
           <tr>
-            <td>Total</td><td />
+            <td>Total</td>{patch && <td />}<td />
             <td colSpan={2} className="num">{summary.armorTotal} pts</td>
             <td className="num muted">{summary.armorMaxTotal}</td>
           </tr>

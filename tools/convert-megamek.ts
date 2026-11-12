@@ -184,6 +184,13 @@ function systemKind(name: string): string {
 
 type Resolved = { kind: 'fixed' } | { kind: 'item'; id: string } | { kind: 'unknown'; name: string };
 
+/** Armor critical slots (ferro-fibrous, reactive, …) as MegaMek names them. */
+function r0IsArmorSlot(raw: string): boolean {
+  const b = norm(splitTech(raw.replace(/\s*\((ARMORED|OMNIPOD)\)/gi, '').trim()).base);
+  return ['ferrofibrous', 'lightferrofibrous', 'heavyferrofibrous', 'ferrolamellor', 'reactive', 'reflective', 'ballisticreinforced',
+    'impactresistant', 'heatdissipating', 'antipenetrativeablation', 'stealth'].includes(b);
+}
+
 function resolveName(raw: string, unitTech: TechBase): Resolved {
   const name = raw.replace(/\s*\((R|OMNIPOD|ARMORED)\)/gi, '').trim();
   const n = norm(name);
@@ -324,7 +331,23 @@ function parseMtf(text: string): ParsedMech {
     'Heat-Dissipating': 'heat-dissipating', 'Impact-Resistant': 'impact-resistant',
     Commercial: 'commercial', Industrial: 'industrial', 'Heavy Industrial': 'heavy-industrial', Primitive: 'primitive',
   };
-  const armorType: MechDesign['armorType'] = ARMORS[ar.replace(/\(.*$/, '').trim()] ?? fail(`armor ${ar}`);
+  const armorName = (raw: string) => ARMORS[raw.replace(/\(.*$/, '').replace(/^(IS|Clan) /, '').trim()] ?? fail(`armor ${raw}`);
+  // Patchwork armor: each location line reads "<type>(<tech>):<points>".
+  const patchworkRaw = /^Patchwork/i.test(ar);
+  const locArmor = (k: string): [MechDesign['armorType'] | null, number] => {
+    const v = get(k);
+    const m = /^(.*):(\d+)$/.exec(v);
+    return m && patchworkRaw ? [armorName(m[1]), Number(m[2])] : [null, Number(v)];
+  };
+  const PATCH_KEYS: [Location, string][] = [['HD', 'hd armor'], ['CT', 'ct armor'], ['LT', 'lt armor'], ['RT', 'rt armor'],
+    ['LA', quad ? 'fll armor' : 'la armor'], ['RA', quad ? 'frl armor' : 'ra armor'], ['LL', quad ? 'rll armor' : 'll armor'], ['RL', quad ? 'rrl armor' : 'rl armor']];
+  const patchTypes = patchworkRaw ? PATCH_KEYS.map(([l, k]) => [l, locArmor(k)[0] ?? fail(`patchwork armor ${l}`)] as const) : [];
+  const counts = new Map<string, number>();
+  for (const [, t] of patchTypes) counts.set(t, (counts.get(t) ?? 0) + 1);
+  const armorType: MechDesign['armorType'] = patchworkRaw
+    ? [...counts].sort((a, b) => b[1] - a[1])[0][0] as MechDesign['armorType']
+    : ARMORS[ar.replace(/\(.*$/, '').trim()] ?? fail(`armor ${ar}`);
+  const patchwork = Object.fromEntries(patchTypes.filter(([, t]) => t !== armorType)) as Partial<Record<Location, MechDesign['armorType']>>;
   const hs = get('heat sinks');
   // Mixed tech: each component may be Inner Sphere or Clan regardless of the chassis.
   const partTech = (clan: boolean, is: boolean): TechBase | undefined => (clan ? 'Clan' : is ? 'IS' : undefined);
@@ -357,11 +380,12 @@ function parseMtf(text: string): ParsedMech {
   // A Full Head Ejection System (Hatchetman, Axman…) takes no slots or weight; other systems aren't supported.
   if (kv.has('ejection') && !/^Full Head Ejection System$/i.test(get('ejection'))) fail('special systems');
 
+  const pts = (k: string) => locArmor(k)[1];
   const armor: ArmorAllocation = {
-    HD: Number(get('hd armor')), CT: Number(get('ct armor')), CTR: Number(get('rtc armor')),
-    LT: Number(get('lt armor')), LTR: Number(get('rtl armor')), RT: Number(get('rt armor')), RTR: Number(get('rtr armor')),
-    LA: Number(get(quad ? 'fll armor' : 'la armor')), RA: Number(get(quad ? 'frl armor' : 'ra armor')),
-    LL: Number(get(quad ? 'rll armor' : 'll armor')), RL: Number(get(quad ? 'rrl armor' : 'rl armor')),
+    HD: pts('hd armor'), CT: pts('ct armor'), CTR: Number(get('rtc armor')),
+    LT: pts('lt armor'), LTR: Number(get('rtl armor')), RT: pts('rt armor'), RTR: Number(get('rtr armor')),
+    LA: pts(quad ? 'fll armor' : 'la armor'), RA: pts(quad ? 'frl armor' : 'ra armor'),
+    LL: pts(quad ? 'rll armor' : 'll armor'), RL: pts(quad ? 'rrl armor' : 'rl armor'),
   };
   for (const [k, v] of Object.entries(armor)) if (!Number.isFinite(v)) fail(`armor value ${k}`);
 
@@ -402,6 +426,8 @@ function parseMtf(text: string): ParsedMech {
         }
         continue;
       }
+      // Patchwork armor slots are fixed per location; MechForger places them itself.
+      if (patchworkRaw && r0IsArmorSlot(raw)) continue;
       const r = resolveName(raw, techBase);
       if (r.kind === 'fixed') {
         const kind = systemKind(raw.replace(/\s*\((ARMORED|OMNIPOD)\)/gi, ''));
@@ -455,7 +481,7 @@ function parseMtf(text: string): ParsedMech {
     structureType, engineType, gyroType, cockpitType, heatSinkType,
     ...(equipment.some((e) => e.equipmentId === 'environmental-sealing') ? { environmentalSealing: true } : {}),
     jumpJetType: jets.some((e) => e.equipmentId === 'improved-jump-jet') ? 'improved' : 'standard',
-    armorType, myomer, config: quad ? 'quad' : 'biped', lam, omni: null,
+    armorType, ...(Object.keys(patchwork).length ? { patchwork } : {}), myomer, config: quad ? 'quad' : 'biped', lam, omni: null,
     ...(kv.has('ejection') ? { fullHeadEjection: true } : {}),
     chassis: get('clanname') ? `${get('clanname')} (${get('chassis')})` : get('chassis'),
     model: get('model'), tonnage, walkMP,

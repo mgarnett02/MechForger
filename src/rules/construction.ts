@@ -1,9 +1,9 @@
 import type { Location, MechDesign, MountedItem, WeightClass } from './types';
-import { LOCATIONS, engineRatingFor, isIndustrial, isQuad, techOf } from './types';
+import { LOCATIONS, REAR_FACING, armorTypeAt, engineRatingFor, isIndustrial, isPatchwork, isQuad, techOf } from './types';
 import {
   freeHeatSinks, armorPointsPerTon, cockpitWeight, engineCenterSlots, engineHeatSinkCapacity,
   engineSideTorsoSlots, engineWeight, gyroSlots, gyroWeightFor, internalStructure, internalStructureWeight,
-  STEALTH_LOCATIONS, jumpJetWeightFor, runMP,
+  ARMOR_NAMES, STEALTH_LOCATIONS, jumpJetWeightFor, patchworkSlots, runMP,
   weightClass,
 } from './tables';
 import type { Equipment } from './equipment';
@@ -140,11 +140,26 @@ const ENGINE_LABEL = {
 } as const;
 const GYRO_LABEL = { standard: 'Gyro', xl: 'XL Gyro', 'heavy-duty': 'Heavy-Duty Gyro', compact: 'Compact Gyro', none: '' } as const;
 
+/** Patchwork armor weight: each location's points at its own armor's rate, the total rounded up to the half ton. */
+export function patchworkArmorWeight(design: MechDesign): number {
+  let tons = 0;
+  for (const loc of LOCATIONS) {
+    const rear = REAR_FACING[loc];
+    const points = (design.armor[loc] ?? 0) + (rear ? design.armor[rear] ?? 0 : 0);
+    tons += points / armorPointsPerTon(armorTypeAt(design, loc), techOf(design, 'armor'));
+  }
+  return Math.ceil(Math.round(tons * 1e6) / 1e6 * 2) / 2;
+}
+
 /** Fixed components per location; null marks a slot open for equipment. */
 export function fixedSlots(design: MechDesign, loc: Location): (string | null)[] {
   const base = baseFixedSlots(design, loc);
-  // Stealth armor: two slots in each side torso, arm and leg.
-  if (design.armorType === 'stealth' && (STEALTH_LOCATIONS as readonly string[]).includes(loc)) {
+  if (isPatchwork(design)) {
+    // Patchwork armor: each location carries its own armor type's slots.
+    const type = armorTypeAt(design, loc);
+    for (let i = patchworkSlots(type, techOf(design, 'armor')); i > 0; i--) claim(base, ARMOR_NAMES[type]);
+  } else if (design.armorType === 'stealth' && (STEALTH_LOCATIONS as readonly string[]).includes(loc)) {
+    // Stealth armor: two slots in each side torso, arm and leg.
     claim(claim(base, 'Stealth'), 'Stealth');
   }
   if (!design.lam) return base;
@@ -308,7 +323,7 @@ export function computeMech(design: MechDesign): MechSummary {
     cockpit: cockpitWeight(design.cockpitType),
     heatSinks: Math.max(0, totalHS - freeHeatSinks(design.engineType)),
     jumpJets: jumpMP * jumpJetWeightFor(design.jumpJetType, tonnage),
-    armor: armorTonnage(armorTotal, ppt),
+    armor: isPatchwork(design) ? patchworkArmorWeight(design) : armorTonnage(armorTotal, ppt),
     // Rounded to the kilogram (spread systems split their weight into fractions of a ton).
     equipment: Math.round(equipmentWeight * 1000) / 1000,
     armored: armoredComponentWeight(design),
@@ -326,7 +341,7 @@ export function computeMech(design: MechDesign): MechSummary {
   for (const loc of LOCATIONS) slots[loc] = layoutLocation(design, loc);
   const xxl = design.engineType === 'xxl';
   // Hardened armor costs one running MP.
-  const hardened = design.armorType === 'hardened' ? 1 : 0;
+  const hardened = LOCATIONS.some((l) => armorTypeAt(design, l) === 'hardened') ? 1 : 0;
 
   return {
     rating,

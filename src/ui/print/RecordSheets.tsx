@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import type { ArmorFacing, Location, MechDesign } from '../../rules/types';
-import { LAM_TYPE_NAMES, TECH_BASE_NAMES, isIndustrial, isQuad, locationName } from '../../rules/types';
+import { LAM_TYPE_NAMES, TECH_BASE_NAMES, isIndustrial, isPatchwork, isQuad, locationName } from '../../rules/types';
 import { computeMech } from '../../rules/construction';
 import { getEra } from '../../rules/eras';
 import { ARMOR_NAMES, ENGINE_NAMES } from '../../rules/tables';
@@ -265,7 +265,7 @@ export function MechRecordSheet({ design }: { design: MechDesign }) {
           <RearFigure armor={design.armor} />
           <div className="rs-armor-total">
             Armor: <b>{s.armorTotal}</b>
-            {design.armorType !== 'standard' && ` (${ARMOR_NAMES[design.armorType]})`}
+            {isPatchwork(design) ? ' (Patchwork)' : design.armorType !== 'standard' && ` (${ARMOR_NAMES[design.armorType]})`}
           </div>
         </Panel>
 
