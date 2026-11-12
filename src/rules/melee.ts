@@ -19,6 +19,12 @@ export function meleeDamage(kind: MeleeKind, tonnage: number): string {
     case 'chain-whip': return '1';
     case 'talons': return 'Kick ×1.5';
     case 'spikes': return '+2 / special';
+    case 'lance': return String(Math.ceil(tonnage / 5));
+    case 'small-vibroblade': return '7';
+    case 'medium-vibroblade': return '10';
+    case 'large-vibroblade': return '14';
+    case 'small-shield': case 'medium-shield': case 'large-shield': return 'Bash / block';
+    case 'wrecking-ball': return String(Math.ceil(tonnage / 5));
   }
 }
 
@@ -35,6 +41,14 @@ export function meleeBV(kind: MeleeKind, d: MeleeDesign): number {
     case 'chain-whip': return 5.175;
     case 'talons': return (Math.round(Math.floor(t / 5) * 0.5) * tsm) / legCount(d);
     case 'spikes': return 4;
+    case 'lance': return Math.ceil(t / 5) * tsm;
+    case 'small-vibroblade': return 12;
+    case 'medium-vibroblade': return 17;
+    case 'large-vibroblade': return 24;
+    case 'small-shield': return 50;
+    case 'medium-shield': return 135;
+    case 'large-shield': return 263;
+    case 'wrecking-ball': return 8;
   }
 }
 
@@ -50,6 +64,14 @@ export function meleeCost(kind: MeleeKind, d: MeleeDesign): number {
     case 'chain-whip': return 120000;
     case 'talons': return meleeWeight('talons', d) * 300;
     case 'spikes': return t * 50;
+    case 'lance': return Math.ceil(t * 150);
+    case 'small-vibroblade': return 150000;
+    case 'medium-vibroblade': return 400000;
+    case 'large-vibroblade': return 750000;
+    case 'small-shield': return 50000;
+    case 'medium-shield': return 100000;
+    case 'large-shield': return 300000;
+    case 'wrecking-ball': return 110000;
   }
 }
 

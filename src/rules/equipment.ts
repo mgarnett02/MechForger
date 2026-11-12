@@ -10,7 +10,8 @@ export type EquipmentCategory = 'Energy' | 'Ballistic' | 'Missile' | 'Ammo' | 'P
 export type CapitalClass = 'capital' | 'sub-capital' | 'capital-missile' | 'screen' | 'mass-driver';
 
 /** Physical (melee) weapons. Their weight, slots, damage, BV and cost mostly scale with the mech's tonnage. */
-export type MeleeKind = 'hatchet' | 'sword' | 'mace' | 'claw' | 'retractable-blade' | 'chain-whip' | 'talons' | 'spikes';
+export type MeleeKind = 'hatchet' | 'sword' | 'mace' | 'claw' | 'retractable-blade' | 'chain-whip' | 'talons' | 'spikes'
+  | 'lance' | 'small-vibroblade' | 'medium-vibroblade' | 'large-vibroblade' | 'small-shield' | 'medium-shield' | 'large-shield' | 'wrecking-ball';
 
 export interface RangeBrackets {
   min: number;
@@ -37,9 +38,9 @@ export interface Equipment {
   allowedLocations?: readonly Location[];
   isWeapon: boolean;
   /** Weight (and for MASC / targeting computers, slots) depends on the mech. */
-  variableWeight?: 'jumpJet' | 'improvedJumpJet' | 'masc' | 'supercharger' | 'targetingComputer' | 'aes' | 'partialWing';
+  variableWeight?: 'jumpJet' | 'improvedJumpJet' | 'masc' | 'supercharger' | 'targetingComputer' | 'aes' | 'partialWing' | 'droneOS' | 'tracks';
   /** Systems spread one piece per location (added and removed as a set). */
-  spread?: 'all-but-head' | 'all-but-head-ct' | 'side-torsos';
+  spread?: 'all-but-head' | 'all-but-head-ct' | 'side-torsos' | 'legs';
   /** LRM/SRM launchers that can be linked to an Artemis IV fire-control system. */
   artemisCapable?: boolean;
   /** Ammo bins: Artemis IV-capable ammunition. */
@@ -306,7 +307,60 @@ const CLAN_WEAPONS: Equipment[] = [
   { ...weapon(CLAN_3050, 'clan-arrow-iv', 'Arrow IV', 'Missile', 12, 12, 10, '20 art.', null, 5), artillery: true },
 ];
 
-const ALL_WEAPONS = [...IS_INTRO_WEAPONS, ...IS_3050_WEAPONS, ...IS_3062_WEAPONS, ...JIHAD_WEAPONS, ...CLAN_WEAPONS];
+/** Advanced / Experimental weapons (Tactical Operations, Interstellar Operations); stats from MegaMek. */
+const ADVANCED_WEAPONS: Equipment[] = [
+  // Extended LRMs (3054): long reach, large minimum range.
+  weapon(IS_3050, 'elrm-5', 'Extended LRM 5', 'Missile', 6, 1, 3, '1/missile', [10, 12, 22, 38], 18),
+  weapon(IS_3050, 'elrm-10', 'Extended LRM 10', 'Missile', 8, 4, 6, '1/missile', [10, 12, 22, 38], 9),
+  weapon(IS_3050, 'elrm-15', 'Extended LRM 15', 'Missile', 12, 6, 8, '1/missile', [10, 12, 22, 38], 6),
+  weapon(IS_3050, 'elrm-20', 'Extended LRM 20', 'Missile', 18, 8, 10, '1/missile', [10, 12, 22, 38], 4),
+  // Enhanced LRMs (NLRM, 3058).
+  weapon(IS_3050, 'nlrm-5', 'Enhanced LRM 5', 'Missile', 3, 2, 2, '1/missile', [3, 7, 14, 21], 24),
+  weapon(IS_3050, 'nlrm-10', 'Enhanced LRM 10', 'Missile', 6, 4, 4, '1/missile', [3, 7, 14, 21], 12),
+  weapon(IS_3050, 'nlrm-15', 'Enhanced LRM 15', 'Missile', 9, 6, 5, '1/missile', [3, 7, 14, 21], 8),
+  weapon(IS_3050, 'nlrm-20', 'Enhanced LRM 20', 'Missile', 12, 9, 6, '1/missile', [3, 7, 14, 21], 6),
+  // Improved ATMs (Clan, 3054 prototypes).
+  weapon(CLAN_3050, 'clan-iatm-3', 'Improved ATM 3', 'Missile', 1.5, 2, 2, '2/missile', [4, 5, 10, 15], 20),
+  weapon(CLAN_3050, 'clan-iatm-6', 'Improved ATM 6', 'Missile', 3.5, 3, 4, '2/missile', [4, 5, 10, 15], 10),
+  weapon(CLAN_3050, 'clan-iatm-9', 'Improved ATM 9', 'Missile', 5, 4, 6, '2/missile', [4, 5, 10, 15], 7),
+  weapon(CLAN_3050, 'clan-iatm-12', 'Improved ATM 12', 'Missile', 7, 5, 8, '2/missile', [4, 5, 10, 15], 5),
+  // Gauss variants.
+  weapon(IS_3050, 'silver-bullet-gauss', 'Silver Bullet Gauss Rifle', 'Ballistic', 15, 7, 1, '15 (cluster)', [2, 7, 15, 22], 8),
+  weapon(IS_3062, 'improved-heavy-gauss', 'Improved Heavy Gauss Rifle', 'Ballistic', 20, 11, 2, '22', [3, 6, 12, 19], 4),
+  // ProtoMech autocannons (Clan, 3070).
+  weapon(CLAN_3068, 'clan-protomech-ac-2', 'ProtoMech AC/2', 'Ballistic', 3.5, 2, 1, '2', [0, 7, 14, 20], 40),
+  weapon(CLAN_3068, 'clan-protomech-ac-4', 'ProtoMech AC/4', 'Ballistic', 4.5, 3, 1, '4', [0, 5, 10, 15], 20),
+  weapon(CLAN_3068, 'clan-protomech-ac-8', 'ProtoMech AC/8', 'Ballistic', 5.5, 4, 2, '8', [0, 3, 7, 10], 10),
+  // Flamers.
+  weapon(IS_3068, 'heavy-flamer', 'Heavy Flamer', 'Energy', 1.5, 1, 5, '4', [0, 2, 3, 4], 10),
+  weapon(CLAN_3068, 'clan-heavy-flamer', 'Heavy Flamer', 'Energy', 1.5, 1, 5, '4', [0, 2, 3, 4], 10),
+  weapon(ANY_3025, 'vehicle-flamer', 'Vehicle Flamer', 'Energy', 0.5, 1, 3, '2', [0, 1, 2, 3], 20),
+  // Machine gun arrays: fire every machine gun of their type in the location (0.67 × their BV).
+  weapon(IS_3068, 'light-mga', 'Light Machine Gun Array', 'Ballistic', 0.5, 1, 0, 'linked LMGs', null),
+  weapon(IS_3068, 'mga', 'Machine Gun Array', 'Ballistic', 0.5, 1, 0, 'linked MGs', null),
+  weapon(IS_3068, 'heavy-mga', 'Heavy Machine Gun Array', 'Ballistic', 0.5, 1, 0, 'linked HMGs', null),
+  weapon(CLAN_3068, 'clan-light-mga', 'Light Machine Gun Array', 'Ballistic', 0.25, 1, 0, 'linked LMGs', null),
+  weapon(CLAN_3068, 'clan-mga', 'Machine Gun Array', 'Ballistic', 0.25, 1, 0, 'linked MGs', null),
+  weapon(CLAN_3068, 'clan-heavy-mga', 'Heavy Machine Gun Array', 'Ballistic', 0.25, 1, 0, 'linked HMGs', null),
+  // Lasers and PPCs.
+  weapon(IS_3025, 'blazer', 'Binary Laser (Blazer) Cannon', 'Energy', 9, 4, 16, '12', [0, 5, 10, 15]),
+  weapon(IS_3025, 'light-blazer', 'Light Blazer', 'Energy', 1.5, 2, 6, '7', [0, 3, 6, 9]),
+  weapon(IS_3062, 'bombast-laser', 'Bombast Laser', 'Energy', 7, 3, 12, '8–16', [0, 5, 10, 15]),
+  weapon(CLAN_3050, 'clan-improved-large-laser', 'Improved Large Laser', 'Energy', 4, 1, 8, '8', [0, 5, 10, 15]),
+  weapon(CLAN_3050, 'clan-enhanced-ppc', 'Enhanced PPC', 'Energy', 7, 3, 15, '12', [0, 7, 14, 23]),
+  // Electromagnetic and other special weapons.
+  weapon(IS_3081, 'tsemp-cannon', 'TSEMP Cannon', 'Energy', 6, 5, 10, 'EMP', [0, 5, 10, 15]),
+  weapon(IS_3062, 'mech-taser', "'Mech Taser", 'Energy', 4, 3, 6, '1 + shutdown', [0, 1, 2, 4], 5),
+  weapon(IS_3025, 'fluid-gun', 'Fluid Gun', 'Ballistic', 2, 2, 0, 'special', [0, 1, 2, 3], 20),
+  weapon(CLAN_3050, 'clan-fluid-gun', 'Fluid Gun', 'Ballistic', 2, 2, 0, 'special', [0, 1, 2, 3], 20),
+  // 'Mech mortars (Clan): indirect fire, minimum range 6.
+  weapon(CLAN_3050, 'clan-mech-mortar-1', "'Mech Mortar 1", 'Ballistic', 1, 1, 1, 'mortar', [6, 7, 14, 21], 24),
+  weapon(CLAN_3050, 'clan-mech-mortar-2', "'Mech Mortar 2", 'Ballistic', 2.5, 1, 2, 'mortar', [6, 7, 14, 21], 12),
+  weapon(CLAN_3050, 'clan-mech-mortar-4', "'Mech Mortar 4", 'Ballistic', 3.5, 2, 5, 'mortar', [6, 7, 14, 21], 6),
+  weapon(CLAN_3050, 'clan-mech-mortar-8', "'Mech Mortar 8", 'Ballistic', 5, 3, 10, 'mortar', [6, 7, 14, 21], 4),
+];
+
+const ALL_WEAPONS = [...IS_INTRO_WEAPONS, ...IS_3050_WEAPONS, ...IS_3062_WEAPONS, ...JIHAD_WEAPONS, ...CLAN_WEAPONS, ...ADVANCED_WEAPONS];
 // Standard LRM / SRM launchers (not Streak) can take Artemis IV.
 for (const w of ALL_WEAPONS) {
   if (/^(clan-)?(lrm|srm|mml)-\d+$/.test(w.id)) w.artemisCapable = true;
@@ -429,6 +483,14 @@ export const OTHER_EQUIPMENT: readonly Equipment[] = [
     [IS_3081, 'chain-whip', 'Chain Whip', true],
     [CLAN_3081, 'talons', 'Talons', false],
     [IS_3050, 'spikes', 'Spikes', false],
+    [IS_3062, 'lance', 'Lance', true],
+    [IS_3062, 'small-vibroblade', 'Small Vibroblade', true],
+    [IS_3062, 'medium-vibroblade', 'Medium Vibroblade', true],
+    [IS_3062, 'large-vibroblade', 'Large Vibroblade', true],
+    [IS_3062, 'small-shield', 'Small Shield', true],
+    [IS_3062, 'medium-shield', 'Medium Shield', true],
+    [IS_3062, 'large-shield', 'Large Shield', true],
+    [ANY_3025, 'wrecking-ball', 'Wrecking Ball', true],
   ] as const).map(([avail, id, name, armOnly]): Equipment => ({
     id, name, category: 'Physical', tons: 0, slots: 0, heat: 0, isWeapon: false, melee: id, ...avail,
     ...(armOnly ? { armOnly: true, allowedLocations: ['LA', 'RA'] as const } : {}),
@@ -500,6 +562,37 @@ export const OTHER_EQUIPMENT: readonly Equipment[] = [
   {
     id: 'chameleon-lps', name: 'Chameleon Light Polarization Shield', category: 'Other', tons: 0, slots: 1, heat: 0, isWeapon: false,
     spread: 'all-but-head-ct', fixedOnly: true, ...IS_3025,
+  },
+  // Underwater maneuvering units: jump-jet weights, torso and legs; not with jump jets.
+  {
+    id: 'umu', name: 'UMU', category: 'Other', tons: 0, slots: 1, heat: 0, isWeapon: false, variableWeight: 'jumpJet',
+    allowedLocations: ['CT', 'LT', 'RT', 'LL', 'RL'], techBase: 'Both', firstEra: '3062',
+  },
+  // Tracks (Interstellar Operations): 10% of tonnage, one slot per leg.
+  {
+    id: 'tracks', name: 'Tracks', category: 'Other', tons: 0, slots: 1, heat: 0, isWeapon: false, variableWeight: 'tracks',
+    spread: 'legs', fixedOnly: true, techBase: 'Both', firstEra: '3025',
+  },
+  // Radical heat sink system (3095): extra heat capacity in an emergency; needs double heat sinks.
+  { id: 'radical-heat-sink', name: 'Radical Heat Sink System', category: 'Other', tons: 4, slots: 3, heat: 0, isWeapon: false, fixedOnly: true, ...IS_3081 },
+  { id: 'harjel', name: 'HarJel', category: 'Other', tons: 1, slots: 1, heat: 0, isWeapon: false, allowedLocations: NOT_HEAD, techBase: 'Both', firstEra: '3062' },
+  // Blue Shield particle field damper (3053): one slot in every location except the head, 3 t in all.
+  {
+    id: 'blue-shield', name: 'Blue Shield PFD', category: 'Other', tons: 3 / 7, slots: 1, heat: 0, isWeapon: false,
+    spread: 'all-but-head', fixedOnly: true, ...IS_3050,
+  },
+  // Modular armor (3072): +10 armor points in its location, -1 jump MP.
+  { id: 'modular-armor', name: 'Modular Armor', category: 'Other', tons: 1, slots: 1, heat: 0, isWeapon: false, techBase: 'Both', firstEra: '3068' },
+  // Advanced electronics (stats from MegaMek).
+  { id: 'bloodhound-probe', name: 'Bloodhound Active Probe', category: 'Other', tons: 2, slots: 3, heat: 0, isWeapon: false, ...IS_3050 },
+  { id: 'clan-watchdog-ecm', name: 'Watchdog CEWS', category: 'Other', tons: 1.5, slots: 2, heat: 0, isWeapon: false, ...CLAN_3050 },
+  { id: 'clan-nova-cews', name: 'Nova CEWS', category: 'Other', tons: 1.5, slots: 1, heat: 0, isWeapon: false, ...CLAN_3062 },
+  { id: 'apollo-fcs', name: 'Apollo MRM FCS', category: 'Other', tons: 1, slots: 1, heat: 0, isWeapon: false, ...IS_3062 },
+  { id: 'c3-emergency-master', name: 'C3 Emergency Master', category: 'Other', tons: 2, slots: 2, heat: 0, isWeapon: false, ...IS_3068 },
+  // Drone (remote) operating system: a tenth of the tonnage plus half a ton.
+  {
+    id: 'drone-os', name: 'Drone Operating System', category: 'Other', tons: 0, slots: 1, heat: 0, isWeapon: false,
+    variableWeight: 'droneOS', fixedOnly: true, techBase: 'Both', firstEra: '3025',
   },
   // C3 Boosted System (3073): C3 that ECM does not block.
   { id: 'c3-boosted-master', name: 'C3 Boosted Master', category: 'Other', tons: 6, slots: 6, heat: 0, isWeapon: false, ...IS_3068 },
@@ -742,7 +835,11 @@ const ABBREVIATIONS: [RegExp, string][] = [
   [/Improved Heavy (Small|Medium|Large) Laser/g, 'Imp. Heavy $1 L.'], [/Rocket Launcher (\d+)/g, 'RL $1'],
   [/Long Tom Cannon Ammo/g, 'LT Cannon Ammo'], [/(Sniper|Thumper) Cannon Ammo/g, '$1 C. Ammo'], [/Targeting Computer/g, 'Targeting Comp.'], [/Triple-Strength Myomer/g, 'TSM'],
   [/Beagle Active Probe/g, 'Beagle Probe'], [/Chameleon Light Polarization Shield/g, 'Chameleon LPS'],
-  [/Actuator Enhancement System/g, 'AES'], [/Null Signature System/g, 'Null-Sig System'], [/Void Signature System/g, 'Void-Sig System'], [/Guardian ECM Suite/g, 'Guardian ECM'],
+  [/Actuator Enhancement System/g, 'AES'], [/Radical Heat Sink System/g, 'Radical HS'], [/Binary Laser \(Blazer\) Cannon/g, 'Blazer Cannon'],
+  [/Extended LRM/g, 'ELRM'], [/Enhanced LRM/g, 'NLRM'], [/Improved ATM/g, 'iATM'], [/Silver Bullet Gauss Rifle/g, 'SB Gauss'],
+  [/Improved Heavy Gauss Rifle/g, 'Imp. Heavy Gauss'], [/Improved Heavy Gauss Ammo/g, 'IHGR Ammo'], [/ProtoMech AC/g, 'ProtoAC'],
+  [/Vehicle Flamer Ammo/g, 'Veh. Flamer Ammo'], [/'Mech Mortar/g, 'Mortar'], [/Bloodhound Active Probe/g, 'Bloodhound Probe'], [/Heavy Machine Gun Array/g, 'HMG Array'], [/Light Machine Gun Array/g, 'LMG Array'],
+  [/Machine Gun Array/g, 'MG Array'], [/Drone Operating System/g, 'Drone OS'], [/Null Signature System/g, 'Null-Sig System'], [/Void Signature System/g, 'Void-Sig System'], [/Guardian ECM Suite/g, 'Guardian ECM'],
   [/C3 Master Computer/g, 'C3 Master'], [/C3 Slave Unit/g, 'C3 Slave'], [/Improved C3 Computer/g, 'C3i'],
   [/Improved Jump Jet/g, 'Imp. Jump Jet'], [/Snub-Nose PPC/g, 'SN PPC'], [/Retractable Blade/g, 'Ret. Blade'],
   [/Communications Equipment/g, 'Comms Equip.'], [/Lift Hoist \/ Arresting Hoist/g, 'Lift Hoist'],
@@ -787,7 +884,7 @@ type SizingDesign = Pick<MechDesign, 'tonnage' | 'techBase' | 'equipment'> & { c
 export function isDirectFire(eq: Equipment): boolean {
   // As MegaMek: lasers, PPCs, autocannon, Gauss rifles and plasma weapons are direct fire; artillery,
   // flamers, machine guns and anti-missile systems are not.
-  if (!eq.isWeapon || eq.artillery || /flamer|machine-gun|(^|-)ams$/.test(eq.id)) return false;
+  if (!eq.isWeapon || eq.artillery || /flamer|machine-gun|mga$|(^|-)ams$|mortar/.test(eq.id)) return false;
   return eq.category === 'Energy' || eq.category === 'Ballistic';
 }
 
@@ -803,8 +900,8 @@ export function targetingComputerWeight(eq: Equipment, d: SizingDesign): number 
 
 /** Locations a spread system occupies, one piece each. */
 export function spreadLocations(eq: Equipment, d: { config?: MechConfig }): Location[] {
-  void d;
   if (eq.spread === 'side-torsos') return ['LT', 'RT'];
+  if (eq.spread === 'legs') return d.config === 'quad' ? ['LA', 'RA', 'LL', 'RL'] : ['LL', 'RL'];
   if (eq.spread === 'all-but-head') return LOCATIONS.filter((l) => l !== 'HD');
   if (eq.spread === 'all-but-head-ct') return LOCATIONS.filter((l) => l !== 'HD' && l !== 'CT');
   return [];
@@ -821,6 +918,9 @@ export function itemWeight(eq: Equipment, d: SizingDesign): number {
   }
   if (eq.variableWeight === 'targetingComputer') return targetingComputerWeight(eq, d);
   if (eq.variableWeight === 'aes') return upHalf(d.tonnage / (d.config === 'quad' ? 50 : 35));
+  if (eq.variableWeight === 'droneOS') return upHalf(d.tonnage / 10 + 0.5);
+  // Tracks: 10% of the tonnage, one piece per leg.
+  if (eq.variableWeight === 'tracks') return upHalf(d.tonnage * 0.1) / legCount(d);
   // The wing's weight is split between its two side-torso pieces.
   if (eq.variableWeight === 'partialWing') return upHalf(d.tonnage * (eq.techBase === 'Clan' ? 0.05 : 0.07)) / 2;
   if (eq.melee) return meleeWeight(eq.melee, d);
@@ -852,6 +952,14 @@ export function meleeWeight(kind: MeleeKind, d: SizingDesign): number {
     case 'chain-whip': return 3;
     case 'talons': return Math.ceil(t / 15) / legCount(d); // the set weighs tonnage / 15, split over the legs
     case 'spikes': return 0.5;
+    case 'lance': return Math.ceil(t / 20);
+    case 'small-vibroblade': return 3;
+    case 'medium-vibroblade': return 5;
+    case 'large-vibroblade': return 7;
+    case 'small-shield': return 2;
+    case 'medium-shield': return 4;
+    case 'large-shield': return 6;
+    case 'wrecking-ball': return 4;
   }
 }
 
@@ -862,6 +970,14 @@ export function meleeSlots(kind: MeleeKind, tonnage: number): number {
     case 'retractable-blade': return 1 + Math.ceil(tonnage / 20);
     case 'chain-whip': case 'talons': return 2;
     case 'spikes': return 1;
+    case 'lance': return Math.ceil(tonnage / 20);
+    case 'small-vibroblade': return 1;
+    case 'medium-vibroblade': return 2;
+    case 'large-vibroblade': return 4;
+    case 'small-shield': return 3;
+    case 'medium-shield': return 5;
+    case 'large-shield': return 7;
+    case 'wrecking-ball': return 5;
   }
 }
 

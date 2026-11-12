@@ -107,12 +107,26 @@ function weaponEntries(
     }
   }
   const capacitorsLeft = capacitorCounts(items);
+  // Apollo FCS: ×1.15 for an MRM launcher in the same location.
+  const apolloLeft = new Map<string, number>();
+  for (const i of items) if (i.equipmentId === 'apollo-fcs') apolloLeft.set(i.location ?? '', (apolloLeft.get(i.location ?? '') ?? 0) + 1);
   const out: WeaponEntry[] = [];
   for (const i of items) {
     const eq = getEquipment(i.equipmentId);
     if (!eq || !eq.isWeapon || DEFENSIVE_IDS.has(eq.id)) continue;
     let bv = value(eq.id)?.bv ?? 0;
     let heat = bvHeat(eq);
+    // Machine gun arrays: 0.67 × the BV of up to four machine guns of their type in the same location (as MegaMek).
+    const mga = /^(clan-)?(light-|heavy-)?mga$/.exec(eq.id);
+    if (mga) {
+      const mgId = `${mga[1] ?? ''}${mga[2] ?? ''}machine-gun`;
+      const linked = items.filter((x) => x.equipmentId === mgId && x.location === i.location).length;
+      bv = 0.67 * Math.min(4, linked) * (value(mgId)?.bv ?? 0);
+    }
+    if (/^mrm-/.test(eq.id) && (apolloLeft.get(i.location ?? '') ?? 0) > 0) {
+      apolloLeft.set(i.location ?? '', apolloLeft.get(i.location ?? '')! - 1);
+      bv *= 1.15;
+    }
     // A PPC Capacitor adds its BV to the linked PPC (as MegaMek) and 5 heat.
     if (takeCapacitor(capacitorsLeft, i)) {
       bv += CAPACITOR_BV[eq.id] ?? 0;
@@ -239,7 +253,9 @@ export function mechBV(d: MechDesign): BVBreakdown {
   const cockpitArmor = d.cockpitType === 'torso-mounted' ? d.armor.CT + d.armor.CTR : 0;
   // Commercial armor has a barrier armor rating of 5 (half value).
   const bar = d.armorType === 'commercial' ? 0.5 : 1;
-  const armor = (s.armorTotal + cockpitArmor) * 2.5 * (ARMOR_BV_MULTIPLIER[d.armorType] ?? 1) * bar;
+  // Modular armor: 10 extra armor points each.
+  const modular = 10 * d.equipment.filter((e) => e.equipmentId === 'modular-armor').length;
+  const armor = (s.armorTotal + cockpitArmor + modular) * 2.5 * (ARMOR_BV_MULTIPLIER[d.armorType] ?? 1) * bar;
   const isPoints = s.structure ? LOCATIONS.reduce((a, l) => a + s.structure![l], 0) : 0;
   // Engine multiplier from the side-torso engine slots (as MegaMek): 6+ → 0.25, 3+ → 0.5, 2 → 0.75.
   const sideSlots = engineSideTorsoSlots(d.engineType, techOf(d, 'engine'));
@@ -290,7 +306,9 @@ export function mechBV(d: MechDesign): BVBreakdown {
   const voidSig = has('void-signature-system');
   const chameleon = has('chameleon-lps');
   const stealth = d.armorType === 'stealth' ? 2 : 0;
-  let tmm = Math.max(runTMM, jump > 0 ? targetMovementModifier(jump) + 1 : 0) + (stealth || nullSig ? 2 : 0) + (chameleon ? 2 : 0);
+  // UMUs give their own (non-jump) modifier.
+  let tmm = Math.max(runTMM, jump > 0 ? targetMovementModifier(jump) + 1 : 0, s.umuMP > 0 ? targetMovementModifier(s.umuMP) : 0)
+    + (stealth || nullSig ? 2 : 0) + (chameleon ? 2 : 0);
   if (voidSig) tmm = tmm < 3 ? 3 : tmm === 3 ? 4 : tmm;
   const defensive = Math.max(1, armor + structure + gyro + defEquip + armoredBV - explosive) * (1 + tmm / 10);
   lines.push(['Armor', armor], ['Internal structure', structure], ['Gyro', gyro]);
@@ -317,7 +335,9 @@ export function mechBV(d: MechDesign): BVBreakdown {
   // Coolant pods: + ⌈heat sinks × pods / 5⌉ heat efficiency (as MegaMek).
   const coolantPods = d.equipment.filter((e) => e.equipmentId === 'coolant-pod').length;
   const coolant = coolantPods ? Math.ceil((s.heatSinks.total * coolantPods) / 5) : 0;
-  const heatEfficiency = 6 + s.heatSinks.dissipation + coolant + (s.partialWing?.heatBonus ?? 0) + (airMechFlank !== null ? 3 : 0) - moveHeat
+  // Radical heat sink system: + ⌈heat sinks × 0.4⌉ heat capacity (as MegaMek).
+  const radical = has('radical-heat-sink') ? Math.ceil(s.heatSinks.total * 0.4) : 0;
+  const heatEfficiency = 6 + s.heatSinks.dissipation + coolant + radical + (s.partialWing?.heatBonus ?? 0) + (airMechFlank !== null ? 3 : 0) - moveHeat
     - (stealth ? 10 : 0) - (nullSig ? 10 : 0) - (voidSig ? 10 : 0) - (chameleon ? 6 : 0);
   weapons.sort((a, b) => b.bv - a.bv || a.heat - b.heat);
   let heat = 0;
@@ -337,7 +357,7 @@ export function mechBV(d: MechDesign): BVBreakdown {
   const legAES = legLocations(d).every((l) => d.equipment.some((e) => e.equipmentId === 'aes' && e.location === l));
   const aesMod = 1 + 0.1 * aesArms.size + (legAES ? (isQuad(d) ? 0.4 : 0.2) : 0);
   const tonnage = d.tonnage * aesMod * (d.myomer === 'tsm' ? 1.5 : d.myomer === 'industrial-tsm' ? 1.15 : 1);
-  const sf = speedFactor(run + Math.round((airMechFlank ?? jump) / 2));
+  const sf = speedFactor(run + Math.round((airMechFlank ?? Math.max(jump, s.umuMP)) / 2));
   // IndustrialMechs without advanced fire control: offensive rating × 0.9.
   const afcMod = d.cockpitType === 'industrial' ? 0.9 : 1;
   const offensive = (weaponBV + ammo + offEquip + tonnage) * sf * afcMod;
@@ -387,6 +407,8 @@ function equipmentCost<T extends { equipmentId: string; location?: string | null
     // AES: tonnage × 500 per arm, × 700 per leg; partial wing: 50,000 per ton.
     else if (eq.variableWeight === 'aes' && mech) total += mech.tonnage * (legLocations(mech).includes(i.location as Location) ? 700 : 500);
     else if (eq.variableWeight === 'partialWing') total += weight(eq) * 50000;
+    else if (eq.variableWeight === 'droneOS') total += weight(eq) * 10000 + 5000;
+    else if (eq.variableWeight === 'tracks' && mech) total += Math.ceil((500 * rating * mech.tonnage) / 75) / legLocations(mech).length;
     else total += value(eq.id)?.cost ?? 0;
   }
   return total;

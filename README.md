@@ -137,6 +137,21 @@ Everything above, plus:
 - **Null-signature, void-signature and chameleon systems:** one slot in every location except the head (the chameleon shield also skips the centre torso).
   - Their BV effects follow MegaMek: movement modifier and heat efficiency.
   - The void-signature system needs ECM. None of them can be combined with stealth armor, and the null- and void-signature systems can't be combined with C3 or a targeting computer.
+- **Advanced weapons** (MegaMek stats and BV):
+  - **Missiles:** extended LRMs, enhanced LRMs and improved ATMs.
+  - **Gauss:** Silver Bullet and improved heavy Gauss rifles.
+  - **Autocannons:** ProtoMech ACs.
+  - **Flamers:** heavy and vehicle flamers. Ammo-fed flamers need no power amplifiers or heat sinks on vehicles.
+  - **Machine gun arrays:** each is worth 0.67 × the matching machine guns in its location.
+  - **Lasers and PPCs:** Blazer and light Blazer cannons, bombast laser, Clan improved large laser, Clan enhanced PPC.
+  - **Special:** TSEMP cannon, 'Mech taser, fluid gun and Clan 'Mech mortars.
+- **Electronics:** Bloodhound active probe, Watchdog and Nova CEWS, Apollo MRM FCS (MRM ×1.15 BV), C3 emergency master, drone operating system
+- **Physical weapons and shields:** lance, small / medium / large vibroblades, small / medium / large shields (a medium shield costs one jump MP; a large shield stops jumping) and wrecking ball
+- **Other systems:**
+  - **UMUs:** underwater movement. They count in BV like MegaMek and can't be combined with jump jets.
+  - **Tracks:** 10% of tonnage, one slot per leg.
+  - **Radical heat sink system:** needs double heat sinks; adds ⌈heat sinks × 0.4⌉ heat capacity to BV.
+  - **HarJel, the Blue Shield particle field damper, and modular armor:** modular armor adds 10 armor points and costs one jump MP.
 - **Laser AMS** (Inner Sphere and Clan; defensive, no ammo) and the **C3 Boosted System** (master 6 t, slave 3 t)
 - **Armored components** (Tactical Operations, from 3061): armor any equipment item ("Armored" in the
   equipment list) or system slot (engine, gyro, cockpit, sensors, life support, actuators; tick
@@ -226,7 +241,7 @@ fixed-wing support).
 - Critical slot allocation (click to place, or **Auto-allocate**) with live validation
 - Red / amber / green status light: illegal, legal but incomplete (unused tonnage,
   unallocated armor), or fully legal
-- **Canon units**: about 2,880 canon 'Mechs (about 110 of them IndustrialMechs), including 47 quads, 19 Land-Air 'Mechs and around 100 melee-armed designs (OmniMechs with all their
+- **Canon units**: about 3,140 canon 'Mechs (about 110 of them IndustrialMechs), including 47 quads, 19 Land-Air 'Mechs and around 100 melee-armed designs (OmniMechs with all their
   configurations), 715 canon combat vehicles, 160 support vehicles, about 440 aerospace, Omni and
   conventional fighters and about 290 spacecraft (small craft, DropShips, JumpShips, WarShips and
   space stations), about 1,190 battle armor squads and about 1,940 infantry platoons, searchable by name, era, tech base,

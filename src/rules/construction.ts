@@ -69,8 +69,10 @@ export interface MechSummary {
   jumpMP: number;
   /** Partial wing: extra jump MP (when the 'Mech has jump jets) and heat capacity. */
   partialWing: { jumpBonus: number; heatBonus: number } | null;
-  /** Jumping MP including the partial wing bonus. */
+  /** Jumping MP including the partial wing bonus (and shield / modular armor penalties). */
   totalJumpMP: number;
+  /** Underwater maneuvering units: underwater MP. */
+  umuMP: number;
   weightClass: WeightClass | null;
   engineWeight: number | null;
   structure: Record<Location, number> | null;
@@ -275,7 +277,11 @@ export function computeMech(design: MechDesign): MechSummary {
   // Partial wing: +2 jump MP for light and medium 'Mechs, +1 for heavier ones (standard atmosphere), +3 heat capacity.
   const hasWing = design.equipment.some((e) => getEquipment(e.equipmentId)?.variableWeight === 'partialWing');
   const wing = hasWing ? { jumpBonus: jumpMP > 0 ? (tonnage <= 55 ? 2 : 1) : 0, heatBonus: 3 } : null;
-  const totalJumpMP = jumpMP + (wing?.jumpBonus ?? 0);
+  // Medium shields cost a jump MP each, a large shield stops jumping, modular armor costs one jump MP (as MegaMek).
+  const ids = design.equipment.map((e) => e.equipmentId);
+  const jumpPenalty = ids.filter((id) => id === 'medium-shield').length + (ids.includes('modular-armor') ? 1 : 0);
+  const totalJumpMP = ids.includes('large-shield') ? 0 : Math.max(0, jumpMP + (wing?.jumpBonus ?? 0) - (jumpMP > 0 ? jumpPenalty : 0));
+  const umuMP = count((id) => id === 'umu');
   const externalHS = count((id) => HEAT_SINK_IDS.includes(id));
   const totalHS = design.engineHeatSinks + externalHS;
   const hasMasc = design.equipment.some((e) => getEquipment(e.equipmentId)?.variableWeight === 'masc');
@@ -301,7 +307,8 @@ export function computeMech(design: MechDesign): MechSummary {
     heatSinks: Math.max(0, totalHS - freeHeatSinks(design.engineType)),
     jumpJets: jumpMP * jumpJetWeightFor(design.jumpJetType, tonnage),
     armor: armorTonnage(armorTotal, ppt),
-    equipment: equipmentWeight,
+    // Rounded to the kilogram (spread systems split their weight into fractions of a ton).
+    equipment: Math.round(equipmentWeight * 1000) / 1000,
     armored: armoredComponentWeight(design),
     total: 0,
     free: 0,
@@ -330,6 +337,7 @@ export function computeMech(design: MechDesign): MechSummary {
     jumpMP,
     partialWing: wing,
     totalJumpMP,
+    umuMP,
     weightClass: weightClass(tonnage),
     engineWeight: engineWt,
     structure,

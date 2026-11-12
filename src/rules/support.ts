@@ -322,7 +322,8 @@ export interface SupportSummary {
   unallocated: SVItem[];
 }
 
-const isEnergyHeat = (eq: Equipment) => eq.isWeapon && eq.category === 'Energy';
+// Ammunition-fed flamers need neither power amplifiers nor heat sinks (as MegaMek).
+const isEnergyHeat = (eq: Equipment) => eq.isWeapon && eq.category === 'Energy' && !(eq.ammoPerTon && /flamer/.test(eq.id));
 
 export function computeSupport(d: SupportVehicleDesign): SupportSummary {
   const info = SV_TYPES[d.svType];

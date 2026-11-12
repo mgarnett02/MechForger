@@ -332,7 +332,8 @@ export function computeVehicle(d: VehicleDesign): VehicleSummary {
     const w = vehicleItemWeight(eq, d);
     equipment += w;
     if (item.location === 'TU') turretItems += w;
-    if (eq.isWeapon && eq.category === 'Energy') {
+    // Ammunition-fed flamers (vehicle and heavy flamers) need neither power amplifiers nor heat sinks (as MegaMek).
+    if (eq.isWeapon && eq.category === 'Energy' && !(eq.ammoPerTon && /flamer/.test(eq.id))) {
       energyTons += eq.tons;
       energyHeat += eq.heat;
     }

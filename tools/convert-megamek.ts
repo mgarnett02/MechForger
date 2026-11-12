@@ -18,7 +18,7 @@ import type {
 import type { EraId } from '../src/rules/eras';
 import { ERAS } from '../src/rules/eras';
 import type { Equipment } from '../src/rules/equipment';
-import { ALL_EQUIPMENT, getEquipment, itemSlots } from '../src/rules/equipment';
+import { ALL_EQUIPMENT, HEAT_SINK_IDS, getEquipment, itemSlots } from '../src/rules/equipment';
 import { canSplit } from '../src/rules/edit';
 import { SPLIT_ADJACENT } from '../src/rules/types';
 import { computeMech, fixedSlots } from '../src/rules/construction';
@@ -63,7 +63,14 @@ const ALIASES: Record<string, string> = {
   magshotgr: 'magshotgaussrifle', narcbeacon: 'narcmissilebeacon', improvednarc: 'inarclauncher',
   c3masterunit: 'c3mastercomputer', c3iunit: 'improvedc3computer', artemisiv: 'artemisivfcs',
   ams: 'antimissilesystem', ecmsuite: 'ecmsuite', guardianecm: 'guardianecmsuite',
-  flamervehicle: 'flamer', erflamer: 'erflamer',
+  flamervehicle: 'vehicleflamer', erflamer: 'erflamer',
+  watchdogecmsuite: 'watchdogcews', watchdogecm: 'watchdogcews', apollo: 'apollomrmfcs', lmga: 'lightmachinegunarray',
+  mga: 'machinegunarray', hmga: 'heavymachinegunarray', lightmga: 'lightmachinegunarray', heavymga: 'heavymachinegunarray',
+  mektaser: 'mechtaser', battlemechtaser: 'mechtaser', sbgr: 'silverbulletgaussrifle', werppc: 'enhancedppc',
+  cliatm3: 'improvedatm3', cliatm6: 'improvedatm6', cliatm9: 'improvedatm9', cliatm12: 'improvedatm12',
+  iatm3: 'improvedatm3', iatm6: 'improvedatm6', iatm9: 'improvedatm9', iatm12: 'improvedatm12', impgaussrifle: 'improvedheavygaussrifle',
+  blueshieldparticlefielddamper: 'blueshieldpfd', ismodulararmor: 'modulararmor', radicalheatsink: 'radicalheatsinksystem',
+  dronecontrolsystem: 'droneoperatingsystem', droneremoteoperatingsystem: 'droneoperatingsystem',
   artemisv: 'artemisvfcs', aes: 'actuatorenhancementsystem', actuatorenhancementsystemaes: 'actuatorenhancementsystem',
   laserantimissilesystem: 'laserams', laserams: 'laserams', meknullsignaturesystem: 'nullsignaturesystem',
   mekvoidsignaturesystem: 'voidsignaturesystem', chameleonlightpolarizationfield: 'chameleonlightpolarizationshield',
@@ -135,6 +142,11 @@ function resolveAmmo(raw: string, unitTech: TechBase): string | null {
     [/^thumper/, () => 'thumper'], [/^lac(\d+)/, (m) => `lac-${m[1]}`],
     [/^ultraac(\d+)/, (m) => `uac-${m[1]}`], [/^rotaryac(\d+)/, (m) => `rac-${m[1]}`],
     [/^lb(\d+)x/, (m) => `lb-${m[1]}x`], [/^ac(\d+)/, (m) => `ac-${m[1]}`],
+    [/^extendedlrm(\d+)/, (m) => `elrm-${m[1]}`], [/^enhancedlrm(\d+)/, (m) => `nlrm-${m[1]}`], [/^iatm(\d+)/, (m) => `iatm-${m[1]}`],
+    [/^scmortar(\d+)/, (m) => `mech-mortar-${m[1]}`], [/^protomechac(\d+)/, (m) => `protomech-ac-${m[1]}`],
+    [/^silverbullet/, () => 'silver-bullet-gauss'], [/^improvedheavygauss/, () => 'improved-heavy-gauss'],
+    [/^heavyflamer/, () => 'heavy-flamer'], [/^vehicleflamer/, () => 'vehicle-flamer'], [/^fluidgun/, () => 'fluid-gun'],
+    [/^taser/, () => 'mech-taser'],
     [/^streaksrm(\d+)/, (m) => `streak-srm-${m[1]}`], [/^streaklrm(\d+)/, (m) => `streak-lrm-${m[1]}`], [/^srm(\d+)/, (m) => `srm-${m[1]}`],
     [/^lrm(\d+)/, (m) => `lrm-${m[1]}`], [/^mrm(\d+)/, (m) => `mrm-${m[1]}`], [/^atm(\d+)/, (m) => `atm-${m[1]}`],
     [/^thunderbolt(\d+)/, (m) => `thunderbolt-${m[1]}`], [/^mml(\d)(lrm|srm)/, (m) => `mml-${m[1]}|${m[2]}`],
@@ -427,7 +439,7 @@ function parseMtf(text: string): ParsedMech {
     if (/\(OMNIPOD\)/.test(main.raw)) pods.add(item);
   }
   fixAmmoTech(equipment);
-  const externalHS = equipment.filter((e) => /heat-sink$/.test(e.equipmentId)).length;
+  const externalHS = equipment.filter((e) => HEAT_SINK_IDS.includes(e.equipmentId)).length;
   const jets = equipment.filter((e) => /jump-jet$/.test(e.equipmentId));
   const design: MechDesign = {
     schemaVersion: 1, era: '3025', techBase, mixedTech,

@@ -278,8 +278,7 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
     if (hasTC) error('AES cannot be combined with a targeting computer.');
     if (design.myomer !== 'standard') error('AES cannot be combined with Triple-Strength Myomer.');
   }
-  for (const eq of [getEquipment('partial-wing')!, getEquipment('clan-partial-wing')!, getEquipment('null-signature-system')!,
-    getEquipment('void-signature-system')!, getEquipment('chameleon-lps')!]) {
+  for (const eq of [...new Set(design.equipment.map((e) => getEquipment(e.equipmentId)).filter((e) => e?.spread))] as NonNullable<ReturnType<typeof getEquipment>>[]) {
     const pieces = design.equipment.filter((e) => e.equipmentId === eq.id);
     if (!pieces.length) continue;
     for (const loc of spreadLocations(eq, design)) {
@@ -291,6 +290,9 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
     if (hasId(/^partial-wing$/) && hasId(/^clan-partial-wing$/)) error('Only one partial wing can be fitted.');
     if (design.lam) error("Land-Air 'Mechs cannot mount a partial wing.");
   }
+  if (ids.includes('umu') && hasId(/jump-jet$/)) error('UMUs cannot be combined with jump jets.');
+  if (ids.includes('radical-heat-sink') && design.heatSinkType !== 'double') error('A radical heat sink system needs double heat sinks.');
+  if (ids.filter((id) => id === 'radical-heat-sink').length > 1) error('Only one radical heat sink system can be installed.');
   const nullSig = ids.includes('null-signature-system');
   const voidSig = ids.includes('void-signature-system');
   const chameleon = ids.includes('chameleon-lps');

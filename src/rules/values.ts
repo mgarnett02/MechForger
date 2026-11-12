@@ -202,6 +202,22 @@ export const ITEM_VALUES: Record<string, ItemValue> = {
   'null-signature-system': v(0, 200000),
   'void-signature-system': v(0, 2000000 / 7),
   'chameleon-lps': v(0, 100000),
+  // Advanced weapons (MegaMek): v(BV, cost, ammo BV per ton, ammo cost per ton)
+  'elrm-5': v(67, 60000, 8, 90000), 'elrm-10': v(133, 200000, 17, 90000), 'elrm-15': v(200, 350000, 25, 90000), 'elrm-20': v(268, 500000, 34, 90000),
+  'nlrm-5': v(52, 37500, 7, 31000), 'nlrm-10': v(104, 125000, 13, 31000), 'nlrm-15': v(157, 218750, 20, 31000), 'nlrm-20': v(210, 312500, 26, 31000),
+  'clan-iatm-3': v(83, 100000, 21, 75000), 'clan-iatm-6': v(165, 250000, 39, 75000), 'clan-iatm-9': v(231, 450000, 54, 75000), 'clan-iatm-12': v(333, 700000, 78, 75000),
+  'silver-bullet-gauss': v(198, 350000, 25, 25000), 'improved-heavy-gauss': v(385, 700000, 48, 20000),
+  'clan-protomech-ac-2': v(34, 95000, 4, 1200), 'clan-protomech-ac-4': v(49, 133000, 6, 4800), 'clan-protomech-ac-8': v(66, 175000, 8, 6300),
+  'heavy-flamer': v(15, 11250, 2, 2000), 'clan-heavy-flamer': v(15, 11250, 2, 2000), 'vehicle-flamer': v(5, 7500, 1, 1000),
+  'light-mga': v(0, 1250), mga: v(0, 1250), 'heavy-mga': v(0, 1250), 'clan-light-mga': v(0, 1250), 'clan-mga': v(0, 1250), 'clan-heavy-mga': v(0, 1250),
+  blazer: v(222, 200000), 'light-blazer': v(65, 15000), 'bombast-laser': v(137, 200000), 'clan-improved-large-laser': v(123, 100000),
+  'clan-enhanced-ppc': v(329, 300000), 'tsemp-cannon': v(488, 800000), 'mech-taser': v(40, 200000, 5, 2000),
+  'fluid-gun': v(6, 35000, 1, 500), 'clan-fluid-gun': v(6, 35000, 1, 500),
+  'clan-mech-mortar-1': v(10, 7000, 1.2, 28000), 'clan-mech-mortar-2': v(14, 15000, 2.4, 28000), 'clan-mech-mortar-4': v(26, 32000, 3.6, 28000), 'clan-mech-mortar-8': v(50, 70000, 7.2, 28000),
+  'bloodhound-probe': v(25, 500000), 'clan-watchdog-ecm': v(68, 500000), 'clan-nova-cews': v(68, 1100000), 'apollo-fcs': v(0, 125000),
+  'c3-emergency-master': v(0, 2800000), 'drone-os': v(0, 0),
+  umu: v(0, 0), tracks: v(0, 0), 'radical-heat-sink': v(0, 250000), harjel: v(0, 120000), 'blue-shield': v(0, 1000000 / 7),
+  'modular-armor': v(0, 10000),
   // AES and partial wing costs depend on the 'Mech (computed in mechCost).
   aes: v(0, 0),
   'partial-wing': v(0, 0),
@@ -245,6 +261,7 @@ export const MML_AMMO_BV: Record<string, [number, number]> = {
 export const DEFENSIVE_IDS = new Set([
   'ams', 'clan-ams', 'guardian-ecm', 'clan-ecm', 'angel-ecm', 'beagle-active-probe', 'clan-active-probe',
   'clan-light-active-probe', 'b-pod', 'm-pod', 'ap-pod', 'laser-ams', 'clan-laser-ams',
+  'bloodhound-probe', 'clan-watchdog-ecm', 'clan-nova-cews',
 ]);
 
 /** Gauss-type weapons: their ammo does not explode, but the weapon itself does. */
