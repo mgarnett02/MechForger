@@ -789,7 +789,7 @@ export function vesselCost(d: VesselDesign): CostBreakdown {
   if (isLargeCraft(d)) return largeCraftCost(d, s, lines.slice(0, 7), equipment);
   let multiplier = 1 + t / 50;
   if (d.vesselType === 'dropship') {
-    const bays = d.bays.reduce((a, b) => a + BAY_INFO[b.kind].cost * Math.ceil(BAY_INFO[b.kind].cargo ? BAY_INFO[b.kind].tons * b.size : b.size), 0);
+    const bays = d.bays.reduce((a, b) => a + BAY_INFO[b.kind].cost * Math.ceil(BAY_INFO[b.kind].cargo ? BAY_INFO[b.kind].tons * b.size : b.size) + (b.arts ? 1000000 : 0), 0);
     lines.push(['Docking collar', 10000], ['Bays and doors', bays + 1000 * s.bayDoors], ['Life boats / escape pods', 5000 * (d.lifeboats + d.escapePods)]);
     multiplier = d.shape === 'spheroid' ? 28 : 36;
   }
@@ -822,7 +822,7 @@ function largeCraftCost(d: VesselDesign, s: ReturnType<typeof computeVessel>, co
   const bays = d.bays.reduce((a, b) => {
     const info = BAY_INFO[b.kind];
     const units = info.cargo ? info.tons * b.size : b.size;
-    return a + info.cost * Math.ceil(units);
+    return a + info.cost * Math.ceil(units) + (b.arts ? 1000000 : 0);
   }, 0);
   const decks = d.gravDecks.reduce((a, g) => a + (g < 100 ? 5000000 : g <= 250 ? 10000000 : 40000000), 0);
   lines.push(

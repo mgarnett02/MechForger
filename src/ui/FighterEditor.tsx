@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { BasicArmorType, BasicCockpitType, HeatSinkType, TechBase } from '../rules/types';
+import type { HeatSinkType, TechBase } from '../rules/types';
 import { TECH_BASE_NAMES } from '../rules/types';
 import { ERAS, getEra, isAvailableIn } from '../rules/eras';
 import type { ComponentOption } from '../rules/tables';
@@ -8,7 +8,7 @@ import type { Equipment, EquipmentCategory } from '../rules/equipment';
 import { ALL_EQUIPMENT, equipmentName, getEquipment, isEquipmentAvailable } from '../rules/equipment';
 import { armorPointsForTons, armorTonnage } from '../rules/armor';
 import type { Issue } from '../rules/validation';
-import type { FighterDesign, FighterEngineType, FighterLocation, FighterSummary, FighterType } from '../rules/fighter';
+import type { FighterArmorType, FighterCockpitType, FighterDesign, FighterEngineType, FighterLocation, FighterSummary, FighterType } from '../rules/fighter';
 import {
   FIGHTER_ARCS, FIGHTER_ARMOR_NAMES, FIGHTER_ARMOR_SLOTS, FIGHTER_ENGINE_LABELS, FIGHTER_ENGINE_OPTIONS,
   FIGHTER_LOCATION_NAMES, FIGHTER_MAX_TONNAGE, FIGHTER_TYPE_NAMES, FUEL_POINTS_PER_TON, addFighterItem, armorThreshold,
@@ -149,9 +149,14 @@ function FighterChassisPanel({ design, summary, update }: Props) {
             <label>Cockpit</label>
             <div>
               <select aria-label="Cockpit" value={design.cockpitType}
-                onChange={(e) => update((d) => ({ ...d, cockpitType: e.target.value as BasicCockpitType }))}>
+                onChange={(e) => update((d) => {
+                  const cockpitType = e.target.value as FighterCockpitType;
+                  const armorType = cockpitType === 'primitive' ? 'primitive' : d.armorType === 'primitive' ? 'standard' : d.armorType;
+                  return { ...d, cockpitType, armorType };
+                })}>
                 <option value="standard">Standard</option>
                 <option value="small" disabled={!ok(COCKPIT_OPTIONS.small)} title={why(COCKPIT_OPTIONS.small)}>Small</option>
+                <option value="primitive">Primitive (engine × 1.2)</option>
               </select>
               <span className="muted"> {summary.weights.controls} t</span>
             </div>
@@ -203,16 +208,16 @@ function FighterArmorPanel({ design, summary, update }: Props) {
   const ppt = summary.armorPointsPerTon;
   const maxTons = armorTonnage(summary.armorMax, ppt);
   const unused = armorPointsForTons(summary.weights.armor, ppt) - summary.armorTotal;
-  const opt = (k: BasicArmorType) => componentAvailable(ARMOR_OPTIONS[k], design.era, design.techBase, design.mixedTech);
-  const slotText = (k: BasicArmorType) => (FIGHTER_ARMOR_SLOTS[k] ? ` (${FIGHTER_ARMOR_SLOTS[k]} slot${FIGHTER_ARMOR_SLOTS[k] > 1 ? 's' : ''})` : '');
+  const opt = (k: FighterArmorType) => componentAvailable(ARMOR_OPTIONS[k], design.era, design.techBase, design.mixedTech);
+  const slotText = (k: FighterArmorType) => (FIGHTER_ARMOR_SLOTS[k] ? ` (${FIGHTER_ARMOR_SLOTS[k]} slot${FIGHTER_ARMOR_SLOTS[k] > 1 ? 's' : ''})` : '');
   return (
     <section className="panel">
       <h2>
         Armor{' '}
         <select aria-label="Armor type" value={design.armorType}
-          onChange={(e) => update((d) => ({ ...d, armorType: e.target.value as BasicArmorType }))}>
-          {(Object.keys(FIGHTER_ARMOR_NAMES) as BasicArmorType[]).map((k) => (
-            <option key={k} value={k} disabled={k !== 'standard' && !opt(k)}>{FIGHTER_ARMOR_NAMES[k]}{slotText(k)}</option>
+          onChange={(e) => update((d) => ({ ...d, armorType: e.target.value as FighterArmorType }))}>
+          {(Object.keys(FIGHTER_ARMOR_NAMES) as FighterArmorType[]).map((k) => (
+            <option key={k} value={k} disabled={k === 'primitive' ? design.cockpitType !== 'primitive' : k !== 'standard' && !opt(k)}>{FIGHTER_ARMOR_NAMES[k]}{slotText(k)}</option>
           ))}
         </select>{' '}
         <span className="muted small">{Number.isInteger(ppt) ? ppt : ppt.toFixed(2)} pts/ton</span>

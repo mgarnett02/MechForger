@@ -5,9 +5,9 @@ import { getEra, isAvailableIn } from '../rules/eras';
 import { getMM, has, mmAvailable, mmName, mmNum } from '../rules/mmEquipment';
 import type { MMItem } from '../rules/mmEquipment';
 import { ALL_EQUIPMENT, getEquipment, isEquipmentAvailable } from '../rules/equipment';
-import type { InfantryDesign, InfantryIssue, InfantryMotion, InfantrySummary, Specialization } from '../rules/infantry';
+import type { Augmentation, InfantryDesign, InfantryIssue, InfantryMotion, InfantrySummary, Specialization } from '../rules/infantry';
 import {
-  BEASTS, INFANTRY_MOTION_NAMES, SPECIALIZATIONS, SPECIALIZATION_NAMES, armorKits, damageTable, infantryBV, infantryCost,
+  AUGMENTATIONS, AUGMENTATION_NAMES, BEASTS, INFANTRY_MOTION_NAMES, SPECIALIZATIONS, disposableWeapons, SPECIALIZATION_NAMES, armorKits, damageTable, infantryBV, infantryCost,
   infantryReadout, infantryTools, infantryWeapons, maxPlatoon, maxSecondary, maxSquadSize, maxSquads, newInfantryUid,
 } from '../rules/infantry';
 import { NumberField } from './NumberField';
@@ -110,6 +110,34 @@ function PlatoonPanel({ design, update }: Props) {
             {SPECIALIZATION_NAMES[sp]}
           </label>
         ))}
+      </div>
+      <h3>Augmentations</h3>
+      <div className="row wrap small">
+        {AUGMENTATIONS.map((a) => (
+          <label key={a} className="check">
+            <input type="checkbox" checked={!!design.augmentations?.includes(a)}
+              onChange={(e) => update((d) => {
+                const next = e.target.checked ? [...(d.augmentations ?? []), a] : (d.augmentations ?? []).filter((x) => x !== a) as Augmentation[];
+                const { augmentations: _a, ...rest } = d;
+                return next.length ? { ...rest, augmentations: next } : rest;
+              })} />
+            {AUGMENTATION_NAMES[a]}
+          </label>
+        ))}
+      </div>
+      <h3>Disposable weapon</h3>
+      <div className="row small">
+        <select aria-label="Disposable weapon" value={design.disposable ?? ''}
+          onChange={(e) => update((d) => {
+            const { disposable: _x, ...rest } = d;
+            return e.target.value ? { ...rest, disposable: e.target.value } : rest;
+          })}>
+          <option value="">None</option>
+          {disposableWeapons().filter((w) => mmAvailable(w, design.era, design.techBase, design.mixedTech) || w.id === design.disposable).map((w) => (
+            <option key={w.id} value={w.id}>{mmName(w)}</option>
+          ))}
+        </select>
+        <span className="muted"> one per trooper, fired once</span>
       </div>
     </section>
   );

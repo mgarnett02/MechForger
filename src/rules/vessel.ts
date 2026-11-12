@@ -118,7 +118,7 @@ export const BAY_INFO: Record<BayKind, BayInfo> = {
 export function bayWeight(b: TransportBay): number {
   const info = BAY_INFO[b.kind];
   // Battle armor bays: 8 t per IS squad, 10 t per Clan point, 12 t per ComStar Level II (as MegaMek).
-  const per = b.kind === 'battle-armor' && b.variant ? (b.variant === 'clan' ? 10 : 12) : info.tons;
+  const per = b.kind === 'battle-armor' && b.variant ? (b.variant === 'clan' ? 10 : 12) : info.tons * (b.arts ? 1.25 : 1);
   return info.roundHalf ? Math.ceil(b.size * per * 2 - 1e-9) / 2 : per * b.size;
 }
 export const BAY_KINDS = Object.keys(BAY_INFO) as BayKind[];
@@ -129,7 +129,12 @@ export interface TransportBay {
   doors: number;
   /** Battle armor bays: Clan or ComStar instead of Inner Sphere. */
   variant?: 'clan' | 'comstar';
+  /** Fighter and small craft bays: Advanced Robotic Transport System (×1.25 weight, no bay crew). */
+  arts?: boolean;
 }
+
+/** Bays that can be fitted with the Advanced Robotic Transport System. */
+export const ARTS_BAY_KINDS: readonly BayKind[] = ['fighter', 'small-craft'];
 
 export type QuartersKind = 'crew' | 'first-class' | 'second-class' | 'steerage';
 /** Tons of quarters per person. */
@@ -170,6 +175,9 @@ export interface VesselDesign {
   shape: VesselShape;
   /** Military DropShips get more weight-free heat sinks. */
   military: boolean;
+  /** Primitive small craft and DropShips (Interstellar Operations): the year of construction sets the
+   * engine, control and fuel factors; armor gets only 66% of its points. */
+  primitiveYear?: number;
   era: EraId;
   techBase: TechBase;
   mixedTech: boolean;
@@ -277,7 +285,26 @@ export function slotsPerArc(d: Pick<VesselDesign, 'vesselType'>): number {
 export const VESSEL_SLOTS_PER_ARC = 12;
 
 /** Fuel points per ton: 80 for small craft; DropShips get fewer as they grow. */
-export function vesselFuelPointsPerTon(d: Pick<VesselDesign, 'vesselType' | 'tonnage'>): number {
+/** Year-based factor tables for primitive craft: [from year, small craft, DropShip]. */
+const PRIMITIVE_TABLE: Record<'engine' | 'controls' | 'fuel', [number, number, number][]> = {
+  engine: [[2500, 0.065, 0.065], [2400, 0.078, 0.0715], [2351, 0.091, 0.0715], [2300, 0.091, 0.0845], [2251, 0.0975, 0.091], [2201, 0.1105, 0.1104], [2151, 0.1235, 0.117], [0, 0.143, 0.13]],
+  controls: [[2500, 0.0075, 0.0075], [2400, 0.00825, 0.009], [2351, 0.00975, 0.009], [2300, 0.00975, 0.00975], [2251, 0.01125, 0.0105], [2201, 0.01275, 0.012], [2151, 0.01245, 0.0135], [0, 0.01575, 0.015]],
+  fuel: [[2500, 1, 1], [2400, 1.2, 1.1], [2351, 1.4, 1.3], [2300, 1.4, 1.4], [2251, 1.5, 1.4], [2201, 1.7, 1.6], [2151, 1.9, 1.8], [0, 2.2, 2.0]],
+};
+export function isPrimitiveVessel(d: Partial<Pick<VesselDesign, 'primitiveYear' | 'vesselType'>>): boolean {
+  return d.primitiveYear !== undefined && (d.vesselType === 'small-craft' || d.vesselType === 'dropship');
+}
+export function primitiveFactor(kind: keyof typeof PRIMITIVE_TABLE, d: Partial<Pick<VesselDesign, 'primitiveYear' | 'vesselType'>>): number {
+  const row = PRIMITIVE_TABLE[kind].find(([y]) => (d.primitiveYear ?? 2500) >= y)!;
+  return d.vesselType === 'dropship' ? row[2] : row[1];
+}
+
+export function vesselFuelPointsPerTon(d: Pick<VesselDesign, 'vesselType' | 'tonnage'> & Partial<Pick<VesselDesign, 'primitiveYear'>>): number {
+  const base = vesselBaseFuelPointsPerTon(d);
+  return isPrimitiveVessel(d) ? base / primitiveFactor('fuel', d) : base;
+}
+
+function vesselBaseFuelPointsPerTon(d: Pick<VesselDesign, 'vesselType' | 'tonnage'>): number {
   if (d.vesselType === 'small-craft') return 80;
   const t = d.tonnage;
   if (isLargeCraft(d)) return t < 110000 ? 10 : t < 250000 ? 5 : 2.5;
@@ -286,18 +313,20 @@ export function vesselFuelPointsPerTon(d: Pick<VesselDesign, 'vesselType' | 'ton
 
 const halfNearest = (n: number) => Math.round(n * 2) / 2;
 
-export function vesselEngineWeight(d: Pick<VesselDesign, 'tonnage' | 'safeThrust' | 'techBase'> & { vesselType?: VesselType }): number {
+export function vesselEngineWeight(d: Pick<VesselDesign, 'tonnage' | 'safeThrust' | 'techBase'> & { vesselType?: VesselType; primitiveYear?: number }): number {
   if (d.vesselType && isLargeCraft({ vesselType: d.vesselType })) {
     // A station-keeping drive (0 thrust) weighs 1.2% of the craft; transit drives 6% per point of thrust.
     return halfNearest(d.tonnage * (d.safeThrust === 0 ? 0.012 : d.safeThrust * 0.06));
   }
-  return halfUp(d.tonnage * d.safeThrust * (d.techBase === 'Clan' ? 0.061 : 0.065));
+  const multiplier = d.techBase === 'Clan' ? 0.061 : isPrimitiveVessel(d) ? primitiveFactor('engine', d) : 0.065;
+  return halfUp(d.tonnage * d.safeThrust * multiplier);
 }
 
 /** Weight-free heat sinks, from the engine tonnage. */
-export function vesselFreeHeatSinks(d: Pick<VesselDesign, 'tonnage' | 'safeThrust' | 'techBase' | 'shape' | 'military' | 'vesselType'>): number {
+export function vesselFreeHeatSinks(d: Pick<VesselDesign, 'tonnage' | 'safeThrust' | 'techBase' | 'shape' | 'military' | 'vesselType'> & { primitiveYear?: number }): number {
   const engine = vesselEngineWeight(d);
   if (isLargeCraft(d)) return Math.floor(45 + Math.sqrt(engine * 2));
+  if (isPrimitiveVessel(d)) return d.shape === 'spheroid' ? Math.floor(Math.sqrt(engine * 1.3)) : Math.floor(engine / 75);
   const militaryDS = d.military && d.vesselType === 'dropship';
   return d.shape === 'spheroid'
     ? Math.floor(Math.sqrt(engine * (militaryDS ? 6.8 : 1.6)))
@@ -320,7 +349,8 @@ export function siBonusArmor(d: Pick<VesselDesign, 'si'> & Partial<Pick<VesselDe
 }
 
 export function vesselMaxArmor(d: VesselDesign): number {
-  return Math.floor(vesselArmorPointsPerTon(d) * vesselMaxArmorWeight(d) + siBonusArmor(d));
+  const base = Math.floor(vesselArmorPointsPerTon(d) * vesselMaxArmorWeight(d) + siBonusArmor(d));
+  return isPrimitiveVessel(d) ? Math.floor(base * 0.66) : base;
 }
 
 export function armorThreshold(points: number): number {
@@ -377,6 +407,7 @@ export function vesselUsesWeaponSlot(eq: Equipment): boolean {
  * weapons, capital missiles and screen launchers also fit DropShips; mass drivers only WarShips). */
 export function isVesselEquipment(eq: Equipment, d?: Pick<VesselDesign, 'vesselType'>): boolean {
   if (eq.id === 'remote-sensor-dispenser' || eq.id === 'cargo-container') return true;
+  if (eq.id === 'mobile-hpg') return d?.vesselType !== 'small-craft';
   if (eq.managed || eq.melee || eq.lamOnly || eq.category === 'Utility' || eq.variableWeight === 'masc' || eq.variableWeight === 'supercharger') return false;
   if (eq.capitalClass && d) {
     if (d.vesselType === 'small-craft') return false;
@@ -598,6 +629,7 @@ export function computeVessel(d: VesselDesign): VesselSummary {
   const quartersCapacity = QUARTERS_KINDS.reduce((a, q) => a + (d.quarters[q] ?? 0), 0);
   const bayPersonnel = d.bays.reduce((a, b) => {
     const info = BAY_INFO[b.kind];
+    if (b.arts) return a;
     return a + (d.techBase === 'Clan' && info.clanPersonnel !== undefined ? info.clanPersonnel : info.personnel) * Math.floor(b.size);
   }, 0);
   const t = d.tonnage;
@@ -614,7 +646,8 @@ export function computeVessel(d: VesselDesign): VesselSummary {
     : halfUp((d.si * t) / (d.shape === 'spheroid' ? 500 : 200));
   const controls = d.vesselType === 'space-station' ? tonUp(t * 0.001)
     : large ? tonUp(t * 0.0025)
-    : d.vesselType === 'dropship' ? tonUp(t * 0.0075) : halfUp(t * 0.0075);
+    : d.vesselType === 'dropship' ? tonUp(t * primitiveFactor('controls', isPrimitiveVessel(d) ? d : {}))
+    : halfUp(t * primitiveFactor('controls', isPrimitiveVessel(d) ? d : {}));
   const weights: VesselWeights = {
     structure,
     engine: vesselEngineWeight(d),
@@ -622,7 +655,8 @@ export function computeVessel(d: VesselDesign): VesselSummary {
     // Fuel pumps: 2% of the fuel (rounded up to the ton on large craft, with the total to the half ton on smaller craft).
     fuel: large ? d.fuelTons + tonUp(d.fuelTons * 0.02) : halfUp(d.fuelTons * 1.02),
     heatSinks: Math.max(0, d.heatSinks - free),
-    armor: armorTotal > 0 ? halfUp(Math.max(0, armorTotal - siBonusArmor(d)) / ppt) : 0,
+    // Primitive armor: points = (tons × points per ton + SI bonus) × 0.66.
+    armor: armorTotal > 0 ? halfUp(Math.max(0, (isPrimitiveVessel(d) ? armorTotal / 0.66 : armorTotal) - siBonusArmor(d)) / ppt) : 0,
     fireControl,
     lifeboats: (d.lifeboats + d.escapePods) * 7,
     equipment,
@@ -725,6 +759,7 @@ export function validateVessel(d: VesselDesign, s: VesselSummary = computeVessel
     if (d.gravDecks.some((g) => g > maxDia || g <= 0)) error(`Grav deck diameters must be 1–${maxDia} m.`);
     if (d.dockingCollars > s.maxDockingCollars) error(`At most ${s.maxDockingCollars} docking collars (has ${d.dockingCollars}).`);
   }
+  if (d.primitiveYear !== undefined && !isPrimitiveVessel(d)) error('Only small craft and DropShips can be built as primitive craft.');
   if (s.armorPointsPerTon === 0) {
     error(`${VESSEL_ARMOR_NAMES[d.armorType]} armor cannot be used on a ${typeName.toLowerCase()}.`);
   }
@@ -734,7 +769,7 @@ export function validateVessel(d: VesselDesign, s: VesselSummary = computeVessel
     const v = d.armor[l];
     if (!Number.isInteger(v) || v < 0) error(`${VESSEL_LOCATION_NAMES[l]} armor must be a non-negative whole number.`);
   }
-  if (s.weights.armor > s.armorMaxWeight) {
+  if (isPrimitiveVessel(d) ? s.armorTotal > s.armorMax : s.weights.armor > s.armorMaxWeight) {
     error(`Armor weighs ${fmt(s.weights.armor)} tons; structural integrity ${d.si} allows at most ${fmt(s.armorMaxWeight)} tons (${s.armorMax} points).`);
   }
   if (s.armorTotal === 0) warn('No armor allocated.');
@@ -783,6 +818,7 @@ export function validateVessel(d: VesselDesign, s: VesselSummary = computeVessel
     const info = BAY_INFO[b.kind];
     if (b.size <= 0) error(`${info.name} needs a size.`);
     if (info.largeOnly && !large) error(`${info.name}s only fit JumpShips, WarShips and space stations.`);
+    if (b.arts && !ARTS_BAY_KINDS.includes(b.kind)) error(`${info.name}s cannot use ARTS.`);
     if (b.doors < 1 && !info.cargo && !info.largeOnly && !b.kind.startsWith('infantry') && b.kind !== 'battle-armor') error(`${info.name} needs at least one door.`);
   }
   if (s.bayDoors > maxBayDoors(d)) error(`${s.bayDoors} bay doors; a ${typeName.toLowerCase()} this size can have ${maxBayDoors(d)}.`);
@@ -894,7 +930,8 @@ export function parseVessel(raw: unknown): VesselDesign {
     ? r.bays.flatMap((x) => {
         const b = x as Record<string, unknown>;
         const variant = b?.kind === 'battle-armor' && (b.variant === 'clan' || b.variant === 'comstar') ? { variant: b.variant as 'clan' | 'comstar' } : {};
-        return BAY_KINDS.includes(b?.kind as BayKind) ? [{ kind: b.kind as BayKind, size: n(b.size), doors: n(b.doors), ...variant }] : [];
+        const arts = b?.arts === true && ARTS_BAY_KINDS.includes(b.kind as BayKind) ? { arts: true } : {};
+        return BAY_KINDS.includes(b?.kind as BayKind) ? [{ kind: b.kind as BayKind, size: n(b.size), doors: n(b.doors), ...variant, ...arts }] : [];
       })
     : [];
   return {
@@ -903,6 +940,7 @@ export function parseVessel(raw: unknown): VesselDesign {
     vesselType: pick(r.vesselType, ['small-craft', 'dropship', 'jumpship', 'warship', 'space-station'] as const, 'dropship'),
     shape: pick(r.shape, ['aerodyne', 'spheroid'] as const, 'spheroid'),
     military: r.military !== false,
+    ...(typeof r.primitiveYear === 'number' ? { primitiveYear: r.primitiveYear } : {}),
     era: getEra(String(r.era))?.id ?? DEFAULT_ERA,
     techBase: pick(r.techBase, ['IS', 'Clan'] as const, 'IS'),
     mixedTech: r.mixedTech === true,
@@ -948,6 +986,7 @@ export function vesselReadout(d: VesselDesign, s: VesselSummary = computeVessel(
     ? `Tech Base: Mixed (${TECH_BASE_NAMES[d.techBase]} chassis) (Advanced)`
     : `Tech Base: ${TECH_BASE_NAMES[d.techBase]} (${era?.rulesLevel ?? '?'})`);
   if (era) lines.push(`Era: ${era.name} (${era.year})`);
+  if (isPrimitiveVessel(d)) lines.push(`Primitive craft (built ${d.primitiveYear})`);
   if (values) {
     lines.push(`Battle Value: ${values.bv.toLocaleString('en-US')}`);
     lines.push(`Cost: ${values.cost.toLocaleString('en-US')} C-bills`);
@@ -968,7 +1007,7 @@ export function vesselReadout(d: VesselDesign, s: VesselSummary = computeVessel(
   if (d.hpg) lines.push('HPG');
   if (s.weights.fireControl) lines.push(row('Extra Fire Control:', s.weights.fireControl));
   if (s.weights.lifeboats) lines.push(row(`Life Boats / Escape Pods: ${d.lifeboats} / ${d.escapePods}`, s.weights.lifeboats));
-  for (const b of d.bays) lines.push(row(`${BAY_INFO[b.kind].name}${b.variant ? ` (${b.variant === 'clan' ? 'Clan' : 'ComStar'})` : ''}: ${b.size} ${BAY_INFO[b.kind].unit} (${b.doors} doors)`, bayWeight(b)));
+  for (const b of d.bays) lines.push(row(`${b.arts ? 'ARTS ' : ''}${BAY_INFO[b.kind].name}${b.variant ? ` (${b.variant === 'clan' ? 'Clan' : 'ComStar'})` : ''}: ${b.size} ${BAY_INFO[b.kind].unit} (${b.doors} doors)`, bayWeight(b)));
   for (const q of QUARTERS_KINDS) if (d.quarters[q]) lines.push(row(`${QUARTERS_NAMES[q]}: ${d.quarters[q]}`, QUARTERS_TONS[q] * d.quarters[q]));
   lines.push('');
   lines.push(`Crew: ${d.crew.crew} (${d.crew.officers} officers, ${d.crew.gunners} gunners)` +

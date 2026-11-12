@@ -634,6 +634,8 @@ export const UTILITY_EQUIPMENT: readonly Equipment[] = [
   utility('paramedic-equipment', 'Paramedic Equipment', 0.25),
   utility('cargo-container', 'Cargo Container (10 tons)', 10),
   utility('communications-equipment', 'Communications Equipment (1 ton)', 1),
+  { ...utility('mobile-hpg', 'Mobile HPG', 50), slots: 50, techBase: 'IS' },
+  { ...utility('ground-mobile-hpg', 'Ground-Mobile HPG', 12), slots: 12, techBase: 'IS' },
   utility('bulldozer', 'Bulldozer', 2),
   utility('backhoe', 'Backhoe', 5),
   utility('chainsaw', 'Chainsaw', 5),

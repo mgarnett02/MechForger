@@ -10,7 +10,7 @@ import type {
   BayKind, DriveCore, QuartersKind, VesselArmorType, VesselDesign, TransportBay, VesselLocation, VesselShape, VesselSummary, VesselType,
 } from '../rules/vessel';
 import {
-  BAY_INFO, BAY_KINDS, LARGE_CRAFT_ARMORS, QUARTERS_KINDS, QUARTERS_NAMES, QUARTERS_TONS, SMALL_CRAFT_ARMORS,
+  ARTS_BAY_KINDS, BAY_INFO, BAY_KINDS, LARGE_CRAFT_ARMORS, QUARTERS_KINDS, QUARTERS_NAMES, QUARTERS_TONS, SMALL_CRAFT_ARMORS,
   VESSEL_ARMOR_NAMES, VESSEL_ARMOR_OPTIONS, VESSEL_LOCATION_NAMES, VESSEL_TYPE_NAMES, addVesselItem, armorArcs,
   armorThreshold, bayWeight, distributeVesselArmor, emptyVesselArmor, gravDeckWeight, isLargeCraft, isVesselEquipment,
   maxBayDoors, maxGravDecks, removeVesselItem, setVesselArmorTonnage, setVesselType, shotsPerBin, updateVesselItem,
@@ -81,6 +81,23 @@ function VesselChassisPanel({ design, summary, update }: Props) {
             <input type="checkbox" checked={design.military} onChange={(e) => update((d) => ({ ...d, military: e.target.checked }))} />
             Military
           </label>
+          {!large && (
+            <>
+              {' '}
+              <label className="check" title="Primitive craft (Interstellar Operations): heavier engines and controls, less fuel per ton, 66% armor points">
+                <input type="checkbox" checked={design.primitiveYear !== undefined}
+                  onChange={(e) => update((d) => {
+                    const { primitiveYear: _p, ...rest } = d;
+                    return e.target.checked ? { ...rest, primitiveYear: 2400 } : rest;
+                  })} />
+                Primitive
+              </label>
+              {design.primitiveYear !== undefined && (
+                <> built in <NumberField label="Year of construction" value={design.primitiveYear} min={2000} max={2500} width="5rem"
+                  onChange={(n) => update((d) => ({ ...d, primitiveYear: Math.round(n) }))} /></>
+              )}
+            </>
+          )}
         </div>
 
         <label>Tonnage</label>
@@ -291,7 +308,7 @@ function VesselCrewPanel({ design, summary, update }: Props) {
         {design.bays.map((b, i) => (
           <li key={i}>
             <span className="item-name">
-              <strong style={{ fontWeight: 500 }}>{BAY_INFO[b.kind].name}</strong>
+              <strong style={{ fontWeight: 500 }}>{b.arts ? 'ARTS ' : ''}{BAY_INFO[b.kind].name}</strong>
               <span className="muted small">{t(bayWeight(b))} t</span>
             </span>
             <span className="spacer" />
@@ -305,6 +322,13 @@ function VesselCrewPanel({ design, summary, update }: Props) {
                 <option value="clan">Clan (10 t)</option>
                 <option value="comstar">ComStar (12 t)</option>
               </select>
+            )}
+            {ARTS_BAY_KINDS.includes(b.kind) && (
+              <label className="check small" title="Advanced Robotic Transport System: 25% heavier, no bay crew, +1,000,000 C-bills">
+                <input type="checkbox" checked={!!b.arts}
+                  onChange={(e) => update((d) => ({ ...d, bays: d.bays.map((x, j) => (j === i ? { ...x, arts: e.target.checked || undefined } : x)) }))} />
+                ARTS
+              </label>
             )}
             <NumberField label="Doors" value={b.doors} min={0} width="3.5rem"
               onChange={(n) => update((d) => ({ ...d, bays: d.bays.map((x, j) => (j === i ? { ...x, doors: Math.max(0, Math.round(n)) } : x)) }))} />

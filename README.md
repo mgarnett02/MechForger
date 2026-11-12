@@ -45,7 +45,10 @@ Everything above, plus:
 - **Half-ton machine gun ammo**
 - **Small craft and DropShips**: aerodyne and spheroid hulls, structural integrity, engine and fuel by
   tonnage, armor scaled to size, weapon bays, transport bays with doors, crew, quarters, life boats and
-  escape pods, extra fire control, six-arc BV and cost as in MegaMek, and DropShip record sheets
+  escape pods, extra fire control, six-arc BV and cost as in MegaMek, and DropShip record sheets.
+  **Primitive** small craft and DropShips (Interstellar Operations, as MegaMek): engine, control and fuel
+  factors by year of construction and 66% armor points. **ARTS** fighter and small craft bays (25% heavier,
+  no bay crew, +1,000,000 C-bills) and the 50-ton **mobile HPG** (DropShips and larger)
 - **JumpShips, WarShips and space stations**: K-F drive (standard, compact and sub-compact cores), jump
   sail, lithium-fusion battery, HPG, grav decks, docking collars, capital armor and structure, broadsides,
   capital and sub-capital weapons (naval lasers, PPCs, autocannon and Gauss, capital missiles, mass
@@ -60,12 +63,16 @@ Everything above, plus:
   SCUBA and beast-mounted platoons; squad and platoon limits by motive type; primary and secondary
   weapons (about 370 personal and support weapons) with crew limits and capped damage per trooper;
   armor kits and sneak suits; anti-'Mech training; specializations (engineers, marines, mountain troops,
-  paratroops, XCT and more); field guns; weight, BV and cost as in MegaMek; and an infantry record sheet
+  paratroops, XCT and more); field guns; **cybernetic augmentations** (dermal armor, TSM implants, pain
+  shunts, cybernetic eyes, multi-modal and communication implants, gas effusers, suicide implants) and
+  **disposable weapons** (grenades, LAW / V-LAW rockets, disposable lasers: 20% of their BV per trooper);
+  weight, BV and cost as in MegaMek; and an infantry record sheet
   with the damage-by-troopers table
 - **Fighters**: aerospace fighters (including OmniFighters) and conventional fighters: engine rating from
   thrust, structural integrity, fuel, heat sinks, armor arcs with thresholds, five weapon slots per arc
   (less ferro-aluminum armor), matched wings, BV and cost as in MegaMek, and aerospace record sheets
-  with attack values by range bracket
+  with attack values by range bracket. **Primitive fighters**: 5-ton primitive cockpit, engine rated at
+  1.2 × the normal rating (rounded up to 5) and primitive fighter armor (0.67 × points per ton)
 - **Land-Air 'Mechs**: standard and bimodal LAMs with conversion equipment, avionics and landing gear,
   AirMech and fighter movement, bomb bays and LAM fuel tanks, and the Interstellar Operations
   construction limits (as implemented by MegaMek)
@@ -249,9 +256,9 @@ fixed-wing support).
 - Red / amber / green status light: illegal, legal but incomplete (unused tonnage,
   unallocated armor), or fully legal
 - **Canon units**: about 3,200 canon 'Mechs (about 110 of them IndustrialMechs), including 47 quads, 19 Land-Air 'Mechs and around 100 melee-armed designs (OmniMechs with all their
-  configurations), about 1,040 canon combat vehicles (OmniVehicles with all their configurations), 160 support vehicles, about 440 aerospace, Omni and
-  conventional fighters and about 290 spacecraft (small craft, DropShips, JumpShips, WarShips and
-  space stations), about 1,190 battle armor squads and about 1,940 infantry platoons, searchable by name, era, tech base,
+  configurations), about 1,040 canon combat vehicles (OmniVehicles with all their configurations), 160 support vehicles, about 480 aerospace, Omni, primitive and
+  conventional fighters and about 370 spacecraft (small craft, DropShips, JumpShips, WarShips and
+  space stations), about 1,190 battle armor squads and about 1,990 infantry platoons, searchable by name, era, tech base,
   weight and type, ready to load, modify and print (see *Canon unit data* below)
   - Apocryphal (video-game and other non-canon) designs are left out. A canon design keeps its Master
     Unit List id: the editor shows it as a link to the unit's MUL page. Units without a MUL entry

@@ -246,7 +246,7 @@ export const ITEM_VALUES: Record<string, ItemValue> = {
   'mining-drill': v(0, 10000), sprayer: v(0, 1000), 'im-ejection-seat': v(0, 25000),
   'sprayer-vehicle': v(0, 1000), 'mash-core': v(0, 35000), 'mash-theater': v(0, 10000), 'ladder-20m': v(0, 100),
   'cargo-1': v(0, 0), 'cargo-half': v(0, 0), 'liquid-storage-1': v(0, 0), 'liquid-storage-half': v(0, 0),
-  'paramedic-equipment': v(0, 7500), 'cargo-container': v(0, 0), 'communications-equipment': v(0, 10000),
+  'paramedic-equipment': v(0, 7500), 'cargo-container': v(0, 0), 'communications-equipment': v(0, 10000), 'mobile-hpg': v(0, 1000000000), 'ground-mobile-hpg': v(0, 4000000000),
   bulldozer: v(0, 50000), backhoe: v(0, 50000), chainsaw: v(0, 100000), 'dual-saw': v(0, 100000),
   'rock-cutter': v(0, 100000), combine: v(0, 75000), 'salvage-arm': v(0, 50000), 'spot-welder': v(0, 75000),
   'pile-driver': v(0, 100000), 'field-kitchen': v(0, 25000), 'mobile-field-base': v(0, 150000),

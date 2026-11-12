@@ -87,7 +87,26 @@ export interface InfantryDesign {
   /** Tools carried (vibro-shovels, demolition charges, bridge kits...). */
   tools: string[];
   fieldGuns: FieldGun[];
+  /** Cybernetic augmentations (Interstellar Operations), by MegaMek option name. */
+  augmentations?: Augmentation[];
+  /** One-shot disposable weapon carried by every trooper (MegaMek internal name). */
+  disposable?: string | null;
 }
+
+export type Augmentation =
+  | 'dermal_armor' | 'tsm_implant' | 'artificial_pain_shunt' | 'cyber_imp_visual' | 'cyber_imp_laser'
+  | 'mm_implants' | 'enh_mm_implants' | 'boost_comm_implant' | 'gas_effuser_pheromone' | 'gas_effuser_toxin' | 'suicide_implants';
+export const AUGMENTATION_NAMES: Record<Augmentation, string> = {
+  dermal_armor: 'Dermal armor (+1 damage divisor)', tsm_implant: 'Triple-strength myomer implants',
+  artificial_pain_shunt: 'Artificial pain shunt', cyber_imp_visual: 'Cybernetic eye (visual enhancement)',
+  cyber_imp_laser: 'Cybernetic eye (laser sight)', mm_implants: 'Multi-modal implants',
+  enh_mm_implants: 'Enhanced multi-modal implants', boost_comm_implant: 'Boosted communications implant',
+  gas_effuser_pheromone: 'Gas effuser (pheromone)', gas_effuser_toxin: 'Gas effuser (toxin)', suicide_implants: 'Explosive suicide implants',
+};
+export const AUGMENTATIONS = Object.keys(AUGMENTATION_NAMES) as Augmentation[];
+/** Disposable weapons (Tactical Operations): hand grenades and one-shot rocket launchers. */
+export const disposableWeapons = (): MMItem[] => infantryWeapons().filter((e) => /^Grenade \(|^Rocket Launcher \((V-)?LAW\)$|Disposable/.test(e.name));
+const aug = (d: Pick<InfantryDesign, 'augmentations'>, a: Augmentation) => !!d.augmentations?.includes(a);
 
 let uidCounter = 0;
 export const newInfantryUid = () => `in${Date.now().toString(36)}${(uidCounter++).toString(36)}`;
@@ -167,7 +186,8 @@ export function maxSecondary(d: InfantryDesign): number {
     : d.motion === 'umu' ? 1 : d.motion === 'motorized-umu' ? 2 : 2;
   if (isEngineers(d)) max = 0;
   if (d.specializations.includes('mountain') || d.specializations.includes('paramedics')) max = Math.min(max, 1);
-  return max;
+  // Dermal armor and TSM implants each allow one more secondary weapon per squad.
+  return max + (aug(d, 'dermal_armor') ? 1 : 0) + (aug(d, 'tsm_implant') ? 1 : 0);
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -188,7 +208,10 @@ export interface InfantrySummary {
 
 export function damageDivisor(d: InfantryDesign): number {
   const kit = d.armorKit ? getMM(d.armorKit) : null;
-  const base = kit ? kit.damageDivisor ?? 1 : d.customArmor?.divisor ?? 1;
+  let base = kit ? kit.damageDivisor ?? 1 : d.customArmor?.divisor ?? 1;
+  // Unarmored troopers with TSM implants take double damage; dermal armor adds one to the divisor.
+  if (!kit && !d.customArmor && aug(d, 'tsm_implant')) base = 0.5;
+  if (aug(d, 'dermal_armor')) base += 1;
   return base * (beastOf(d)?.damageDivisor ?? 1);
 }
 
@@ -262,6 +285,8 @@ export function validateInfantry(d: InfantryDesign, s = computeInfantry(d)): Inf
     if (d.secondaryPerSquad > maxSecondary(d)) error(`At most ${maxSecondary(d)} secondary weapon(s) per squad.`);
     let crew = sec.crew ?? 1;
     if (beastOf(d)) crew = Math.ceil(crew / 2);
+    // Dermal armor and TSM implants each reduce the crew a secondary weapon needs.
+    crew -= (aug(d, 'dermal_armor') ? 1 : 0) + (aug(d, 'tsm_implant') ? 1 : 0);
     if (Math.max(1, crew) * d.secondaryPerSquad > d.squadSize) error('Secondary weapon crews exceed the squad size.');
     if (sec.name === 'Particle Cannon (Support)' && d.motion !== 'motorized' && d.motion !== 'tracked') {
       error('The support particle cannon may only be carried by motorized or tracked mechanized platoons.');
@@ -319,6 +344,8 @@ export function parseInfantry(raw: unknown): InfantryDesign {
     specializations: Array.isArray(r.specializations) ? r.specializations.filter((x) => SPECIALIZATIONS.includes(x)) : [],
     tools: Array.isArray(r.tools) ? r.tools.filter((x) => typeof x === 'string') : [],
     fieldGuns: Array.isArray(r.fieldGuns) ? r.fieldGuns.filter((g) => g && getEquipment(g.equipmentId)).map((g) => ({ ...g, uid: newInfantryUid() })) : [],
+    ...(Array.isArray(r.augmentations) && r.augmentations.some((a) => AUGMENTATIONS.includes(a)) ? { augmentations: r.augmentations.filter((a) => AUGMENTATIONS.includes(a)) } : {}),
+    ...(typeof r.disposable === 'string' && getMM(r.disposable)?.kind === 'infantryWeapon' ? { disposable: r.disposable } : {}),
   };
 }
 
@@ -365,8 +392,12 @@ export function infantryBV(d: InfantryDesign): InfantryBreakdown {
     ammo += (v?.ammoBV ?? 0) * (g.ammoTons ?? 0);
   }
   ammo = Math.min(ammo, fieldGuns);
+  // Disposable weapons: 0.2 × their BV per trooper. Implants per trooper: TSM +0.1, suicide +0.12, toxin effuser +0.23.
+  const disposable = d.disposable ? bvOf(getMM(d.disposable)) * s.troopers * 0.2 : 0;
+  const implants = s.troopers * ((aug(d, 'tsm_implant') ? 0.1 : 0) + (aug(d, 'suicide_implants') ? 0.12 : 0) + (aug(d, 'gas_effuser_toxin') ? 0.23 : 0));
+  if (aug(d, 'gas_effuser_pheromone')) defensive += s.troopers * 0.05;
   const sf = speedFactor(Math.max(s.mp.walk, s.mp.jump, s.mp.umu));
-  const offensive = (weapons + fieldGuns + ammo) * sf;
+  const offensive = (weapons + fieldGuns + ammo + disposable + implants) * sf;
   let type = 1;
   if (isEngineers(d)) type += 0.1;
   if (d.specializations.includes('marines')) type += 0.3;
@@ -376,7 +407,8 @@ export function infantryBV(d: InfantryDesign): InfantryBreakdown {
   if (d.specializations.includes('xct')) type += 0.1;
   const lines: [string, number][] = [
     [`Troopers × 1.5 × damage divisor ${s.damageDivisor}`, s.troopers * 1.5 * s.damageDivisor], ['Defensive factor', factor],
-    ['Weapons (incl. anti-\'Mech)', weapons], ...(fieldGuns ? [['Field guns and ammo', fieldGuns + ammo] as [string, number]] : []),
+    ['Weapons (incl. anti-\'Mech)', weapons], ...(disposable ? [['Disposable weapons (× 0.2)', disposable] as [string, number]] : []),
+    ...(implants ? [['Implants', implants] as [string, number]] : []), ...(fieldGuns ? [['Field guns and ammo', fieldGuns + ammo] as [string, number]] : []),
     ['Speed factor', sf], ...(type !== 1 ? [['Specialization modifier', type] as [string, number]] : []),
   ];
   return { total: Math.round((defensive + offensive) * type), defensive, offensive, lines, approximate: false };
@@ -387,7 +419,8 @@ export function infantryCost(d: InfantryDesign): { total: number; lines: [string
   const p = getMM(d.primary);
   const sec = d.secondary ? getMM(d.secondary) : null;
   const secShooters = sec ? d.secondaryPerSquad * d.squads : 0;
-  const weapons = (s.troopers - secShooters) * Math.sqrt(mmNum(p?.cost)) * 2000 + secShooters * Math.sqrt(mmNum(sec?.cost)) * 2000;
+  const disposable = d.disposable ? s.troopers * mmNum(getMM(d.disposable)?.cost) : 0;
+  const weapons = (s.troopers - secShooters) * Math.sqrt(mmNum(p?.cost)) * 2000 + secShooters * Math.sqrt(mmNum(sec?.cost)) * 2000 + disposable;
   let armorEach = 0;
   const kit = d.armorKit ? getMM(d.armorKit) : null;
   if (kit) armorEach = mmNum(kit.cost);
@@ -444,6 +477,8 @@ export function infantryReadout(d: InfantryDesign): string {
     sec ? `Secondary weapons: ${d.secondaryPerSquad} ${mmName(sec)} per squad` : 'Secondary weapons: none',
     `Damage per trooper: ${s.damagePerTrooper.toFixed(2)} · range ${Math.max(p?.infantryRange ?? 0, sec?.infantryRange ?? 0)} hexes per bracket`,
     `Armor: ${kit ? mmName(kit) : d.customArmor ? 'custom' : 'none'} (damage divisor ${s.damageDivisor}${s.encumbering ? ', encumbering' : ''})`,
+    d.disposable ? `Disposable weapon: ${mmName(getMM(d.disposable) ?? ({ name: d.disposable } as MMItem))} (one per trooper)` : '',
+    d.augmentations?.length ? `Augmentations: ${d.augmentations.map((a) => AUGMENTATION_NAMES[a]).join(', ')}` : '',
     d.antiMek ? 'Anti-\'Mech training' : '',
     d.specializations.length ? `Specializations: ${d.specializations.map((x) => SPECIALIZATION_NAMES[x]).join(', ')}` : '',
     d.fieldGuns.length ? `Field guns: ${d.fieldGuns.length} × ${getEquipment(d.fieldGuns[0].equipmentId)?.name} (crew ${s.fieldGunCrew})` : '',

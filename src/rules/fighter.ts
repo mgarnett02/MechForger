@@ -27,6 +27,9 @@ import type { Issue } from './validation';
 
 export type FighterType = 'aerospace' | 'conventional';
 export type FighterEngineType = 'ice' | 'standard' | 'xl' | 'light' | 'compact';
+/** Primitive fighters (Interstellar Operations) use a primitive cockpit and primitive fighter armor. */
+export type FighterCockpitType = BasicCockpitType | 'primitive';
+export type FighterArmorType = BasicArmorType | 'primitive';
 
 /** Nose, left wing, right wing, aft (armored, weapon arcs) and the fuselage (equipment only). */
 export const FIGHTER_LOCATIONS = ['NOS', 'LWG', 'RWG', 'AFT', 'FUS'] as const;
@@ -66,12 +69,12 @@ export interface FighterDesign {
   tonnage: number;
   safeThrust: number;
   engineType: FighterEngineType;
-  cockpitType: BasicCockpitType;
+  cockpitType: FighterCockpitType;
   heatSinkType: HeatSinkType;
   /** Total heat sinks (aerospace fighters; fusion engines carry 10 for free). */
   heatSinks: number;
   fuelTons: number;
-  armorType: BasicArmorType;
+  armorType: FighterArmorType;
   armor: Record<FighterArc, number>;
   /** Conventional fighters: vertical / short take-off and landing gear. */
   vstol: boolean;
@@ -103,18 +106,20 @@ export const FIGHTER_ENGINE_OPTIONS: Record<FighterEngineType, ComponentOption> 
 };
 
 /** Aerospace armor names (ferro-aluminum is the aerospace counterpart of ferro-fibrous). */
-export const FIGHTER_ARMOR_NAMES: Record<BasicArmorType, string> = {
+export const FIGHTER_ARMOR_NAMES: Record<FighterArmorType, string> = {
   standard: 'Standard', 'ferro-fibrous': 'Ferro-Aluminum', 'light-ferro': 'Light Ferro-Aluminum',
-  'heavy-ferro': 'Heavy Ferro-Aluminum',
+  'heavy-ferro': 'Heavy Ferro-Aluminum', primitive: 'Primitive Fighter',
 };
 
 /** Weapon slots each armor type takes from the arcs. */
-export const FIGHTER_ARMOR_SLOTS: Record<BasicArmorType, number> = {
-  standard: 0, 'ferro-fibrous': 2, 'light-ferro': 1, 'heavy-ferro': 4,
+export const FIGHTER_ARMOR_SLOTS: Record<FighterArmorType, number> = {
+  standard: 0, 'ferro-fibrous': 2, 'light-ferro': 1, 'heavy-ferro': 4, primitive: 0,
 };
 
-export function fighterEngineRating(d: Pick<FighterDesign, 'fighterType' | 'tonnage' | 'safeThrust'>): number {
-  return d.fighterType === 'conventional' ? d.tonnage * d.safeThrust : d.tonnage * (d.safeThrust - 2);
+export function fighterEngineRating(d: Pick<FighterDesign, 'fighterType' | 'tonnage' | 'safeThrust'> & { cockpitType?: FighterCockpitType }): number {
+  const base = d.fighterType === 'conventional' ? d.tonnage * d.safeThrust : d.tonnage * (d.safeThrust - 2);
+  // Primitive fighters: × 1.2, rounded up to the next 5.
+  return d.cockpitType === 'primitive' ? Math.ceil((base * 1.2) / 5 - 1e-9) * 5 : base;
 }
 
 /** Engine weight: the 'Mech table; ICE ×2; fusion in a conventional fighter needs 50% extra shielding. */
@@ -303,7 +308,7 @@ export function computeFighter(d: FighterDesign): FighterSummary {
 
   const weights: FighterWeights = {
     engine: engineWt ?? 0,
-    controls: conventional ? halfNearest(0.1 * d.tonnage) : d.cockpitType === 'small' ? 2 : 3,
+    controls: conventional ? halfNearest(0.1 * d.tonnage) : d.cockpitType === 'small' ? 2 : d.cockpitType === 'primitive' ? 5 : 3,
     fuel: d.fuelTons,
     heatSinks: Math.max(0, total - free),
     vstol: conventional && d.vstol ? halfUp(0.05 * d.tonnage) : 0,
@@ -379,6 +384,9 @@ export function validateFighter(d: FighterDesign, s: FighterSummary = computeFig
   else if (s.rating > 400) error(`Engine rating ${s.rating} exceeds the maximum of 400.`);
   else if (s.engineWeight === null) error(`No ${FIGHTER_ENGINE_LABELS[d.engineType]} engine exists with rating ${s.rating}.`);
   if (conventional && d.cockpitType !== 'standard') error('Conventional fighters can only have a standard cockpit.');
+  if (d.cockpitType === 'primitive' && d.armorType !== 'primitive' && d.armorType !== 'standard') error('Primitive fighters can only use primitive or standard armor.');
+  if (d.armorType === 'primitive' && d.cockpitType !== 'primitive') error('Primitive fighter armor is only for primitive fighters.');
+  if (d.cockpitType === 'primitive' && d.engineType !== 'standard' && d.engineType !== 'ice') error('Primitive fighters need a standard fusion or ICE engine.');
   if (!conventional && d.vstol) error('Only conventional fighters fit VSTOL gear.');
 
   // Weight
@@ -543,12 +551,12 @@ export function parseFighter(raw: unknown): FighterDesign {
     tonnage: num(r.tonnage, 'tonnage'),
     safeThrust: num(r.safeThrust, 'safeThrust'),
     engineType: pick(r.engineType, ['ice', 'standard', 'xl', 'light', 'compact'] as const, 'standard'),
-    cockpitType: pick(r.cockpitType, ['standard', 'small'] as const, 'standard'),
+    cockpitType: pick(r.cockpitType, ['standard', 'small', 'primitive'] as const, 'standard'),
     heatSinkType: pick(r.heatSinkType, ['single', 'double'] as const, 'single'),
     heatSinks: typeof r.heatSinks === 'number' ? r.heatSinks : fighterType === 'conventional' ? 0 : 10,
     fuelTons: typeof r.fuelTons === 'number' ? r.fuelTons : 0,
     ...(typeof r.cargo === 'number' && r.cargo > 0 ? { cargo: r.cargo } : {}),
-    armorType: pick(r.armorType, ['standard', 'ferro-fibrous', 'light-ferro', 'heavy-ferro'] as const, 'standard'),
+    armorType: pick(r.armorType, ['standard', 'ferro-fibrous', 'light-ferro', 'heavy-ferro', 'primitive'] as const, 'standard'),
     armor,
     vstol: r.vstol === true,
     equipment,
@@ -586,7 +594,7 @@ export function fighterReadout(
   lines.push(`Structural Integrity: ${s.si}`);
   lines.push(row(`Heat Sinks: ${s.heatSinks.total}${d.heatSinkType === 'double' ? ' Double' : ''} [${s.heatSinks.dissipation}]`, s.weights.heatSinks));
   lines.push(row(`Fuel: ${s.fuelPoints} points`, s.weights.fuel));
-  lines.push(row(conventional ? 'Controls:' : `Cockpit:${d.cockpitType === 'small' ? ' Small' : ''}`, s.weights.controls));
+  lines.push(row(conventional ? 'Controls:' : `Cockpit:${d.cockpitType === 'small' ? ' Small' : d.cockpitType === 'primitive' ? ' Primitive' : ''}`, s.weights.controls));
   if (s.weights.vstol) lines.push(row('VSTOL Gear:', s.weights.vstol));
   if (s.weights.cargo) lines.push(row('Troop / Cargo Space:', s.weights.cargo));
   if (s.weights.powerAmplifiers) lines.push(row('Power Amplifiers:', s.weights.powerAmplifiers));

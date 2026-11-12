@@ -32,9 +32,9 @@ import { encodeBattleArmor, encodeInfantry, encodeFighter, encodeMech, encodeSup
 import type { BAItem, BattleArmorDesign } from '../src/rules/battlearmor';
 import { battleArmorBV, computeBattleArmor, syncArmorSlots, validateBattleArmor } from '../src/rules/battlearmor';
 import { MM_EQUIPMENT, findMM } from '../src/rules/mmEquipment';
-import type { FieldGun, InfantryDesign, InfantryMotion } from '../src/rules/infantry';
-import { BEASTS, SPECIALIZATIONS, computeInfantry, infantryBV, validateInfantry } from '../src/rules/infantry';
-import type { FighterDesign, FighterItem, FighterLocation } from '../src/rules/fighter';
+import type { Augmentation, FieldGun, InfantryDesign, InfantryMotion } from '../src/rules/infantry';
+import { AUGMENTATIONS, BEASTS, SPECIALIZATIONS, computeInfantry, infantryBV, validateInfantry } from '../src/rules/infantry';
+import type { FighterArmorType, FighterDesign, FighterItem, FighterLocation } from '../src/rules/fighter';
 import { computeFighter, emptyFighterArmor, validateFighter } from '../src/rules/fighter';
 import type { BayKind, QuartersKind, VesselDesign, VesselItem, VesselLocation } from '../src/rules/vessel';
 import { computeVessel, emptyVesselArmor, validateVessel } from '../src/rules/vessel';
@@ -579,7 +579,7 @@ function parseBlk(text: string): { design: VehicleDesign; year: number; rulesLev
 
 const FIGHTER_ENGINES: Record<string, FighterDesign['engineType']> = { 0: 'standard', 1: 'ice', 2: 'xl', 4: 'light', 5: 'compact' };
 /** MegaMek armor codes: standard, ferro-aluminum, heavy and light ferro-aluminum. */
-const FIGHTER_ARMOR: Record<string, ArmorType> = { 0: 'standard', 19: 'ferro-fibrous', 20: 'heavy-ferro', 21: 'light-ferro' };
+const FIGHTER_ARMOR: Record<string, FighterArmorType> = { 0: 'standard', 19: 'ferro-fibrous', 20: 'heavy-ferro', 21: 'light-ferro', 39: 'primitive' };
 
 function parseFighterBlk(text: string): { design: FighterDesign; year: number; mulId?: number; source: string } {
   const tags = new Map<string, string[]>();
@@ -590,14 +590,14 @@ function parseFighterBlk(text: string): { design: FighterDesign; year: number; m
   const unitType = one('UnitType');
   const fighterType = unitType === 'AeroSpaceFighter' ? 'aerospace' : unitType === 'ConvFighter' ? 'conventional' : fail(`unit type ${unitType}`);
   const typeStr = one('type');
-  if (/Primitive/i.test(typeStr) || one('cockpit_type') === '3') fail('primitive fighter');
   const techBase: TechBase = /^Clan|Clan Chassis/.test(typeStr) ? 'Clan' : 'IS';
   const mixedTech = /^Mixed/.test(typeStr);
   const tonnage = Number(one('tonnage'));
   const engineType = FIGHTER_ENGINES[one('engine_type')] ?? fail(`engine type ${one('engine_type')}`);
   const armorType = FIGHTER_ARMOR[one('armor_type')] ?? fail(`armor type ${one('armor_type')}`);
   const cockpit = one('cockpit_type');
-  const cockpitType = cockpit === '0' || cockpit === '' ? 'standard' : cockpit === '1' ? 'small' : fail(`cockpit ${cockpit}`);
+  const cockpitType = cockpit === '3' || /Primitive/i.test(typeStr) ? 'primitive'
+    : cockpit === '0' || cockpit === '' ? 'standard' : cockpit === '1' ? 'small' : fail(`cockpit ${cockpit}`);
   // Infantry compartments and cargo bays (tons); other bays are not modeled for fighters.
   let cargo = 0;
   for (const t of tags.get('transporters') ?? []) {
@@ -760,9 +760,10 @@ function parseInfantryBlk(text: string): { design: InfantryDesign; year: number;
   const typeStr = one('type');
   const techBase: TechBase = /^Clan|Clan Chassis/.test(typeStr) ? 'Clan' : 'IS';
   const mixedTech = /^Mixed/.test(typeStr);
-  if (tags.has('augmentation')) fail('augmentations');
+  const augmentations = (tags.get('augmentation') ?? []).map((a) => (AUGMENTATIONS.includes(a as Augmentation) ? a as Augmentation : fail(`augmentation ${a}`)));
   if ([...tags.keys()].some((k) => /prosthetic/i.test(k))) fail('prosthetics');
-  if (tags.has('disposableweapon')) fail('disposable weapons');
+  const disposableRaw = one('disposableweapon');
+  const disposable = disposableRaw ? (findMM(disposableRaw, techBase)?.id ?? fail(`disposable weapon "${disposableRaw}"`)) : null;
   const motionRaw = one('motion_type');
   const beastM = /^Beast:(.+)$/.exec(motionRaw);
   const motion: InfantryMotion = beastM ? 'beast' : INF_MOTION[motionRaw.toLowerCase()] ?? fail(`motion ${motionRaw}`);
@@ -813,6 +814,8 @@ function parseInfantryBlk(text: string): { design: InfantryDesign; year: number;
     antiMek,
     specializations: SPECIALIZATIONS.filter((_, i) => specBits & (1 << i)),
     tools, fieldGuns,
+    ...(augmentations.length ? { augmentations } : {}),
+    ...(disposable ? { disposable } : {}),
   };
   return { design, year: Number(one('year')) || 3025, mulId: Number(one('mul id:')) || undefined, source: one('source') };
 }
@@ -837,7 +840,11 @@ function parseVesselBlk(text: string): { design: VesselDesign; year: number; mul
   const techBase: TechBase = /^Clan|Clan Chassis/.test(typeStr) ? 'Clan' : 'IS';
   const mixedTech = /^Mixed/.test(typeStr);
   const shape = one('motion_type') === 'Spheroid' ? 'spheroid' : one('motion_type') === 'Aerodyne' ? 'aerodyne' : fail(`motion ${one('motion_type')}`);
-  const armorType = VESSEL_ARMOR[one('armor_type')] ?? fail(`armor type ${one('armor_type')}`);
+  // Primitive aerospace armor (code 40) marks a primitive small craft or DropShip.
+  const primitive = one('armor_type') === '40';
+  if (primitive && large) fail('primitive large craft');
+  const armorType = primitive ? 'standard' : VESSEL_ARMOR[one('armor_type')] ?? fail(`armor type ${one('armor_type')}`);
+  const primitiveYear = Number(one('originalBuildYear')) || Number(one('year')) || 2500;
   if (one('collartype') === '1') fail('prototype docking collar');
   const av = (tags.get('armor') ?? []).map(Number);
   // Small craft / DropShips: nose, left, right, aft. Large craft: nose, FLS, FRS, aft, ALS, ARS.
@@ -857,11 +864,12 @@ function parseVesselBlk(text: string): { design: VesselDesign; year: number; mul
     if (QUARTERS_BLK[k]) { const [q, per] = QUARTERS_BLK[k]; quarters[q] += Math.floor(size / per + 1e-9); continue; }
     if (k === 'infantrybay') { bays.push({ kind: INFANTRY_BAYS[(platoon ?? 'foot').toLowerCase()] ?? fail(`infantry bay ${platoon}`), size, doors: Number(doors0) || 0 }); continue; }
     if (k === 'troopspace') { bays.push({ kind: 'troop-space', size, doors: 0 }); continue; }
-    const bk = BAY_NAMES[k] ?? fail(`bay ${kind}`);
+    const arts = /^arts(asf|smallcraft)bay$/.test(k);
+    const bk = BAY_NAMES[arts ? k.slice(4) : k] ?? fail(`bay ${kind}`);
     // Bitmap field: 1 = ComStar battle armor bay, 2 = Clan bay.
     const bits = Number(bits0) || 0;
     const variant = bk === 'battle-armor' ? (bits & 1 ? 'comstar' : bits & 2 ? 'clan' : undefined) : undefined;
-    bays.push({ kind: bk, size, doors: Number(doors0) || 0, ...(variant ? { variant } : {}) });
+    bays.push({ kind: bk, size, doors: Number(doors0) || 0, ...(variant ? { variant } : {}), ...(arts ? { arts: true } : {}) });
   }
 
   const blocks: [string, VesselLocation][] = large
@@ -905,6 +913,7 @@ function parseVesselBlk(text: string): { design: VesselDesign; year: number; mul
   const fppt = large ? (tonnage < 110000 ? 10 : tonnage < 250000 ? 5 : 2.5) : !dropship ? 80 : tonnage < 400 ? 80 : tonnage < 800 ? 70 : tonnage < 1200 ? 60 : tonnage < 1900 ? 50 : tonnage < 3000 ? 40 : tonnage < 20000 ? 30 : tonnage < 40000 ? 20 : 10;
   const design: VesselDesign = {
     schemaVersion: 1, unitType: 'vessel', vesselType, shape, military: one('designtype') !== '0', era: '3025', techBase, mixedTech: mixed,
+    ...(primitive ? { primitiveYear } : {}),
     chassis: one('Name'), model: one('Model'), tonnage, safeThrust: int('SafeThrust'), si: int('structural_integrity'),
     heatSinkType: one('sink_type') === '1' ? 'double' : 'single', heatSinks: int('heatsinks'), fuelTons: int('fuel') / fppt,
     armorType, armor,
