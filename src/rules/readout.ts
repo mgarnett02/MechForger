@@ -46,11 +46,11 @@ export function technicalReadout(design: MechDesign, summary: MechSummary = comp
     lines.push(`    AirMech MP: ${a.walk}/${a.run} ground, ${a.cruise}/${a.flank} flight`);
   }
   if (s.lam) lines.push(`    Fighter thrust: ${s.lam.fighter.safe} safe / ${s.lam.fighter.max} max`);
-  const hsLabel = design.heatSinkType === 'double' ? ' Double' : '';
+  const hsLabel = design.heatSinkType === 'double' ? (design.laserHeatSinks ? ' Laser' : ' Double') : '';
   lines.push(row(`Heat Sinks:${hsLabel} ${s.heatSinks.total} [${s.heatSinks.dissipation}]`, s.weights.heatSinks));
-  const gyroName = { standard: '', xl: ' XL', 'heavy-duty': ' Heavy-Duty', compact: ' Compact' }[design.gyroType];
+  const gyroName = { standard: '', xl: ' XL', 'heavy-duty': ' Heavy-Duty', compact: ' Compact', none: ' None' }[design.gyroType];
   lines.push(row(`Gyro:${gyroName}`, s.weights.gyro));
-  const cockpitName = { standard: '', small: ' Small', 'torso-mounted': ' Torso-Mounted', 'command-console': ' Command Console', industrial: ' Industrial (no AFC)' }[design.cockpitType];
+  const cockpitName = { standard: '', small: ' Small', 'torso-mounted': ' Torso-Mounted', 'command-console': ' Command Console', industrial: ' Industrial (no AFC)', primitive: ' Primitive', 'primitive-industrial': ' Primitive Industrial (no AFC)', interface: ' Interface' }[design.cockpitType];
   lines.push(row(`Cockpit:${cockpitName}`, s.weights.cockpit));
   if (s.weights.conversion) lines.push(row('LAM Conversion Equipment:', s.weights.conversion));
   if (s.weights.armored) {

@@ -49,3 +49,26 @@ describe('mixed tech components', () => {
     expect(canon.filter((e) => e.ok).length / canon.length).toBeGreaterThan(0.99);
   });
 });
+
+describe('primitive and interface cockpits, laser heat sinks', () => {
+  it("primitive 'Mechs rate their engines at 1.2 × tonnage × walking MP and need primitive armor", () => {
+    const d = { ...newDesign('3025'), tonnage: 20, walkMP: 5, cockpitType: 'primitive' as const, armorType: 'primitive' as const };
+    expect(computeMech(d).rating).toBe(120);
+    expect(computeMech(d).weights.cockpit).toBe(5);
+    expect(computeMech(d).armorPointsPerTon).toBeCloseTo(16 * 0.67);
+    expect(errors({ ...d, armorType: 'standard' })).toContain('Primitive BattleMechs must mount primitive armor.');
+    const prim = canon.filter((e) => decodeMech(e.d).cockpitType === 'primitive');
+    expect(prim.length).toBeGreaterThan(20);
+    expect(prim.every((e) => e.ok && e.w)).toBe(true);
+  });
+
+  it('an interface cockpit lets a Mech go without a gyro; laser heat sinks are Clan double heat sinks', () => {
+    const d = { ...newDesign('3081', 'Clan'), cockpitType: 'interface' as const, gyroType: 'none' as const };
+    expect(computeMech(d).weights.gyro).toBe(0);
+    expect(computeMech(d).slots.HD.slots[3].label).toBe('Cockpit');
+    expect(errors(d).some((m) => /gyro/.test(m))).toBe(false);
+    expect(errors({ ...d, cockpitType: 'standard' as const })).toContain("Only an interface cockpit lets a 'Mech go without a gyro.");
+    const l = decodeMech(canon.find((e) => decodeMech(e.d).laserHeatSinks)!.d);
+    expect(l.equipment.some((e) => e.equipmentId === 'clan-laser-heat-sink')).toBe(true);
+  });
+});

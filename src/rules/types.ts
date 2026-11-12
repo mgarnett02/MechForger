@@ -46,6 +46,17 @@ export function techOf(d: { techBase: TechBase; mixedTech?: boolean; componentTe
   return (d.mixedTech && d.componentTech?.[part]) || d.techBase;
 }
 
+/** Primitive 'Mechs (Interstellar Operations): primitive cockpit, engine rated at 1.2 × tonnage × walking MP. */
+export function isPrimitive(d: { cockpitType?: string }): boolean {
+  return d.cockpitType === 'primitive' || d.cockpitType === 'primitive-industrial';
+}
+
+/** Engine rating: tonnage × walking MP (primitive 'Mechs: × 1.2, rounded up to the next 5). */
+export function engineRatingFor(d: { tonnage: number; walkMP: number; cockpitType?: string }): number {
+  const r = d.tonnage * d.walkMP;
+  return isPrimitive(d) ? Math.ceil((r * 1.2) / 5 - 1e-9) * 5 : r;
+}
+
 export function locationName(d: { config?: MechConfig }, loc: Location): string {
   return (isQuad(d) ? QUAD_LOCATION_NAMES : LOCATION_NAMES)[loc];
 }
@@ -147,19 +158,19 @@ export const TECH_BASE_NAMES: Record<TechBase, string> = { IS: 'Inner Sphere', C
 
 export type StructureType = 'standard' | 'endo-steel' | 'endo-prototype' | 'endo-composite' | 'composite' | 'reinforced' | 'industrial';
 export type EngineType = 'standard' | 'xl' | 'xxl' | 'light' | 'compact' | 'ice' | 'fuel-cell' | 'fission';
-export type GyroType = 'standard' | 'xl' | 'heavy-duty' | 'compact';
+export type GyroType = 'standard' | 'xl' | 'heavy-duty' | 'compact' | 'none';
 export type JumpJetType = 'standard' | 'improved';
 /** Cockpits shared with fighters. */
 export type BasicCockpitType = 'standard' | 'small';
 /** 'industrial': an IndustrialMech cockpit without advanced fire control (a standard cockpit on an IndustrialMech has it). */
-export type CockpitType = BasicCockpitType | 'command-console' | 'torso-mounted' | 'industrial';
+export type CockpitType = BasicCockpitType | 'command-console' | 'torso-mounted' | 'industrial' | 'primitive' | 'primitive-industrial' | 'interface';
 export type HeatSinkType = 'single' | 'double';
 /** Armor types shared by vehicles and fighters. */
 export type BasicArmorType = 'standard' | 'ferro-fibrous' | 'light-ferro' | 'heavy-ferro';
 /** Structure types shared by vehicles. */
 export type BasicStructureType = 'standard' | 'endo-steel';
 export type ArmorType =
-  | 'standard' | 'ferro-fibrous' | 'light-ferro' | 'heavy-ferro'
+  | 'standard' | 'ferro-fibrous' | 'light-ferro' | 'heavy-ferro' | 'primitive'
   | 'stealth' | 'reactive' | 'reflective' | 'hardened' | 'ferro-lamellor'
   | 'ballistic-reinforced' | 'anti-penetrative' | 'heat-dissipating' | 'impact-resistant'
   | 'commercial' | 'industrial' | 'heavy-industrial';
@@ -190,6 +201,8 @@ export interface MechDesign {
   lam?: LamType | null;
   /** IndustrialMechs: environmental sealing (one slot per location, a tenth of the tonnage). */
   environmentalSealing?: boolean;
+  /** Clan laser heat sinks in place of double heat sinks (same weight, slots and dissipation). */
+  laserHeatSinks?: boolean;
   /**
    * Mixed tech: the tech base of individual components when it differs from the chassis
    * (e.g. Clan double heat sinks or Clan ferro-fibrous armor on an Inner Sphere chassis).

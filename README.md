@@ -127,6 +127,8 @@ Everything above, plus:
   ACs** and IS **re-engineered lasers**
 - **Artemis V** (Clan, 1.5 t, 2 slots): ×1.3 BV for the linked Clan LRM/SRM launcher. Artemis V ammo
   also gets ×1.3 BV and costs twice as much.
+- **Primitive 'Mechs:** primitive cockpit (5 t), engine rated at 1.2 × tonnage × walking MP (rounded up to 5), primitive armor (0.67 × points per ton). MegaMek's restrictions apply: standard or industrial structure, no XL / light / compact / XXL engines, standard myomer.
+- **Interface cockpits** (4 t, two head slots; the 'Mech may go without a gyro) and **Clan laser heat sinks** (built like Clan double heat sinks)
 - **Mixed tech:** a mixed-tech 'Mech can take Clan or Inner Sphere structure, armor, engine and double heat sinks independently of its chassis (an IS / Clan picker appears beside each). Slots, armor points and engine side-torso slots follow each component's own tech base. OmniMech configurations can be mixed tech, or use a different jump jet type, on their own; configurations built on a different base chassis become a separate OmniMech.
 - **Rules matching MegaMek:** Clan small cockpits (from 3080), rear-facing head and leg weapons, and industrial equipment on BattleMechs.
 - **Actuator Enhancement System (AES):**
@@ -241,7 +243,7 @@ fixed-wing support).
 - Critical slot allocation (click to place, or **Auto-allocate**) with live validation
 - Red / amber / green status light: illegal, legal but incomplete (unused tonnage,
   unallocated armor), or fully legal
-- **Canon units**: about 3,140 canon 'Mechs (about 110 of them IndustrialMechs), including 47 quads, 19 Land-Air 'Mechs and around 100 melee-armed designs (OmniMechs with all their
+- **Canon units**: about 3,200 canon 'Mechs (about 110 of them IndustrialMechs), including 47 quads, 19 Land-Air 'Mechs and around 100 melee-armed designs (OmniMechs with all their
   configurations), 715 canon combat vehicles, 160 support vehicles, about 440 aerospace, Omni and
   conventional fighters and about 290 spacecraft (small craft, DropShips, JumpShips, WarShips and
   space stations), about 1,190 battle armor squads and about 1,940 infantry platoons, searchable by name, era, tech base,

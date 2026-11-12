@@ -20,6 +20,7 @@ import { ERAS } from '../src/rules/eras';
 import type { Equipment } from '../src/rules/equipment';
 import { ALL_EQUIPMENT, HEAT_SINK_IDS, getEquipment, itemSlots } from '../src/rules/equipment';
 import { canSplit } from '../src/rules/edit';
+import { engineRatingFor } from '../src/rules/types';
 import { SPLIT_ADJACENT } from '../src/rules/types';
 import { computeMech, fixedSlots } from '../src/rules/construction';
 import { validate } from '../src/rules/validation';
@@ -302,7 +303,9 @@ function parseMtf(text: string): ParsedMech {
 
   const eng = get('engine');
   const rating = Number(/^(\d+)/.exec(eng)?.[1]);
-  if (rating !== tonnage * walkMP) fail('engine rating does not match walking MP');
+  // Primitive 'Mechs rate their engines at 1.2 × tonnage × walking MP (rounded up to 5).
+  const primitiveCockpit = /^Primitive/.test(get('cockpit'));
+  if (rating !== engineRatingFor({ tonnage, walkMP, cockpitType: primitiveCockpit ? 'primitive' : 'standard' })) fail('engine rating does not match walking MP');
   const engineType: EngineType = /Large/.test(eng) ? fail(`engine ${eng}`)
     : /ICE/.test(eng) ? 'ice' : /Fuel Cell/.test(eng) ? 'fuel-cell' : /Fission/.test(eng) ? 'fission'
     : /XXL/.test(eng) ? 'xxl' : /XL/.test(eng) ? 'xl' : /Light/.test(eng) ? 'light' : /Compact/.test(eng) ? 'compact' : 'standard';
@@ -319,7 +322,7 @@ function parseMtf(text: string): ParsedMech {
     Stealth: 'stealth', Reactive: 'reactive', Reflective: 'reflective', Hardened: 'hardened', 'Ferro-Lamellor': 'ferro-lamellor',
     'Ballistic-Reinforced': 'ballistic-reinforced', 'Anti-Penetrative Ablation': 'anti-penetrative',
     'Heat-Dissipating': 'heat-dissipating', 'Impact-Resistant': 'impact-resistant',
-    Commercial: 'commercial', Industrial: 'industrial', 'Heavy Industrial': 'heavy-industrial',
+    Commercial: 'commercial', Industrial: 'industrial', 'Heavy Industrial': 'heavy-industrial', Primitive: 'primitive',
   };
   const armorType: MechDesign['armorType'] = ARMORS[ar.replace(/\(.*$/, '').trim()] ?? fail(`armor ${ar}`);
   const hs = get('heat sinks');
@@ -331,20 +334,24 @@ function parseMtf(text: string): ParsedMech {
       ['structure', partTech(/^Clan /.test(st), /^IS /.test(st))],
       ['armor', partTech(/\(Clan\)/.test(ar), /\((IS|Inner Sphere)\)/.test(ar))],
       ['engine', partTech(/\(Clan\)/.test(eng), /\(IS\)/.test(eng))],
-      ['heatSinks', partTech(/Clan/.test(hs), /\bIS\b/.test(hs))],
+      ['heatSinks', partTech(/Clan|Laser/.test(hs), /\bIS\b/.test(hs))],
     ];
     for (const [part, t] of parts) if (t && t !== techBase) componentTech[part] = t;
   }
   const hsTotal = Number(/^(\d+)/.exec(hs)?.[1]);
-  const heatSinkType: HeatSinkType = /Double/.test(hs) ? 'double' : /Single/.test(hs) ? 'single' : fail(`heat sinks ${hs}`);
+  // Clan laser heat sinks are built like Clan double heat sinks.
+  const laserHeatSinks = /Laser/.test(hs);
+  const heatSinkType: HeatSinkType = /Double|Laser/.test(hs) ? 'double' : /Single/.test(hs) ? 'single' : fail(`heat sinks ${hs}`);
   const gy = get('gyro');
-  const gyroType: GyroType = !gy || /^Standard/.test(gy) ? 'standard' : /^XL/.test(gy) ? 'xl'
+  const gyroType: GyroType = !gy || /^Standard/.test(gy) ? 'standard' : /^None/.test(gy) ? 'none' : /^XL/.test(gy) ? 'xl'
     : /^Compact/.test(gy) ? 'compact' : /^Heavy Duty/.test(gy) ? 'heavy-duty' : fail(`gyro ${gy}`);
   const ck = get('cockpit');
   const cockpitType: CockpitType = !ck || /^Standard/.test(ck) ? 'standard' : /^Small/.test(ck) ? 'small'
     : /^Command Console/.test(ck) ? 'command-console' : /^Torso-Mounted/.test(ck) ? 'torso-mounted'
     // An industrial cockpit with advanced fire control is built like a standard cockpit.
-    : /^Industrial Cockpit/.test(ck) ? (/adv\. FCS/i.test(ck) ? 'standard' : 'industrial') : fail(`cockpit ${ck}`);
+    : /^Industrial Cockpit/.test(ck) ? (/adv\. FCS/i.test(ck) ? 'standard' : 'industrial')
+    : /^Primitive Industrial Cockpit/.test(ck) ? (/adv\. FCS/i.test(ck) ? 'primitive' : 'primitive-industrial')
+    : /^Primitive Cockpit/.test(ck) ? 'primitive' : /^Interface Cockpit/.test(ck) ? 'interface' : fail(`cockpit ${ck}`);
   const my = get('myomer');
   const myomer = !my || my === 'Standard' ? 'standard' : my === 'Triple-Strength' ? 'tsm' : my === 'Industrial Triple-Strength' ? 'industrial-tsm' : fail(`myomer ${my}`);
   // A Full Head Ejection System (Hatchetman, Axman…) takes no slots or weight; other systems aren't supported.
@@ -444,6 +451,7 @@ function parseMtf(text: string): ParsedMech {
   const design: MechDesign = {
     schemaVersion: 1, era: '3025', techBase, mixedTech,
     ...(Object.keys(componentTech).length ? { componentTech } : {}),
+    ...(laserHeatSinks ? { laserHeatSinks: true } : {}),
     structureType, engineType, gyroType, cockpitType, heatSinkType,
     ...(equipment.some((e) => e.equipmentId === 'environmental-sealing') ? { environmentalSealing: true } : {}),
     jumpJetType: jets.some((e) => e.equipmentId === 'improved-jump-jet') ? 'improved' : 'standard',

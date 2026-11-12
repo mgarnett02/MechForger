@@ -11,7 +11,7 @@ import {
 } from './equipment';
 import { configurationDesigns, isFixedOnly } from './omni';
 import { getEra, isAvailableIn } from './eras';
-import { SPLIT_ADJACENT, TECH_BASE_NAMES, isIndustrial, techOf } from './types';
+import { SPLIT_ADJACENT, TECH_BASE_NAMES, isIndustrial, isPrimitive, techOf } from './types';
 import type { TechBase } from './types';
 import { canSplit, tsmSlots } from './edit';
 import type { ComponentOption } from './tables';
@@ -180,7 +180,7 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
     }
   } else {
     if (design.environmentalSealing) error('Only IndustrialMechs can be environmentally sealed.');
-    if (design.cockpitType === 'industrial') error('Only IndustrialMechs use an industrial cockpit.');
+    if (design.cockpitType === 'industrial' || design.cockpitType === 'primitive-industrial') error('Only IndustrialMechs use an industrial cockpit.');
     if (design.myomer === 'industrial-tsm') error('Only IndustrialMechs can mount Industrial TSM.');
   }
 
@@ -258,6 +258,26 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
   // Stealth armor works through an ECM suite.
   if (design.armorType === 'stealth' && !design.equipment.some((e) => /(^|-)ecm$/.test(e.equipmentId) && e.location)) {
     error('Stealth armor needs an ECM suite.');
+  }
+
+  if (design.gyroType === 'none' && design.cockpitType !== 'interface') error('Only an interface cockpit lets a \'Mech go without a gyro.');
+  if (design.laserHeatSinks && (design.heatSinkType !== 'double' || techOf(design, 'heatSinks') !== 'Clan')) {
+    error('Laser heat sinks are Clan double heat sinks; choose Clan double heat sinks.');
+  }
+
+  // Primitive 'Mechs (Interstellar Operations, as MegaMek checks them)
+  if (isPrimitive(design)) {
+    if (design.omni) error("Primitive 'Mechs can't be OmniMechs.");
+    if (!['standard', 'industrial'].includes(design.structureType)) error("Primitive 'Mechs can't mount advanced internal structure.");
+    if (['xl', 'light', 'compact', 'xxl'].includes(design.engineType)) error("Primitive 'Mechs can't mount XL, light, compact or XXL engines.");
+    if (design.myomer !== 'standard') error("Primitive 'Mechs can't mount advanced myomer.");
+    if (isIndustrial(design)) {
+      if (design.armorType !== 'commercial') error('Primitive IndustrialMechs must mount commercial armor.');
+    } else if (design.armorType !== 'primitive' && design.armorType !== 'industrial') {
+      error("Primitive BattleMechs must mount primitive armor.");
+    }
+  } else if (design.armorType === 'primitive') {
+    error("Primitive armor is only for primitive 'Mechs (choose a primitive cockpit).");
   }
 
   // Actuator Enhancement System, partial wings and 'Mech stealth systems (Tactical / Interstellar Operations)

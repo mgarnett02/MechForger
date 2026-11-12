@@ -187,18 +187,20 @@ export function gyroWeightFor(type: GyroType, rating: number): number {
   if (type === 'xl') return Math.ceil(base) / 2;
   if (type === 'heavy-duty') return base * 2;
   if (type === 'compact') return Math.ceil(base * 1.5 * 2) / 2;
+  if (type === 'none') return 0;
   return base;
 }
 
 export function gyroSlots(type: GyroType): number {
   if (type === 'xl') return 6;
   if (type === 'compact') return 2;
+  if (type === 'none') return 0;
   return 4;
 }
 
 /** Cockpit weight: small 2, standard 3, torso-mounted 4, command console 6 (cockpit plus console). */
 export function cockpitWeight(type: CockpitType): number {
-  return { small: 2, standard: COCKPIT_WEIGHT, 'torso-mounted': 4, 'command-console': 6, industrial: COCKPIT_WEIGHT }[type];
+  return { small: 2, standard: COCKPIT_WEIGHT, 'torso-mounted': 4, 'command-console': 6, industrial: COCKPIT_WEIGHT, primitive: 5, 'primitive-industrial': 5, interface: 4 }[type];
 }
 
 /** Structure weight as a share of standard structure (10% of tonnage), each rounded up to the half ton. */
@@ -241,7 +243,7 @@ export function armorSlots(type: ArmorType, techBase: TechBase): number {
 
 const ARMOR_PPT_MULTIPLIER: Partial<Record<ArmorType, number>> = {
   'light-ferro': 1.06, 'heavy-ferro': 1.24, hardened: 0.5, 'ferro-lamellor': 0.875, 'ballistic-reinforced': 0.75,
-  'anti-penetrative': 0.75, 'heat-dissipating': 0.625, 'impact-resistant': 0.875, commercial: 1.5, industrial: 0.67,
+  'anti-penetrative': 0.75, 'heat-dissipating': 0.625, 'impact-resistant': 0.875, commercial: 1.5, industrial: 0.67, primitive: 0.67,
 };
 
 /** Armor points per ton: standard 16; Ferro-Fibrous ×1.12 (IS) / ×1.2 (Clan); others by their multiplier. */
@@ -264,7 +266,7 @@ export const ARMOR_NAMES: Record<ArmorType, string> = {
   stealth: 'Stealth', reactive: 'Reactive', reflective: 'Reflective', hardened: 'Hardened', 'ferro-lamellor': 'Ferro-Lamellor',
   'ballistic-reinforced': 'Ballistic-Reinforced', 'anti-penetrative': 'Anti-Penetrative Ablation',
   'heat-dissipating': 'Heat-Dissipating', 'impact-resistant': 'Impact-Resistant',
-  commercial: 'Commercial', industrial: 'Industrial', 'heavy-industrial': 'Heavy Industrial',
+  commercial: 'Commercial', industrial: 'Industrial', 'heavy-industrial': 'Heavy Industrial', primitive: 'Primitive',
 };
 
 /** MASC: IS 1 ton per 20 tons of mech, Clan 1 per 25, rounded to the nearest ton. Slots = tons. */
@@ -312,6 +314,8 @@ export const GYRO_OPTIONS: Record<GyroType, ComponentOption> = {
   xl: opt('XL gyros', 'IS', '3062'),
   'heavy-duty': opt('Heavy-duty gyros', 'IS', '3062'),
   compact: opt('Compact gyros', 'IS', '3068'),
+  // No gyro: only with an interface cockpit.
+  none: opt('No gyro (interface cockpit)', 'Both', '3068'),
 };
 export const COCKPIT_OPTIONS: Record<CockpitType, ComponentOption> = {
   standard: opt('Standard cockpits', 'Both', '3025'),
@@ -319,6 +323,9 @@ export const COCKPIT_OPTIONS: Record<CockpitType, ComponentOption> = {
   'command-console': opt('Command consoles', 'Both', '3025'),
   'torso-mounted': opt('Torso-mounted cockpits', 'Both', '3050'),
   industrial: opt('Industrial cockpits', 'Both', '3025'),
+  primitive: opt('Primitive cockpits', 'IS', '3025'),
+  interface: opt('Interface cockpits', 'Both', '3068'),
+  'primitive-industrial': opt('Primitive industrial cockpits', 'IS', '3025'),
 };
 export const HEAT_SINK_OPTIONS: Record<HeatSinkType, ComponentOption> = {
   single: opt('Single heat sinks', 'Both', '3025'),
@@ -339,6 +346,7 @@ export const ARMOR_OPTIONS: Record<ArmorType, ComponentOption> = {
   'ballistic-reinforced': opt('Ballistic-Reinforced armor', 'IS', '3101'),
   'heat-dissipating': opt('Heat-Dissipating armor', 'Both', '3101'),
   commercial: opt('Commercial armor', 'Both', '3025'),
+  primitive: opt('Primitive armor', 'IS', '3025'),
   industrial: opt('Industrial armor', 'Both', '3025'),
   'heavy-industrial': opt('Heavy industrial armor', 'Both', '3025'),
 };

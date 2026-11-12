@@ -14,7 +14,7 @@ import type { MechSummary } from '../rules/construction';
 import { TONNAGES, freeHeatSinks, maxWalkMP } from '../rules/tables';
 import {
   setActuator, setCockpitType, setConfig, setFullHeadEjection, setLam, setEngineHeatSinks, setEngineType, setGyroType, setHeatSinkTotal,
-  setHeatSinkType, setJumpJetType, setJumpMP,
+  setHeatSinkType, setJumpJetType, setJumpMP, setLaserHeatSinks,
   setEnvironmentalSealing, setMixedTech, setMyomer, setStructureType, setTechBase, setTonnage, setWalkMP,
 } from '../rules/edit';
 import { setOmni } from '../rules/omni';
@@ -204,6 +204,7 @@ export function ChassisPanel({ design, summary, update }: Props) {
             <option value="compact" disabled={!ok(GYRO_OPTIONS.compact)} title={why(GYRO_OPTIONS.compact)}>
               Compact (2 slots)
             </option>
+            <option value="none" disabled={design.cockpitType !== 'interface'} title="Only with an interface cockpit">None (interface cockpit)</option>
           </select>
           <span className="muted"> {summary.weights.gyro} t</span>
         </div>
@@ -224,6 +225,15 @@ export function ChassisPanel({ design, summary, update }: Props) {
             </option>
             <option value="industrial" disabled={!isIndustrial(design)} title={isIndustrial(design) ? 'Cheaper; no advanced fire control (+1 to hit, BV ×0.9)' : 'IndustrialMechs only'}>
               Industrial (no adv. fire control)
+            </option>
+            <option value="interface" disabled={!ok(COCKPIT_OPTIONS.interface)} title={why(COCKPIT_OPTIONS.interface)}>
+              Interface (4 t; no gyro needed)
+            </option>
+            <option value="primitive" title="Primitive 'Mech: 5 t; engine rated 1.2 × tonnage × walking MP; primitive armor">
+              Primitive (engine ×1.2)
+            </option>
+            <option value="primitive-industrial" disabled={!isIndustrial(design)} title="Primitive IndustrialMech without advanced fire control">
+              Primitive industrial
             </option>
           </select>
           <span className="muted"> {summary.weights.cockpit} t</span>
@@ -249,10 +259,13 @@ export function ChassisPanel({ design, summary, update }: Props) {
           <NumberField label="Total heat sinks" value={hs.total} min={freeHeatSinks(design.engineType)}
             invalid={hs.total < freeHeatSinks(design.engineType)}
             onChange={(n) => update((d) => setHeatSinkTotal(d, n))} />
-          <select aria-label="Heat sink type" value={design.heatSinkType}
-            onChange={(e) => update((d) => setHeatSinkType(d, e.target.value as HeatSinkType))}>
+          <select aria-label="Heat sink type" value={design.laserHeatSinks ? 'laser' : design.heatSinkType}
+            onChange={(e) => update((d) => e.target.value === 'laser'
+              ? setLaserHeatSinks(setHeatSinkType(d, 'double'), true)
+              : setLaserHeatSinks(setHeatSinkType(d, e.target.value as HeatSinkType), false))}>
             <option value="single">Single</option>
             <option value="double" disabled={!ok(HEAT_SINK_OPTIONS.double)} title={why(HEAT_SINK_OPTIONS.double)}>Double</option>
+            <option value="laser" disabled={!ok(HEAT_SINK_OPTIONS.double) || techOf(design, 'heatSinks') !== 'Clan'} title="Clan laser heat sinks: same weight, slots and dissipation as Clan double heat sinks">Laser (Clan)</option>
           </select>{' '}
           {design.heatSinkType === 'double' && <TechPicker design={design} part="heatSinks" update={update} />}
           <span className="muted"> {summary.weights.heatSinks} t · dissipates {hs.dissipation}</span>

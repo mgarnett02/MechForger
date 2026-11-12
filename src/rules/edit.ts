@@ -2,7 +2,7 @@ import type {
   ArmLocation, ArmorAllocation, ArmorFacing, ArmorType, CockpitType, EngineType, GyroType, HeatSinkType, JumpJetType, Location,
   LamType, MechConfig, MechDesign, MountedItem, MyomerType, OmniData, StructureType, TechBase, TechComponent,
 } from './types';
-import { ARMOR_FACINGS, LOCATIONS, REAR_FACING, SPLIT_ADJACENT, TECH_COMPONENTS, isQuad, legLocations, techOf } from './types';
+import { ARMOR_FACINGS, LOCATIONS, REAR_FACING, SPLIT_ADJACENT, TECH_COMPONENTS, engineRatingFor, isQuad, legLocations, techOf } from './types';
 import {
   ARMOR_OPTIONS, COCKPIT_OPTIONS, ENGINE_OPTIONS, GYRO_OPTIONS, MYOMER_OPTIONS, STRUCTURE_OPTIONS,
   FREE_HEAT_SINKS, armorPointsPerTon, armorSlots, engineHeatSinkCapacity, maxWalkMP, structureSlots,
@@ -82,7 +82,7 @@ function syncCount(d: MechDesign, equipmentId: string, count: number): MechDesig
 
 /** Keep total heat sinks constant while respecting the engine's capacity. */
 function refitHeatSinks(d: MechDesign, total: number, preferredInEngine: number): MechDesign {
-  const cap = engineHeatSinkCapacity(d.tonnage * d.walkMP);
+  const cap = engineHeatSinkCapacity(engineRatingFor(d));
   const inEngine = Math.max(0, Math.min(preferredInEngine, cap, total));
   return syncCount({ ...d, engineHeatSinks: inEngine }, heatSinkIdFor(d), total - inEngine);
 }
@@ -123,7 +123,7 @@ export function setWalkMP(d: MechDesign, walkMP: number): MechDesign {
   const w = Math.max(1, Math.min(Math.floor(walkMP), maxWalkMP(d.tonnage)));
   const next = { ...d, walkMP: w };
   // If the bigger engine gained room, move heat sinks inside; if it shrank, push them out.
-  const prevCap = engineHeatSinkCapacity(d.tonnage * d.walkMP);
+  const prevCap = engineHeatSinkCapacity(engineRatingFor(d));
   const wasFull = d.engineHeatSinks >= prevCap;
   const preferred = wasFull ? Number.MAX_SAFE_INTEGER : d.engineHeatSinks;
   return refitHeatSinks(next, totalHeatSinks(d), preferred);
@@ -364,6 +364,13 @@ export function setMixedTech(d: MechDesign, mixedTech: boolean): MechDesign {
   return syncFillers(normalizeHeatSinks({ ...d, mixedTech }));
 }
 
+/** Clan laser heat sinks instead of Clan double heat sinks. */
+export function setLaserHeatSinks(d: MechDesign, on: boolean): MechDesign {
+  const next: MechDesign = { ...d, laserHeatSinks: on || undefined };
+  if (!on) delete next.laserHeatSinks;
+  return normalizeHeatSinks(next);
+}
+
 /** Mixed tech: set one component's tech base (null = same as the chassis). */
 export function setComponentTech(d: MechDesign, part: TechComponent, tech: TechBase | null): MechDesign {
   const componentTech = { ...d.componentTech };
@@ -514,6 +521,7 @@ export function parseDesign(raw: unknown): MechDesign {
     ...parseArmoredSlots(r.armoredSlots),
     mixedTech: r.mixedTech === true,
     ...parseComponentTech(r.componentTech),
+    ...(r.laserHeatSinks === true ? { laserHeatSinks: true } : {}),
     config: pick(r.config, ['biped', 'quad'] as const, 'biped'),
     lam: r.config !== 'quad' && (r.lam === 'standard' || r.lam === 'bimodal') ? r.lam : null,
     ...(r.fullHeadEjection === true ? { fullHeadEjection: true } : {}),

@@ -1,5 +1,5 @@
 import type { Location, MechDesign, TechBase, MechConfig } from './types';
-import { LOCATIONS, techOf } from './types';
+import { LOCATIONS, engineRatingFor, techOf } from './types';
 import type { EraId } from './eras';
 import { isAvailableIn } from './eras';
 import { engineWeight, jumpJetWeight, mascWeight } from './tables';
@@ -421,7 +421,8 @@ export const AMMO: readonly Equipment[] = [
 export const HEAT_SINK_ID = 'heat-sink';
 export const DOUBLE_HEAT_SINK_ID = 'double-heat-sink';
 export const CLAN_DOUBLE_HEAT_SINK_ID = 'clan-double-heat-sink';
-export const HEAT_SINK_IDS: readonly string[] = [HEAT_SINK_ID, DOUBLE_HEAT_SINK_ID, CLAN_DOUBLE_HEAT_SINK_ID];
+export const CLAN_LASER_HEAT_SINK_ID = 'clan-laser-heat-sink';
+export const HEAT_SINK_IDS: readonly string[] = [HEAT_SINK_ID, DOUBLE_HEAT_SINK_ID, CLAN_DOUBLE_HEAT_SINK_ID, CLAN_LASER_HEAT_SINK_ID];
 export const JUMP_JET_ID = 'jump-jet';
 export const IMPROVED_JUMP_JET_ID = 'improved-jump-jet';
 export const JUMP_JET_IDS: readonly string[] = [JUMP_JET_ID, IMPROVED_JUMP_JET_ID];
@@ -441,6 +442,7 @@ export const OTHER_EQUIPMENT: readonly Equipment[] = [
   managed(ANY_3025, HEAT_SINK_ID, 'Heat Sink', 1, 1),
   managed(IS_3050, DOUBLE_HEAT_SINK_ID, 'Double Heat Sink', 1, 3),
   managed(CLAN_3050, CLAN_DOUBLE_HEAT_SINK_ID, 'Double Heat Sink', 1, 2),
+  managed(CLAN_3050, CLAN_LASER_HEAT_SINK_ID, 'Laser Heat Sink', 1, 2),
   {
     ...managed(ANY_3025, JUMP_JET_ID, 'Jump Jet', 0, 1),
     variableWeight: 'jumpJet',
@@ -574,7 +576,7 @@ export const OTHER_EQUIPMENT: readonly Equipment[] = [
     spread: 'legs', fixedOnly: true, techBase: 'Both', firstEra: '3025',
   },
   // Radical heat sink system (3095): extra heat capacity in an emergency; needs double heat sinks.
-  { id: 'radical-heat-sink', name: 'Radical Heat Sink System', category: 'Other', tons: 4, slots: 3, heat: 0, isWeapon: false, fixedOnly: true, ...IS_3081 },
+  { id: 'radical-heat-sink', name: 'Radical Heat Sink System', category: 'Other', tons: 4, slots: 3, heat: 0, isWeapon: false, ...IS_3081 },
   { id: 'harjel', name: 'HarJel', category: 'Other', tons: 1, slots: 1, heat: 0, isWeapon: false, allowedLocations: NOT_HEAD, techBase: 'Both', firstEra: '3062' },
   // Blue Shield particle field damper (3053): one slot in every location except the head, 3 t in all.
   {
@@ -913,7 +915,7 @@ export function itemWeight(eq: Equipment, d: SizingDesign): number {
   if (eq.variableWeight === 'masc') return mascWeight(d.tonnage, eq.techBase === 'Clan' ? 'Clan' : 'IS');
   if (eq.variableWeight === 'supercharger') {
     // 10% of the engine weight, rounded up to the half ton.
-    const engine = d.walkMP && d.engineType ? engineWeight(d.engineType, d.tonnage * d.walkMP) ?? 0 : 0;
+    const engine = d.walkMP && d.engineType ? engineWeight(d.engineType, engineRatingFor({ ...d, walkMP: d.walkMP })) ?? 0 : 0;
     return Math.ceil((engine / 10) * 2 - 1e-9) / 2;
   }
   if (eq.variableWeight === 'targetingComputer') return targetingComputerWeight(eq, d);
@@ -986,7 +988,8 @@ export function jumpJetIdFor(d: Pick<MechDesign, 'jumpJetType'>): string {
 }
 
 /** Heat sink equipment id for a design's heat sink type and tech base. */
-export function heatSinkIdFor(d: Pick<MechDesign, 'heatSinkType' | 'techBase'> & Partial<Pick<MechDesign, 'mixedTech' | 'componentTech'>>): string {
+export function heatSinkIdFor(d: Pick<MechDesign, 'heatSinkType' | 'techBase'> & Partial<Pick<MechDesign, 'mixedTech' | 'componentTech' | 'laserHeatSinks'>>): string {
   if (d.heatSinkType === 'single') return HEAT_SINK_ID;
-  return techOf(d, 'heatSinks') === 'Clan' ? CLAN_DOUBLE_HEAT_SINK_ID : DOUBLE_HEAT_SINK_ID;
+  if (techOf(d, 'heatSinks') !== 'Clan') return DOUBLE_HEAT_SINK_ID;
+  return d.laserHeatSinks ? CLAN_LASER_HEAT_SINK_ID : CLAN_DOUBLE_HEAT_SINK_ID;
 }

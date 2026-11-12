@@ -359,7 +359,7 @@ export function mechBV(d: MechDesign): BVBreakdown {
   const tonnage = d.tonnage * aesMod * (d.myomer === 'tsm' ? 1.5 : d.myomer === 'industrial-tsm' ? 1.15 : 1);
   const sf = speedFactor(run + Math.round((airMechFlank ?? Math.max(jump, s.umuMP)) / 2));
   // IndustrialMechs without advanced fire control: offensive rating × 0.9.
-  const afcMod = d.cockpitType === 'industrial' ? 0.9 : 1;
+  const afcMod = d.cockpitType === 'industrial' || d.cockpitType === 'primitive-industrial' ? 0.9 : 1;
   const offensive = (weaponBV + ammo + offEquip + tonnage) * sf * afcMod;
   lines.push(['Weapons (heat-adjusted)', weaponBV], ['Ammunition', ammo]);
   if (offEquip) lines.push(['Offensive equipment', offEquip]);
@@ -375,11 +375,11 @@ export function mechBV(d: MechDesign): BVBreakdown {
 const ENGINE_COST: Record<string, number> = {
   standard: 5000, xl: 20000, xxl: 100000, light: 15000, compact: 10000, ice: 1250, 'fuel-cell': 3500, fission: 7500,
 };
-const GYRO_COST: Record<string, number> = { standard: 300000, xl: 750000, compact: 400000, 'heavy-duty': 500000 };
+const GYRO_COST: Record<string, number> = { standard: 300000, xl: 750000, compact: 400000, 'heavy-duty': 500000, none: 0 };
 const ARMOR_COST: Record<string, number> = {
   standard: 10000, 'ferro-fibrous': 20000, 'light-ferro': 15000, 'heavy-ferro': 25000, stealth: 50000, reactive: 30000,
   reflective: 30000, hardened: 15000, 'ferro-lamellor': 35000, 'ballistic-reinforced': 25000, 'anti-penetrative': 15000,
-  'heat-dissipating': 25000, 'impact-resistant': 20000, commercial: 3000, industrial: 5000, 'heavy-industrial': 10000,
+  'heat-dissipating': 25000, 'impact-resistant': 20000, commercial: 3000, industrial: 5000, 'heavy-industrial': 10000, primitive: 5000,
 };
 /** Structure cost per ton of 'Mech (MegaMek). */
 const STRUCTURE_COST: Record<string, number> = {
@@ -425,7 +425,7 @@ export function mechCost(d: MechDesign): CostBreakdown {
   const jumpCost = (d.jumpJetType === 'improved' ? 500 : 200) * t * s.jumpMP ** 2;
   const hsCost = (d.heatSinkType === 'double' ? 6000 : 2000) * Math.max(0, s.heatSinks.total - freeHeatSinks(d.engineType));
   const lines: [string, number][] = [
-    ['Cockpit', { standard: 200000, small: 175000, 'torso-mounted': 750000, 'command-console': 700000, industrial: 100000 }[d.cockpitType]],
+    ['Cockpit', { standard: 200000, small: 175000, 'torso-mounted': 750000, 'command-console': 700000, industrial: 100000, primitive: 200000, 'primitive-industrial': 100000, interface: 200000 }[d.cockpitType]],
     ['Life support', 50000],
     ['Sensors', 2000 * t],
     ['Musculature', (d.myomer === 'tsm' ? 16000 : d.myomer === 'industrial-tsm' ? 12000 : 2000) * t],

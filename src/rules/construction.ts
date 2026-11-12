@@ -1,5 +1,5 @@
 import type { Location, MechDesign, MountedItem, WeightClass } from './types';
-import { LOCATIONS, isIndustrial, isQuad, techOf } from './types';
+import { LOCATIONS, engineRatingFor, isIndustrial, isQuad, techOf } from './types';
 import {
   freeHeatSinks, armorPointsPerTon, cockpitWeight, engineCenterSlots, engineHeatSinkCapacity,
   engineSideTorsoSlots, engineWeight, gyroSlots, gyroWeightFor, internalStructure, internalStructureWeight,
@@ -138,7 +138,7 @@ const ENGINE_LABEL = {
   ice: 'I.C.E.', 'fuel-cell': 'Fuel Cell', fission: 'Fission Engine',
   standard: 'Fusion Engine', xl: 'XL Fusion Engine', xxl: 'XXL Fusion Engine', light: 'Light Fusion Engine', compact: 'Compact Fusion Engine',
 } as const;
-const GYRO_LABEL = { standard: 'Gyro', xl: 'XL Gyro', 'heavy-duty': 'Heavy-Duty Gyro', compact: 'Compact Gyro' } as const;
+const GYRO_LABEL = { standard: 'Gyro', xl: 'XL Gyro', 'heavy-duty': 'Heavy-Duty Gyro', compact: 'Compact Gyro', none: '' } as const;
 
 /** Fixed components per location; null marks a slot open for equipment. */
 export function fixedSlots(design: MechDesign, loc: Location): (string | null)[] {
@@ -164,6 +164,8 @@ function baseFixedSlots(design: MechDesign, loc: Location): (string | null)[] {
         case 'command-console': return ['Life Support', 'Sensors', 'Cockpit', 'Command Console', 'Sensors', 'Life Support'];
         // Torso-mounted cockpit: two sensor slots stay in the head (as MegaMek places them).
         case 'torso-mounted': return ['Sensors', 'Sensors', null, null, null, null];
+        // Interface cockpit: two cockpit slots.
+        case 'interface': return ['Life Support', 'Sensors', 'Cockpit', 'Cockpit', 'Sensors', 'Life Support'];
         default: return ['Life Support', 'Sensors', 'Cockpit', null, 'Sensors', 'Life Support'];
       }
     case 'CT': {
@@ -267,7 +269,7 @@ function layoutLocation(design: MechDesign, loc: Location): LocationSlots {
 
 export function computeMech(design: MechDesign): MechSummary {
   const { tonnage, walkMP } = design;
-  const rating = tonnage * walkMP;
+  const rating = engineRatingFor(design);
   const engineWt = engineWeight(design.engineType, rating);
   const quad = isQuad(design);
   const structure = internalStructure(tonnage, quad);
