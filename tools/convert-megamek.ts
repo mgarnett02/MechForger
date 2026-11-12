@@ -25,8 +25,8 @@ import { SPLIT_ADJACENT } from '../src/rules/types';
 import { computeMech, fixedSlots } from '../src/rules/construction';
 import { validate } from '../src/rules/validation';
 import { fighterBV, mechBV, mechCost, vehicleBV, vehicleCost, vesselBV } from '../src/rules/battleValue';
-import type { MotiveType, VehicleDesign, VehicleEngineType, VehicleLocation } from '../src/rules/vehicle';
-import { computeVehicle, emptyVehicleArmor, validateVehicle } from '../src/rules/vehicle';
+import type { MotiveType, VehicleArmorType, VehicleDesign, VehicleEngineType, VehicleLocation } from '../src/rules/vehicle';
+import { computeVehicle, emptyVehicleArmor, MOTIVE_TYPES, validateVehicle, vehicleFreeHeatSinks } from '../src/rules/vehicle';
 import { armorPointsPerTon } from '../src/rules/tables';
 import { encodeBattleArmor, encodeInfantry, encodeFighter, encodeMech, encodeSupport, encodeVehicle, encodeVessel } from '../src/data/canonFormat';
 import type { BAItem, BattleArmorDesign } from '../src/rules/battlearmor';
@@ -482,12 +482,15 @@ function parseMtf(text: string): ParsedMech {
 // BLK (vehicles)
 // ---------------------------------------------------------------------------
 
-const BLK_ENGINES: Record<string, VehicleEngineType> = { 0: 'standard', 1: 'ice', 2: 'xl', 4: 'light', 5: 'compact' };
+const BLK_ENGINES: Record<string, VehicleEngineType> = { 0: 'standard', 1: 'ice', 2: 'xl', 3: 'xxl', 4: 'light', 5: 'compact', 6: 'fuel-cell', 7: 'fission', 8: 'none' };
 const BLK_MOTION: Record<string, MotiveType> = {
   Tracked: 'tracked', Wheeled: 'wheeled', Hover: 'hover', VTOL: 'vtol', Naval: 'naval',
-  Hydrofoil: 'hydrofoil', Submarine: 'submarine',
+  Hydrofoil: 'hydrofoil', Submarine: 'submarine', WiGE: 'wige',
 };
-const BLK_ARMOR: Record<string, ArmorType> = { 0: 'standard', 1: 'ferro-fibrous', 5: 'light-ferro', 6: 'heavy-ferro' };
+const BLK_ARMOR: Record<string, VehicleArmorType> = {
+  0: 'standard', 1: 'ferro-fibrous', 2: 'reactive', 3: 'reflective', 4: 'hardened', 5: 'light-ferro', 6: 'heavy-ferro',
+  16: 'ferro-lamellor', 22: 'stealth', 26: 'ballistic-reinforced',
+};
 
 function parseBlk(text: string): { design: VehicleDesign; year: number; rulesLevel: number; mulId?: number; source: string } {
   const tags = new Map<string, string[]>();
@@ -498,10 +501,11 @@ function parseBlk(text: string): { design: VehicleDesign; year: number; rulesLev
 
   const unitType = one('UnitType');
   if (unitType !== 'Tank' && unitType !== 'VTOL' && unitType !== 'Naval') fail(`unit type ${unitType}`);
-  if (tags.has('omni')) fail('OmniVehicle');
+  const omni = one('omni') === '1';
   const motive = BLK_MOTION[one('motion_type')] ?? fail(`motion ${one('motion_type')}`);
   const typeStr = one('type');
   const techBase: TechBase = /^Clan|Clan Chassis/.test(typeStr) ? 'Clan' : 'IS';
+  if (Number(one('tonnage')) > MOTIVE_TYPES[motive].maxTonnage) fail('superheavy vehicle');
   const mixedTech = /^Mixed/.test(typeStr);
   const tonnage = Number(one('tonnage'));
   const engineType = BLK_ENGINES[one('engine_type')] ?? fail(`engine ${one('engine_type')}`);
@@ -532,7 +536,14 @@ function parseBlk(text: string): { design: VehicleDesign; year: number; rulesLev
   const equipment = [];
   let uid = 0;
   for (const [tag, loc] of blocks) {
-    for (const raw of tags.get(tag) ?? []) {
+    for (const line of tags.get(tag) ?? []) {
+      const raw = line.replace(/:OMNI$/i, '');
+      if (/^(IS|CL)?\s*Vehicular Stealth$/i.test(raw)) continue; // part of stealth armor
+      const comms = /^Communications Equipment:SIZE:([\d.]+)/i.exec(raw);
+      if (comms) {
+        for (let c = 0; c < Math.round(Number(comms[1])); c++) equipment.push({ uid: `v${uid++}`, equipmentId: 'communications-equipment', location: 'BD' as VehicleLocation });
+        continue;
+      }
       const r = resolveName(raw, techBase);
       if (r.kind === 'fixed') continue;
       if (r.kind === 'unknown') fail(`unknown item "${r.name}"`);
@@ -548,12 +559,16 @@ function parseBlk(text: string): { design: VehicleDesign; year: number; rulesLev
     schemaVersion: 1, unitType: 'vehicle', era: '3025', techBase, mixedTech,
     chassis: one('Name'), model: one('Model'), motive, tonnage, cruiseMP: Number(one('cruiseMP')),
     engineType, structureType: 'standard', armorType, turret, heatSinks: 0, armor, equipment,
+    ...(omni ? { omni: true } : {}),
+    ...(['1', 'true'].includes(one('trailer')) ? { trailer: true } : {}),
+    ...(['1', 'true'].includes(one('trailer')) && ['1', 'true'].includes(one('hasNoControlSystems')) ? { noControls: true } : {}),
+    ...(omni && turret && tags.has('baseChassisTurretWeight') ? { omniTurretTons: Number(one('baseChassisTurretWeight')) } : {}),
     ...(cargo > 0 ? { cargo } : {}),
   };
   fixAmmoTech(design.equipment);
   // Vehicles carry exactly the heat sinks their energy weapons need (fusion engines include 10).
   const energy = computeVehicle(design).energyHeat;
-  design.heatSinks = Math.max(engineType === 'ice' ? 0 : 10, energy);
+  design.heatSinks = Math.max(vehicleFreeHeatSinks(engineType), energy);
   return { design, year: Number(one('year')) || 3025, rulesLevel: Number(/Level (\d)/.exec(typeStr)?.[1]) || 0, mulId: Number(one('mul id:')) || undefined, source: one('source') };
 }
 
@@ -1165,6 +1180,9 @@ function main() {
       const d = settleEra(p.design, p.year, (x) => validateVehicle(x).map((i) => i.message));
       const s = computeVehicle(d);
       const issues = validateVehicle(d, s);
+      if (process.env.VEH_DEBUG && (issues.some((i) => i.severity === 'error') || s.weights.total !== d.tonnage)) {
+        console.error(`VEH ${d.chassis} ${d.model} [${d.motive} ${d.engineType} ${d.armorType}${d.omni ? ' omni' : ''}] ${s.weights.total}/${d.tonnage} ${issues.filter((i) => i.severity === 'error').map((i) => i.message).join(' | ')}`);
+      }
       vehicles.push({
         n: `${d.chassis} ${d.model}`.trim(), t: d.tonnage, tb: d.techBase, era: d.era, y: p.year,
         k: d.motive, bv: vehicleBV(d).total, ok: issues.every((i) => i.severity !== 'error'),

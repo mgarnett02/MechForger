@@ -408,6 +408,7 @@ function equipmentCost<T extends { equipmentId: string; location?: string | null
     else if (eq.variableWeight === 'aes' && mech) total += mech.tonnage * (legLocations(mech).includes(i.location as Location) ? 700 : 500);
     else if (eq.variableWeight === 'partialWing') total += weight(eq) * 50000;
     else if (eq.variableWeight === 'droneOS') total += weight(eq) * 10000 + 5000;
+    else if (eq.vehicleChassisMod) total += weight(eq) * (/armored-motive/.test(eq.id) ? 100000 : /amphibious/.test(eq.id) ? 10000 : 0);
     else if (eq.variableWeight === 'tracks' && mech) total += Math.ceil((500 * rating * mech.tonnage) / 75) / legLocations(mech).length;
     else total += value(eq.id)?.cost ?? 0;
   }
@@ -462,20 +463,21 @@ export function mechCost(d: MechDesign): CostBreakdown {
 // ---------------------------------------------------------------------------
 
 const BODY_MODIFIER: Record<string, number> = {
-  tracked: 0.9, wheeled: 0.8, hover: 0.7, vtol: 0.7, naval: 0.6, hydrofoil: 0.6, submarine: 0.6,
+  tracked: 0.9, wheeled: 0.8, hover: 0.7, vtol: 0.7, wige: 0.7, naval: 0.6, hydrofoil: 0.6, submarine: 0.6,
 };
 const VEHICLE_COST_DIVISOR: Record<string, number> = {
-  tracked: 100, wheeled: 200, hover: 50, vtol: 30, naval: 200, hydrofoil: 100, submarine: 50,
+  tracked: 100, wheeled: 200, hover: 50, vtol: 30, wige: 25, naval: 200, hydrofoil: 75, submarine: 50,
 };
-const LIFT_COST: Record<string, number> = { hover: 20000, vtol: 40000, hydrofoil: 20000, submarine: 20000 };
+const LIFT_COST: Record<string, number> = { hover: 20000, vtol: 40000, hydrofoil: 20000, submarine: 20000, wige: 20000 };
 
 export function vehicleBV(d: VehicleDesign): BVBreakdown {
   const s = computeVehicle(d);
   const lines: [string, number][] = [];
-  const armor = s.armorTotal * 2.5;
+  const armor = s.armorTotal * 2.5 * (ARMOR_BV_MULTIPLIER[d.armorType] ?? 1);
   const structure = s.structurePoints * s.armorLocations.length * 1.5;
   const defEquip = defensiveEquipmentBV(d.equipment);
-  const tmm = targetMovementModifier(s.flankMP) + (d.motive === 'vtol' ? 1 : 0);
+  // VTOLs and WiGEs +1; stealth armor +2.
+  const tmm = targetMovementModifier(s.flankMP) + (d.motive === 'vtol' || d.motive === 'wige' ? 1 : 0) + (d.armorType === 'stealth' ? 2 : 0);
   const body = BODY_MODIFIER[d.motive];
   const defensive = (armor + structure + defEquip) * body * (1 + tmm / 10);
   lines.push(['Armor', armor], ['Internal structure', structure]);
@@ -508,8 +510,8 @@ export function vehicleCost(d: VehicleDesign): CostBreakdown {
     ['Troop / cargo space', 5000 * w.cargo],
   ].filter(([, v]) => v !== 0) as [string, number][];
   const subtotal = lines.reduce((a, [, v]) => a + v, 0);
-  const multiplier = 1 + d.tonnage / VEHICLE_COST_DIVISOR[d.motive];
-  lines.push([`× (1 + tonnage/${VEHICLE_COST_DIVISOR[d.motive]})`, multiplier]);
+  const multiplier = (1 + d.tonnage / VEHICLE_COST_DIVISOR[d.motive]) * (d.omni ? 1.25 : 1);
+  lines.push([`× (1 + tonnage/${VEHICLE_COST_DIVISOR[d.motive]})${d.omni ? ' × 1.25 OmniVehicle' : ''}`, multiplier]);
   return { total: round(subtotal * multiplier), lines, approximate: true };
 }
 

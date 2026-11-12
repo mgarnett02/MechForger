@@ -1,18 +1,18 @@
 import { useEffect, useState } from 'react';
-import type { BasicArmorType, BasicStructureType, TechBase } from '../rules/types';
+import type { BasicStructureType, TechBase } from '../rules/types';
 import { TECH_BASE_NAMES } from '../rules/types';
 import { ERAS, getEra, isAvailableIn } from '../rules/eras';
 import type { ComponentOption } from '../rules/tables';
-import { ARMOR_OPTIONS, STRUCTURE_OPTIONS, componentAvailable, componentEraOk, componentFirstEra } from '../rules/tables';
+import { ARMOR_NAMES, ARMOR_OPTIONS, STRUCTURE_OPTIONS, componentAvailable, componentEraOk, componentFirstEra } from '../rules/tables';
 import type { Equipment, EquipmentCategory } from '../rules/equipment';
 import { ALL_EQUIPMENT, equipmentName, getEquipment, isEquipmentAvailable } from '../rules/equipment';
 import { armorPointsForTons, armorTonnage } from '../rules/armor';
 import type { Issue } from '../rules/validation';
 import type {
-  MotiveType, VehicleArmorLocation, VehicleDesign, VehicleEngineType, VehicleLocation, VehicleSummary,
+  MotiveType, VehicleArmorLocation, VehicleArmorType, VehicleDesign, VehicleEngineType, VehicleLocation, VehicleSummary,
 } from '../rules/vehicle';
 import {
-  MOTIVE_ORDER, MOTIVE_TYPES, VEHICLE_ENGINE_LABELS, VEHICLE_ENGINE_OPTIONS, VEHICLE_LOCATION_NAMES,
+  computeVehicle, MOTIVE_ORDER, MOTIVE_TYPES, VEHICLE_ENGINE_LABELS, VEHICLE_ENGINE_OPTIONS, VEHICLE_LOCATION_NAMES,
   VTOL_ROTOR_MAX_ARMOR, addVehicleItem, distributeVehicleArmor, emptyVehicleArmor, isVehicleEquipment,
   removeVehicleItem, setVehicleArmorTonnage, setVehicleEngine, setVehicleItemLocation, setVehicleMotive,
   setVehicleTurret, turretName, vehicleArmorSlots, vehicleItemLocations, vehicleItemWeight, vehicleReadout,
@@ -116,8 +116,8 @@ function VehicleChassisPanel({ design, summary, update }: Props) {
 
         <label>Cruising MP</label>
         <div>
-          <NumberField label="Cruising MP" value={design.cruiseMP} min={1}
-            onChange={(n) => update((d) => ({ ...d, cruiseMP: Math.max(1, Math.round(n)) }))} />
+          <NumberField label="Cruising MP" value={design.cruiseMP} min={design.trailer ? 0 : 1}
+            onChange={(n) => update((d) => ({ ...d, cruiseMP: Math.max(d.trailer ? 0 : 1, Math.round(n)) }))} />
           <span className="muted"> Flank {summary.flankMP}</span>
         </div>
 
@@ -134,7 +134,7 @@ function VehicleChassisPanel({ design, summary, update }: Props) {
           <span className="muted"> {summary.engineWeight ?? '—'} t</span>
           <div className="small muted">
             Rating = {design.cruiseMP} × {design.tonnage} − {summary.suspension} suspension
-            {design.engineType !== 'ice' ? ' · includes fusion shielding' : ''}
+            {['standard', 'xl', 'light', 'compact', 'xxl', 'fission'].includes(design.engineType) ? ' · includes shielding' : ''}
           </div>
         </div>
 
@@ -145,7 +145,41 @@ function VehicleChassisPanel({ design, summary, update }: Props) {
               onChange={(e) => update((d) => setVehicleTurret(d, e.target.checked))} />
             {turretName(design)}
           </label>
-          {design.turret && <span className="muted"> {summary.weights.turret} t (10% of turret weapons)</span>}
+          {design.turret && !(design.omni && design.omniTurretTons !== undefined) && <span className="muted"> {summary.weights.turret} t (10% of turret weapons)</span>}
+          {design.turret && design.omni && (
+            <span className="muted"> base chassis turret{' '}
+              <NumberField label="OmniVehicle turret tons" value={design.omniTurretTons ?? summary.weights.turret} min={0} step={0.5} width="4rem"
+                onChange={(n) => update((d) => ({ ...d, omniTurretTons: Math.max(0, Math.round(n * 2) / 2) }))} /> t
+              {' '}({summary.turretItemTons} of {(design.omniTurretTons ?? summary.weights.turret) * 10} t of pods)
+            </span>
+          )}
+        </div>
+
+        <label>Chassis</label>
+        <div>
+          <label className="check">
+            <input type="checkbox" checked={!!design.omni}
+              onChange={(e) => update((d) => {
+                const { omni: _o, omniTurretTons: _t, ...rest } = d;
+                return e.target.checked ? { ...rest, omni: true, omniTurretTons: computeVehicle(d).weights.turret } : rest;
+              })} />
+            OmniVehicle
+          </label>{' '}
+          <label className="check">
+            <input type="checkbox" checked={!!design.trailer}
+              onChange={(e) => update((d) => {
+                const { trailer: _t, noControls: _n, ...rest } = d;
+                return e.target.checked ? { ...rest, trailer: true } : { ...rest, cruiseMP: Math.max(1, d.cruiseMP), engineType: d.engineType === 'none' ? 'ice' : d.engineType };
+              })} />
+            Trailer
+          </label>{' '}
+          {design.trailer && (
+            <label className="check">
+              <input type="checkbox" checked={!!design.noControls}
+                onChange={(e) => update((d) => ({ ...d, noControls: e.target.checked || undefined }))} />
+              No control systems
+            </label>
+          )}
         </div>
 
         <label>Troop / cargo</label>
@@ -176,18 +210,21 @@ function VehicleArmorPanel({ design, summary, update }: Props) {
   const ppt = summary.armorPointsPerTon;
   const maxTons = armorTonnage(summary.armorMax, ppt);
   const unused = armorPointsForTons(summary.weights.armor, ppt) - summary.armorTotal;
-  const opt = (k: BasicArmorType) => componentAvailable(ARMOR_OPTIONS[k], design.era, design.techBase, design.mixedTech);
-  const slots = (k: BasicArmorType) => vehicleArmorSlots(k, design.techBase);
+  const opt = (k: VehicleArmorType) => componentAvailable(ARMOR_OPTIONS[k], design.era, design.techBase, design.mixedTech);
+  const slots = (k: VehicleArmorType) => vehicleArmorSlots(k, design.techBase);
   return (
     <section className="panel">
       <h2>
         Armor{' '}
         <select aria-label="Armor type" value={design.armorType}
-          onChange={(e) => update((d) => ({ ...d, armorType: e.target.value as BasicArmorType }))}>
+          onChange={(e) => update((d) => ({ ...d, armorType: e.target.value as VehicleArmorType }))}>
           <option value="standard">Standard</option>
           <option value="ferro-fibrous" disabled={!opt('ferro-fibrous')}>Ferro-Fibrous ({slots('ferro-fibrous')} slots)</option>
           <option value="light-ferro" disabled={!opt('light-ferro')}>Light Ferro-Fibrous ({slots('light-ferro')} slot)</option>
           <option value="heavy-ferro" disabled={!opt('heavy-ferro')}>Heavy Ferro-Fibrous ({slots('heavy-ferro')} slots)</option>
+          {(['reactive', 'reflective', 'hardened', 'stealth', 'ferro-lamellor', 'ballistic-reinforced'] as const).map((k) => (
+            <option key={k} value={k} disabled={!opt(k)}>{ARMOR_NAMES[k]} ({slots(k)} slot{slots(k) === 1 ? '' : 's'})</option>
+          ))}
         </select>{' '}
         <span className="muted small">{Number.isInteger(ppt) ? ppt : ppt.toFixed(2)} pts/ton</span>
       </h2>

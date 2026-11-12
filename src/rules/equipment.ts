@@ -39,6 +39,8 @@ export interface Equipment {
   isWeapon: boolean;
   /** Weight (and for MASC / targeting computers, slots) depends on the mech. */
   variableWeight?: 'jumpJet' | 'improvedJumpJet' | 'masc' | 'supercharger' | 'targetingComputer' | 'aes' | 'partialWing' | 'droneOS' | 'tracks';
+  /** Combat vehicle chassis modification: weighs this share of the tonnage (Clan share if given). */
+  vehicleChassisMod?: { share: number; clan?: number };
   /** Systems spread one piece per location (added and removed as a set). */
   spread?: 'all-but-head' | 'all-but-head-ct' | 'side-torsos' | 'legs';
   /** LRM/SRM launchers that can be linked to an Artemis IV fire-control system. */
@@ -585,6 +587,12 @@ export const OTHER_EQUIPMENT: readonly Equipment[] = [
   },
   // Modular armor (3072): +10 armor points in its location, -1 jump MP.
   { id: 'modular-armor', name: 'Modular Armor', category: 'Other', tons: 1, slots: 1, heat: 0, isWeapon: false, techBase: 'Both', firstEra: '3068' },
+  // Combat vehicle chassis modifications (Tactical Operations; weights as MegaMek).
+  { id: 'vehicle-fully-amphibious', name: 'Fully Amphibious Chassis', category: 'Utility', tons: 0, slots: 0, heat: 0, isWeapon: false, vehicleChassisMod: { share: 0.1 }, techBase: 'Both', firstEra: '3025' },
+  { id: 'vehicle-limited-amphibious', name: 'Limited Amphibious Chassis', category: 'Utility', tons: 0, slots: 0, heat: 0, isWeapon: false, vehicleChassisMod: { share: 0.04 }, techBase: 'Both', firstEra: '3025' },
+  { id: 'vehicle-env-sealing', name: 'Environmental Sealed Chassis', category: 'Utility', tons: 0, slots: 0, heat: 0, isWeapon: false, vehicleChassisMod: { share: 0.1 }, techBase: 'Both', firstEra: '3025' },
+  { id: 'armored-motive-system', name: 'Armored Motive System', category: 'Utility', tons: 0, slots: 1, heat: 0, isWeapon: false, vehicleChassisMod: { share: 0.15, clan: 0.1 }, techBase: 'IS', firstEra: '3062' },
+  { id: 'clan-armored-motive-system', name: 'Armored Motive System', category: 'Utility', tons: 0, slots: 1, heat: 0, isWeapon: false, vehicleChassisMod: { share: 0.1 }, techBase: 'Clan', firstEra: '3062' },
   // Advanced electronics (stats from MegaMek).
   { id: 'bloodhound-probe', name: 'Bloodhound Active Probe', category: 'Other', tons: 2, slots: 3, heat: 0, isWeapon: false, ...IS_3050 },
   { id: 'clan-watchdog-ecm', name: 'Watchdog CEWS', category: 'Other', tons: 1.5, slots: 2, heat: 0, isWeapon: false, ...CLAN_3050 },
@@ -837,7 +845,8 @@ const ABBREVIATIONS: [RegExp, string][] = [
   [/Improved Heavy (Small|Medium|Large) Laser/g, 'Imp. Heavy $1 L.'], [/Rocket Launcher (\d+)/g, 'RL $1'],
   [/Long Tom Cannon Ammo/g, 'LT Cannon Ammo'], [/(Sniper|Thumper) Cannon Ammo/g, '$1 C. Ammo'], [/Targeting Computer/g, 'Targeting Comp.'], [/Triple-Strength Myomer/g, 'TSM'],
   [/Beagle Active Probe/g, 'Beagle Probe'], [/Chameleon Light Polarization Shield/g, 'Chameleon LPS'],
-  [/Actuator Enhancement System/g, 'AES'], [/Radical Heat Sink System/g, 'Radical HS'], [/Binary Laser \(Blazer\) Cannon/g, 'Blazer Cannon'],
+  [/Actuator Enhancement System/g, 'AES'], [/Fully Amphibious Chassis/g, 'Fully Amphibious'], [/Limited Amphibious Chassis/g, 'Ltd. Amphibious'],
+  [/Environmental Sealed Chassis/g, 'Env. Sealed Chassis'], [/Armored Motive System/g, 'Armored Motive'], [/Radical Heat Sink System/g, 'Radical HS'], [/Binary Laser \(Blazer\) Cannon/g, 'Blazer Cannon'],
   [/Extended LRM/g, 'ELRM'], [/Enhanced LRM/g, 'NLRM'], [/Improved ATM/g, 'iATM'], [/Silver Bullet Gauss Rifle/g, 'SB Gauss'],
   [/Improved Heavy Gauss Rifle/g, 'Imp. Heavy Gauss'], [/Improved Heavy Gauss Ammo/g, 'IHGR Ammo'], [/ProtoMech AC/g, 'ProtoAC'],
   [/Vehicle Flamer Ammo/g, 'Veh. Flamer Ammo'], [/'Mech Mortar/g, 'Mortar'], [/Bloodhound Active Probe/g, 'Bloodhound Probe'], [/Heavy Machine Gun Array/g, 'HMG Array'], [/Light Machine Gun Array/g, 'LMG Array'],

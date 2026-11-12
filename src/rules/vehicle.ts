@@ -11,7 +11,7 @@ import type { EraId } from './eras';
 import { DEFAULT_ERA, getEra, isAvailableIn } from './eras';
 import type { ComponentOption } from './tables';
 import {
-  ARMOR_OPTIONS, STRUCTURE_OPTIONS, armorPointsPerTon, componentEraOk, componentTechOk, engineWeight,
+  ARMOR_NAMES, ARMOR_OPTIONS, STRUCTURE_OPTIONS, armorPointsPerTon, componentEraOk, componentTechOk, engineWeight,
   standardFusionEngineWeight,
 } from './tables';
 import type { Equipment } from './equipment';
@@ -25,8 +25,10 @@ import type { Issue } from './validation';
 // Types
 // ---------------------------------------------------------------------------
 
-export type MotiveType = 'tracked' | 'wheeled' | 'hover' | 'vtol' | 'naval' | 'hydrofoil' | 'submarine';
-export type VehicleEngineType = 'ice' | 'standard' | 'xl' | 'light' | 'compact';
+export type MotiveType = 'tracked' | 'wheeled' | 'hover' | 'vtol' | 'wige' | 'naval' | 'hydrofoil' | 'submarine';
+export type VehicleEngineType = 'ice' | 'standard' | 'xl' | 'light' | 'compact' | 'xxl' | 'fuel-cell' | 'fission' | 'none';
+/** Vehicle armor: the basic types plus advanced armors (Tactical Operations). */
+export type VehicleArmorType = BasicArmorType | 'reactive' | 'reflective' | 'hardened' | 'stealth' | 'ferro-lamellor' | 'ballistic-reinforced';
 
 export const VEHICLE_LOCATIONS = ['FR', 'LS', 'RS', 'RR', 'TU', 'RO', 'BD'] as const;
 export type VehicleLocation = (typeof VEHICLE_LOCATIONS)[number];
@@ -58,7 +60,15 @@ export interface VehicleDesign {
   cruiseMP: number;
   engineType: VehicleEngineType;
   structureType: BasicStructureType;
-  armorType: BasicArmorType;
+  armorType: VehicleArmorType;
+  /** OmniVehicle: pod-mounted equipment (each canon configuration loads as its own design); cost ×1.25. */
+  omni?: boolean;
+  /** OmniVehicle: turret weight fixed by the base chassis (tons); pods may fill up to it. */
+  omniTurretTons?: number;
+  /** Trailer: towed by a tractor, so it may have no engine or cruise MP. */
+  trailer?: boolean;
+  /** Trailer without control systems (no crew compartment). */
+  noControls?: boolean;
   /** Single turret (a chin turret on VTOLs). */
   turret: boolean;
   /** Total single heat sinks (fusion engines include 10 for free). */
@@ -82,13 +92,14 @@ export const MOTIVE_TYPES: Record<MotiveType, MotiveInfo> = {
   tracked: { name: 'Tracked', maxTonnage: 100, liftFraction: 0, liftName: null, description: 'Tanks: go almost anywhere on land.' },
   wheeled: { name: 'Wheeled', maxTonnage: 80, liftFraction: 0, liftName: null, description: 'Fast and cheap, but roads and open ground only.' },
   hover: { name: 'Hover', maxTonnage: 50, liftFraction: 0.1, liftName: 'Lift equipment', description: 'Very fast over land and water.' },
+  wige: { name: 'WiGE', maxTonnage: 80, liftFraction: 0.1, liftName: 'Wings / lift equipment', description: 'Wing-in-ground-effect craft: skims over land and water; at least 5 cruise MP.' },
   vtol: { name: 'VTOL', maxTonnage: 30, liftFraction: 0.1, liftName: 'Rotor', description: 'Rotorcraft: flies over terrain; chin turret only.' },
   naval: { name: 'Naval (displacement hull)', maxTonnage: 300, liftFraction: 0, liftName: null, description: 'Surface ships.' },
   hydrofoil: { name: 'Naval (hydrofoil)', maxTonnage: 100, liftFraction: 0.1, liftName: 'Hydrofoil equipment', description: 'Fast surface craft.' },
   submarine: { name: 'Naval (submarine)', maxTonnage: 300, liftFraction: 0.1, liftName: 'Dive equipment', description: 'Operates underwater.' },
 };
 
-export const MOTIVE_ORDER: MotiveType[] = ['tracked', 'wheeled', 'hover', 'vtol', 'naval', 'hydrofoil', 'submarine'];
+export const MOTIVE_ORDER: MotiveType[] = ['tracked', 'wheeled', 'hover', 'vtol', 'wige', 'naval', 'hydrofoil', 'submarine'];
 
 // ---------------------------------------------------------------------------
 // Tables
@@ -108,6 +119,7 @@ export function suspensionFactor(motive: MotiveType, tonnage: number): number {
     case 'hover': return [40, 85, 130, 175, 235][Math.min(band, 4)];
     case 'vtol': return [50, 95, 140][Math.min(band, 2)];
     case 'hydrofoil': return [60, 105, 150, 195, 255, 300, 345, 390, 435, 480][Math.min(band, 9)];
+    case 'wige': return tonnage <= 15 ? 45 : tonnage <= 30 ? 80 : tonnage <= 45 ? 115 : 140;
   }
 }
 
@@ -117,20 +129,29 @@ export function vehicleEngineRating(motive: MotiveType, tonnage: number, cruiseM
   return Math.max(10, Math.ceil(raw / 5) * 5);
 }
 
-const isFusion = (e: VehicleEngineType) => e !== 'ice';
+const isFusion = (e: VehicleEngineType) => e !== 'ice' && e !== 'fuel-cell' && e !== 'fission' && e !== 'none';
+/** Engines that power energy weapons without amplifiers (fusion and fission). */
+const powersEnergy = (e: VehicleEngineType) => isFusion(e) || e === 'fission';
+/** Heat sinks an engine provides for free: fusion 10, fission 5, fuel cell 1 (as MegaMek). */
+export function vehicleFreeHeatSinks(e: VehicleEngineType): number {
+  return isFusion(e) ? 10 : e === 'fission' ? 5 : e === 'fuel-cell' ? 1 : 0;
+}
 
-/** ICE engines weigh twice a standard fusion engine; fusion engines need 50% extra shielding. */
+/** ICE engines weigh twice a standard fusion engine; fusion and fission engines need 50% extra shielding. */
 export function vehicleEngineWeight(type: VehicleEngineType, rating: number): number | null {
+  if (type === 'none') return 0;
   if (type === 'ice') {
     const std = standardFusionEngineWeight(rating);
     return std === null ? null : std * 2;
   }
   const w = engineWeight(type, rating);
-  return w === null ? null : halfUp(w * 1.5);
+  if (w === null) return null;
+  return powersEnergy(type) ? halfUp(w * 1.5) : w;
 }
 
 export const VEHICLE_ENGINE_LABELS: Record<VehicleEngineType, string> = {
   ice: 'ICE', standard: 'Fusion', xl: 'XL Fusion', light: 'Light Fusion', compact: 'Compact Fusion',
+  xxl: 'XXL Fusion', 'fuel-cell': 'Fuel Cell', fission: 'Fission', none: 'None (trailer)',
 };
 
 const opt = (label: string, techBase: TechBase | 'Both', firstEra: EraId): ComponentOption => ({ label, techBase, firstEra });
@@ -141,6 +162,10 @@ export const VEHICLE_ENGINE_OPTIONS: Record<VehicleEngineType, ComponentOption> 
   xl: opt('XL engines', 'Both', '3050'),
   light: opt('Light engines', 'IS', '3062'),
   compact: opt('Compact engines', 'IS', '3068'),
+  xxl: opt('XXL engines', 'Both', '3068'),
+  'fuel-cell': opt('Fuel cell engines', 'Both', '3025'),
+  fission: opt('Fission engines', 'Both', '3025'),
+  none: opt('No engine (trailers)', 'Both', '3025'),
 };
 
 export function vehicleWeightClass(tonnage: number): string {
@@ -173,10 +198,11 @@ export function vehicleStructureSlots(type: BasicStructureType, techBase: TechBa
   return type === 'endo-steel' ? (techBase === 'Clan' ? 1 : 2) : 0;
 }
 
-export function vehicleArmorSlots(type: BasicArmorType, techBase: TechBase): number {
+export function vehicleArmorSlots(type: VehicleArmorType, techBase: TechBase): number {
   switch (type) {
-    case 'ferro-fibrous': return techBase === 'Clan' ? 1 : 2;
-    case 'light-ferro': return 1;
+    case 'ferro-fibrous': case 'reactive': return techBase === 'Clan' ? 1 : 2;
+    case 'light-ferro': case 'reflective': case 'hardened': case 'ferro-lamellor': case 'ballistic-reinforced': return 1;
+    case 'stealth': return 2;
     case 'heavy-ferro': return 3;
     default: return 0;
   }
@@ -201,7 +227,7 @@ export function vehicleItemLocations(eq: Equipment, d: Pick<VehicleDesign, 'moti
 /** Mech-only equipment that vehicles cannot mount. */
 export function isVehicleEquipment(eq: Equipment): boolean {
   if (eq.managed) return false; // heat sinks, jump jets, structure slots, TSM
-  if (eq.variableWeight === 'masc' || eq.variableWeight === 'supercharger') return false;
+  if (eq.variableWeight === 'masc') return false;
   if (eq.lamOnly || eq.melee || eq.capitalClass) return false; // Land-Air 'Mech systems and 'Mech melee weapons
   return true;
 }
@@ -270,6 +296,8 @@ export interface VehicleWeights {
 
 export interface VehicleSummary {
   rating: number;
+  /** Weight of the equipment mounted in the turret. */
+  turretItemTons: number;
   suspension: number;
   flankMP: number;
   engineWeight: number | null;
@@ -287,6 +315,14 @@ export interface VehicleSummary {
 }
 
 export function vehicleItemWeight(eq: Equipment, d: VehicleDesign): number {
+  // Chassis modifications weigh a share of the tonnage (rounded up to the half ton).
+  if (eq.vehicleChassisMod) return halfUp(d.tonnage * (eq.techBase === 'Clan' && eq.vehicleChassisMod.clan ? eq.vehicleChassisMod.clan : eq.vehicleChassisMod.share));
+  if (eq.variableWeight === 'supercharger') {
+    // 10% of the engine weight, rounded up to the half ton.
+    const engine = vehicleEngineWeight(d.engineType, vehicleEngineRating(d.motive, d.tonnage, d.cruiseMP)) ?? 0;
+    return halfUp(engine / 10);
+  }
+  if (eq.variableWeight === 'droneOS') return halfUp(d.tonnage / 10 + 0.5);
   if (eq.variableWeight === 'targetingComputer') {
     let tons = 0;
     for (const m of d.equipment) {
@@ -302,13 +338,15 @@ export function vehicleItemWeight(eq: Equipment, d: VehicleDesign): number {
 export function vehicleSlotsUsed(d: VehicleDesign): number {
   let used = vehicleStructureSlots(d.structureType, d.techBase) + vehicleArmorSlots(d.armorType, d.techBase);
   const ammoTypes = new Set<string>();
+  let comms = false;
   for (const item of d.equipment) {
     const eq = getEquipment(item.equipmentId);
     if (!eq) continue;
     if (eq.category === 'Ammo') ammoTypes.add(eq.id);
+    else if (eq.id === 'communications-equipment') comms = true; // any tonnage takes one slot
     else used++;
   }
-  return used + ammoTypes.size + ((d.cargo ?? 0) > 0 ? 1 : 0);
+  return used + (comms ? 1 : 0) + ammoTypes.size + ((d.cargo ?? 0) > 0 ? 1 : 0);
 }
 
 export function computeVehicle(d: VehicleDesign): VehicleSummary {
@@ -339,14 +377,14 @@ export function computeVehicle(d: VehicleDesign): VehicleSummary {
     }
   }
 
-  const freeHeatSinks = isFusion(d.engineType) ? 10 : 0;
+  const freeHeatSinks = vehicleFreeHeatSinks(d.engineType);
   const weights: VehicleWeights = {
     structure: halfUp(d.tonnage * (d.structureType === 'endo-steel' ? 0.05 : 0.1)),
     engine: engineWt ?? 0,
     lift: halfUp(d.tonnage * motive.liftFraction),
-    controls: halfUp(d.tonnage * 0.05),
-    turret: d.turret ? halfUp(turretItems * 0.1) : 0,
-    powerAmplifiers: isFusion(d.engineType) ? 0 : halfUp(energyTons * 0.1),
+    controls: d.trailer && d.noControls ? 0 : halfUp(d.tonnage * 0.05),
+    turret: d.turret ? (d.omni && d.omniTurretTons !== undefined ? d.omniTurretTons : halfUp(turretItems * 0.1)) : 0,
+    powerAmplifiers: powersEnergy(d.engineType) ? 0 : halfUp(energyTons * 0.1),
     heatSinks: Math.max(0, d.heatSinks - freeHeatSinks),
     armor: armorTonnage(armorTotal, ppt),
     equipment,
@@ -360,6 +398,7 @@ export function computeVehicle(d: VehicleDesign): VehicleSummary {
 
   return {
     rating,
+    turretItemTons: turretItems,
     suspension: suspensionFactor(d.motive, d.tonnage),
     flankMP: Math.ceil(d.cruiseMP * 1.5),
     engineWeight: engineWt,
@@ -412,7 +451,7 @@ export function validateVehicle(d: VehicleDesign, s: VehicleSummary = computeVeh
   if (!Number.isInteger(d.tonnage) || d.tonnage < 1 || d.tonnage > motive.maxTonnage) {
     error(`${motive.name} vehicles must weigh 1–${motive.maxTonnage} tons in whole tons (got ${d.tonnage}).`);
   }
-  if (!Number.isInteger(d.cruiseMP) || d.cruiseMP < 1) error('Cruising MP must be a whole number of at least 1.');
+  if (!Number.isInteger(d.cruiseMP) || (d.cruiseMP < 1 && !d.trailer && d.engineType !== 'none')) error('Cruising MP must be a whole number of at least 1.');
   if (s.rating > 400) error(`Engine rating ${s.rating} exceeds the maximum of 400.`);
   else if (s.engineWeight === null) error(`No ${VEHICLE_ENGINE_LABELS[d.engineType]} engine exists with rating ${s.rating}.`);
 
@@ -430,6 +469,18 @@ export function validateVehicle(d: VehicleDesign, s: VehicleSummary = computeVeh
     }
   }
   if (s.armorTotal > s.armorMax) error(`Armor total ${s.armorTotal} exceeds the maximum of ${s.armorMax}.`);
+  if (d.motive === 'wige' && d.cruiseMP < 5) error('WiGE vehicles need at least 5 cruise MP.');
+  if (d.armorType === 'stealth' && !d.equipment.some((e) => /(^|-)ecm$/.test(e.equipmentId))) error('Stealth armor needs an ECM suite.');
+  if (d.omni && d.turret && d.omniTurretTons !== undefined && s.turretItemTons > d.omniTurretTons * 10 + 1e-9) {
+    error(`Turret pods weigh ${fmt(s.turretItemTons)} tons; the base chassis turret carries ${fmt(d.omniTurretTons * 10)}.`);
+  }
+  if (d.motive === 'vtol' && d.equipment.some((e) => e.equipmentId === 'supercharger')) error('VTOLs cannot mount superchargers.');
+  if (d.engineType === 'none' && !d.trailer) error('Only trailers can be built without an engine.');
+  if (d.engineType === 'none' && d.cruiseMP > 0) error('A vehicle without an engine (a trailer) has no cruise MP.');
+  const mods = d.equipment.map((e) => getEquipment(e.equipmentId)).filter((e) => e?.vehicleChassisMod);
+  if (mods.some((e) => /amphibious/.test(e!.id)) && ['hover', 'naval', 'hydrofoil', 'submarine', 'vtol', 'wige'].includes(d.motive)) {
+    error('Amphibious chassis modifications are for tracked and wheeled vehicles.');
+  }
   if (d.motive === 'vtol' && d.armor.RO > VTOL_ROTOR_MAX_ARMOR) {
     error(`A VTOL rotor can carry at most ${VTOL_ROTOR_MAX_ARMOR} points of armor.`);
   }
@@ -608,9 +659,13 @@ export function parseVehicle(raw: unknown): VehicleDesign {
     motive: pick(r.motive, MOTIVE_ORDER, 'tracked'),
     tonnage: num(r.tonnage, 'tonnage'),
     cruiseMP: num(r.cruiseMP, 'cruiseMP'),
-    engineType: pick(r.engineType, ['ice', 'standard', 'xl', 'light', 'compact'] as const, 'ice'),
+    engineType: pick(r.engineType, ['ice', 'standard', 'xl', 'light', 'compact', 'xxl', 'fuel-cell', 'fission', 'none'] as const, 'ice'),
     structureType: pick(r.structureType, ['standard', 'endo-steel'] as const, 'standard'),
-    armorType: pick(r.armorType, ['standard', 'ferro-fibrous', 'light-ferro', 'heavy-ferro'] as const, 'standard'),
+    armorType: pick(r.armorType, ['standard', 'ferro-fibrous', 'light-ferro', 'heavy-ferro', 'reactive', 'reflective', 'hardened', 'stealth', 'ferro-lamellor', 'ballistic-reinforced'] as const, 'standard'),
+    ...(r.omni === true ? { omni: true } : {}),
+    ...(r.trailer === true ? { trailer: true } : {}),
+    ...(r.trailer === true && r.noControls === true ? { noControls: true } : {}),
+    ...(r.omni === true && typeof r.omniTurretTons === 'number' ? { omniTurretTons: r.omniTurretTons } : {}),
     turret: r.turret === true,
     heatSinks: typeof r.heatSinks === 'number' ? r.heatSinks : 0,
     cargo: typeof r.cargo === 'number' && r.cargo > 0 ? r.cargo : undefined,
@@ -654,7 +709,7 @@ export function vehicleReadout(
   if (s.weights.powerAmplifiers) lines.push(row('Power Amplifiers:', s.weights.powerAmplifiers));
   if (d.turret) lines.push(row(`${turretName(d)}:`, s.weights.turret));
   if (s.weights.cargo) lines.push(row('Troop / Cargo Space:', s.weights.cargo));
-  const armorLabel = { standard: '', 'ferro-fibrous': ' (Ferro-Fibrous)', 'light-ferro': ' (Light Ferro-Fibrous)', 'heavy-ferro': ' (Heavy Ferro-Fibrous)' }[d.armorType];
+  const armorLabel = d.armorType === 'standard' ? '' : ` (${ARMOR_NAMES[d.armorType]})`;
   lines.push(row(`Armor Factor${armorLabel}: ${s.armorTotal}`, s.weights.armor));
   lines.push('');
   lines.push(`${''.padEnd(22)}Internal   Armor`);

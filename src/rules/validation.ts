@@ -353,6 +353,10 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
       error(`Unknown equipment "${item.equipmentId}".`);
       continue;
     }
+    if (eq.vehicleChassisMod && !unavailable.has(`v-${eq.id}`)) {
+      unavailable.add(`v-${eq.id}`);
+      error(`${eq.name} is a combat vehicle chassis modification.`);
+    }
     // Industrial equipment (cargo, lift hoists, communications gear…) can go on BattleMechs too (as MegaMek);
     // only environmental sealing and Industrial TSM are IndustrialMech-only, and those are checked above.
     if (item.pod && (!design.omni || isFixedOnly(eq.id))) {

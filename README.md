@@ -190,13 +190,18 @@ Advanced or Experimental level and is not modeled yet.
 ### Combat vehicles (every era)
 
 - Motive types: tracked (up to 100 t), wheeled (80 t), hover (50 t), VTOL (30 t),
-  naval displacement hull (300 t), hydrofoil (100 t) and submarine (300 t)
+  WiGE (80 t, at least 5 cruise MP), naval displacement hull (300 t), hydrofoil (100 t) and submarine (300 t)
 - Engine rating = cruising MP × tonnage − suspension factor (rounded up to 5);
-  ICE engines (2× standard weight, power amplifiers for energy weapons) or fusion,
-  XL, Light and Compact engines with 50% extra shielding weight
+  ICE engines (2× standard weight, power amplifiers for energy weapons), fuel cells (1 free heat sink),
+  fission (5 free heat sinks) or fusion, XL, XXL, Light and Compact engines with 50% extra shielding weight
+- **OmniVehicles** (cost ×1.25; the turret weight is fixed by the base chassis) and **trailers**
+  (no engine or cruise MP needed, optionally no control systems)
+- Chassis modifications: fully and limited amphibious (tracked and wheeled), environmental sealing
+  and the Inner Sphere / Clan armored motive system; superchargers (not on VTOLs)
 - Structure (standard or Endo Steel), lift / rotor / dive equipment, control
   equipment (5%), optional turret (chin turret on VTOLs, 10% of its weapons)
-- Armor up to 3.5 × tonnage + 40 points (VTOL rotor max 2), all armor types
+- Armor up to 3.5 × tonnage + 40 points (VTOL rotor max 2): all 'Mech armor types plus
+  reactive, reflective, hardened, ferro-lamellor, ballistic-reinforced and vehicular stealth (needs ECM)
 - Item slots (5 + tonnage ÷ 5): one per weapon or item, one per ammunition type,
   plus Endo Steel / Ferro-Fibrous slots
 - Only energy weapons generate heat; fusion engines include 10 heat sinks
@@ -244,7 +249,7 @@ fixed-wing support).
 - Red / amber / green status light: illegal, legal but incomplete (unused tonnage,
   unallocated armor), or fully legal
 - **Canon units**: about 3,200 canon 'Mechs (about 110 of them IndustrialMechs), including 47 quads, 19 Land-Air 'Mechs and around 100 melee-armed designs (OmniMechs with all their
-  configurations), 715 canon combat vehicles, 160 support vehicles, about 440 aerospace, Omni and
+  configurations), about 1,040 canon combat vehicles (OmniVehicles with all their configurations), 160 support vehicles, about 440 aerospace, Omni and
   conventional fighters and about 290 spacecraft (small craft, DropShips, JumpShips, WarShips and
   space stations), about 1,190 battle armor squads and about 1,940 infantry platoons, searchable by name, era, tech base,
   weight and type, ready to load, modify and print (see *Canon unit data* below)
@@ -273,11 +278,11 @@ converted data is shared under the same license and may not be used
 commercially; see `src/data/canon/LICENSE.md`.
 
 Only units MechForger can represent are included: biped mechs, combat
-vehicles and support vehicles using modeled equipment. Quads, LAMs,
-OmniVehicles (combat), superheavies, and units with equipment MechForger does not model yet are
+vehicles and support vehicles using modeled equipment. Superheavy
+'Mechs and vehicles, tripods, QuadVees and units with equipment MechForger does not model yet are
 skipped. Of the converted mechs, 99% weigh exactly their published tonnage
 under MechForger's tables, and Battle Values match the Master Unit List for
-the checked designs. Weights match for about 92% of combat vehicles and 71% of
+the checked designs. Weights match for about 93% of combat vehicles (99% pass every construction check) and 71% of
 support vehicles (most others within half a ton); in the
 browser, ⚖ marks a weight difference and ⚠ a failed construction check.
 

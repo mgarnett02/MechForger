@@ -218,6 +218,9 @@ export const ITEM_VALUES: Record<string, ItemValue> = {
   'c3-emergency-master': v(0, 2800000), 'drone-os': v(0, 0),
   umu: v(0, 0), tracks: v(0, 0), 'radical-heat-sink': v(0, 250000), harjel: v(0, 120000), 'blue-shield': v(0, 1000000 / 7),
   'modular-armor': v(0, 10000),
+  // Vehicle chassis mods: amphibious 10,000 per ton, armored motive 100,000 per ton (computed in vehicleCost); sealing free.
+  'vehicle-fully-amphibious': v(0, 0), 'vehicle-limited-amphibious': v(0, 0), 'vehicle-env-sealing': v(0, 0),
+  'armored-motive-system': v(0, 0), 'clan-armored-motive-system': v(0, 0),
   // AES and partial wing costs depend on the 'Mech (computed in mechCost).
   aes: v(0, 0),
   'partial-wing': v(0, 0),
