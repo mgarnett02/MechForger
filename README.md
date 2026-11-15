@@ -76,6 +76,15 @@ Everything above, plus:
 - **Land-Air 'Mechs**: standard and bimodal LAMs with conversion equipment, avionics and landing gear,
   AirMech and fighter movement, bomb bays and LAM fuel tanks, and the Interstellar Operations
   construction limits (as implemented by MegaMek)
+- **Superheavy 'Mechs** (Interstellar Operations, as MegaMek): 105–200 tons with their own structure table
+  (doubled structure weight), superheavy gyro and cockpit, large engines up to 500, head armor up to 12,
+  and two items' worth per critical slot (equipment takes half its usual slots, rounded up, and two tons
+  of the same ammunition share a slot); no jump jets, MASC, TSM or armored components
+- **Large engines** (rated 405–500) for any 'Mech, with 8 center-torso slots and double cost
+- **Tripods**: a center leg with its own structure, armor and critical slots, 10% heavier structure and the
+  tripod cockpit (superheavy tripods too)
+- **QuadVees** (Clan, from 3130): conversion equipment (10% of tonnage), conversion gear in every leg, the
+  QuadVee cockpit, and tracks (10%) or wheels (15%) for vehicle mode; conversion cost as MegaMek
 - **Melee weapons**: hatchet, sword, mace, claw, retractable blade, chain whip, talons and spikes, with
   weight, slots, damage, BV and cost scaled to the mech, and actuator / one-per-arm checks
 - **Quad BattleMechs**: four legs (front legs use leg structure and armor), leg actuators, weapons
@@ -258,7 +267,7 @@ fixed-wing support).
 - Critical slot allocation (click to place, or **Auto-allocate**) with live validation
 - Red / amber / green status light: illegal, legal but incomplete (unused tonnage,
   unallocated armor), or fully legal
-- **Canon units**: about 3,200 canon 'Mechs (about 110 of them IndustrialMechs), including 47 quads, 19 Land-Air 'Mechs and around 100 melee-armed designs (OmniMechs with all their
+- **Canon units**: about 3,240 canon 'Mechs (about 110 of them IndustrialMechs), including 47 quads, 19 Land-Air 'Mechs, 3 superheavies, 5 tripods (with the Ares superheavy tripod OmniMech), 5 QuadVee designs and around 100 melee-armed designs (OmniMechs with all their
   configurations), about 1,040 canon combat vehicles (OmniVehicles with all their configurations), 160 support vehicles, about 480 aerospace, Omni, primitive and
   conventional fighters and about 370 spacecraft (small craft, DropShips, JumpShips, WarShips and
   space stations), about 1,190 battle armor squads and about 1,990 infantry platoons, searchable by name, era, tech base,
@@ -287,10 +296,9 @@ Team, licensed under
 converted data is shared under the same license and may not be used
 commercially; see `src/data/canon/LICENSE.md`.
 
-Only units MechForger can represent are included: biped mechs, combat
-vehicles and support vehicles using modeled equipment. Superheavy
-'Mechs and vehicles, tripods, QuadVees and units with equipment MechForger does not model yet are
-skipped. Of the converted mechs, 99% weigh exactly their published tonnage
+Only units MechForger can represent are included: 'Mechs (biped, quad, tripod, QuadVee, LAM and
+superheavy), combat vehicles and support vehicles using modeled equipment. Superheavy vehicles and
+units with equipment MechForger does not model yet are skipped. Of the converted mechs, 99% weigh exactly their published tonnage
 under MechForger's tables, and Battle Values match the Master Unit List for
 the checked designs. Weights match for about 93% of combat vehicles (99% pass every construction check) and 71% of
 support vehicles (most others within half a ton); in the

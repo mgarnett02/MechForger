@@ -200,10 +200,17 @@ td, th { padding: 0.2rem 0.35rem; }
     "la lt hd rt ra"
     "ll lt ct rt rl";
 }
+/* Tripods: the center leg sits under the center torso, between the other two legs. */
+.crit-grid.tripod {
+  grid-template-areas:
+    "la lt hd rt ra"
+    "la lt ct rt ra"
+    "ll ll cl rl rl";
+}
 @media (max-width: 900px) {
-  .crit-grid, .crit-grid.quad {
+  .crit-grid, .crit-grid.quad, .crit-grid.tripod {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-areas: "hd ct" "lt rt" "la ra" "ll rl";
+    grid-template-areas: "hd ct" "lt rt" "la ra" "ll rl" "cl cl";
   }
 }
 .crit-loc { border: 1px solid var(--border); border-radius: 8px; padding: 0.4rem; min-width: 0; }
@@ -378,6 +385,11 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 .rs-table th { font-weight: 700; border-bottom: 1px solid #111; }
 .rs-table tbody tr:nth-child(even) td { background: #eee; }
 .rs-table .left { text-align: left; }
+/* Long inventories: tighter rows so the sheet stays on one page. */
+.rs-table.dense { font-size: 6.8pt; }
+.rs-table.dense td { padding-top: 0; padding-bottom: 0; line-height: 1.15; }
+.rs-table.denser { font-size: 5.8pt; }
+.rs-table.denser td, .rs-table.denser th { line-height: 1; padding-top: 0; padding-bottom: 0; }
 
 .rs-hits { border-collapse: collapse; width: 100%; font-size: 7.5pt; margin-top: 2px; }
 .rs-hits th { text-align: left; padding: 1px 4px 1px 0; white-space: nowrap; }
@@ -425,6 +437,18 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
     "ll lt ct rt rl";
 }
 .rs-mech-figure.quad .plate-la, .rs-mech-figure.quad .plate-ra { border-radius: 4px 4px 12px 12px; }
+/* Tripod: the center leg hangs beneath the center torso, between the other two legs. */
+.rs-mech-figure.tripod {
+  grid-template-areas:
+    ".  .  hd .  ."
+    "la lt ct rt ra"
+    "la ll ct rl ra"
+    "la ll cl rl ra";
+}
+.plate-cl { border-radius: 4px 4px 12px 12px; }
+/* Superheavies: up to twice the armor and structure, so smaller pips keep the sheet on one page. */
+.rs-mech-figure.dense .pips { gap: 1px; }
+.rs-mech-figure.dense .pips > span { width: 4.5px; height: 4.5px; }
 .rs-plate {
   border: 1.5px solid #111; border-radius: 6px; padding: 2px; min-width: 0;
   display: flex; flex-direction: column; gap: 2px; background: #fafafa;
@@ -485,6 +509,9 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 
 .rs-ammo { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
 .rs-ammo .pips { justify-content: flex-start; }
+/* Long ammunition lists (superheavies carry many tons) run in two columns. */
+.rs-ammo.two-columns { display: block; columns: 2; column-gap: 8px; }
+.rs-ammo.two-columns li { break-inside: avoid; margin-bottom: 3px; }
 .rs-ammo-name { display: block; font-size: 7pt; }
 .rs-write-in { font-size: 7pt; }
 .rs-footer { margin-top: 5px; font-size: 6pt; color: #777; text-align: right; }

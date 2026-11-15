@@ -1,5 +1,5 @@
 import type { Location, MechDesign, TechBase, MechConfig } from './types';
-import { LOCATIONS, engineRatingFor, techOf } from './types';
+import { LOCATIONS, engineRatingFor, isQuad, isTripod, legLocations, mechLocations, techOf } from './types';
 import type { EraId } from './eras';
 import { isAvailableIn } from './eras';
 import { engineWeight, jumpJetWeight, mascWeight } from './tables';
@@ -38,7 +38,7 @@ export interface Equipment {
   allowedLocations?: readonly Location[];
   isWeapon: boolean;
   /** Weight (and for MASC / targeting computers, slots) depends on the mech. */
-  variableWeight?: 'jumpJet' | 'improvedJumpJet' | 'masc' | 'supercharger' | 'targetingComputer' | 'aes' | 'partialWing' | 'droneOS' | 'tracks';
+  variableWeight?: 'jumpJet' | 'improvedJumpJet' | 'masc' | 'supercharger' | 'targetingComputer' | 'aes' | 'partialWing' | 'droneOS' | 'tracks' | 'wheels';
   /** Combat vehicle chassis modification: weighs this share of the tonnage (Clan share if given). */
   vehicleChassisMod?: { share: number; clan?: number };
   /** Systems spread one piece per location (added and removed as a set). */
@@ -577,6 +577,11 @@ export const OTHER_EQUIPMENT: readonly Equipment[] = [
     id: 'tracks', name: 'Tracks', category: 'Other', tons: 0, slots: 1, heat: 0, isWeapon: false, variableWeight: 'tracks',
     spread: 'legs', fixedOnly: true, techBase: 'Both', firstEra: '3025',
   },
+  // QuadVee wheels (Interstellar Operations): 15% of tonnage, one slot per leg; QuadVees only.
+  {
+    id: 'quadvee-wheels', name: 'QuadVee Wheels', category: 'Other', tons: 0, slots: 1, heat: 0, isWeapon: false, variableWeight: 'wheels',
+    spread: 'legs', fixedOnly: true, techBase: 'Clan', firstEra: '3131',
+  },
   // Radical heat sink system (3095): extra heat capacity in an emergency; needs double heat sinks.
   { id: 'radical-heat-sink', name: 'Radical Heat Sink System', category: 'Other', tons: 4, slots: 3, heat: 0, isWeapon: false, ...IS_3081 },
   { id: 'harjel', name: 'HarJel', category: 'Other', tons: 1, slots: 1, heat: 0, isWeapon: false, allowedLocations: NOT_HEAD, techBase: 'Both', firstEra: '3062' },
@@ -766,11 +771,14 @@ export function getEquipment(id: string): Equipment | undefined {
  * whose front legs share the arm location codes.
  */
 export function allowedLocations(eq: Equipment, design?: { config?: MechConfig }): readonly Location[] {
-  const locs = eq.allowedLocations ?? LOCATIONS;
-  if (design?.config === 'quad' && eq.armOnly) return [];
-  if (design?.config === 'quad' && locs.includes('LL')) {
-    return LOCATIONS.filter((l) => locs.includes(l) || l === 'LA' || l === 'RA');
+  const all = design ? mechLocations(design) : LOCATIONS.filter((l) => l !== 'CL');
+  const locs = (eq.allowedLocations ?? all).filter((l) => all.includes(l));
+  if (isQuad(design ?? {}) && eq.armOnly) return [];
+  if (isQuad(design ?? {}) && locs.includes('LL')) {
+    return all.filter((l) => locs.includes(l) || l === 'LA' || l === 'RA');
   }
+  // A tripod's center leg takes whatever the other legs may.
+  if (isTripod(design ?? {}) && locs.includes('LL') && !locs.includes('CL')) return [...locs, 'CL'];
   return locs;
 }
 
@@ -779,8 +787,8 @@ export function canRearMount(eq: Equipment, location: Location | null, design?: 
   // Weapons, and industrial equipment such as lift hoists and searchlights, may face rearward.
   if ((!eq.isWeapon && eq.category !== 'Utility') || !location) return false;
   // Torso, head and leg weapons may face rearward; arm weapons may not (a quad's front legs share the arm codes).
-  if (location === 'CT' || location === 'LT' || location === 'RT' || location === 'HD' || location === 'LL' || location === 'RL') return true;
-  return design?.config === 'quad';
+  if (location === 'CT' || location === 'LT' || location === 'RT' || location === 'HD' || location === 'LL' || location === 'RL' || location === 'CL') return true;
+  return isQuad(design ?? {});
 }
 
 /** Armored components: half a ton per critical slot (an armored cockpit is a flat ton). */
@@ -914,9 +922,9 @@ export function targetingComputerWeight(eq: Equipment, d: SizingDesign): number 
 /** Locations a spread system occupies, one piece each. */
 export function spreadLocations(eq: Equipment, d: { config?: MechConfig }): Location[] {
   if (eq.spread === 'side-torsos') return ['LT', 'RT'];
-  if (eq.spread === 'legs') return d.config === 'quad' ? ['LA', 'RA', 'LL', 'RL'] : ['LL', 'RL'];
-  if (eq.spread === 'all-but-head') return LOCATIONS.filter((l) => l !== 'HD');
-  if (eq.spread === 'all-but-head-ct') return LOCATIONS.filter((l) => l !== 'HD' && l !== 'CT');
+  if (eq.spread === 'legs') return [...legLocations(d)];
+  if (eq.spread === 'all-but-head') return mechLocations(d).filter((l) => l !== 'HD');
+  if (eq.spread === 'all-but-head-ct') return mechLocations(d).filter((l) => l !== 'HD' && l !== 'CT');
   return [];
 }
 
@@ -930,10 +938,11 @@ export function itemWeight(eq: Equipment, d: SizingDesign): number {
     return Math.ceil((engine / 10) * 2 - 1e-9) / 2;
   }
   if (eq.variableWeight === 'targetingComputer') return targetingComputerWeight(eq, d);
-  if (eq.variableWeight === 'aes') return upHalf(d.tonnage / (d.config === 'quad' ? 50 : 35));
+  if (eq.variableWeight === 'aes') return upHalf(d.tonnage / (isQuad(d) ? 50 : 35));
   if (eq.variableWeight === 'droneOS') return upHalf(d.tonnage / 10 + 0.5);
   // Tracks: 10% of the tonnage, one piece per leg.
   if (eq.variableWeight === 'tracks') return upHalf(d.tonnage * 0.1) / legCount(d);
+  if (eq.variableWeight === 'wheels') return upHalf(d.tonnage * 0.15) / legCount(d);
   // The wing's weight is split between its two side-torso pieces.
   if (eq.variableWeight === 'partialWing') return upHalf(d.tonnage * (eq.techBase === 'Clan' ? 0.05 : 0.07)) / 2;
   if (eq.melee) return meleeWeight(eq.melee, d);
@@ -941,6 +950,12 @@ export function itemWeight(eq: Equipment, d: SizingDesign): number {
 }
 
 export function itemSlots(eq: Equipment, d: SizingDesign): number {
+  const n = baseItemSlots(eq, d);
+  // Superheavy 'Mechs: each critical slot holds two slots' worth of equipment (rounded up, as MegaMek).
+  return d.tonnage > 100 && n > 1 ? Math.ceil(n / 2) : n;
+}
+
+function baseItemSlots(eq: Equipment, d: SizingDesign): number {
   if (eq.melee) return meleeSlots(eq.melee, d.tonnage);
   // AES: 1 / 2 / 3 / 4 slots for light / medium / heavy / assault 'Mechs.
   if (eq.variableWeight === 'aes') return d.tonnage <= 35 ? 1 : d.tonnage <= 55 ? 2 : d.tonnage <= 75 ? 3 : 4;
@@ -952,7 +967,7 @@ export function itemSlots(eq: Equipment, d: SizingDesign): number {
 const upHalf = (x: number) => Math.ceil(x * 2 - 1e-9) / 2;
 
 /** Number of legs (talons are one item per leg). */
-export const legCount = (d: { config?: MechConfig }) => (d.config === 'quad' ? 4 : 2);
+export const legCount = (d: { config?: MechConfig }) => legLocations(d).length;
 
 /** Weight of one melee item (TechManual / Tactical Operations, as implemented by MegaMek). */
 export function meleeWeight(kind: MeleeKind, d: SizingDesign): number {

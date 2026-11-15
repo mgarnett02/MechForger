@@ -5,7 +5,7 @@ import { ARMOR_NAMES, ARMOR_OPTIONS, armorSlots, componentAvailable, patchworkSl
 const ARMOR_NOTES: Partial<Record<ArmorType, string>> = {
   stealth: ' — needs ECM', hardened: ' — −1 running MP',
 };
-import { LOCATIONS, armorTypeAt, isPatchwork, locationName, REAR_FACING, techOf } from '../rules/types';
+import { armorTypeAt, isPatchwork, isSuperheavy, locationName, mechLocations, REAR_FACING, techOf } from '../rules/types';
 import { TechPicker } from './TechPicker';
 import type { MechSummary } from '../rules/construction';
 import { armorPointsForTons, armorTonnage, locationArmor } from '../rules/armor';
@@ -37,7 +37,7 @@ export function ArmorPanel({ design, summary, update }: Props) {
         <select aria-label="Armor type" value={design.armorType}
           onChange={(e) => update((d) => setArmorType(d, e.target.value as ArmorType))}>
           {(Object.keys(ARMOR_OPTIONS) as ArmorType[]).map((k) => {
-            const n = k === 'stealth' ? 12 : armorSlots(k, techOf(design, 'armor'));
+            const n = k === 'stealth' ? (isSuperheavy(design) ? 6 : 12) : armorSlots(k, techOf(design, 'armor'), isSuperheavy(design));
             return (
               <option key={k} value={k} disabled={k !== 'standard' && !componentAvailable(ARMOR_OPTIONS[k], design.era, techOf(design, 'armor'), design.mixedTech)}>
                 {ARMOR_NAMES[k]}{n ? ` (${n} slots)` : ''}{ARMOR_NOTES[k] ?? ''}
@@ -58,7 +58,7 @@ export function ArmorPanel({ design, summary, update }: Props) {
           <tr><th>Location</th>{patch && <th>Type</th>}<th>IS</th><th>Front</th><th>Rear</th><th>Max</th></tr>
         </thead>
         <tbody>
-          {LOCATIONS.map((loc) => {
+          {mechLocations(design).map((loc) => {
             const rear = REAR_FACING[loc];
             const total = locationArmor(design.armor, loc);
             const max = summary.armorMax[loc];
@@ -71,7 +71,7 @@ export function ArmorPanel({ design, summary, update }: Props) {
                     <select aria-label={`${locationName(design, loc)} armor type`} value={armorTypeAt(design, loc)}
                       onChange={(e) => update((d) => setLocationArmorType(d, loc, e.target.value as ArmorType))}>
                       {patchOptions.map((k) => {
-                        const n = patchworkSlots(k, techOf(design, 'armor'));
+                        const n = patchworkSlots(k, techOf(design, 'armor'), isSuperheavy(design));
                         return <option key={k} value={k}>{ARMOR_NAMES[k]}{n ? ` (${n})` : ''}</option>;
                       })}
                     </select>

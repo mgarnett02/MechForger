@@ -6,12 +6,12 @@
  * follow the same structure with vehicle modifiers but are flagged as
  * approximate.
  */
-import type { Location, MechDesign } from './types';
-import { LOCATIONS, REAR_FACING, armorTypeAt, isIndustrial, isPatchwork, isQuad, legLocations, techOf } from './types';
+import type { EffectiveCockpit, Location, MechDesign } from './types';
+import { LOCATIONS, REAR_FACING, armorTypeAt, effectiveCockpit, isIndustrial, isPatchwork, isQuad, isQuadVee, isSuperheavy, isTripod, legLocations, techOf } from './types';
 import type { Equipment } from './equipment';
 import { canArmor, getEquipment, isArtemisVCapable, isDirectFire, isPPC, itemSlots, itemWeight } from './equipment';
 import { armoredSystemSlots, computeMech, fixedSlots } from './construction';
-import { armorPointsPerTon, engineSideTorsoSlots, freeHeatSinks } from './tables';
+import { armorPointsPerTon, engineSideTorsoSlots, freeHeatSinks, isLargeEngine } from './tables';
 import { meleeBV, meleeCost } from './melee';
 import type { FighterDesign } from './fighter';
 import { computeFighter, fighterItemWeight } from './fighter';
@@ -285,16 +285,19 @@ export function mechBV(d: MechDesign): BVBreakdown {
   };
   let explosive = 0;
   const capsLeft = capacitorCounts(d.equipment);
+  // Superheavies: penalties count the slots actually filled (half as many; two tons of ammo share one).
+  const pairedAmmo = new Set(Object.values(s.slots).flatMap((l) => l.slots.map((x) => x.uid2).filter((u): u is string => !!u)));
   for (const item of d.equipment) {
     const eq = getEquipment(item.equipmentId);
     // A split weapon is a hazard if either of its locations is unprotected.
     if (!eq || !item.location || (protectedLoc(item.location) && (!item.split || protectedLoc(item.split.location)))) continue;
-    if (eq.category === 'Ammo' && eq.ammoFor && !isGaussType(eq.ammoFor) && !/plasma/.test(eq.ammoFor)) explosive += 15;
-    else if (eq.explosiveLow) explosive += eq.slots;
-    else if (eq.explosive) explosive += 15 * eq.slots;
+    const slots = itemSlots(eq, d);
+    if (eq.category === 'Ammo' && eq.ammoFor && !isGaussType(eq.ammoFor) && !/plasma/.test(eq.ammoFor)) explosive += pairedAmmo.has(item.uid) ? 0 : 15;
+    else if (eq.explosiveLow) explosive += slots;
+    else if (eq.explosive) explosive += 15 * slots;
     // A PPC with a capacitor is explosive too (−1 per slot).
-    else if (takeCapacitor(capsLeft, item)) explosive += eq.slots;
-    else if (eq.isWeapon && isGaussType(eq.id)) explosive += eq.slots;
+    else if (takeCapacitor(capsLeft, item)) explosive += slots;
+    else if (eq.isWeapon && isGaussType(eq.id)) explosive += slots;
   }
 
   const run = s.mascRunMP ?? s.tsmMP?.run ?? s.runMP;
@@ -358,8 +361,8 @@ export function mechBV(d: MechDesign): BVBreakdown {
     const eq = getEquipment(i.equipmentId);
     return eq && !eq.isWeapon && eq.category !== 'Ammo' && !DEFENSIVE_IDS.has(eq.id) ? a + (value(eq.id)?.bv ?? 0) : a;
   }, 0);
-  // AES: +0.1 per arm, +0.2 (biped) / +0.4 (quad) when every leg has one.
-  const legAES = legLocations(d).every((l) => d.equipment.some((e) => e.equipmentId === 'aes' && e.location === l));
+  // AES: +0.1 per arm, +0.2 (biped) / +0.4 (quad) when every leg has one (tripods get no leg bonus, as MegaMek).
+  const legAES = !isTripod(d) && legLocations(d).every((l) => d.equipment.some((e) => e.equipmentId === 'aes' && e.location === l));
   const aesMod = 1 + 0.1 * aesArms.size + (legAES ? (isQuad(d) ? 0.4 : 0.2) : 0);
   const tonnage = d.tonnage * aesMod * (d.myomer === 'tsm' ? 1.5 : d.myomer === 'industrial-tsm' ? 1.15 : 1);
   const sf = speedFactor(run + Math.round((airMechFlank ?? Math.max(jump, s.umuMP)) / 2));
@@ -380,7 +383,7 @@ export function mechBV(d: MechDesign): BVBreakdown {
 const ENGINE_COST: Record<string, number> = {
   standard: 5000, xl: 20000, xxl: 100000, light: 15000, compact: 10000, ice: 1250, 'fuel-cell': 3500, fission: 7500,
 };
-const GYRO_COST: Record<string, number> = { standard: 300000, xl: 750000, compact: 400000, 'heavy-duty': 500000, none: 0 };
+const GYRO_COST: Record<string, number> = { standard: 300000, xl: 750000, compact: 400000, 'heavy-duty': 500000, none: 0, superheavy: 500000 };
 const ARMOR_COST: Record<string, number> = {
   standard: 10000, 'ferro-fibrous': 20000, 'light-ferro': 15000, 'heavy-ferro': 25000, stealth: 50000, reactive: 30000,
   reflective: 30000, hardened: 15000, 'ferro-lamellor': 35000, 'ballistic-reinforced': 25000, 'anti-penetrative': 15000,
@@ -389,6 +392,17 @@ const ARMOR_COST: Record<string, number> = {
 /** Structure cost per ton of 'Mech (MegaMek). */
 const STRUCTURE_COST: Record<string, number> = {
   standard: 400, 'endo-steel': 1600, 'endo-prototype': 4800, 'endo-composite': 3200, composite: 1600, reinforced: 6400, industrial: 300,
+};
+/** Superheavy structure cost per ton (MegaMek). */
+const SUPERHEAVY_STRUCTURE_COST: Record<string, number> = {
+  standard: 4000, industrial: 3000, 'endo-steel': 16000, composite: 1600, 'endo-composite': 6400,
+};
+/** Cockpit costs, including the superheavy, tripod and QuadVee cockpits (MegaMek). */
+const COCKPIT_COST: Record<EffectiveCockpit, number> = {
+  standard: 200000, small: 175000, 'torso-mounted': 750000, 'command-console': 700000, industrial: 100000, primitive: 200000,
+  'primitive-industrial': 100000, interface: 200000, superheavy: 300000, 'superheavy-industrial': 200000,
+  'superheavy-command-console': 800000, tripod: 400000, 'tripod-industrial': 300000, 'superheavy-tripod': 500000,
+  'superheavy-tripod-industrial': 400000, quadvee: 375000,
 };
 /** Armor BV multipliers (MegaMek). */
 const STEALTH_LOCS = ['LT', 'RT', 'LA', 'RA', 'LL', 'RL'] as const;
@@ -421,7 +435,9 @@ function equipmentCost<T extends { equipmentId: string; location?: string | null
     else if (eq.variableWeight === 'partialWing') total += weight(eq) * 50000;
     else if (eq.variableWeight === 'droneOS') total += weight(eq) * 10000 + 5000;
     else if (eq.vehicleChassisMod) total += weight(eq) * (/armored-motive/.test(eq.id) ? 100000 : /amphibious/.test(eq.id) ? 10000 : 0);
-    else if (eq.variableWeight === 'tracks' && mech) total += Math.ceil((500 * rating * mech.tonnage) / 75) / legLocations(mech).length;
+    else if ((eq.variableWeight === 'tracks' || eq.variableWeight === 'wheels') && mech) {
+      total += Math.ceil(((eq.variableWeight === 'wheels' ? 750 : 500) * rating * mech.tonnage) / 75) / legLocations(mech).length;
+    }
     else total += value(eq.id)?.cost ?? 0;
   }
   return total;
@@ -431,6 +447,8 @@ export function mechCost(d: MechDesign): CostBreakdown {
   const s = computeMech(d);
   const t = d.tonnage;
   const quad = isQuad(d);
+  const sh = isSuperheavy(d);
+  const tripod = isTripod(d);
   const arms = quad ? 0 : (['LA', 'RA'] as const).reduce((a, arm) => {
     const act = d.actuators[arm];
     return a + 100 * t + (act.lowerArm ? 50 * t : 0) + (act.lowerArm && act.hand ? 80 * t : 0);
@@ -438,14 +456,17 @@ export function mechCost(d: MechDesign): CostBreakdown {
   const jumpCost = (d.jumpJetType === 'improved' ? 500 : 200) * t * s.jumpMP ** 2;
   const hsCost = (d.heatSinkType === 'double' ? 6000 : 2000) * Math.max(0, s.heatSinks.total - freeHeatSinks(d.engineType));
   const lines: [string, number][] = [
-    ['Cockpit', { standard: 200000, small: 175000, 'torso-mounted': 750000, 'command-console': 700000, industrial: 100000, primitive: 200000, 'primitive-industrial': 100000, interface: 200000 }[d.cockpitType]],
+    ['Cockpit', COCKPIT_COST[effectiveCockpit(d)]],
     ['Life support', 50000],
     ['Sensors', 2000 * t],
-    ['Musculature', (d.myomer === 'tsm' ? 16000 : d.myomer === 'industrial-tsm' ? 12000 : 2000) * t],
-    ['Internal structure', STRUCTURE_COST[d.structureType] * t],
-    ...(quad ? [] : [['Arm actuators', arms] as [string, number]]),
-    ['Leg actuators', (quad ? 4 : 2) * (150 + 80 + 120) * t],
-    ['Engine', (ENGINE_COST[d.engineType] * s.rating * t) / 75],
+    ['Musculature', (d.myomer === 'tsm' ? 16000 : d.myomer === 'industrial-tsm' ? 12000 : sh ? 12000 : 2000) * t],
+    // Superheavy structure has its own costs; a tripod's costs 20% more.
+    ['Internal structure', ((sh ? SUPERHEAVY_STRUCTURE_COST : STRUCTURE_COST)[d.structureType] ?? 0) * t * (tripod ? 1.2 : 1)],
+    // Superheavy actuators cost double.
+    ...(quad ? [] : [['Arm actuators', arms * (sh ? 2 : 1)] as [string, number]]),
+    ['Leg actuators', legLocations(d).length * (150 + 80 + 120) * t * (sh ? 2 : 1)],
+    // Large engines cost double.
+    ['Engine', (ENGINE_COST[d.engineType] * s.rating * t) / 75 * (isLargeEngine(s.rating) ? 2 : 1)],
     ['Gyro', GYRO_COST[d.gyroType] * s.weights.gyro],
     ['Jump jets', jumpCost],
     ['Heat sinks', hsCost],
@@ -459,10 +480,11 @@ export function mechCost(d: MechDesign): CostBreakdown {
   const armoredSlots = armoredSlotCounts(d);
   if (armoredSlots[0] + armoredSlots[1]) lines.push(['Armored components', 150000 * (armoredSlots[0] + armoredSlots[1])]);
   if (d.environmentalSealing) lines.push(['Environmental sealing', 225 * t]);
-  if (d.lam) {
-    // Conversion equipment: 75% (65% bimodal) of internal structure plus weapons and equipment cost.
+  if (d.lam || isQuadVee(d)) {
+    // Conversion equipment: 75% (65% bimodal LAM, 50% QuadVee) of internal structure plus weapons and equipment cost.
     const base = lines.find(([l]) => l === 'Internal structure')![1] + lines.find(([l]) => l === 'Weapons & equipment')![1];
-    lines.push([`LAM conversion (${d.lam})`, base * (d.lam === 'bimodal' ? 0.65 : 0.75)]);
+    if (d.lam) lines.push([`LAM conversion (${d.lam})`, base * (d.lam === 'bimodal' ? 0.65 : 0.75)]);
+    else lines.push(['QuadVee conversion', base * 0.5]);
   }
   const subtotal = lines.reduce((a, [, v]) => a + v, 0);
   // IndustrialMechs: × (1 + tonnage/400).

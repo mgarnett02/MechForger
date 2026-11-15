@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import type { ArmorFacing, Location, MechDesign } from '../../rules/types';
-import { LAM_TYPE_NAMES, TECH_BASE_NAMES, isIndustrial, isPatchwork, isQuad, locationName } from '../../rules/types';
+import { LAM_TYPE_NAMES, TECH_BASE_NAMES, isIndustrial, isPatchwork, isQuad, isTripod, locationName } from '../../rules/types';
 import { computeMech } from '../../rules/construction';
 import { getEra } from '../../rules/eras';
 import { ARMOR_NAMES, ENGINE_NAMES } from '../../rules/tables';
@@ -89,7 +89,7 @@ function Inventory({ rows, equipment, showHeat }: { rows: WeaponRow[]; equipment
   return (
     <div className="rs-inventory">
       <div className="rs-subtitle">Weapons &amp; Equipment Inventory <span>(hexes)</span></div>
-      <table className="rs-table">
+      <table className={`rs-table ${rows.length + equipment.length > 12 ? 'dense denser' : rows.length + equipment.length > 8 ? 'dense' : ''}`}>
         <thead>
           <tr>
             <th>Qty</th><th className="left">Type</th><th>Loc</th>{showHeat && <th>Ht</th>}
@@ -122,7 +122,7 @@ function Inventory({ rows, equipment, showHeat }: { rows: WeaponRow[]; equipment
 function AmmoTrack({ rows }: { rows: AmmoRow[] }) {
   if (!rows.length) return <p className="rs-empty">No ammunition carried.</p>;
   return (
-    <ul className="rs-ammo">
+    <ul className={`rs-ammo ${rows.length > 8 ? 'two-columns' : ''}`}>
       {rows.map((r, i) => (
         <li key={i}>
           <span className="rs-ammo-name">{r.name} <span className="rs-muted">[{r.location}]</span></span>
@@ -155,6 +155,7 @@ function Footer() {
 const BODY: { loc: Location; area: string }[] = [
   { loc: 'HD', area: 'hd' }, { loc: 'LA', area: 'la' }, { loc: 'LT', area: 'lt' }, { loc: 'CT', area: 'ct' },
   { loc: 'RT', area: 'rt' }, { loc: 'RA', area: 'ra' }, { loc: 'LL', area: 'll' }, { loc: 'RL', area: 'rl' },
+  { loc: 'CL', area: 'cl' },
 ];
 
 /** A humanoid (or four-legged) figure of pip clusters, one plate per location. */
@@ -162,8 +163,8 @@ function MechFigure({ design, values, kind }: {
   design: MechDesign; values: Record<Location, number>; kind: 'armor' | 'structure';
 }) {
   return (
-    <div className={`rs-mech-figure ${kind} ${isQuad(design) ? 'quad' : ''}`}>
-      {BODY.map(({ loc, area }) => (
+    <div className={`rs-mech-figure ${kind} ${isQuad(design) ? 'quad' : isTripod(design) ? 'tripod' : ''} ${design.tonnage > 100 ? 'dense' : ''}`}>
+      {BODY.filter(({ loc }) => loc !== 'CL' || isTripod(design)).map(({ loc, area }) => (
         <div key={loc} className={`rs-plate plate-${area}`} style={{ gridArea: area }}>
           <div className="rs-plate-label">{locationName(design, loc)} <b>({values[loc]})</b></div>
           <Pips count={values[loc]} kind={kind} />
@@ -191,6 +192,8 @@ function RearFigure({ armor }: { armor: Record<ArmorFacing, number> }) {
 }
 
 const CRIT_ORDER: Location[][] = [['LA', 'HD', 'RA'], ['LT', 'CT', 'RT'], ['LL', '' as Location, 'RL']];
+/** Tripods: the center leg takes the middle of the bottom row; the damage boxes move under the head. */
+const TRIPOD_CRIT_ORDER: Location[][] = [['LA', 'HD', 'RA'], ['LT', 'CT', 'RT'], ['LL', 'CL', 'RL']];
 
 export function MechRecordSheet({ design }: { design: MechDesign }) {
   const s = computeMech(design);
@@ -199,7 +202,19 @@ export function MechRecordSheet({ design }: { design: MechDesign }) {
   const hsType = design.heatSinkType === 'double' ? (design.laserHeatSinks ? 'Laser' : 'Double') : 'Single';
   const engine = ENGINE_NAMES[design.engineType];
   const name = `${design.chassis} ${design.model}`.trim() || 'Unnamed';
-  const structure = s.structure ?? { HD: 0, CT: 0, LT: 0, RT: 0, LA: 0, RA: 0, LL: 0, RL: 0 };
+  const structure = s.structure ?? { HD: 0, CT: 0, LT: 0, RT: 0, LA: 0, RA: 0, LL: 0, RL: 0, CL: 0 };
+
+  const damageBoxes = (
+    <div className="rs-crit-damage">
+      <div><span>Engine Hits</span><Circles n={3} /></div>
+      <div><span>Gyro Hits</span><Circles n={design.gyroType === 'heavy-duty' || design.gyroType === 'superheavy' ? 3 : 2} /></div>
+      <div><span>Sensor Hits</span><Circles n={2} /></div>
+      <div><span>Life Support</span><Circles n={1} /></div>
+      {design.lam && <div><span>Avionics</span><Circles n={3} /></div>}
+      {design.lam && <div><span>Landing Gear</span><Circles n={3} /></div>}
+      {s.weights.armored > 0 && <div className="rs-muted">◆ armored component</div>}
+    </div>
+  );
 
   const crit = (loc: Location) => {
     const slots = s.slots[loc].slots;
@@ -289,18 +304,14 @@ export function MechRecordSheet({ design }: { design: MechDesign }) {
 
         <Panel title="Critical Hit Table" className="area-crits">
           <div className="rs-crit-grid">
-            {CRIT_ORDER.flat().map((loc, i) =>
-              loc ? <div key={loc}>{crit(loc)}</div> : (
-                <div key={`dmg${i}`} className="rs-crit-damage">
-                  <div><span>Engine Hits</span><Circles n={3} /></div>
-                  <div><span>Gyro Hits</span><Circles n={design.gyroType === 'heavy-duty' ? 3 : 2} /></div>
-                  <div><span>Sensor Hits</span><Circles n={2} /></div>
-                  <div><span>Life Support</span><Circles n={1} /></div>
-                  {design.lam && <div><span>Avionics</span><Circles n={3} /></div>}
-                  {design.lam && <div><span>Landing Gear</span><Circles n={3} /></div>}
-                  {s.weights.armored > 0 && <div className="rs-muted">◆ armored component</div>}
+            {(isTripod(design) ? TRIPOD_CRIT_ORDER : CRIT_ORDER).flat().map((loc, i) =>
+              loc ? (
+                <div key={loc}>
+                  {crit(loc)}
+                  {/* Tripods: the damage boxes sit under the (6-slot) head; the center leg takes their place. */}
+                  {loc === 'HD' && isTripod(design) && damageBoxes}
                 </div>
-              ),
+              ) : <div key={`dmg${i}`}>{damageBoxes}</div>,
             )}
           </div>
         </Panel>

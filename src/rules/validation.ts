@@ -1,9 +1,10 @@
 import type { MechDesign } from './types';
-import { ARM_LOCATIONS, ARMOR_FACINGS, LAM_TYPE_NAMES, LOCATIONS, facingName, isQuad, legLocations, locationName } from './types';
+import { ARM_LOCATIONS, LAM_TYPE_NAMES, LOCATIONS, facingName, isQuad, isQuadVee, isSuperheavy, isTripod, legLocations, locationName, mechFacings, mechLocations } from './types';
 import type { MeleeKind } from './equipment';
 import { HAND_WEAPONS, NEEDS_HAND } from './melee';
 import {
-  freeHeatSinks, engineCenterSlots, engineSideTorsoSlots, gyroSlots, MAX_ENGINE_RATING, MIN_ENGINE_RATING, TONNAGES,
+  freeHeatSinks, engineCenterSlots, engineSideTorsoSlots, gyroSlots, isLargeEngine, LARGE_ENGINE_OPTION, LARGE_ICE_OPTION, MAX_ENGINE_RATING, MIN_ENGINE_RATING,
+  QUADVEE_OPTION, SUPERHEAVY_INDUSTRIAL_OPTION, SUPERHEAVY_OPTION, SUPERHEAVY_TONNAGES, TONNAGES, TRIPOD_OPTION,
 } from './tables';
 import {
   ENDO_STEEL_ID, ENV_SEAL_ID, canArmor, spreadLocations, FERRO_FIBROUS_ID, HEAT_SINK_IDS, TSM_ID, allowedLocations, canRearMount, getEquipment, isArtemisVCapable, isPPC,
@@ -58,8 +59,9 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
   const info = (message: string) => issues.push({ severity: 'info', message });
 
   // Chassis
-  if (!TONNAGES.includes(design.tonnage)) {
-    error(`Tonnage must be 10–100 tons in 5-ton steps (got ${design.tonnage}).`);
+  const sh = isSuperheavy(design);
+  if (!TONNAGES.includes(design.tonnage) && !SUPERHEAVY_TONNAGES.includes(design.tonnage)) {
+    error(`Tonnage must be 10–100 tons (superheavies 105–200) in 5-ton steps (got ${design.tonnage}).`);
   }
   if (!Number.isInteger(design.walkMP) || design.walkMP < 1) {
     error('Walking MP must be a whole number of at least 1.');
@@ -70,6 +72,8 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
     error(`Engine rating ${summary.rating} is below the minimum of ${MIN_ENGINE_RATING}.`);
   } else if (summary.engineWeight === null) {
     error(`No standard fusion engine exists with rating ${summary.rating}.`);
+  } else if (isLargeEngine(summary.rating) && ['compact', 'fuel-cell', 'fission'].includes(design.engineType)) {
+    error(`Engines rated over 400 must be large engines, and there are no large ${design.engineType === 'compact' ? 'compact' : design.engineType === 'fission' ? 'fission' : 'fuel cell'} engines.`);
   }
 
   // Era / tech base
@@ -90,6 +94,10 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
       ...armorTypesUsed(design).map((t) => [ARMOR_OPTIONS[t], techOf(design, 'armor')] as [ComponentOption, TechBase]),
       [MYOMER_OPTIONS[design.myomer], design.techBase],
       [JUMP_JET_OPTIONS[design.jumpJetType], design.techBase],
+      ...(isLargeEngine(summary.rating) ? [[design.engineType === 'ice' ? LARGE_ICE_OPTION : LARGE_ENGINE_OPTION, techOf(design, 'engine')] as [ComponentOption, TechBase]] : []),
+      ...(sh ? [[isIndustrial(design) || isTripod(design) ? SUPERHEAVY_INDUSTRIAL_OPTION : SUPERHEAVY_OPTION, design.techBase] as [ComponentOption, TechBase]] : []),
+      ...(isTripod(design) ? [[TRIPOD_OPTION, design.techBase] as [ComponentOption, TechBase]] : []),
+      ...(isQuadVee(design) ? [[QUADVEE_OPTION, design.techBase] as [ComponentOption, TechBase]] : []),
     ];
     for (const [o, partTech] of chosen) {
       if (!componentEraOk(o, design.era, partTech)) {
@@ -115,11 +123,12 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
   }
 
   // Armor
-  for (const f of ARMOR_FACINGS) {
+  for (const f of mechFacings(design)) {
     const v = design.armor[f];
     if (!Number.isInteger(v) || v < 0) error(`${facingName(design, f)} armor must be a non-negative whole number.`);
   }
-  for (const loc of LOCATIONS) {
+  if (!isTripod(design) && (design.armor.CL ?? 0) > 0) error('Only tripods have a center leg to armor.');
+  for (const loc of mechLocations(design)) {
     const pts = locationArmor(design.armor, loc);
     const max = summary.armorMax[loc];
     if (pts > max) {
@@ -173,7 +182,7 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
     }
     if (design.cockpitType === 'industrial') info('Industrial cockpit without advanced fire control: +1 to hit, and Battle Value ×0.9.');
     if (design.environmentalSealing) {
-      for (const loc of LOCATIONS) {
+      for (const loc of mechLocations(design)) {
         const n = design.equipment.filter((e) => e.equipmentId === ENV_SEAL_ID && e.location === loc).length;
         if (n !== 1) error(`Environmental sealing needs one slot in every location (${locationName(design, loc)} has ${n}).`);
       }
@@ -193,6 +202,42 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
       const eq = getEquipment(e.equipmentId);
       if (eq && !canArmor(eq)) error(`${eq.name} cannot be armored.`);
     }
+  }
+
+  // Superheavy 'Mechs, tripods and QuadVees (Interstellar Operations; checks as in MegaMek's TestMek)
+  if (sh) {
+    if (design.gyroType !== 'superheavy') error("Superheavy 'Mechs must use a superheavy gyro.");
+    if (armoredItems.length || armoredSystems) error("Superheavy 'Mechs cannot have armored components.");
+    if (design.lam) error("Superheavy 'Mechs cannot be Land-Air 'Mechs.");
+    if (isQuadVee(design)) error('QuadVees cannot be built as superheavies.');
+    if (design.myomer !== 'standard') error("Superheavy 'Mechs cannot mount Triple-Strength Myomer.");
+    if (['endo-prototype', 'reinforced'].includes(design.structureType)) error(`Superheavy 'Mechs cannot use ${STRUCTURE_NAMES[design.structureType]} structure.`);
+    if (!['standard', 'industrial', 'command-console'].includes(design.cockpitType) && !(isTripod(design) && design.cockpitType === 'standard')) {
+      error("Superheavy 'Mechs use a superheavy cockpit (standard, industrial or command console).");
+    }
+    const banned = new Set<string>();
+    for (const item of design.equipment) {
+      const eq = getEquipment(item.equipmentId);
+      if (!eq) continue;
+      if (JUMP_JET_IDS.includes(eq.id) || eq.variableWeight === 'masc' || eq.id === 'umu' || eq.variableWeight === 'aes'
+        || eq.id === 'modular-armor' || eq.variableWeight === 'partialWing' || eq.id === 'mechanical-jump-booster') banned.add(eq.name);
+    }
+    for (const name of banned) error(`Superheavy 'Mechs may not mount ${name}.`);
+  } else if (design.gyroType === 'superheavy') {
+    error("Only superheavy 'Mechs (over 100 tons) can use a superheavy gyro.");
+  }
+  if (isTripod(design) && !['standard', 'industrial'].includes(design.cockpitType)) {
+    error('Tripods use a tripod cockpit (standard or industrial).');
+  }
+  if (isQuadVee(design)) {
+    if (design.cockpitType !== 'standard') error('QuadVees use the QuadVee cockpit (choose the standard cockpit).');
+    if (design.lam) error("QuadVees cannot be Land-Air 'Mechs.");
+    const motive = design.quadVeeMotive === 'wheeled' ? 'quadvee-wheels' : 'tracks';
+    const gear = design.equipment.filter((e) => e.equipmentId === 'tracks' || e.equipmentId === 'quadvee-wheels');
+    if (!gear.length) error(`A QuadVee needs ${motive === 'tracks' ? 'tracks' : 'wheels'} in every leg for its vehicle mode.`);
+    else if (gear.some((e) => e.equipmentId !== motive)) error('The QuadVee motive gear does not match its motive type.');
+  } else if (design.equipment.some((e) => e.equipmentId === 'quadvee-wheels')) {
+    error('Wheels can only be used on QuadVees.');
   }
 
   // Jump jets
@@ -245,7 +290,7 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
 
   // Cockpits
   if (design.cockpitType === 'torso-mounted') {
-    const coreSlots = engineCenterSlots(design.engineType) + gyroSlots(design.gyroType);
+    const coreSlots = engineCenterSlots(design.engineType, sh, isLargeEngine(summary.rating)) + gyroSlots(design.gyroType);
     if (coreSlots > 10) error('A torso-mounted cockpit needs two free center-torso slots (not possible with this engine and gyro).');
   }
   if (design.fullHeadEjection && (design.cockpitType === 'torso-mounted' || design.cockpitType === 'command-console')) {
@@ -257,9 +302,9 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
 
   // Patchwork armor: each location needs room for its armor's slots.
   if (isPatchwork(design)) {
-    for (const loc of LOCATIONS) {
+    for (const loc of mechLocations(design)) {
       const type = armorTypeAt(design, loc);
-      const need = patchworkSlots(type, techOf(design, 'armor'));
+      const need = patchworkSlots(type, techOf(design, 'armor'), sh);
       const have = fixedSlots(design, loc).filter((x) => x === ARMOR_NAMES[type]).length;
       if (have < need) error(`${locationName(design, loc)}: no room for ${need} ${ARMOR_NAMES[type]} armor slots.`);
     }
@@ -349,8 +394,8 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
 
   // Endo Steel / Ferro-Fibrous slot placeholders
   const fillerCheck: [string, number, string][] = [
-    [ENDO_STEEL_ID, structureSlots(design.structureType, techOf(design, 'structure')), STRUCTURE_NAMES[design.structureType]],
-    [FERRO_FIBROUS_ID, isPatchwork(design) ? 0 : armorSlots(design.armorType, techOf(design, 'armor')), `${ARMOR_NAMES[design.armorType]} armor`],
+    [ENDO_STEEL_ID, structureSlots(design.structureType, techOf(design, 'structure'), isSuperheavy(design)), STRUCTURE_NAMES[design.structureType]],
+    [FERRO_FIBROUS_ID, isPatchwork(design) ? 0 : armorSlots(design.armorType, techOf(design, 'armor'), isSuperheavy(design)), `${ARMOR_NAMES[design.armorType]} armor`],
     [TSM_ID, tsmSlots(design.myomer), design.myomer === 'industrial-tsm' ? 'Industrial TSM' : 'Triple-Strength Myomer'],
   ];
   for (const [id, required, name] of fillerCheck) {
@@ -416,7 +461,7 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
   if (superchargers.length > 1) error('Only one supercharger may be installed.');
   for (const sc of superchargers) {
     const side = sc.location === 'LT' || sc.location === 'RT';
-    if (side && engineSideTorsoSlots(design.engineType, techOf(design, 'engine')) === 0) {
+    if (side && engineSideTorsoSlots(design.engineType, techOf(design, 'engine'), sh) === 0) {
       error('A supercharger must go in a location with engine slots (the center torso, or a side torso with an XL-type engine).');
     }
   }

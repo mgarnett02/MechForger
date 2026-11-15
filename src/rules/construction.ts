@@ -1,9 +1,12 @@
 import type { Location, MechDesign, MountedItem, WeightClass } from './types';
-import { LOCATIONS, REAR_FACING, armorTypeAt, engineRatingFor, isIndustrial, isPatchwork, isQuad, techOf } from './types';
+import {
+  LOCATIONS, REAR_FACING, armorTypeAt, effectiveCockpit, engineRatingFor, isIndustrial, isPatchwork, isQuad, isQuadVee,
+  isSuperheavy, isTripod, techOf,
+} from './types';
 import {
   freeHeatSinks, armorPointsPerTon, cockpitWeight, engineCenterSlots, engineHeatSinkCapacity,
   engineSideTorsoSlots, engineWeight, gyroSlots, gyroWeightFor, internalStructure, internalStructureWeight,
-  ARMOR_NAMES, STEALTH_LOCATIONS, jumpJetWeightFor, patchworkSlots, runMP,
+  ARMOR_NAMES, STEALTH_LOCATIONS, isLargeEngine, jumpJetWeightFor, patchworkSlots, runMP,
   weightClass,
 } from './tables';
 import type { Equipment } from './equipment';
@@ -26,6 +29,8 @@ export interface SlotEntry {
   armored?: boolean;
   /** Fixed slots: index into the location's fixed slots (for armoring systems). */
   fixedIndex?: number;
+  /** Superheavy 'Mechs: a second item (a ton of the same ammunition) sharing this slot. */
+  uid2?: string;
 }
 
 export interface LocationSlots {
@@ -39,7 +44,7 @@ export interface LocationSlots {
 
 export interface WeightBreakdown {
   structure: number;
-  /** Land-Air 'Mech conversion equipment. */
+  /** Land-Air 'Mech or QuadVee conversion equipment. */
   conversion: number;
   engine: number;
   gyro: number;
@@ -94,11 +99,12 @@ export interface MechSummary {
 }
 
 const SLOT_COUNT: Record<Location, number> = {
-  HD: 6, CT: 12, LT: 12, RT: 12, LA: 12, RA: 12, LL: 6, RL: 6,
+  HD: 6, CT: 12, LT: 12, RT: 12, LA: 12, RA: 12, LL: 6, RL: 6, CL: 6,
 };
 
-/** Critical slots in a location; a quad's front legs have 6, like any leg. */
+/** Critical slots in a location; a quad's front legs have 6, like any leg; only tripods have a center leg. */
 export function slotCount(design: Pick<MechDesign, 'config'>, loc: Location): number {
+  if (loc === 'CL') return isTripod(design) ? 6 : 0;
   return isQuad(design) && (loc === 'LA' || loc === 'RA') ? 6 : SLOT_COUNT[loc];
 }
 
@@ -109,8 +115,9 @@ export interface LamMovement {
   fighter: { safe: number; max: number };
 }
 
-/** Conversion equipment weight: 10% of tonnage (15% bimodal), rounded up to a whole ton (IO p. 113). */
-export function lamConversionWeight(d: Pick<MechDesign, 'tonnage' | 'lam'>): number {
+/** Conversion equipment weight: 10% of tonnage (15% bimodal LAM), rounded up to a whole ton (IO p. 113, 134). */
+export function lamConversionWeight(d: Pick<MechDesign, 'tonnage' | 'lam'> & Partial<Pick<MechDesign, 'config'>>): number {
+  if (isQuadVee(d)) return Math.ceil(d.tonnage * 0.1 - 1e-9);
   if (!d.lam) return 0;
   return Math.ceil(d.tonnage * (d.lam === 'bimodal' ? 0.15 : 0.1) - 1e-9);
 }
@@ -138,12 +145,13 @@ const ENGINE_LABEL = {
   ice: 'I.C.E.', 'fuel-cell': 'Fuel Cell', fission: 'Fission Engine',
   standard: 'Fusion Engine', xl: 'XL Fusion Engine', xxl: 'XXL Fusion Engine', light: 'Light Fusion Engine', compact: 'Compact Fusion Engine',
 } as const;
-const GYRO_LABEL = { standard: 'Gyro', xl: 'XL Gyro', 'heavy-duty': 'Heavy-Duty Gyro', compact: 'Compact Gyro', none: '' } as const;
+const GYRO_LABEL = { standard: 'Gyro', xl: 'XL Gyro', 'heavy-duty': 'Heavy-Duty Gyro', compact: 'Compact Gyro', none: '', superheavy: 'Superheavy Gyro' } as const;
 
 /** Patchwork armor weight: each location's points at its own armor's rate, the total rounded up to the half ton. */
 export function patchworkArmorWeight(design: MechDesign): number {
   let tons = 0;
   for (const loc of LOCATIONS) {
+    if (loc === 'CL' && !isTripod(design)) continue;
     const rear = REAR_FACING[loc];
     const points = (design.armor[loc] ?? 0) + (rear ? design.armor[rear] ?? 0 : 0);
     tons += points / armorPointsPerTon(armorTypeAt(design, loc), techOf(design, 'armor'));
@@ -154,13 +162,16 @@ export function patchworkArmorWeight(design: MechDesign): number {
 /** Fixed components per location; null marks a slot open for equipment. */
 export function fixedSlots(design: MechDesign, loc: Location): (string | null)[] {
   const base = baseFixedSlots(design, loc);
+  if (loc === 'CL' && !isTripod(design)) return base;
+  const sh = isSuperheavy(design);
   if (isPatchwork(design)) {
     // Patchwork armor: each location carries its own armor type's slots.
     const type = armorTypeAt(design, loc);
-    for (let i = patchworkSlots(type, techOf(design, 'armor')); i > 0; i--) claim(base, ARMOR_NAMES[type]);
+    for (let i = patchworkSlots(type, techOf(design, 'armor'), sh); i > 0; i--) claim(base, ARMOR_NAMES[type]);
   } else if (design.armorType === 'stealth' && (STEALTH_LOCATIONS as readonly string[]).includes(loc)) {
-    // Stealth armor: two slots in each side torso, arm and leg.
-    claim(claim(base, 'Stealth'), 'Stealth');
+    // Stealth armor: two slots in each side torso, arm and leg (one on a superheavy).
+    claim(base, 'Stealth');
+    if (!sh) claim(base, 'Stealth');
   }
   if (!design.lam) return base;
   // LAM conversion systems take the first open slots: avionics in the head, landing gear in
@@ -174,20 +185,21 @@ export function fixedSlots(design: MechDesign, loc: Location): (string | null)[]
 function baseFixedSlots(design: MechDesign, loc: Location): (string | null)[] {
   switch (loc) {
     case 'HD':
-      switch (design.cockpitType) {
+      switch (effectiveCockpit(design)) {
         case 'small': return ['Life Support', 'Sensors', 'Small Cockpit', 'Sensors', null, null];
-        case 'command-console': return ['Life Support', 'Sensors', 'Cockpit', 'Command Console', 'Sensors', 'Life Support'];
+        case 'command-console': case 'superheavy-command-console':
+          return ['Life Support', 'Sensors', 'Cockpit', 'Command Console', 'Sensors', 'Life Support'];
         // Torso-mounted cockpit: two sensor slots stay in the head (as MegaMek places them).
         case 'torso-mounted': return ['Sensors', 'Sensors', null, null, null, null];
-        // Interface cockpit: two cockpit slots.
-        case 'interface': return ['Life Support', 'Sensors', 'Cockpit', 'Cockpit', 'Sensors', 'Life Support'];
+        // Interface and QuadVee cockpits: two cockpit slots.
+        case 'interface': case 'quadvee': return ['Life Support', 'Sensors', 'Cockpit', 'Cockpit', 'Sensors', 'Life Support'];
         default: return ['Life Support', 'Sensors', 'Cockpit', null, 'Sensors', 'Life Support'];
       }
     case 'CT': {
       const e = ENGINE_LABEL[design.engineType];
       const g = GYRO_LABEL[design.gyroType];
       const gyro: string[] = Array(gyroSlots(design.gyroType)).fill(g);
-      const engine: string[] = Array(engineCenterSlots(design.engineType)).fill(e);
+      const engine: string[] = Array(engineCenterSlots(design.engineType, isSuperheavy(design), isLargeEngine(engineRatingFor(design)))).fill(e);
       // The gyro sits between the two halves of a full-size engine.
       const fixed = [...engine.slice(0, 3), ...gyro, ...engine.slice(3)];
       // A torso-mounted cockpit and a sensor slot take the next open center-torso slots.
@@ -196,7 +208,7 @@ function baseFixedSlots(design: MechDesign, loc: Location): (string | null)[] {
     }
     case 'LT':
     case 'RT': {
-      const n = engineSideTorsoSlots(design.engineType, techOf(design, 'engine'));
+      const n = engineSideTorsoSlots(design.engineType, techOf(design, 'engine'), isSuperheavy(design));
       // A torso-mounted cockpit puts life support in the first slot of each side torso.
       const ls = design.cockpitType === 'torso-mounted' ? ['Life Support'] : [];
       const fixed = [...ls, ...Array(n).fill(ENGINE_LABEL[design.engineType])];
@@ -204,7 +216,7 @@ function baseFixedSlots(design: MechDesign, loc: Location): (string | null)[] {
     }
     case 'LA':
     case 'RA': {
-      if (isQuad(design)) return [...LEG_SLOTS];
+      if (isQuad(design)) return legSlots(design);
       const a = design.actuators[loc];
       const fixed = ['Shoulder', 'Upper Arm Actuator'];
       if (a.lowerArm) fixed.push('Lower Arm Actuator');
@@ -213,8 +225,17 @@ function baseFixedSlots(design: MechDesign, loc: Location): (string | null)[] {
     }
     case 'LL':
     case 'RL':
-      return [...LEG_SLOTS];
+      return legSlots(design);
+    case 'CL':
+      return isTripod(design) ? legSlots(design) : [];
   }
+}
+
+/** Leg actuators; a QuadVee's conversion gear takes the slot after the foot (as MegaMek places it). */
+function legSlots(design: MechDesign): (string | null)[] {
+  const slots = [...LEG_SLOTS];
+  if (isQuadVee(design)) slots[4] = 'Conversion Gear';
+  return slots;
 }
 
 /** Slot label: the abbreviated item name, plus (R) for rear-facing. */
@@ -259,11 +280,25 @@ function layoutLocation(design: MechDesign, loc: Location): LocationSlots {
   const openIdx = fixed.flatMap((f, i) => (f === null ? [i] : []));
   let cursor = 0;
   let overflow = 0;
+  // Superheavy 'Mechs carry two tons of the same ammunition in one slot.
+  const pairable = new Map<string, number>();
+  const sh = isSuperheavy(design);
   for (const item of design.equipment) {
     const primary = item.location === loc;
     if (!primary && item.split?.location !== loc) continue;
     const eq = getEquipment(item.equipmentId);
     if (!eq) continue;
+    if (sh && primary && eq.category === 'Ammo') {
+      const key = `${item.equipmentId}|${item.pod ? 'P' : ''}|${item.armored ? 'A' : ''}`;
+      const at = pairable.get(key);
+      if (at !== undefined) {
+        const slot = slots[at];
+        slots[at] = { ...slot, label: `${slot.label} ×2`, uid2: item.uid };
+        pairable.delete(key);
+        continue;
+      }
+      if (cursor < openIdx.length) pairable.set(key, openIdx[cursor]);
+    }
     // A split weapon puts `split.slots` slots in the second location and the rest in its own.
     const total = itemSlots(eq, design);
     const n = !item.split || !item.location ? total : primary ? total - item.split.slots : item.split.slots;
@@ -287,7 +322,8 @@ export function computeMech(design: MechDesign): MechSummary {
   const rating = engineRatingFor(design);
   const engineWt = engineWeight(design.engineType, rating);
   const quad = isQuad(design);
-  const structure = internalStructure(tonnage, quad);
+  const tripod = isTripod(design);
+  const structure = internalStructure(tonnage, quad, tripod);
 
   const count = (pred: (id: string) => boolean) => design.equipment.filter((e) => pred(e.equipmentId)).length;
   const jumpMP = count((id) => JUMP_JET_IDS.includes(id));
@@ -316,11 +352,11 @@ export function computeMech(design: MechDesign): MechSummary {
   const ppt = armorPointsPerTon(design.armorType, techOf(design, 'armor'));
   const armorTotal = totalArmorPoints(design.armor);
   const weights: WeightBreakdown = {
-    structure: internalStructureWeight(design.structureType, tonnage),
+    structure: internalStructureWeight(design.structureType, tonnage, tripod),
     conversion: lamConversionWeight(design),
     engine: engineWt ?? 0,
     gyro: gyroWeightFor(design.gyroType, rating),
-    cockpit: cockpitWeight(design.cockpitType),
+    cockpit: cockpitWeight(effectiveCockpit(design)),
     heatSinks: Math.max(0, totalHS - freeHeatSinks(design.engineType)),
     jumpJets: jumpMP * jumpJetWeightFor(design.jumpJetType, tonnage),
     armor: isPatchwork(design) ? patchworkArmorWeight(design) : armorTonnage(armorTotal, ppt),
@@ -358,9 +394,9 @@ export function computeMech(design: MechDesign): MechSummary {
     weightClass: weightClass(tonnage),
     engineWeight: engineWt,
     structure,
-    armorMax: maxArmorByLocation(tonnage, quad),
+    armorMax: maxArmorByLocation(tonnage, quad, tripod),
     armorTotal,
-    armorMaxTotal: maxTotalArmor(tonnage, quad),
+    armorMaxTotal: maxTotalArmor(tonnage, quad, tripod),
     armorPointsPerTon: ppt,
     heatSinks: {
       total: totalHS,

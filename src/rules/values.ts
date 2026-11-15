@@ -216,7 +216,7 @@ export const ITEM_VALUES: Record<string, ItemValue> = {
   'clan-mech-mortar-1': v(10, 7000, 1.2, 28000), 'clan-mech-mortar-2': v(14, 15000, 2.4, 28000), 'clan-mech-mortar-4': v(26, 32000, 3.6, 28000), 'clan-mech-mortar-8': v(50, 70000, 7.2, 28000),
   'bloodhound-probe': v(25, 500000), 'clan-watchdog-ecm': v(68, 500000), 'clan-nova-cews': v(68, 1100000), 'apollo-fcs': v(0, 125000),
   'c3-emergency-master': v(0, 2800000), 'drone-os': v(0, 0),
-  umu: v(0, 0), tracks: v(0, 0), 'radical-heat-sink': v(0, 250000), harjel: v(0, 120000), 'blue-shield': v(0, 1000000 / 7),
+  umu: v(0, 0), tracks: v(0, 0), 'quadvee-wheels': v(0, 0), 'radical-heat-sink': v(0, 250000), harjel: v(0, 120000), 'blue-shield': v(0, 1000000 / 7),
   'modular-armor': v(0, 10000),
   // Vehicle chassis mods: amphibious 10,000 per ton, armored motive 100,000 per ton (computed in vehicleCost); sealing free.
   'vehicle-fully-amphibious': v(0, 0), 'vehicle-limited-amphibious': v(0, 0), 'vehicle-env-sealing': v(0, 0),

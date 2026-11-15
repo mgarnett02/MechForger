@@ -117,9 +117,18 @@ export function mechSheetData(d: MechDesign): SheetData {
     // Melee weapons: no heat, adjacent-hex only; a talon set is one item.
     return { ...row, qty: g.eq.melee === 'talons' ? 1 : row.qty, heat: '—', damage: meleeDamage(g.eq.melee, d.tonnage) };
   });
-  const equipment = groups
-    .filter((g) => !g.eq.isWeapon && !g.eq.melee && g.eq.category !== 'Ammo')
-    .map((g) => ({ qty: g.count, name: shortEquipmentName(g.eq, d), location: g.location, tons: itemWeight(g.eq, d) * g.count }));
+  // Identical equipment in several locations (CASE in each torso, A-Pods in every leg) shares one row.
+  const merged = new Map<string, EquipmentRow>();
+  for (const g of groups.filter((x) => !x.eq.isWeapon && !x.eq.melee && x.eq.category !== 'Ammo')) {
+    const row = merged.get(g.eq.id);
+    const tons = itemWeight(g.eq, d) * g.count;
+    if (row) merged.set(g.eq.id, { ...row, qty: row.qty + g.count, location: `${row.location}/${g.location}`, tons: row.tons + tons });
+    else merged.set(g.eq.id, { qty: g.count, name: shortEquipmentName(g.eq, d), location: g.location, tons });
+  }
+  // More than three locations would crowd the column: list those separately again.
+  const equipment = [...merged.values()].flatMap((row) => row.location.split('/').length <= 3 ? [row]
+    : groups.filter((g) => shortEquipmentName(g.eq, d) === row.name && !g.eq.isWeapon && g.eq.category !== 'Ammo')
+      .map((g) => ({ qty: g.count, name: row.name, location: g.location, tons: itemWeight(g.eq, d) * g.count })));
   const ammo = placed
     .map((e) => ({ e, eq: getEquipment(e.equipmentId)! }))
     .filter(({ eq }) => eq.category === 'Ammo')

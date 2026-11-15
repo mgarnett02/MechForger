@@ -36,7 +36,7 @@ const PLAIN = {
 function armor(
   hd: number, ct: number, ctr: number, side: number, sider: number, arm: number, leg: number,
 ): ArmorAllocation {
-  return { HD: hd, CT: ct, CTR: ctr, LT: side, LTR: sider, RT: side, RTR: sider, LA: arm, RA: arm, LL: leg, RL: leg };
+  return { HD: hd, CT: ct, CTR: ctr, LT: side, LTR: sider, RT: side, RTR: sider, LA: arm, RA: arm, LL: leg, RL: leg, CL: 0 };
 }
 
 const FULL_ARMS = { LA: { lowerArm: true, hand: true }, RA: { lowerArm: true, hand: true } };
@@ -142,7 +142,7 @@ export const PRESETS: Preset[] = [
       heatSinkType: 'double', armorType: 'standard', ...PLAIN,
       chassis: 'Warden', model: 'WDN-1X', tonnage: 55, walkMP: 5,
       engineHeatSinks: 11,
-      armor: { HD: 9, CT: 26, CTR: 8, LT: 20, LTR: 6, RT: 20, RTR: 6, LA: 17, RA: 17, LL: 24, RL: 23 },
+      armor: { HD: 9, CT: 26, CTR: 8, LT: 20, LTR: 6, RT: 20, RTR: 6, LA: 17, RA: 17, LL: 24, RL: 23, CL: 0 },
       actuators: FULL_ARMS,
       equipment: mounts([
         ['er-ppc', 'RA'],
@@ -231,7 +231,7 @@ export const PRESETS: Preset[] = [
       heatSinkType: 'double', armorType: 'standard', ...PLAIN, gyroType: 'xl',
       chassis: 'Bulwark', model: 'BWK-2X', tonnage: 60, walkMP: 5,
       engineHeatSinks: 12,
-      armor: { HD: 9, CT: 30, CTR: 9, LT: 21, LTR: 6, RT: 21, RTR: 6, LA: 19, RA: 19, LL: 26, RL: 26 },
+      armor: { HD: 9, CT: 30, CTR: 9, LT: 21, LTR: 6, RT: 21, RTR: 6, LA: 19, RA: 19, LL: 26, RL: 26, CL: 0 },
       actuators: FULL_ARMS,
       equipment: mounts([
         ['rac-5', 'RA'],
@@ -255,7 +255,7 @@ export const PRESETS: Preset[] = [
       heatSinkType: 'double', armorType: 'ferro-fibrous', ...PLAIN,
       chassis: 'Emberclaw', model: 'Prime', tonnage: 35, walkMP: 7,
       engineHeatSinks: 9,
-      armor: { HD: 9, CT: 16, CTR: 5, LT: 12, LTR: 3, RT: 12, RTR: 3, LA: 12, RA: 11, LL: 16, RL: 16 },
+      armor: { HD: 9, CT: 16, CTR: 5, LT: 12, LTR: 3, RT: 12, RTR: 3, LA: 12, RA: 11, LL: 16, RL: 16, CL: 0 },
       actuators: FULL_ARMS,
       equipment: mounts([
         ['clan-medium-heavy-laser', 'LA'],
@@ -296,7 +296,7 @@ export const PRESETS: Preset[] = [
       heatSinkType: 'double', armorType: 'standard', ...PLAIN, gyroType: 'compact', jumpJetType: 'improved',
       chassis: 'Rampart', model: 'RMP-3X', tonnage: 50, walkMP: 5,
       engineHeatSinks: 10,
-      armor: { HD: 9, CT: 24, CTR: 8, LT: 18, LTR: 6, RT: 18, RTR: 6, LA: 16, RA: 16, LL: 24, RL: 23 },
+      armor: { HD: 9, CT: 24, CTR: 8, LT: 18, LTR: 6, RT: 18, RTR: 6, LA: 16, RA: 16, LL: 24, RL: 23, CL: 0 },
       actuators: FULL_ARMS,
       equipment: mounts([
         ['improved-jump-jet', 'LL'],
@@ -321,7 +321,7 @@ export const PRESETS: Preset[] = [
       heatSinkType: 'double', armorType: 'ferro-fibrous', ...PLAIN,
       chassis: 'Cindermaw', model: 'Prime', tonnage: 70, walkMP: 5,
       engineHeatSinks: 14,
-      armor: { HD: 9, CT: 32, CTR: 10, LT: 22, LTR: 8, RT: 22, RTR: 8, LA: 21, RA: 21, LL: 29, RL: 29 },
+      armor: { HD: 9, CT: 32, CTR: 10, LT: 22, LTR: 8, RT: 22, RTR: 8, LA: 21, RA: 21, LL: 29, RL: 29, CL: 0 },
       actuators: FULL_ARMS,
       equipment: mounts([
         ['clan-hag-30', 'RT'],

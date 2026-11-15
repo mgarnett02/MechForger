@@ -18,12 +18,14 @@ describe('tables', () => {
     expect(standardFusionEngineWeight(200)).toBe(8.5);
     expect(standardFusionEngineWeight(300)).toBe(19);
     expect(standardFusionEngineWeight(400)).toBe(52.5);
-    expect(standardFusionEngineWeight(405)).toBeNull();
+    expect(standardFusionEngineWeight(405)).toBe(56.5); // large engine
+    expect(standardFusionEngineWeight(500)).toBe(462.5);
+    expect(standardFusionEngineWeight(505)).toBeNull();
     expect(standardFusionEngineWeight(123)).toBeNull();
   });
 
   it('internal structure', () => {
-    expect(internalStructure(100)).toEqual({ HD: 3, CT: 31, LT: 21, RT: 21, LA: 17, RA: 17, LL: 21, RL: 21 });
+    expect(internalStructure(100)).toEqual({ HD: 3, CT: 31, LT: 21, RT: 21, LA: 17, RA: 17, LL: 21, RL: 21, CL: 0 });
     expect(internalStructure(20)?.CT).toBe(6);
     expect(internalStructure(42)).toBeNull();
   });
@@ -135,7 +137,9 @@ describe('validation', () => {
   });
 
   it('engine rating limits', () => {
-    expect(errors({ ...newDesign(), tonnage: 100, walkMP: 5 }).some((m) => m.includes('exceeds the maximum'))).toBe(true);
+    expect(errors({ ...newDesign(), tonnage: 100, walkMP: 6 }).some((m) => m.includes('exceeds the maximum'))).toBe(true);
+    // 500 is a large engine: legal, but not before the Jihad.
+    expect(errors({ ...newDesign('3025'), tonnage: 100, walkMP: 5 }).some((m) => m.includes('Large engines cannot be used'))).toBe(true);
   });
 
   it('new design is structurally valid apart from unused tonnage', () => {
@@ -172,7 +176,7 @@ describe('editing', () => {
     let d = { ...newDesign(), walkMP: 8 };
     d.armor.CT = 32;
     d = setTonnage(d, 100);
-    expect(d.walkMP).toBe(4);
+    expect(d.walkMP).toBe(5); // a 500-rated large engine at most
     d = setTonnage({ ...d, armor: { ...d.armor, CT: 60 } }, 20);
     expect(d.armor.CT).toBe(12);
   });

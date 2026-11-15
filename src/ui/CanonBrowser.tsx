@@ -34,7 +34,7 @@ function weightClass(t: number, unit: UnitType, k = ''): string {
     return t < 500000 ? 'Light WarShip' : t < 1000000 ? 'Medium WarShip' : 'Heavy WarShip';
   }
   if (unit === 'fighter') return k === 'conventional' ? (t <= 15 ? 'Light' : t <= 30 ? 'Medium' : 'Heavy') : t <= 45 ? 'Light' : t <= 70 ? 'Medium' : 'Heavy';
-  if (unit === 'mech') return t <= 35 ? 'Light' : t <= 55 ? 'Medium' : t <= 75 ? 'Heavy' : 'Assault';
+  if (unit === 'mech') return t <= 35 ? 'Light' : t <= 55 ? 'Medium' : t <= 75 ? 'Heavy' : t <= 100 ? 'Assault' : 'Superheavy';
   return t < 40 ? 'Light' : t < 60 ? 'Medium' : t < 80 ? 'Heavy' : t <= 100 ? 'Assault' : 'Super-heavy';
 }
 
@@ -45,6 +45,11 @@ function kindLabel(k: string): string {
   if (k === 'mech') return 'BattleMech';
   if (k === 'quad') return 'Quad BattleMech';
   if (k === 'lam') return "Land-Air 'Mech";
+  if (k === 'tripod') return 'Tripod BattleMech';
+  if (k === 'quadvee') return 'QuadVee';
+  if (k === 'superheavy') return "Superheavy 'Mech";
+  if (k.startsWith('tripodomni:')) return `Tripod OmniMech (${k.slice(11)} configs)`;
+  if (k.startsWith('quadveeomni:')) return `OmniQuadVee (${k.slice(12)} configs)`;
   if (k.startsWith('small-craft:') || k.startsWith('dropship:')) {
     const [type, shape] = k.split(':');
     return `${shape === 'spheroid' ? 'Spheroid' : 'Aerodyne'} ${type === 'dropship' ? 'DropShip' : 'small craft'}`;
@@ -101,7 +106,8 @@ export function CanonBrowser({ unit, onLoad, onClose }: Props) {
   useEffect(() => setLimit(PAGE), [query, tech, era, cls, sub, legalOnly, mulOnly, kind]);
 
   /** Filter group for an entry: OmniMechs are grouped regardless of how many configurations they have. */
-  const group = (k: string) => (k.startsWith('omni:') ? 'omni' : k.startsWith('quadomni:') ? 'quadomni' : k);
+  const group = (k: string) => (k.startsWith('omni:') ? 'omni' : k.startsWith('quadomni:') ? 'quadomni'
+    : k.startsWith('tripodomni:') ? 'tripodomni' : k.startsWith('quadveeomni:') ? 'quadveeomni' : k);
   const subKinds = useMemo(() => [...new Set((entries ?? []).map((e) => group(e.k)))], [entries]);
 
   const filtered = useMemo(() => {
@@ -159,7 +165,7 @@ export function CanonBrowser({ unit, onLoad, onClose }: Props) {
           </select>
           <select aria-label="Type" value={sub} onChange={(e) => setSub(e.target.value)}>
             <option value="">All types</option>
-            {subKinds.map((k) => <option key={k} value={k}>{k === 'omni' ? 'OmniMechs' : k === 'quadomni' ? 'Quad OmniMechs' : k === 'quad' ? 'Quad BattleMechs' : k === 'lam' ? "Land-Air 'Mechs" : kindLabel(k)}</option>)}
+            {subKinds.map((k) => <option key={k} value={k}>{k === 'omni' ? 'OmniMechs' : k === 'quadomni' ? 'Quad OmniMechs' : k === 'tripodomni' ? 'Tripod OmniMechs' : k === 'quadveeomni' ? 'OmniQuadVees' : k === 'quad' ? 'Quad BattleMechs' : k === 'lam' ? "Land-Air 'Mechs" : kindLabel(k)}</option>)}
           </select>
           <label className="check small"><input type="checkbox" checked={legalOnly} onChange={(e) => setLegalOnly(e.target.checked)} /> Legal in MechForger only</label>
           <label className="check small" title="Only units with a Master Unit List entry"><input type="checkbox" checked={mulOnly} onChange={(e) => setMulOnly(e.target.checked)} /> On the MUL only</label>

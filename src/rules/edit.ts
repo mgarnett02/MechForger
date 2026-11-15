@@ -2,7 +2,7 @@ import type {
   ArmLocation, ArmorAllocation, ArmorFacing, ArmorType, CockpitType, EngineType, GyroType, HeatSinkType, JumpJetType, Location,
   LamType, MechConfig, MechDesign, MountedItem, MyomerType, OmniData, StructureType, TechBase, TechComponent,
 } from './types';
-import { ARMOR_FACINGS, LOCATIONS, REAR_FACING, SPLIT_ADJACENT, TECH_COMPONENTS, engineRatingFor, isPatchwork, isQuad, legLocations, techOf } from './types';
+import { ARMOR_FACINGS, LOCATIONS, REAR_FACING, SPLIT_ADJACENT, TECH_COMPONENTS, engineRatingFor, isPatchwork, isQuad, isQuadVee, isSuperheavy, isTripod, legLocations, techOf } from './types';
 import {
   ARMOR_OPTIONS, COCKPIT_OPTIONS, ENGINE_OPTIONS, GYRO_OPTIONS, MYOMER_OPTIONS, STRUCTURE_OPTIONS,
   FREE_HEAT_SINKS, armorPointsPerTon, armorSlots, engineHeatSinkCapacity, maxWalkMP, structureSlots,
@@ -97,16 +97,16 @@ export function setEngineHeatSinks(d: MechDesign, inEngine: number): MechDesign 
 }
 
 /** Trim armor that exceeds the per-location maximums for this tonnage and configuration. */
-function clampArmor(armorIn: ArmorAllocation, tonnage: number, quad: boolean): ArmorAllocation {
-  const max = maxArmorByLocation(tonnage, quad);
+function clampArmor(armorIn: ArmorAllocation, tonnage: number, quad: boolean, tripod = false): ArmorAllocation {
+  const max = maxArmorByLocation(tonnage, quad, tripod);
   const armor = { ...armorIn };
   for (const loc of LOCATIONS) {
     const rear = REAR_FACING[loc];
     if (rear) {
-      armor[rear] = Math.min(armor[rear], max[loc]);
-      armor[loc] = Math.min(armor[loc], max[loc] - armor[rear]);
+      armor[rear] = Math.min(armor[rear] ?? 0, max[loc]);
+      armor[loc] = Math.min(armor[loc] ?? 0, max[loc] - armor[rear]);
     } else {
-      armor[loc] = Math.min(armor[loc], max[loc]);
+      armor[loc] = Math.min(armor[loc] ?? 0, max[loc]);
     }
   }
   return armor;
@@ -114,9 +114,13 @@ function clampArmor(armorIn: ArmorAllocation, tonnage: number, quad: boolean): A
 
 export function setTonnage(d: MechDesign, tonnage: number): MechDesign {
   const walkMP = Math.max(1, Math.min(d.walkMP, maxWalkMP(tonnage)));
-  const armor = clampArmor(d.armor, tonnage, isQuad(d));
-  const next = { ...d, tonnage, walkMP, armor };
-  return refitHeatSinks(next, totalHeatSinks(d), d.engineHeatSinks);
+  const armor = clampArmor(d.armor, tonnage, isQuad(d), isTripod(d));
+  // Superheavy 'Mechs must use a superheavy gyro; going back under 100 tons restores a standard one.
+  const sh = tonnage > 100;
+  const gyroType: GyroType = sh ? 'superheavy' : d.gyroType === 'superheavy' ? 'standard' : d.gyroType;
+  const next: MechDesign = { ...d, tonnage, walkMP, armor, gyroType, ...(sh ? { lam: null } : {}) };
+  // Structure and armor slot counts halve on a superheavy.
+  return syncFillers(refitHeatSinks(next, totalHeatSinks(d), d.engineHeatSinks));
 }
 
 export function setWalkMP(d: MechDesign, walkMP: number): MechDesign {
@@ -139,9 +143,20 @@ export function setJumpMP(d: MechDesign, jumpMP: number): MechDesign {
  */
 export function setConfig(d: MechDesign, config: MechConfig): MechDesign {
   if (d.config === config) return d;
-  // Only bipeds can be Land-Air 'Mechs.
-  const next: MechDesign = { ...d, config, lam: config === 'quad' ? null : d.lam, armor: clampArmor(d.armor, d.tonnage, config === 'quad') };
-  const limbs: Location[] = ['LA', 'RA'];
+  const quad = config === 'quad' || config === 'quadvee';
+  const { quadVeeMotive: _m, ...rest } = d;
+  // Only bipeds can be Land-Air 'Mechs; QuadVees choose tracks or wheels (tracks to begin with).
+  let next: MechDesign = {
+    ...rest, config, lam: config === 'biped' ? d.lam : null,
+    armor: clampArmor(d.armor, d.tonnage, quad, config === 'tripod'),
+    ...(config === 'quadvee' ? { quadVeeMotive: 'tracked' as const } : {}),
+  };
+  // Leg-mounted sets (talons, tracks) and QuadVee motive gear follow the new legs.
+  const legSets = ['talons', 'tracks', 'quadvee-wheels'].filter((id) => next.equipment.some((e) => e.equipmentId === id));
+  next = { ...next, equipment: next.equipment.filter((e) => !legSets.includes(e.equipmentId)) };
+  for (const id of legSets) if (id !== 'quadvee-wheels' || config === 'quadvee') next = addEquipment(next, id);
+  if (config === 'quadvee' && !legSets.includes('tracks') && !legSets.includes('quadvee-wheels')) next = addEquipment(next, 'tracks');
+  const limbs: Location[] = ['LA', 'RA', 'LL', 'RL', 'CL'];
   const allowed = (item: MountedItem) => {
     const eq = getEquipment(item.equipmentId);
     return !item.location || !limbs.includes(item.location) || !eq || allowedLocations(eq, next).includes(item.location);
@@ -185,7 +200,7 @@ export function setArmor(d: MechDesign, facing: ArmorFacing, points: number): Me
 }
 
 export function maximizeArmor(d: MechDesign): MechDesign {
-  return { ...d, armor: distributeArmor(d.tonnage, maxTotalArmor(d.tonnage, isQuad(d)), isQuad(d)) };
+  return { ...d, armor: distributeArmor(d.tonnage, maxTotalArmor(d.tonnage, isQuad(d), isTripod(d)), isQuad(d), isTripod(d)) };
 }
 
 export function clearArmor(d: MechDesign): MechDesign {
@@ -194,7 +209,14 @@ export function clearArmor(d: MechDesign): MechDesign {
 
 export function setArmorTonnage(d: MechDesign, tons: number): MechDesign {
   const ppt = armorPointsPerTon(d.armorType, techOf(d, 'armor'));
-  return { ...d, armor: distributeArmor(d.tonnage, armorPointsForTons(Math.round(tons * 2) / 2, ppt), isQuad(d)) };
+  return { ...d, armor: distributeArmor(d.tonnage, armorPointsForTons(Math.round(tons * 2) / 2, ppt), isQuad(d), isTripod(d)) };
+}
+
+/** QuadVee vehicle-mode motive: tracks or wheels (the motive gear is swapped to match). */
+export function setQuadVeeMotive(d: MechDesign, motive: 'tracked' | 'wheeled'): MechDesign {
+  if (!isQuadVee(d)) return d;
+  const without = { ...d, quadVeeMotive: motive, equipment: d.equipment.filter((e) => e.equipmentId !== 'tracks' && e.equipmentId !== 'quadvee-wheels') };
+  return addEquipment(without, motive === 'wheeled' ? 'quadvee-wheels' : 'tracks');
 }
 
 export function addEquipment(d: MechDesign, equipmentId: string, location: Location | null = null): MechDesign {
@@ -340,8 +362,9 @@ function normalizeHeatSinks(d: MechDesign): MechDesign {
 
 /** Keep Endo Steel / Ferro-Fibrous slot placeholders at the count the rules require. */
 function syncFillers(d: MechDesign): MechDesign {
-  const withEndo = syncCount(d, ENDO_STEEL_ID, structureSlots(d.structureType, techOf(d, 'structure')));
-  const withFerro = syncCount(withEndo, FERRO_FIBROUS_ID, isPatchwork(d) ? 0 : armorSlots(d.armorType, techOf(d, 'armor')));
+  const sh = isSuperheavy(d);
+  const withEndo = syncCount(d, ENDO_STEEL_ID, structureSlots(d.structureType, techOf(d, 'structure'), sh));
+  const withFerro = syncCount(withEndo, FERRO_FIBROUS_ID, isPatchwork(d) ? 0 : armorSlots(d.armorType, techOf(d, 'armor'), sh));
   const withTsm = syncCount(withFerro, TSM_ID, tsmSlots(d.myomer));
   return syncCount(withTsm, ENV_SEAL_ID, d.environmentalSealing ? 8 : 0);
 }
@@ -547,8 +570,9 @@ export function parseDesign(raw: unknown): MechDesign {
     mixedTech: r.mixedTech === true,
     ...parseComponentTech(r.componentTech),
     ...(r.laserHeatSinks === true ? { laserHeatSinks: true } : {}),
-    config: pick(r.config, ['biped', 'quad'] as const, 'biped'),
-    lam: r.config !== 'quad' && (r.lam === 'standard' || r.lam === 'bimodal') ? r.lam : null,
+    config: pick(r.config, ['biped', 'quad', 'tripod', 'quadvee'] as const, 'biped'),
+    ...(r.config === 'quadvee' ? { quadVeeMotive: r.quadVeeMotive === 'wheeled' ? 'wheeled' as const : 'tracked' as const } : {}),
+    lam: (r.config ?? 'biped') === 'biped' && (r.lam === 'standard' || r.lam === 'bimodal') ? r.lam : null,
     ...(r.fullHeadEjection === true ? { fullHeadEjection: true } : {}),
     omni,
     chassis: typeof r.chassis === 'string' ? r.chassis : 'Unnamed',

@@ -1,7 +1,7 @@
 import type {
   CockpitType, EngineType, GyroType, HeatSinkType, JumpJetType, LamType, MechConfig, MechDesign, MyomerType, StructureType, TechBase,
 } from '../rules/types';
-import { isIndustrial } from '../rules/types';
+import { EFFECTIVE_COCKPIT_NAMES, effectiveCockpit, isIndustrial, isQuadVee, isSuperheavy, isTripod } from '../rules/types';
 import type { ComponentOption } from '../rules/tables';
 import {
   COCKPIT_OPTIONS, ENGINE_OPTIONS, GYRO_OPTIONS, HEAT_SINK_OPTIONS, JUMP_JET_OPTIONS, MYOMER_OPTIONS,
@@ -11,11 +11,11 @@ import { ARM_LOCATIONS, LAM_TYPE_NAMES, LOCATION_NAMES, TECH_BASE_NAMES, isQuad,
 import { TechPicker } from './TechPicker';
 import { ERAS, getEra, isAvailableIn } from '../rules/eras';
 import type { MechSummary } from '../rules/construction';
-import { TONNAGES, freeHeatSinks, maxWalkMP } from '../rules/tables';
+import { SUPERHEAVY_TONNAGES, TONNAGES, engineSideTorsoSlots, freeHeatSinks, isLargeEngine, maxWalkMP } from '../rules/tables';
 import {
   setActuator, setCockpitType, setConfig, setFullHeadEjection, setLam, setEngineHeatSinks, setEngineType, setGyroType, setHeatSinkTotal,
   setHeatSinkType, setJumpJetType, setJumpMP, setLaserHeatSinks,
-  setEnvironmentalSealing, setMixedTech, setMyomer, setStructureType, setTechBase, setTonnage, setWalkMP,
+  setEnvironmentalSealing, setMixedTech, setMyomer, setQuadVeeMotive, setStructureType, setTechBase, setTonnage, setWalkMP,
 } from '../rules/edit';
 import { setOmni } from '../rules/omni';
 import { NumberField } from './NumberField';
@@ -39,7 +39,11 @@ export function ChassisPanel({ design, summary, update }: Props) {
   const era = getEra(design.era);
   const advanced = isAvailableIn(ADVANCED_ERA, design.era);
   const lockedTitle = advanced ? undefined : 'Available from the Clan Invasion era (3050)';
-  const xlSlots = techOf(design, 'engine') === 'Clan' ? 2 : 3;
+  const sh = isSuperheavy(design);
+  const sideSlots = (type: EngineType) => engineSideTorsoSlots(type, techOf(design, 'engine'), sh);
+  const xlSlots = sideSlots('xl');
+  const large = isLargeEngine(summary.rating);
+  const specialCockpit = EFFECTIVE_COCKPIT_NAMES[effectiveCockpit(design)];
   const jumpMax = design.jumpJetType === 'improved' ? summary.runMP : design.walkMP;
   /** Whether a construction option can be chosen, and why not when it can't. */
   const ok = (o: ComponentOption) => componentAvailable(o, design.era, design.techBase, design.mixedTech);
@@ -61,6 +65,11 @@ export function ChassisPanel({ design, summary, update }: Props) {
             {TONNAGES.map((t) => (
               <option key={t} value={t}>{t} tons</option>
             ))}
+            <optgroup label="Superheavy (Interstellar Operations)">
+              {SUPERHEAVY_TONNAGES.map((t) => (
+                <option key={t} value={t} disabled={design.lam ? true : isQuadVee(design)}>{t} tons</option>
+              ))}
+            </optgroup>
           </select>
           <span className="muted"> {summary.weightClass}</span>
         </div>
@@ -74,9 +83,18 @@ export function ChassisPanel({ design, summary, update }: Props) {
             }}>
             <option value="biped">Biped (two legs, two arms)</option>
             <option value="quad">Quad (four legs)</option>
-            <option value="lam-standard" disabled={design.techBase !== 'IS'}>LAM, standard (3 modes)</option>
-            <option value="lam-bimodal" disabled={design.techBase !== 'IS'}>LAM, bimodal (no AirMech)</option>
-          </select>
+            <option value="tripod">Tripod (three legs, two arms)</option>
+            <option value="quadvee" disabled={sh} title="Clan, from 3130: a quad that converts into a tracked or wheeled vehicle">QuadVee (quad / vehicle)</option>
+            <option value="lam-standard" disabled={design.techBase !== 'IS' || sh}>LAM, standard (3 modes)</option>
+            <option value="lam-bimodal" disabled={design.techBase !== 'IS' || sh}>LAM, bimodal (no AirMech)</option>
+          </select>{' '}
+          {isQuadVee(design) && (
+            <select aria-label="QuadVee motive" value={design.quadVeeMotive ?? 'tracked'}
+              onChange={(e) => update((d) => setQuadVeeMotive(d, e.target.value as 'tracked' | 'wheeled'))}>
+              <option value="tracked">Tracked (tracks: 10% of tonnage)</option>
+              <option value="wheeled">Wheeled (wheels: 15% of tonnage)</option>
+            </select>
+          )}
         </div>
 
         <label>Tech base</label>
@@ -123,7 +141,7 @@ export function ChassisPanel({ design, summary, update }: Props) {
           <select aria-label="Internal structure" value={design.structureType} title={lockedTitle}
             onChange={(e) => update((d) => setStructureType(d, e.target.value as StructureType))}>
             {(Object.keys(STRUCTURE_OPTIONS) as StructureType[]).map((k) => {
-              const n = structureSlots(k, techOf(design, 'structure'));
+              const n = structureSlots(k, techOf(design, 'structure'), design.tonnage > 100);
               return (
                 <option key={k} value={k} disabled={k !== 'standard' && !ok(STRUCTURE_OPTIONS[k])} title={k === 'standard' ? undefined : why(STRUCTURE_OPTIONS[k])}>
                   {STRUCTURE_NAMES[k]}{n ? ` (${n} slots)` : ''}{STRUCTURE_NOTES[k] ?? ''}
@@ -151,13 +169,13 @@ export function ChassisPanel({ design, summary, update }: Props) {
               {summary.rating} XL ({xlSlots} slots per side torso)
             </option>
             <option value="xxl" disabled={!ok(ENGINE_OPTIONS.xxl)} title={why(ENGINE_OPTIONS.xxl)}>
-              {summary.rating} XXL ({techOf(design, 'engine') === 'Clan' ? 4 : 6} slots per side torso, runs hot)
+              {summary.rating} XXL ({sideSlots('xxl')} slots per side torso, runs hot)
             </option>
             <option value="light" disabled={!ok(ENGINE_OPTIONS.light)} title={why(ENGINE_OPTIONS.light)}>
-              {summary.rating} Light (2 slots per side torso)
+              {summary.rating} Light ({sideSlots('light')} slot{sideSlots('light') > 1 ? 's' : ''} per side torso)
             </option>
-            <option value="compact" disabled={!ok(ENGINE_OPTIONS.compact)} title={why(ENGINE_OPTIONS.compact)}>
-              {summary.rating} Compact (3 center-torso slots)
+            <option value="compact" disabled={!ok(ENGINE_OPTIONS.compact) || large} title={large ? 'No large compact engines' : why(ENGINE_OPTIONS.compact)}>
+              {summary.rating} Compact ({sh ? 2 : 3} center-torso slots)
             </option>
             <option value="fission" disabled={!ok(ENGINE_OPTIONS.fission)} title="Fission: 1.75× fusion weight, 5 free heat sinks">
               {summary.rating} Fission
@@ -170,7 +188,7 @@ export function ChassisPanel({ design, summary, update }: Props) {
             </option>
           </select>{' '}
           <TechPicker design={design} part="engine" update={update} />
-          <span className="muted"> {summary.engineWeight ?? '—'} t</span>
+          <span className="muted"> {summary.engineWeight ?? '—'} t{large ? ' · large engine (over 400)' : ''}</span>
         </div>
 
         <label>Myomer</label>
@@ -196,15 +214,16 @@ export function ChassisPanel({ design, summary, update }: Props) {
         <div>
           <select aria-label="Gyro type" value={design.gyroType}
             onChange={(e) => update((d) => setGyroType(d, e.target.value as GyroType))}>
-            <option value="standard">Standard (4 slots)</option>
-            <option value="xl" disabled={!ok(GYRO_OPTIONS.xl)} title={why(GYRO_OPTIONS.xl)}>XL (6 slots)</option>
-            <option value="heavy-duty" disabled={!ok(GYRO_OPTIONS['heavy-duty'])} title={why(GYRO_OPTIONS['heavy-duty'])}>
+            <option value="standard" disabled={sh}>Standard (4 slots)</option>
+            <option value="xl" disabled={sh || !ok(GYRO_OPTIONS.xl)} title={why(GYRO_OPTIONS.xl)}>XL (6 slots)</option>
+            <option value="heavy-duty" disabled={sh || !ok(GYRO_OPTIONS['heavy-duty'])} title={why(GYRO_OPTIONS['heavy-duty'])}>
               Heavy-duty (4 slots)
             </option>
-            <option value="compact" disabled={!ok(GYRO_OPTIONS.compact)} title={why(GYRO_OPTIONS.compact)}>
+            <option value="compact" disabled={sh || !ok(GYRO_OPTIONS.compact)} title={why(GYRO_OPTIONS.compact)}>
               Compact (2 slots)
             </option>
-            <option value="none" disabled={design.cockpitType !== 'interface'} title="Only with an interface cockpit">None (interface cockpit)</option>
+            <option value="none" disabled={sh || design.cockpitType !== 'interface'} title="Only with an interface cockpit">None (interface cockpit)</option>
+            <option value="superheavy" disabled={!sh} title="Superheavy 'Mechs only: double weight, 2 slots">Superheavy (2 slots)</option>
           </select>
           <span className="muted"> {summary.weights.gyro} t</span>
         </div>
@@ -236,7 +255,7 @@ export function ChassisPanel({ design, summary, update }: Props) {
               Primitive industrial
             </option>
           </select>
-          <span className="muted"> {summary.weights.cockpit} t</span>
+          <span className="muted"> {specialCockpit ? `${specialCockpit} cockpit · ` : ''}{summary.weights.cockpit} t</span>
         </div>
 
         <label>Jumping MP</label>
@@ -280,6 +299,24 @@ export function ChassisPanel({ design, summary, update }: Props) {
       </div>
 
       {design.lam && <LamInfo design={design} summary={summary} />}
+      {sh && (
+        <p className="small muted">
+          Superheavy 'Mech: each critical slot holds twice as much (equipment takes half its usual slots, rounded up,
+          and two tons of the same ammunition share a slot). Superheavy gyro and cockpit; no jump jets, MASC, TSM or
+          armored components; head armor up to 12.
+        </p>
+      )}
+      {isQuadVee(design) && (
+        <p className="small muted">
+          QuadVee: conversion equipment {summary.weights.conversion} t (10% of tonnage), conversion gear in every leg,
+          QuadVee cockpit (4 t) and {design.quadVeeMotive === 'wheeled' ? 'wheels' : 'tracks'} for vehicle mode.
+        </p>
+      )}
+      {isTripod(design) && (
+        <p className="small muted">
+          Tripod: a third (center) leg with its own armor and critical slots, 10% heavier structure and a tripod cockpit.
+        </p>
+      )}
       {isQuad(design) ? (
         <p className="small muted">
           A quad has four legs, each with a hip, upper and lower leg, and foot actuator, and no arms.

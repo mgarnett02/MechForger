@@ -1,7 +1,7 @@
 import type { EraId } from './eras';
 
-/** Mech body locations (biped). */
-export const LOCATIONS = ['HD', 'CT', 'LT', 'RT', 'LA', 'RA', 'LL', 'RL'] as const;
+/** Mech body locations. CL (center leg) exists only on tripods; other 'Mechs leave it empty. */
+export const LOCATIONS = ['HD', 'CT', 'LT', 'RT', 'LA', 'RA', 'LL', 'RL', 'CL'] as const;
 export type Location = (typeof LOCATIONS)[number];
 
 export const LOCATION_NAMES: Record<Location, string> = {
@@ -13,10 +13,15 @@ export const LOCATION_NAMES: Record<Location, string> = {
   RA: 'Right Arm',
   LL: 'Left Leg',
   RL: 'Right Leg',
+  CL: 'Center Leg',
 };
 
-/** Biped or four-legged. A quad uses the same location codes: LA/RA are its front legs, LL/RL its rear legs. */
-export type MechConfig = 'biped' | 'quad';
+/**
+ * Biped, four-legged, three-legged (tripod: a center leg in CL) or QuadVee (a quad that converts to a
+ * tracked or wheeled vehicle). A quad uses the same location codes: LA/RA are its front legs, LL/RL its rear legs.
+ */
+export type MechConfig = 'biped' | 'quad' | 'tripod' | 'quadvee';
+export const CONFIG_NAMES: Record<MechConfig, string> = { biped: 'Biped', quad: 'Quad', tripod: 'Tripod', quadvee: 'QuadVee' };
 
 const QUAD_LOCATION_NAMES: Record<Location, string> = {
   ...LOCATION_NAMES,
@@ -26,7 +31,19 @@ const QUAD_LOCATION_NAMES: Record<Location, string> = {
   RL: 'Rear Right Leg',
 };
 
-export const isQuad = (d: { config?: MechConfig }) => d.config === 'quad';
+/** Four legs: quads and QuadVees. */
+export const isQuad = (d: { config?: MechConfig }) => d.config === 'quad' || d.config === 'quadvee';
+export const isTripod = (d: { config?: MechConfig }) => d.config === 'tripod';
+export const isQuadVee = (d: { config?: MechConfig }) => d.config === 'quadvee';
+/** Superheavy 'Mechs (Interstellar Operations): over 100 tons, up to 200. */
+export const isSuperheavy = (d: { tonnage: number }) => d.tonnage > 100;
+/** QuadVee vehicle-mode motive system. */
+export type QuadVeeMotive = 'tracked' | 'wheeled';
+
+/** The locations this 'Mech has (the center leg only on tripods). */
+export function mechLocations(d: { config?: MechConfig }): readonly Location[] {
+  return isTripod(d) ? LOCATIONS : LOCATIONS.filter((l) => l !== 'CL');
+}
 
 /**
  * Land-Air 'Mechs (Interstellar Operations): a standard LAM converts between 'Mech, AirMech
@@ -63,6 +80,7 @@ export function locationName(d: { config?: MechConfig }, loc: Location): string 
 
 const QUAD_ABBR: Partial<Record<Location, string>> = { LA: 'FLL', RA: 'FRL', LL: 'RLL', RL: 'RRL' };
 
+
 /** Short location code as printed on sheets: LA, RT… (FLL, RRL… for a quad's legs). */
 export function locationAbbr(d: { config?: MechConfig }, loc: Location): string {
   return (isQuad(d) && QUAD_ABBR[loc]) || loc;
@@ -76,7 +94,7 @@ export function mountAbbr(d: { config?: MechConfig }, item: { location: Location
 
 /** Locations that are legs for this configuration. */
 export function legLocations(d: { config?: MechConfig }): readonly Location[] {
-  return isQuad(d) ? ['LA', 'RA', 'LL', 'RL'] : ['LL', 'RL'];
+  return isQuad(d) ? ['LA', 'RA', 'LL', 'RL'] : isTripod(d) ? ['LL', 'RL', 'CL'] : ['LL', 'RL'];
 }
 
 export const TORSO_LOCATIONS: readonly Location[] = ['CT', 'LT', 'RT'];
@@ -86,8 +104,13 @@ export type ArmLocation = (typeof ARM_LOCATIONS)[number];
 /** Armor is tracked per location, plus a rear facing for each torso location. */
 export type ArmorFacing = Location | 'CTR' | 'LTR' | 'RTR';
 export const ARMOR_FACINGS: readonly ArmorFacing[] = [
-  'HD', 'CT', 'CTR', 'LT', 'LTR', 'RT', 'RTR', 'LA', 'RA', 'LL', 'RL',
+  'HD', 'CT', 'CTR', 'LT', 'LTR', 'RT', 'RTR', 'LA', 'RA', 'LL', 'RL', 'CL',
 ];
+
+/** Armor facings this 'Mech has (no center leg unless it is a tripod). */
+export function mechFacings(d: { config?: MechConfig }): readonly ArmorFacing[] {
+  return isTripod(d) ? ARMOR_FACINGS : ARMOR_FACINGS.filter((f) => f !== 'CL');
+}
 export const REAR_FACING: Partial<Record<Location, ArmorFacing>> = {
   CT: 'CTR',
   LT: 'LTR',
@@ -124,7 +147,7 @@ export interface MountedItem {
 
 /** Locations a split weapon may straddle: arm or leg with its side torso, side torso with the center torso. */
 export const SPLIT_ADJACENT: Record<Location, readonly Location[]> = {
-  HD: [], CT: ['LT', 'RT'], LT: ['CT', 'LA', 'LL'], RT: ['CT', 'RA', 'RL'], LA: ['LT'], RA: ['RT'], LL: ['LT'], RL: ['RT'],
+  HD: [], CT: ['LT', 'RT'], LT: ['CT', 'LA', 'LL'], RT: ['CT', 'RA', 'RL'], LA: ['LT'], RA: ['RT'], LL: ['LT'], RL: ['RT'], CL: [],
 };
 
 /** An OmniMech configuration: the pod-mounted items that go with it. */
@@ -158,7 +181,7 @@ export const TECH_BASE_NAMES: Record<TechBase, string> = { IS: 'Inner Sphere', C
 
 export type StructureType = 'standard' | 'endo-steel' | 'endo-prototype' | 'endo-composite' | 'composite' | 'reinforced' | 'industrial';
 export type EngineType = 'standard' | 'xl' | 'xxl' | 'light' | 'compact' | 'ice' | 'fuel-cell' | 'fission';
-export type GyroType = 'standard' | 'xl' | 'heavy-duty' | 'compact' | 'none';
+export type GyroType = 'standard' | 'xl' | 'heavy-duty' | 'compact' | 'none' | 'superheavy';
 export type JumpJetType = 'standard' | 'improved';
 /** Cockpits shared with fighters. */
 export type BasicCockpitType = 'standard' | 'small';
@@ -197,8 +220,10 @@ export interface MechDesign {
   myomer: MyomerType;
   /** Mixed tech (Advanced rules): equipment from either tech base on this chassis. */
   mixedTech: boolean;
-  /** Biped (two legs, two arms) or quad (four legs). */
+  /** Biped (two legs, two arms), quad (four legs), tripod (three legs, two arms) or QuadVee. */
   config: MechConfig;
+  /** QuadVees: tracked or wheeled vehicle mode. */
+  quadVeeMotive?: QuadVeeMotive;
   /** Land-Air 'Mech type (bipeds only); absent or null for an ordinary 'Mech. */
   lam?: LamType | null;
   /** IndustrialMechs: environmental sealing (one slot per location, a tenth of the tonnage). */
@@ -230,7 +255,37 @@ export interface MechDesign {
 /** An IndustrialMech: built on industrial internal structure. */
 export const isIndustrial = (d: { structureType?: string }) => d.structureType === 'industrial';
 
-export type WeightClass = 'Ultralight' | 'Light' | 'Medium' | 'Heavy' | 'Assault';
+export type WeightClass = 'Ultralight' | 'Light' | 'Medium' | 'Heavy' | 'Assault' | 'Superheavy';
+
+/**
+ * The cockpit as built: superheavy, tripod and QuadVee 'Mechs use their own versions of the standard,
+ * industrial and command-console cockpits (MegaMek's cockpit types).
+ */
+export type EffectiveCockpit = CockpitType | 'superheavy' | 'superheavy-industrial' | 'superheavy-command-console'
+  | 'tripod' | 'tripod-industrial' | 'superheavy-tripod' | 'superheavy-tripod-industrial' | 'quadvee';
+
+export function effectiveCockpit(d: Pick<MechDesign, 'cockpitType' | 'config' | 'tonnage'>): EffectiveCockpit {
+  const sh = isSuperheavy(d);
+  const ind = d.cockpitType === 'industrial';
+  if (isTripod(d)) {
+    if (d.cockpitType !== 'standard' && !ind) return d.cockpitType;
+    return sh ? (ind ? 'superheavy-tripod-industrial' : 'superheavy-tripod') : ind ? 'tripod-industrial' : 'tripod';
+  }
+  if (sh) {
+    if (d.cockpitType === 'standard') return 'superheavy';
+    if (ind) return 'superheavy-industrial';
+    if (d.cockpitType === 'command-console') return 'superheavy-command-console';
+    return d.cockpitType;
+  }
+  if (isQuadVee(d) && d.cockpitType === 'standard') return 'quadvee';
+  return d.cockpitType;
+}
+
+export const EFFECTIVE_COCKPIT_NAMES: Partial<Record<EffectiveCockpit, string>> = {
+  superheavy: 'Superheavy', 'superheavy-industrial': 'Superheavy Industrial', 'superheavy-command-console': 'Superheavy Command Console',
+  tripod: 'Tripod', 'tripod-industrial': 'Tripod Industrial', 'superheavy-tripod': 'Superheavy Tripod',
+  'superheavy-tripod-industrial': 'Superheavy Tripod Industrial', quadvee: 'QuadVee',
+};
 
 /** Patchwork armor: some location uses a different armor type from the rest. */
 export function isPatchwork(d: Pick<MechDesign, 'patchwork' | 'armorType'>): boolean {
@@ -244,5 +299,5 @@ export function armorTypeAt(d: Pick<MechDesign, 'patchwork' | 'armorType'>, loc:
 
 /** Every armor type on the design. */
 export function armorTypesUsed(d: Pick<MechDesign, 'patchwork' | 'armorType'>): ArmorType[] {
-  return isPatchwork(d) ? [...new Set(LOCATIONS.map((l) => armorTypeAt(d, l)))] : [d.armorType];
+  return isPatchwork(d) ? [...new Set(LOCATIONS.filter((l) => l !== 'CL' || d.patchwork?.CL).map((l) => armorTypeAt(d, l)))] : [d.armorType];
 }

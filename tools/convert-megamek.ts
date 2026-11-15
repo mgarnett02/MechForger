@@ -53,6 +53,7 @@ const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
 
 /** MegaMek base names (normalized, tech prefix removed) → MechForger names (normalized). */
 const ALIASES: Record<string, string> = {
+  wheels: 'quadveewheels',
   autocannon2: 'ac2', autocannon5: 'ac5', autocannon10: 'ac10', autocannon20: 'ac20',
   lbxac2: 'lb2xac', lbxac5: 'lb5xac', lbxac10: 'lb10xac', lbxac20: 'lb20xac',
   snppc: 'snubnoseppc', mg: 'machinegun', lightmg: 'lightmachinegun', heavymg: 'heavymachinegun',
@@ -97,7 +98,7 @@ const UTILITY_NAMES: Record<string, string> = {
 const FIXED = new Set([
   'empty', 'fusionengine', 'engine', 'gyro', 'sensors', 'lifesupport', 'cockpit', 'smallcockpit', 'shoulder',
   'upperarmactuator', 'lowerarmactuator', 'handactuator', 'hip', 'upperlegactuator', 'lowerlegactuator',
-  'footactuator', 'xlgyro', 'compactgyro', 'heavydutygyro', 'landinggear', 'avionics',
+  'footactuator', 'xlgyro', 'compactgyro', 'heavydutygyro', 'landinggear', 'avionics', 'conversiongear', 'superheavygyro',
 ]);
 
 const byKey = new Map<string, Equipment[]>();
@@ -267,6 +268,8 @@ const LOC_HEADERS: Record<string, Location> = {
   'Center Torso:': 'CT', 'Head:': 'HD', 'Left Leg:': 'LL', 'Right Leg:': 'RL',
   // Quads: front legs use the arm codes, rear legs the leg codes (as in MegaMek).
   'Front Left Leg:': 'LA', 'Front Right Leg:': 'RA', 'Rear Left Leg:': 'LL', 'Rear Right Leg:': 'RL',
+  // Tripods: the third leg.
+  'Center Leg:': 'CL',
 };
 
 interface ParsedMech {
@@ -297,15 +300,20 @@ function parseMtf(text: string): ParsedMech {
   const get = (k: string) => kv.get(k) ?? '';
 
   const config = get('config');
-  if (!['Biped', 'Biped OmniMek', 'Quad', 'Quad OmniMek', 'LAM'].includes(config)) fail(`config ${config}`);
+  if (!['Biped', 'Biped OmniMek', 'Quad', 'Quad OmniMek', 'LAM', 'Tripod', 'Tripod OmniMek', 'QuadVee', 'QuadVee OmniMek'].includes(config)) fail(`config ${config}`);
+  // Quads and QuadVees: front legs in the arm locations.
   const quad = config.startsWith('Quad');
+  const tripod = config.startsWith('Tripod');
+  const quadVee = config.startsWith('QuadVee');
+  const motiveRaw = get('motive');
+  const quadVeeMotive = quadVee ? (/^Wheel/i.test(motiveRaw) ? 'wheeled' : /^Track/i.test(motiveRaw) || !motiveRaw ? 'tracked' : fail(`QuadVee motive ${motiveRaw}`)) : null;
   const lamRaw = get('lam');
   const lam = config === 'LAM' ? (/^bimodal/i.test(lamRaw) ? 'bimodal' : /^standard/i.test(lamRaw) || !lamRaw ? 'standard' : fail(`LAM type ${lamRaw}`)) : null;
   const tbRaw = get('techbase');
   const techBase: TechBase = /^Clan|Clan Chassis/.test(tbRaw) ? 'Clan' : 'IS';
   const mixedTech = /^Mixed/.test(tbRaw);
   const tonnage = Number(get('mass'));
-  if (!(tonnage >= 10 && tonnage <= 100 && tonnage % 5 === 0)) fail(`tonnage ${tonnage}`);
+  if (!(tonnage >= 10 && tonnage <= 200 && tonnage % 5 === 0)) fail(`tonnage ${tonnage}`);
   const walkMP = Number(get('walk mp'));
 
   const eng = get('engine');
@@ -313,8 +321,9 @@ function parseMtf(text: string): ParsedMech {
   // Primitive 'Mechs rate their engines at 1.2 × tonnage × walking MP (rounded up to 5).
   const primitiveCockpit = /^Primitive/.test(get('cockpit'));
   if (rating !== engineRatingFor({ tonnage, walkMP, cockpitType: primitiveCockpit ? 'primitive' : 'standard' })) fail('engine rating does not match walking MP');
-  const engineType: EngineType = /Large/.test(eng) ? fail(`engine ${eng}`)
-    : /ICE/.test(eng) ? 'ice' : /Fuel Cell/.test(eng) ? 'fuel-cell' : /Fission/.test(eng) ? 'fission'
+  // Large engines (rated over 400) are marked "Large" (MechForger infers them from the rating).
+  if (/Large/.test(eng) !== rating > 400) fail(`engine ${eng}`);
+  const engineType: EngineType = /ICE/.test(eng) ? 'ice' : /Fuel Cell/.test(eng) ? 'fuel-cell' : /Fission/.test(eng) ? 'fission'
     : /XXL/.test(eng) ? 'xxl' : /XL/.test(eng) ? 'xl' : /Light/.test(eng) ? 'light' : /Compact/.test(eng) ? 'compact' : 'standard';
 
   const st = get('structure');
@@ -340,7 +349,8 @@ function parseMtf(text: string): ParsedMech {
     return m && patchworkRaw ? [armorName(m[1]), Number(m[2])] : [null, Number(v)];
   };
   const PATCH_KEYS: [Location, string][] = [['HD', 'hd armor'], ['CT', 'ct armor'], ['LT', 'lt armor'], ['RT', 'rt armor'],
-    ['LA', quad ? 'fll armor' : 'la armor'], ['RA', quad ? 'frl armor' : 'ra armor'], ['LL', quad ? 'rll armor' : 'll armor'], ['RL', quad ? 'rrl armor' : 'rl armor']];
+    ['LA', quad ? 'fll armor' : 'la armor'], ['RA', quad ? 'frl armor' : 'ra armor'], ['LL', quad ? 'rll armor' : 'll armor'], ['RL', quad ? 'rrl armor' : 'rl armor'],
+    ...(tripod ? [['CL', 'cl armor'] as [Location, string]] : [])];
   const patchTypes = patchworkRaw ? PATCH_KEYS.map(([l, k]) => [l, locArmor(k)[0] ?? fail(`patchwork armor ${l}`)] as const) : [];
   const counts = new Map<string, number>();
   for (const [, t] of patchTypes) counts.set(t, (counts.get(t) ?? 0) + 1);
@@ -366,10 +376,15 @@ function parseMtf(text: string): ParsedMech {
   const laserHeatSinks = /Laser/.test(hs);
   const heatSinkType: HeatSinkType = /Double|Laser/.test(hs) ? 'double' : /Single/.test(hs) ? 'single' : fail(`heat sinks ${hs}`);
   const gy = get('gyro');
-  const gyroType: GyroType = !gy || /^Standard/.test(gy) ? 'standard' : /^None/.test(gy) ? 'none' : /^XL/.test(gy) ? 'xl'
+  const gyroType: GyroType = !gy || /^Standard/.test(gy) ? (tonnage > 100 ? 'superheavy' : 'standard') : /^None/.test(gy) ? 'none'
+    : /^Superheavy/.test(gy) ? 'superheavy' : /^XL/.test(gy) ? 'xl'
     : /^Compact/.test(gy) ? 'compact' : /^Heavy Duty/.test(gy) ? 'heavy-duty' : fail(`gyro ${gy}`);
   const ck = get('cockpit');
+  // Superheavy, tripod and QuadVee cockpits are the standard / industrial / command-console cockpits built for them.
   const cockpitType: CockpitType = !ck || /^Standard/.test(ck) ? 'standard' : /^Small/.test(ck) ? 'small'
+    : /^(Superheavy |Tripod )+Industrial/.test(ck) ? 'industrial'
+    : /^Superheavy Command Console/.test(ck) ? 'command-console'
+    : /^((Superheavy |Tripod )+Cockpit|QuadVee Cockpit)/.test(ck) ? 'standard'
     : /^Command Console/.test(ck) ? 'command-console' : /^Torso-Mounted/.test(ck) ? 'torso-mounted'
     // An industrial cockpit with advanced fire control is built like a standard cockpit.
     : /^Industrial Cockpit/.test(ck) ? (/adv\. FCS/i.test(ck) ? 'standard' : 'industrial')
@@ -386,6 +401,7 @@ function parseMtf(text: string): ParsedMech {
     LT: pts('lt armor'), LTR: Number(get('rtl armor')), RT: pts('rt armor'), RTR: Number(get('rtr armor')),
     LA: pts(quad ? 'fll armor' : 'la armor'), RA: pts(quad ? 'frl armor' : 'ra armor'),
     LL: pts(quad ? 'rll armor' : 'll armor'), RL: pts(quad ? 'rrl armor' : 'rl armor'),
+    CL: tripod ? pts('cl armor') : 0,
   };
   for (const [k, v] of Object.entries(armor)) if (!Number.isFinite(v)) fail(`armor value ${k}`);
 
@@ -428,6 +444,22 @@ function parseMtf(text: string): ParsedMech {
       }
       // Patchwork armor slots are fixed per location; MechForger places them itself.
       if (patchworkRaw && r0IsArmorSlot(raw)) continue;
+      // Superheavies: two items sharing one slot ("A|B", e.g. two tons of the same ammunition).
+      if (raw.includes('|')) {
+        const suffix = /\s*\((OMNIPOD|ARMORED)\)\s*$/i.exec(raw)?.[0] ?? '';
+        const names = raw.replace(suffix, '').split('|').map((n) => n.trim());
+        if (tonnage <= 100 || names.length !== 2) fail(`shared slot "${raw}"`);
+        for (let n = 0; n < run; n++) {
+          for (const name of names) {
+            const rr = resolveName(name, techBase);
+            if (rr.kind !== 'item' || itemSlots(getEquipment(rr.id)!, sizing) !== 1) fail(`shared slot "${raw}"`);
+            const item: MountedItem = { uid: `c${uid++}`, equipmentId: (rr as { id: string }).id, location: l };
+            equipment.push(item);
+            if (/OMNIPOD/i.test(suffix)) pods.add(item);
+          }
+        }
+        continue;
+      }
       const r = resolveName(raw, techBase);
       if (r.kind === 'fixed') {
         const kind = systemKind(raw.replace(/\s*\((ARMORED|OMNIPOD)\)/gi, ''));
@@ -481,7 +513,8 @@ function parseMtf(text: string): ParsedMech {
     structureType, engineType, gyroType, cockpitType, heatSinkType,
     ...(equipment.some((e) => e.equipmentId === 'environmental-sealing') ? { environmentalSealing: true } : {}),
     jumpJetType: jets.some((e) => e.equipmentId === 'improved-jump-jet') ? 'improved' : 'standard',
-    armorType, ...(Object.keys(patchwork).length ? { patchwork } : {}), myomer, config: quad ? 'quad' : 'biped', lam, omni: null,
+    armorType, ...(Object.keys(patchwork).length ? { patchwork } : {}), myomer,
+    config: quadVee ? 'quadvee' : quad ? 'quad' : tripod ? 'tripod' : 'biped', ...(quadVeeMotive ? { quadVeeMotive } : {}), lam, omni: null,
     ...(kv.has('ejection') ? { fullHeadEjection: true } : {}),
     chassis: get('clanname') ? `${get('clanname')} (${get('chassis')})` : get('chassis'),
     model: get('model'), tonnage, walkMP,
@@ -1411,7 +1444,10 @@ function mechEntry(d: MechDesign, p: ParsedMech, configs = 1): CanonEntry {
   const issues = validate(d, s);
   return {
     n: `${d.chassis} ${d.model}`.trim(), t: d.tonnage, tb: d.techBase, era: d.era, y: p.year,
-    k: d.lam ? 'lam' : d.config === 'quad' ? (d.omni ? `quadomni:${configs}` : 'quad') : d.omni ? `omni:${configs}` : 'mech', bv: mechBV(d).total, ok: issues.every((i) => i.severity !== 'error'),
+    k: d.lam ? 'lam' : d.config === 'quad' ? (d.omni ? `quadomni:${configs}` : 'quad')
+      : d.config === 'quadvee' ? (d.omni ? `quadveeomni:${configs}` : 'quadvee')
+      : d.config === 'tripod' ? (d.omni ? `tripodomni:${configs}` : 'tripod')
+      : d.omni ? `omni:${configs}` : d.tonnage > 100 ? 'superheavy' : 'mech', bv: mechBV(d).total, ok: issues.every((i) => i.severity !== 'error'),
     w: s.weights.total === d.tonnage, src: p.source, mul: p.mulId, d: encodeMech(d),
   };
 }

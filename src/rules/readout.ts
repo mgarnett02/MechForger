@@ -1,7 +1,10 @@
 import type { MechDesign } from './types';
-import { LAM_TYPE_NAMES, LOCATIONS, REAR_FACING, TECH_BASE_NAMES, armorTypesUsed, facingName, isPatchwork, isQuad, locationAbbr, locationName, mountAbbr } from './types';
+import {
+  EFFECTIVE_COCKPIT_NAMES, LAM_TYPE_NAMES, LOCATIONS, REAR_FACING, TECH_BASE_NAMES, armorTypesUsed, effectiveCockpit, facingName,
+  isPatchwork, isQuad, isQuadVee, isTripod, locationAbbr, locationName, mechLocations, mountAbbr,
+} from './types';
 import { getEra } from './eras';
-import { ARMOR_NAMES, STRUCTURE_NAMES } from './tables';
+import { ARMOR_NAMES, STRUCTURE_NAMES, isLargeEngine } from './tables';
 import type { MountedItem } from './types';
 import { getEquipment, shortEquipmentName } from './equipment';
 import { activeConfigName } from './omni';
@@ -20,7 +23,9 @@ export function technicalReadout(design: MechDesign, summary: MechSummary = comp
   lines.push(`${design.chassis} ${design.model}`.trim());
   lines.push('');
   lines.push(`Mass: ${design.tonnage} tons (${s.weightClass ?? 'invalid'})`);
-  if (isQuad(design)) lines.push('Configuration: Quad');
+  if (isQuadVee(design)) lines.push(`Configuration: QuadVee (${design.quadVeeMotive === 'wheeled' ? 'wheeled' : 'tracked'})`);
+  else if (isQuad(design)) lines.push('Configuration: Quad');
+  if (isTripod(design)) lines.push('Configuration: Tripod');
   if (design.lam) lines.push(`Configuration: Land-Air 'Mech (${LAM_TYPE_NAMES[design.lam]})`);
   const era = getEra(design.era);
   if (design.mixedTech) {
@@ -36,7 +41,7 @@ export function technicalReadout(design: MechDesign, summary: MechSummary = comp
   lines.push(row('Equipment', 'Mass'));
   lines.push(row(`Internal Structure: ${design.structureType === 'standard' ? '' : STRUCTURE_NAMES[design.structureType]}`.trimEnd(), s.weights.structure));
   const engineName = { standard: 'Fusion', xl: 'XL', xxl: 'XXL', light: 'Light', compact: 'Compact', ice: 'I.C.E.', 'fuel-cell': 'Fuel Cell', fission: 'Fission' }[design.engineType];
-  lines.push(row(`Engine: ${s.rating} ${engineName}`, s.weights.engine));
+  lines.push(row(`Engine: ${s.rating} ${isLargeEngine(s.rating) ? 'Large ' : ''}${engineName}`, s.weights.engine));
   lines.push(`    Walking MP: ${design.walkMP}`);
   lines.push(`    Running MP: ${s.runMP}${s.mascRunMP ? ` [${s.mascRunMP}]` : ''}`);
   if (s.tsmMP) lines.push(`    (Triple-Strength Myomer: ${s.tsmMP.walk}/${s.tsmMP.run} at 9+ heat)`);
@@ -48,11 +53,12 @@ export function technicalReadout(design: MechDesign, summary: MechSummary = comp
   if (s.lam) lines.push(`    Fighter thrust: ${s.lam.fighter.safe} safe / ${s.lam.fighter.max} max`);
   const hsLabel = design.heatSinkType === 'double' ? (design.laserHeatSinks ? ' Laser' : ' Double') : '';
   lines.push(row(`Heat Sinks:${hsLabel} ${s.heatSinks.total} [${s.heatSinks.dissipation}]`, s.weights.heatSinks));
-  const gyroName = { standard: '', xl: ' XL', 'heavy-duty': ' Heavy-Duty', compact: ' Compact', none: ' None' }[design.gyroType];
+  const gyroName = { standard: '', xl: ' XL', 'heavy-duty': ' Heavy-Duty', compact: ' Compact', none: ' None', superheavy: ' Superheavy' }[design.gyroType];
   lines.push(row(`Gyro:${gyroName}`, s.weights.gyro));
-  const cockpitName = { standard: '', small: ' Small', 'torso-mounted': ' Torso-Mounted', 'command-console': ' Command Console', industrial: ' Industrial (no AFC)', primitive: ' Primitive', 'primitive-industrial': ' Primitive Industrial (no AFC)', interface: ' Interface' }[design.cockpitType];
+  const special = EFFECTIVE_COCKPIT_NAMES[effectiveCockpit(design)];
+  const cockpitName = special ? ` ${special}` : { standard: '', small: ' Small', 'torso-mounted': ' Torso-Mounted', 'command-console': ' Command Console', industrial: ' Industrial (no AFC)', primitive: ' Primitive', 'primitive-industrial': ' Primitive Industrial (no AFC)', interface: ' Interface' }[design.cockpitType];
   lines.push(row(`Cockpit:${cockpitName}`, s.weights.cockpit));
-  if (s.weights.conversion) lines.push(row('LAM Conversion Equipment:', s.weights.conversion));
+  if (s.weights.conversion) lines.push(row(`${isQuadVee(design) ? 'QuadVee' : 'LAM'} Conversion Equipment:`, s.weights.conversion));
   if (s.weights.armored) {
     // Armored systems, e.g. "Gyro ×2, Shoulder ×2"; armored equipment is marked (A) in the list below.
     const counts = new Map<string, number>();
@@ -71,7 +77,7 @@ export function technicalReadout(design: MechDesign, summary: MechSummary = comp
   lines.push('');
   lines.push(`${''.padEnd(22)}Internal   Armor`);
   lines.push(`${''.padEnd(22)}Structure  Value`);
-  for (const loc of LOCATIONS) {
+  for (const loc of mechLocations(design)) {
     const is = s.structure?.[loc] ?? 0;
     lines.push(`    ${locationName(design, loc).padEnd(18)}${String(is).padStart(5)}${String(design.armor[loc]).padStart(9)}`);
     const rear = REAR_FACING[loc];

@@ -1,5 +1,5 @@
 import type { Location, MechDesign } from '../rules/types';
-import { isQuad, locationName } from '../rules/types';
+import { isQuad, isTripod, locationName, mechLocations } from '../rules/types';
 import type { MechSummary } from '../rules/construction';
 import { allowedLocations, canArmor, canArmorSystem, equipmentName, getEquipment, itemSlots } from '../rules/equipment';
 import { useState } from 'react';
@@ -14,7 +14,7 @@ interface Props {
 }
 
 const AREAS: Record<Location, string> = {
-  LA: 'la', LT: 'lt', HD: 'hd', CT: 'ct', RT: 'rt', RA: 'ra', LL: 'll', RL: 'rl',
+  LA: 'la', LT: 'lt', HD: 'hd', CT: 'ct', RT: 'rt', RA: 'ra', LL: 'll', RL: 'rl', CL: 'cl',
 };
 
 export function CritPanel({ design, summary, update, selected, setSelected }: Props) {
@@ -88,8 +88,8 @@ export function CritPanel({ design, summary, update, selected, setSelected }: Pr
           <button className="link" onClick={() => setSelected(null)}>Cancel</button>
         </p>
       )}
-      <div className={`crit-grid ${isQuad(design) ? 'quad' : ''}`}>
-        {(Object.keys(AREAS) as Location[]).map((loc) => {
+      <div className={`crit-grid ${isQuad(design) ? 'quad' : isTripod(design) ? 'tripod' : ''}`}>
+        {mechLocations(design).map((loc) => {
           const s = summary.slots[loc];
           const placeable = canPlace(loc);
           const blocked = !!selEq && !placeable;
