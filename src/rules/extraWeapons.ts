@@ -115,3 +115,44 @@ export const EXTRA_WEAPON_MM_NAMES: [string, string, string?][] = [
   ["Improved Autocannon/10", 'clan-improved-ac-10', "CLIMPAmmoAC10"],
   ["Improved Autocannon/20", 'clan-improved-ac-20', "CLIMPAmmoAC20"],
 ];
+
+const misc = (id: string, name: string, tons: number, slots: number, techBase: Equipment['techBase'], firstEra: Equipment['firstEra'], extra: Partial<Equipment> = {}): Equipment =>
+  ({ id, name, category: 'Other', tons, slots, heat: 0, isWeapon: false, techBase, firstEra, ...extra });
+
+/** Equipment with MegaMek's figures. */
+export const EXTRA_EQUIPMENT: Equipment[] = [
+  { id: 'clan-er-small-laser-prototype', name: 'Prototype ER Small Laser (CP)', category: 'Energy', tons: 0.5, slots: 1, heat: 2, damage: '3', range: { min: 0, short: 2, medium: 4, long: 5 }, isWeapon: true, techBase: 'Clan', firstEra: '3025' },
+  misc('mass', 'MASS', 1.5, 1, 'Both', '3025'),
+  misc('laser-insulator', 'Laser Insulator', 0.5, 1, 'Both', '3025'),
+  misc('harjel-ii', 'HarJel II', 2, 1, 'Clan', '3101'),
+  misc('harjel-iii', 'HarJel III', 3, 2, 'Clan', '3131'),
+  misc('chaff-pod', 'Chaff Pod', 1, 1, 'IS', '3068'),
+  misc('ew-equipment', 'EW Equipment', 7.5, 4, 'IS', '3025'),
+  misc('risc-viral-jammer-decoy', 'Viral Jammer (Decoy)', 2.5, 1, 'IS', '3131'),
+  misc('risc-viral-jammer-homing', 'Viral Jammer (Homing)', 2.5, 1, 'IS', '3131'),
+  misc('risc-emergency-coolant', 'RISC Emergency Coolant', 2, 1, 'IS', '3131'),
+  misc('risc-laser-pulse-module', 'Laser Pulse Module', 1, 1, 'IS', '3131'),
+  misc('remote-drone-command-console', 'Drone Command Console', 2, 1, 'IS', '3101'),
+  misc('collapsible-command-module', 'Collapsible Cmd Module', 16, 12, 'Both', '3025'),
+  misc('light-bridge-layer', 'Bridge Layer (Light)', 1, 2, 'Both', '3025'),
+  misc('medium-bridge-layer', 'Bridge Layer (Medium)', 2, 4, 'Both', '3025'),
+  misc('heavy-bridge-layer', 'Bridge Layer (Heavy)', 6, 12, 'Both', '3025'),
+  misc('fluid-suction-light', 'Fluid Suction (Light)', 0.5, 1, 'Both', '3025'),
+  misc('fluid-suction', 'Fluid Suction', 1, 1, 'Both', '3025'),
+  misc('infrared-imager', 'Infrared Imager', 5, 1, 'Both', '3025'),
+  misc('extended-fuel-tank', 'Extended Fuel Tank', 1, 1, 'Both', '3025'),
+  misc('vehicle-escape-pod', 'Vehicle Escape Pod', 4, 0, 'IS', '3025', { vehicleOnly: true }),
+  misc('cockpit-command-console', 'Command Console', 3, 0, 'Both', '3025', { vehicleOnly: true, supportOk: true }),
+  { id: 'flotation-hull', name: 'Flotation Hull', category: 'Utility', tons: 0, slots: 0, heat: 0, isWeapon: false, vehicleOnly: true, techBase: 'Both', firstEra: '3025' },
+];
+
+export const EXTRA_EQUIPMENT_MM_NAMES: [string, string][] = [
+  ['CLERSmallLaserPrototype', 'clan-er-small-laser-prototype'], ['ISMASS', 'mass'], ['CLMASS', 'mass'], ['ISLaserInsulator', 'laser-insulator'], ['CLLaserInsulator', 'laser-insulator'],
+  ['HarJel Repair Systems (HarJel II)', 'harjel-ii'], ['HarJel Repair Systems (HarJel III)', 'harjel-iii'], ['ISChaffPod', 'chaff-pod'],
+  ['ISElectronicWarfareEquipment', 'ew-equipment'], ['RISC Viral Jammer (Decoy)', 'risc-viral-jammer-decoy'], ['RISC Viral Jammer (Homing)', 'risc-viral-jammer-homing'],
+  ['ISRISCEmergencyCoolantSystem', 'risc-emergency-coolant'], ['ISRISCLaserPulseModule', 'risc-laser-pulse-module'], ['ISRemoteDroneCommandConsole', 'remote-drone-command-console'],
+  ['ISCollapsibleCommandModule', 'collapsible-command-module'], ['LightBridgeLayer', 'light-bridge-layer'], ['MediumBridgeLayer', 'medium-bridge-layer'], ['HeavyBridgeLayer', 'heavy-bridge-layer'],
+  ['Fluid Suction System (Light - Mech)', 'fluid-suction-light'], ['Fluid Suction System (Light - Vehicle)', 'fluid-suction-light'], ['Fluid Suction System (Standard)', 'fluid-suction'],
+  ['ISInfraredImager', 'infrared-imager'], ['Extended Fuel Tank', 'extended-fuel-tank'], ['ISCombatVehicleEscapePod', 'vehicle-escape-pod'],
+  ['ISTankCockpitCommandConsole', 'cockpit-command-console'], ['ISFlotationHull', 'flotation-hull'],
+];

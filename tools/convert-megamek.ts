@@ -19,7 +19,7 @@ import type { EraId } from '../src/rules/eras';
 import { ERAS } from '../src/rules/eras';
 import type { Equipment } from '../src/rules/equipment';
 import { ALL_EQUIPMENT, HEAT_SINK_IDS, getEquipment, itemSlots } from '../src/rules/equipment';
-import { EXTRA_WEAPON_MM_NAMES } from '../src/rules/extraWeapons';
+import { EXTRA_EQUIPMENT_MM_NAMES, EXTRA_WEAPON_MM_NAMES } from '../src/rules/extraWeapons';
 import { canSplit } from '../src/rules/edit';
 import { engineRatingFor } from '../src/rules/types';
 import { SPLIT_ADJACENT } from '../src/rules/types';
@@ -116,6 +116,7 @@ for (const [w, id, ammo] of EXTRA_WEAPON_MM_NAMES) {
   MM_WEAPON.set(norm(splitTech(w).base), id);
   if (ammo) MM_AMMO.set(norm(ammo), `ammo-${id}`);
 }
+for (const [n, id] of EXTRA_EQUIPMENT_MM_NAMES) { MM_WEAPON.set(norm(n), id); MM_WEAPON.set(norm(splitTech(n).base), id); }
 
 const byKey = new Map<string, Equipment[]>();
 for (const eq of ALL_EQUIPMENT) {

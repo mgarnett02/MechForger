@@ -2,7 +2,7 @@ import type { Location, MechDesign, TechBase, MechConfig } from './types';
 import { LOCATIONS, engineRatingFor, isQuad, isTripod, legLocations, mechLocations, techOf } from './types';
 import type { EraId } from './eras';
 import { isAvailableIn } from './eras';
-import { EXTRA_WEAPONS } from './extraWeapons';
+import { EXTRA_EQUIPMENT, EXTRA_WEAPONS } from './extraWeapons';
 import { engineWeight, jumpJetWeight, mascWeight } from './tables';
 
 export type EquipmentCategory = 'Energy' | 'Ballistic' | 'Missile' | 'Ammo' | 'Physical' | 'Capital' | 'Other' | 'Utility';
@@ -70,6 +70,8 @@ export interface Equipment {
   vehicleOnly?: boolean;
   /** Small craft, DropShip and large craft equipment only. */
   vesselOnly?: boolean;
+  /** Spacecraft equipment that support vehicles may also mount. */
+  supportOk?: boolean;
   /** Land-Air 'Mech equipment only. */
   lamOnly?: boolean;
   /** Artillery: tube or missile artillery (indirect fire, range in mapsheets) or an artillery cannon. */
@@ -592,13 +594,13 @@ export const OTHER_EQUIPMENT: readonly Equipment[] = [
   { id: 'naval-comm-scanner-large', name: 'Naval Comm-Scanner Suite (Large)', category: 'Other', tons: 500, slots: 1, heat: 0, isWeapon: false, vesselOnly: true, techBase: 'Both', firstEra: '3025' },
   { id: 'naval-c3', name: 'Naval C3', category: 'Other', tons: 0, slots: 0, heat: 0, isWeapon: false, variableWeight: 'vesselFormula', vesselOnly: true, techBase: 'IS', firstEra: '3062' },
   { id: 'naval-tug-adaptor', name: 'Naval Tug Adaptor', category: 'Other', tons: 0, slots: 1, heat: 0, isWeapon: false, variableWeight: 'vesselFormula', vesselOnly: true, techBase: 'Both', firstEra: '3025' },
-  { id: 'look-down-radar', name: 'Look-Down Radar', category: 'Other', tons: 5, slots: 1, heat: 0, isWeapon: false, vesselOnly: true, techBase: 'Both', firstEra: '3025' },
-  { id: 'hyperspectral-imager', name: 'Hyperspectral Imager', category: 'Other', tons: 7.5, slots: 1, heat: 0, isWeapon: false, vesselOnly: true, techBase: 'IS', firstEra: '3050' },
+  { id: 'look-down-radar', name: 'Look-Down Radar', category: 'Other', tons: 5, slots: 1, heat: 0, isWeapon: false, vesselOnly: true, supportOk: true, techBase: 'Both', firstEra: '3025' },
+  { id: 'hyperspectral-imager', name: 'Hyperspectral Imager', category: 'Other', tons: 7.5, slots: 1, heat: 0, isWeapon: false, vesselOnly: true, supportOk: true, techBase: 'IS', firstEra: '3050' },
   { id: 'caspar-dcs', name: 'Caspar Drone Control System', category: 'Other', tons: 0, slots: 0, heat: 0, isWeapon: false, variableWeight: 'vesselFormula', vesselOnly: true, techBase: 'Both', firstEra: '3025' },
   { id: 'improved-caspar-dcs', name: 'Improved Caspar Drone Control System', category: 'Other', tons: 0, slots: 0, heat: 0, isWeapon: false, variableWeight: 'vesselFormula', vesselOnly: true, techBase: 'Both', firstEra: '3025' },
   { id: 'caspar-ii-dcs', name: 'Caspar II Drone Control System', category: 'Other', tons: 0, slots: 0, heat: 0, isWeapon: false, variableWeight: 'vesselFormula', vesselOnly: true, techBase: 'IS', firstEra: '3062' },
   { id: 'improved-caspar-ii-dcs', name: 'Improved Caspar II Drone Control System', category: 'Other', tons: 0, slots: 0, heat: 0, isWeapon: false, variableWeight: 'vesselFormula', vesselOnly: true, techBase: 'IS', firstEra: '3062' },
-  { id: 'high-res-imager', name: 'Satellite Imager (High-Resolution Imager)', category: 'Other', tons: 2.5, slots: 1, heat: 0, isWeapon: false, vesselOnly: true, techBase: 'IS', firstEra: '3025' },
+  { id: 'high-res-imager', name: 'Satellite Imager (High-Resolution Imager)', category: 'Other', tons: 2.5, slots: 1, heat: 0, isWeapon: false, vesselOnly: true, supportOk: true, techBase: 'IS', firstEra: '3025' },
   { id: 'sds-self-destruct', name: 'SDS Self-Destruct System', category: 'Other', tons: 0, slots: 0, heat: 0, isWeapon: false, variableWeight: 'vesselFormula', vesselOnly: true, techBase: 'Both', firstEra: '3025' },
   // Booby trap ('Mechs, vehicles and craft): 10% of the unit, rounded up to the half ton.
   { id: 'booby-trap', name: 'Booby Trap', category: 'Other', tons: 0, slots: 1, heat: 0, isWeapon: false, variableWeight: 'boobyTrap', techBase: 'IS', firstEra: '3081' },
@@ -815,7 +817,7 @@ for (const [m, t, bv, cost] of [['Barracuda', 30, 65, 8000], ['White Shark', 40,
 }
 
 
-export const ALL_EQUIPMENT: readonly Equipment[] = [...WEAPONS, ...AMMO, ...OTHER_EQUIPMENT, ...UTILITY_EQUIPMENT, ...CAPITAL_EQUIPMENT];
+export const ALL_EQUIPMENT: readonly Equipment[] = [...WEAPONS, ...AMMO, ...OTHER_EQUIPMENT, ...UTILITY_EQUIPMENT, ...CAPITAL_EQUIPMENT, ...EXTRA_EQUIPMENT];
 
 const BY_ID = new Map(ALL_EQUIPMENT.map((e) => [e.id, e]));
 const AMMO_FED = new Set(AMMO.map((a) => a.ammoFor));

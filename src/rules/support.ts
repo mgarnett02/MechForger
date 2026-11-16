@@ -372,14 +372,7 @@ export function computeSupport(d: SupportVehicleDesign): SupportSummary {
   let structure = d.tonnage * info.baseChassis[si] * STRUCTURE_TECH[d.structureTech];
   for (const id of d.chassisMods) structure *= CHASSIS_MODS.find((m) => m.id === id)?.multiplier ?? 1;
 
-  let engine = 0;
-  if (d.engineType !== 'none') {
-    const mp = d.svType === 'rail' ? Math.max(0, d.cruiseMP - 2) : d.cruiseMP;
-    engine = info.baseEngine[si] * (4 + mp * mp) * svEngineMultiplier(d.engineType, d.engineTech) * d.tonnage;
-    if (d.engineType === 'fusion') engine = Math.max(engine, ['A', 'B', 'C'].includes(d.engineTech) ? 0.5 : 0.25);
-    if (d.engineType === 'fission') engine = Math.max(engine, 5);
-    if (d.svType === 'hover') engine = Math.max(engine, d.tonnage * 0.2);
-  }
+  const engine = svRawEngineWeight(d);
 
   let equipment = 0;
   let turretItems = 0;
@@ -441,7 +434,25 @@ export function computeSupport(d: SupportVehicleDesign): SupportSummary {
   };
 }
 
+/** Engine weight before rounding (TM p.133). */
+function svRawEngineWeight(d: SupportVehicleDesign): number {
+  if (d.engineType === 'none') return 0;
+  const info = SV_TYPES[d.svType];
+  const si = sizeIndex(sizeClass(d));
+  const mp = d.svType === 'rail' ? Math.max(0, d.cruiseMP - 2) : d.cruiseMP;
+  let engine = info.baseEngine[si] * (4 + mp * mp) * svEngineMultiplier(d.engineType, d.engineTech) * d.tonnage;
+  if (d.engineType === 'fusion') engine = Math.max(engine, ['A', 'B', 'C'].includes(d.engineTech) ? 0.5 : 0.25);
+  if (d.engineType === 'fission') engine = Math.max(engine, 5);
+  if (d.svType === 'hover') engine = Math.max(engine, d.tonnage * 0.2);
+  return engine;
+}
+
 export function svItemWeight(eq: Equipment, d: SupportVehicleDesign): number {
+  if (eq.variableWeight === 'supercharger') {
+    // 10% of the engine weight, rounded up to the half ton (kilogram for small vehicles).
+    const small = sizeClass(d) === 'small';
+    return roundUp(roundNearest(svRawEngineWeight(d), small) / 10, small);
+  }
   if (eq.variableWeight === 'targetingComputer') {
     let tons = 0;
     for (const m of d.equipment) {
@@ -454,7 +465,7 @@ export function svItemWeight(eq: Equipment, d: SupportVehicleDesign): number {
 }
 
 export function isSupportEquipment(eq: Equipment): boolean {
-  return !eq.managed && eq.variableWeight !== 'masc' && eq.variableWeight !== 'supercharger' && !eq.lamOnly && !eq.vehicleOnly && !eq.vesselOnly && !eq.melee && !eq.capitalClass && !eq.vehicleChassisMod;
+  return !eq.managed && eq.variableWeight !== 'masc' && !eq.lamOnly && ((!eq.vehicleOnly && !eq.vesselOnly) || !!eq.supportOk) && !eq.melee && !eq.capitalClass && !eq.vehicleChassisMod;
 }
 
 // ---------------------------------------------------------------------------

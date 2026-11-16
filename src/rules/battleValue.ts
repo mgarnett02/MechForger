@@ -115,6 +115,8 @@ export function weaponEntries(
   }
   const capacitorsLeft = capacitorCounts(artemisAnywhere ? items.map((i) => ({ ...i, location: null })) : items);
   // Apollo FCS: ×1.15 for an MRM launcher in the same location.
+  const insulatorsLeft = new Map<string, number>();
+  for (const i of items) if (i.equipmentId === 'laser-insulator') insulatorsLeft.set(i.location ?? '', (insulatorsLeft.get(i.location ?? '') ?? 0) + 1);
   const apolloLeft = new Map<string, number>();
   for (const i of items) if (i.equipmentId === 'apollo-fcs') apolloLeft.set(i.location ?? '', (apolloLeft.get(i.location ?? '') ?? 0) + 1);
   const out: WeaponEntry[] = [];
@@ -123,6 +125,11 @@ export function weaponEntries(
     if (!eq || !eq.isWeapon || DEFENSIVE_IDS.has(eq.id)) continue;
     let bv = value(eq.id)?.bv ?? 0;
     let heat = bvHeat(eq);
+    // A laser insulator in the same location takes 1 heat off a laser (to a minimum of 1).
+    if (/laser/.test(eq.id) && !eq.ammoPerTon && (insulatorsLeft.get(i.location ?? '') ?? 0) > 0) {
+      insulatorsLeft.set(i.location ?? '', insulatorsLeft.get(i.location ?? '')! - 1);
+      heat = Math.max(1, heat - 1);
+    }
     // Machine gun arrays: 0.67 × the BV of up to four machine guns of their type in the same location (as MegaMek).
     const mga = /^(clan-)?(light-|heavy-)?mga$/.exec(eq.id);
     if (mga) {
@@ -268,6 +275,11 @@ export function mechBV(d: MechDesign): BVBreakdown {
   const armor = isPatchwork(d)
     ? (LOCATIONS.reduce((a, l) => a + locPoints(d, l) * armorMult(armorTypeAt(d, l)), 0) + (cockpitArmor + modular) * armorMult(d.armorType)) * 2.5 * bar
     : (s.armorTotal + cockpitArmor + modular) * 2.5 * armorMult(d.armorType) * bar;
+  // HarJel II / III: the armor in their location counts ×1.1 / ×1.2 (MegaMek).
+  const harjel = d.equipment.reduce((a, e) => {
+    const m = e.equipmentId === 'harjel-ii' ? 0.1 : e.equipmentId === 'harjel-iii' ? 0.2 : 0;
+    return m && e.location ? a + locPoints(d, e.location as Location) * 2.5 * armorMult(d.armorType) * bar * m : a;
+  }, 0);
   const isPoints = s.structure ? LOCATIONS.reduce((a, l) => a + s.structure![l], 0) : 0;
   // Engine multiplier from the side-torso engine slots (as MegaMek): 6+ → 0.25, 3+ → 0.5, 2 → 0.75.
   const sideSlots = engineSideTorsoSlots(d.engineType, techOf(d, 'engine'));
@@ -326,7 +338,7 @@ export function mechBV(d: MechDesign): BVBreakdown {
   let tmm = Math.max(runTMM, jump > 0 ? targetMovementModifier(jump) + 1 : 0, s.umuMP > 0 ? targetMovementModifier(s.umuMP) : 0)
     + (stealth || nullSig ? 2 : 0) + (chameleon ? 2 : 0);
   if (voidSig) tmm = tmm < 3 ? 3 : tmm === 3 ? 4 : tmm;
-  const defensive = Math.max(1, armor + structure + gyro + defEquip + armoredBV - explosive) * (1 + tmm / 10);
+  const defensive = Math.max(1, armor + harjel + structure + gyro + defEquip + armoredBV - explosive) * (1 + tmm / 10);
   lines.push(['Armor', armor], ['Internal structure', structure], ['Gyro', gyro]);
   if (defEquip) lines.push(['Defensive equipment', defEquip]);
   if (armoredBV) lines.push(['Armored components', armoredBV]);
@@ -597,8 +609,10 @@ export function vehicleCost(d: VehicleDesign): CostBreakdown {
     ['Troop / cargo space', 5000 * w.cargo],
   ].filter(([, v]) => v !== 0) as [string, number][];
   const subtotal = lines.reduce((a, [, v]) => a + v, 0);
-  const multiplier = (1 + d.tonnage / VEHICLE_COST_DIVISOR[d.motive]) * (d.omni ? 1.25 : 1);
-  lines.push([`× (1 + tonnage/${VEHICLE_COST_DIVISOR[d.motive]})${d.omni ? ' × 1.25 OmniVehicle' : ''}`, multiplier]);
+  // A flotation hull or environmental sealing costs ×1.25 (MegaMek).
+  const sealed = d.equipment.some((e) => e.equipmentId === 'flotation-hull' || e.equipmentId === 'vehicle-env-sealing') ? 1.25 : 1;
+  const multiplier = (1 + d.tonnage / VEHICLE_COST_DIVISOR[d.motive]) * (d.omni ? 1.25 : 1) * sealed;
+  lines.push([`× (1 + tonnage/${VEHICLE_COST_DIVISOR[d.motive]})${d.omni ? ' × 1.25 OmniVehicle' : ''}${sealed !== 1 ? ' × 1.25 flotation hull / sealing' : ''}`, multiplier]);
   return { total: round(subtotal * multiplier), lines, approximate: true };
 }
 

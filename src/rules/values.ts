@@ -257,8 +257,13 @@ export const ITEM_VALUES: Record<string, ItemValue> = {
   'remote-sensor-dispenser': v(0, 51000), manipulator: v(0, 7500), 'recon-camera': v(0, 20000),
 };
 
-// Weapons generated from MegaMek's definitions (extraWeapons.ts).
+// Weapons and equipment with MegaMek's figures (extraWeapons.ts).
 Object.assign(ITEM_VALUES, {
+  'clan-er-small-laser-prototype': v(17, 11250), mass: v(9, 4000), 'laser-insulator': v(0, 3000), 'harjel-ii': v(0, 240000), 'harjel-iii': v(0, 360000),
+  'chaff-pod': v(19, 2000), 'ew-equipment': v(39, 500000), 'risc-viral-jammer-decoy': v(284, 990000), 'risc-viral-jammer-homing': v(284, 990000),
+  'risc-emergency-coolant': v(0, 460000), 'risc-laser-pulse-module': v(0, 0), 'remote-drone-command-console': v(0, 50000), 'collapsible-command-module': v(0, 500000),
+  'light-bridge-layer': v(5, 40000), 'medium-bridge-layer': v(10, 75000), 'heavy-bridge-layer': v(20, 100000), 'fluid-suction-light': v(0, 1000), 'fluid-suction': v(0, 25000),
+  'infrared-imager': v(0, 250000), 'extended-fuel-tank': v(0, 2000), 'vehicle-escape-pod': v(0, 10000), 'cockpit-command-console': v(0, 500000), 'flotation-hull': v(0, 0),
   'clan-small-chem-laser': v(7, 10000, 1, 30000),
   'clan-medium-chem-laser': v(37, 30000, 5, 30000),
   'clan-large-chem-laser': v(99, 75000, 12, 30000),
@@ -337,6 +342,8 @@ export const DEFENSIVE_IDS = new Set([
   'bloodhound-probe', 'clan-watchdog-ecm', 'clan-nova-cews',
   // MegaMek counts a bulldozer blade as defensive equipment.
   'bulldozer', 'apds',
+  // and these (as MegaMek's countsAsDefensiveEquipment)
+  'mass', 'chaff-pod', 'ew-equipment', 'risc-viral-jammer-decoy', 'risc-viral-jammer-homing', 'light-bridge-layer', 'medium-bridge-layer', 'heavy-bridge-layer',
 ]);
 
 /** Gauss-type weapons: their ammo does not explode, but the weapon itself does. */
