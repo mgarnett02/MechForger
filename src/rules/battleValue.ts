@@ -76,6 +76,7 @@ export function ammoValue(eq: Equipment): { bv: number; cost: number } {
 
 /** Heat a weapon counts for in the BV heat calculation. */
 function bvHeat(eq: Equipment): number {
+  if (eq.oneShot) return eq.heat / 4; // one-shot launchers count a quarter of their heat (MegaMek)
   if (/(^|-)uac-/.test(eq.id)) return eq.heat * 2;
   if (/(^|-)rac-/.test(eq.id)) return eq.heat * 6;
   if (/streak/.test(eq.id)) return eq.heat / 2;
@@ -98,6 +99,8 @@ export function weaponEntries(
 ): WeaponEntry[] {
   const ids = items.map((i) => i.equipmentId);
   const hasTC = ids.some((id) => getEquipment(id)?.variableWeight === 'targetingComputer');
+  // A Drone Operating System rates every weapon at 80% (MegaMek).
+  const drone = ids.includes('drone-os') ? 0.8 : 1;
   // Artemis IV pairs with launchers in the same location (vehicles: anywhere).
   // Artemis V links first (to Clan LRM/SRM launchers), then Artemis IV.
   const artemisLeft = new Map<string, number>();
@@ -145,7 +148,7 @@ export function weaponEntries(
       artemisLeft.set(k, artemisLeft.get(k)! - 1);
       bv *= 1.2;
     }
-    out.push({ bv, heat, rear: !!i.rear, id: eq.id, loc: i.location });
+    out.push({ bv: bv * drone, heat, rear: !!i.rear, id: eq.id, loc: i.location });
   }
   return out;
 }
@@ -378,8 +381,10 @@ export function mechBV(d: MechDesign): BVBreakdown {
   lines.push(['Tonnage', tonnage], ['Speed factor', sf]);
   if (afcMod !== 1) lines.push(['× 0.9 no advanced fire control', afcMod]);
   // Small and torso-mounted cockpits cost 5% of the total.
-  const cockpitMod = d.cockpitType === 'small' || d.cockpitType === 'torso-mounted' ? 0.95 : 1;
-  if (cockpitMod !== 1) lines.push([`× 0.95 ${d.cockpitType === 'small' ? 'small' : 'torso-mounted'} cockpit`, cockpitMod]);
+  // (A Drone Operating System also costs 5%; MegaMek applies one 0.95 modifier, not both.)
+  const droneOS = d.equipment.some((e) => e.equipmentId === 'drone-os');
+  const cockpitMod = d.cockpitType === 'small' || d.cockpitType === 'torso-mounted' || droneOS ? 0.95 : 1;
+  if (cockpitMod !== 1) lines.push([`× 0.95 ${d.cockpitType === 'small' ? 'small cockpit' : d.cockpitType === 'torso-mounted' ? 'torso-mounted cockpit' : 'drone operating system'}`, cockpitMod]);
 
   return { total: round((defensive + offensive) * cockpitMod), defensive, offensive, lines, approximate: false };
 }
@@ -544,7 +549,7 @@ export function vehicleBV(d: VehicleDesign): BVBreakdown {
   let body = BODY_MODIFIER[d.motive];
   for (const e of d.equipment) {
     if (e.equipmentId === 'vehicle-fully-amphibious') body += 0.2;
-    else if (/^(vehicle-limited-amphibious|dune-buggy|flotation-hull|environmental-sealing|(clan-)?armored-motive-system)$/.test(e.equipmentId)) body += 0.1;
+    else if (/^(vehicle-limited-amphibious|vehicle-env-sealing|dune-buggy|flotation-hull|environmental-sealing|(clan-)?armored-motive-system)$/.test(e.equipmentId)) body += 0.1;
   }
   const defensive = (armor + structure + defEquip) * body * (1 + tmm / 10);
   lines.push(['Armor', armor], ['Internal structure', structure]);
@@ -569,7 +574,9 @@ export function vehicleBV(d: VehicleDesign): BVBreakdown {
   lines.push(['Weapons', weaponBV], ['Ammunition', ammo]);
   if (offEquip) lines.push(['Offensive equipment', offEquip]);
   lines.push(['Tonnage ÷ 2', tonnage], ['Speed factor', sf]);
-  return { total: round(defensive + offensive), defensive, offensive, lines, approximate: true };
+  const droneMod = d.equipment.some((e) => e.equipmentId === 'drone-os') ? 0.95 : 1;
+  if (droneMod !== 1) lines.push(['× 0.95 drone operating system', droneMod]);
+  return { total: round((defensive + offensive) * droneMod), defensive, offensive, lines, approximate: true };
 }
 
 export function vehicleCost(d: VehicleDesign): CostBreakdown {

@@ -57,6 +57,10 @@ export interface Equipment {
   melee?: MeleeKind;
   /** Arm-mounted only (so not available to quads, whose front legs share the arm locations). */
   armOnly?: boolean;
+  /** One-shot launcher (built-in volley, no ammunition): standard or improved. */
+  oneShot?: 'os' | 'ios';
+  /** Torpedo launcher: fires only underwater. */
+  torpedo?: boolean;
   /** Combat vehicle equipment only. */
   vehicleOnly?: boolean;
   /** Land-Air 'Mech equipment only. */
@@ -364,14 +368,37 @@ const ADVANCED_WEAPONS: Equipment[] = [
   weapon(CLAN_3050, 'clan-mech-mortar-8', "'Mech Mortar 8", 'Ballistic', 5, 3, 10, 'mortar', [6, 7, 14, 21], 4),
 ];
 
-const ALL_WEAPONS = [...IS_INTRO_WEAPONS, ...IS_3050_WEAPONS, ...IS_3062_WEAPONS, ...JIHAD_WEAPONS, ...CLAN_WEAPONS, ...ADVANCED_WEAPONS];
-// Standard LRM / SRM launchers (not Streak) can take Artemis IV.
+const BASE_WEAPONS = [...IS_INTRO_WEAPONS, ...IS_3050_WEAPONS, ...IS_3062_WEAPONS, ...JIHAD_WEAPONS, ...CLAN_WEAPONS, ...ADVANCED_WEAPONS];
+
+/**
+ * Torpedoes (LRT / SRT): LRM and SRM launchers that fire only underwater, with the same weight, slots, damage,
+ * range, BV and cost (TechManual), and their own ammunition.
+ */
+const TORPEDOES: Equipment[] = BASE_WEAPONS.filter((w) => /^(clan-)?(lrm|srm)-\d+$/.test(w.id)).map((w) => ({
+  ...w, id: w.id.replace(/(lrm|srm)-/, (_, k: string) => `${k === 'lrm' ? 'lrt' : 'srt'}-`), name: w.name.replace(/^LRM/, 'LRT').replace(/^SRM/, 'SRT'),
+  torpedo: true,
+}));
+
+/**
+ * One-shot launchers (TechManual): the launcher plus one built-in volley, 0.5 t heavier, no ammunition.
+ * Improved one-shot (I-OS, 3056): 0.5 t lighter than the launcher. Both rate 1/5 of the launcher's BV.
+ */
+const ONE_SHOT_BASES = /^(clan-)?(srm|streak-srm|lrm|streak-lrm|lrt|srt|narc|inarc)(-\d+)?$/;
+const ONE_SHOTS: Equipment[] = [...BASE_WEAPONS, ...TORPEDOES].filter((w) => ONE_SHOT_BASES.test(w.id) && w.id !== 'clan-streak-lrm').flatMap((w) => {
+  const os: Equipment = { ...w, id: `${w.id}-os`, name: `${w.name} (OS)`, tons: w.tons + 0.5, ammoPerTon: undefined, oneShot: 'os' };
+  const iosEra: EraId = isAvailableIn(w.firstEra, '3068') ? '3068' : w.firstEra;
+  const ios: Equipment = { ...w, id: `${w.id}-ios`, name: `${w.name} (I-OS)`, tons: w.tons - 0.5, ammoPerTon: undefined, oneShot: 'ios', firstEra: iosEra };
+  return [os, ios];
+});
+
+const ALL_WEAPONS = [...BASE_WEAPONS, ...TORPEDOES, ...ONE_SHOTS];
+// Standard LRM / SRM launchers and torpedoes (not Streak, not one-shot) can take Artemis IV.
 for (const w of ALL_WEAPONS) {
-  if (/^(clan-)?(lrm|srm|mml)-\d+$/.test(w.id)) w.artemisCapable = true;
+  if (/^(clan-)?(lrm|srm|lrt|srt|mml)-\d+$/.test(w.id)) w.artemisCapable = true;
 }
-/** Clan LRM / SRM launchers that can be linked to an Artemis V fire-control system. */
+/** Clan LRM / SRM launchers (and torpedoes) that can be linked to an Artemis V fire-control system. */
 export function isArtemisVCapable(id: string): boolean {
-  return /^clan-(lrm|srm)-\d+$/.test(id);
+  return /^clan-(lrm|srm|lrt|srt)-\d+$/.test(id);
 }
 export const WEAPONS: readonly Equipment[] = ALL_WEAPONS;
 

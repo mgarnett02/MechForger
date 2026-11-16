@@ -153,7 +153,8 @@ function resolveAmmo(raw: string, unitTech: TechBase): string | null {
     [/^silverbullet/, () => 'silver-bullet-gauss'], [/^improvedheavygauss/, () => 'improved-heavy-gauss'],
     [/^heavyflamer/, () => 'heavy-flamer'], [/^vehicleflamer/, () => 'vehicle-flamer'], [/^fluidgun/, () => 'fluid-gun'],
     [/^taser/, () => 'mech-taser'],
-    [/^streaksrm(\d+)/, (m) => `streak-srm-${m[1]}`], [/^streaklrm(\d+)/, (m) => `streak-lrm-${m[1]}`], [/^srm(\d+)/, (m) => `srm-${m[1]}`],
+    [/^lrtorpedo(\d+)/, (m) => `lrt-${m[1]}`], [/^srtorpedo(\d+)/, (m) => `srt-${m[1]}`], [/^lrt(\d+)/, (m) => `lrt-${m[1]}`], [/^srt(\d+)/, (m) => `srt-${m[1]}`],
+        [/^streaksrm(\d+)/, (m) => `streak-srm-${m[1]}`], [/^streaklrm(\d+)/, (m) => `streak-lrm-${m[1]}`], [/^srm(\d+)/, (m) => `srm-${m[1]}`],
     [/^lrm(\d+)/, (m) => `lrm-${m[1]}`], [/^mrm(\d+)/, (m) => `mrm-${m[1]}`], [/^atm(\d+)/, (m) => `atm-${m[1]}`],
     [/^thunderbolt(\d+)/, (m) => `thunderbolt-${m[1]}`], [/^mml(\d)(lrm|srm)/, (m) => `mml-${m[1]}|${m[2]}`],
     [/^heavygauss/, () => 'heavy-gauss-rifle'], [/^lightgauss/, () => 'light-gauss-rifle'],
@@ -224,9 +225,19 @@ function resolveName(raw: string, unitTech: TechBase): Resolved {
   if (b === 'doubleheatsink') {
     return { kind: 'item', id: (tech ?? unitTech) === 'Clan' ? 'clan-double-heat-sink' : 'double-heat-sink' };
   }
-  const key = ALIASES[b] ?? b;
+  const tb = b.replace(/^(lr|sr)torpedo/, (_, k: string) => `${k}t`);
+  const key = ALIASES[tb] ?? tb;
   const eq = pick(byKey.get(key), tech, unitTech);
-  return eq ? { kind: 'item', id: eq.id } : { kind: 'unknown', name };
+  if (eq) return { kind: 'item', id: eq.id };
+  // One-shot and improved one-shot launchers: "SRM 2 (OS)", "ISSRM2IOS", "CLOSStreakLRM20", "ISNarcBeacon (I-OS)".
+  const os = /^(i?os)(.+)$/.exec(tb) ?? /^(.+?)(i?os)$/.exec(tb);
+  if (os) {
+    const [suffix, base] = /^i?os$/.test(os[1]) ? [os[1], os[2]] : [os[2], os[1]];
+    const bk = ALIASES[base] ?? base;
+    const be = pick(byKey.get(bk), tech, unitTech);
+    if (be && getEquipment(`${be.id}-${suffix}`)) return { kind: 'item', id: `${be.id}-${suffix}` };
+  }
+  return { kind: 'unknown', name };
 }
 
 /** Point ammo at the tech base of the launcher actually mounted (MegaMek names some ammo generically). */

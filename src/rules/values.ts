@@ -255,6 +255,18 @@ export const ITEM_VALUES: Record<string, ItemValue> = {
   'remote-sensor-dispenser': v(0, 51000), manipulator: v(0, 7500), 'recon-camera': v(0, 20000),
 };
 
+// Torpedoes have the values of the matching LRM / SRM; one-shot launchers rate 1/5 of the launcher's BV and cost half
+// (improved one-shot: 80%), as MegaMek.
+for (const [id, val] of Object.entries({ ...ITEM_VALUES })) {
+  const m = /^(clan-)?(lrm|srm)-(\d+)$/.exec(id);
+  if (m) ITEM_VALUES[`${m[1] ?? ''}${m[2] === 'lrm' ? 'lrt' : 'srt'}-${m[3]}`] = { ...val };
+}
+for (const [id, val] of Object.entries({ ...ITEM_VALUES })) {
+  if (!/^(clan-)?(srm|streak-srm|lrm|streak-lrm|lrt|srt|narc|inarc)(-\d+)?$/.test(id)) continue;
+  ITEM_VALUES[`${id}-os`] = { bv: Math.round(val.bv / 5), cost: val.cost / 2 };
+  ITEM_VALUES[`${id}-ios`] = { bv: Math.round(val.bv / 5), cost: val.cost * 0.8 };
+}
+
 /** MML ammo values: [LRM ammo BV, SRM ammo BV] per ton; costs as LRM / SRM ammo. */
 export const MML_AMMO_BV: Record<string, [number, number]> = {
   'mml-3': [4, 4], 'mml-5': [6, 6], 'mml-7': [8, 8], 'mml-9': [11, 11],
