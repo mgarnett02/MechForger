@@ -81,11 +81,11 @@ describe('new weapons', () => {
 describe('Artemis V', () => {
   const clan = newDesign('3050', 'Clan');
 
-  it('raises a linked Clan LRM/SRM launcher by 30% and its ammo by 30%', () => {
+  it('raises a linked Clan LRM/SRM launcher by 30%; its ammo keeps the standard BV (as MegaMek)', () => {
     const lrm = addEquipment(addEquipment(clan, 'clan-lrm-20', 'LT'), 'ammo-clan-lrm-20-artemis-v', 'LT');
     const art = addEquipment(lrm, 'clan-artemis-v', 'LT');
     expect(line(art, /Weapons/)).toBeCloseTo(line(lrm, /Weapons/)! * 1.3);
-    expect(line(art, /Ammunition/)).toBeCloseTo(line(addEquipment(addEquipment(clan, 'clan-lrm-20', 'LT'), 'ammo-clan-lrm-20', 'LT'), /Ammunition/)! * 1.3);
+    expect(line(art, /Ammunition/)).toBeCloseTo(line(addEquipment(addEquipment(clan, 'clan-lrm-20', 'LT'), 'ammo-clan-lrm-20', 'LT'), /Ammunition/)!);
     expect(mechCost(art).total - mechCost(lrm).total).toBe(250000 * (1 + clan.tonnage / 100)); // × the tonnage multiplier
     expect(errors(art).filter((m) => /Artemis/.test(m))).toEqual([]);
   });

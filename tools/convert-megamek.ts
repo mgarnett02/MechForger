@@ -24,7 +24,7 @@ import { engineRatingFor } from '../src/rules/types';
 import { SPLIT_ADJACENT } from '../src/rules/types';
 import { computeMech, fixedSlots } from '../src/rules/construction';
 import { validate } from '../src/rules/validation';
-import { fighterBV, mechBV, mechCost, vehicleBV, vehicleCost, vesselBV } from '../src/rules/battleValue';
+import { fighterBV, mechBV, mechCost, supportBV, vehicleBV, vehicleCost, vesselBV } from '../src/rules/battleValue';
 import type { MotiveType, VehicleArmorType, VehicleDesign, VehicleEngineType, VehicleLocation } from '../src/rules/vehicle';
 import { computeVehicle, emptyVehicleArmor, hasSixFacings, motiveMaxTonnage, validateVehicle, vehicleFreeHeatSinks } from '../src/rules/vehicle';
 import { armorPointsPerTon } from '../src/rules/tables';
@@ -1211,9 +1211,15 @@ function parseSupportBlk(text: string): { design: SupportVehicleDesign; year: nu
       case '1stclassquarters': transport.firstClass += n; break;
       case 'crewquarters': transport.crewQuarters += n; break;
       // Special cargo bays weigh more than their capacity.
-      case 'cargobay': transport.cargo += n; break;
-      case 'liquidcargobay': transport.cargo += Math.round((n / 0.91) * 1000) / 1000; break;
-      case 'insulatedcargobay': case 'refrigeratedcargobay': transport.cargo += Math.round((n / 0.87) * 1000) / 1000; break;
+      case 'cargobay': transport.cargo += n; transport.cargoDoors = (transport.cargoDoors ?? 0) + (Number(t.split(':')[2]) || 0); break;
+      case 'liquidcargobay': case 'insulatedcargobay': case 'refrigeratedcargobay': {
+        const w = Math.round((n / (kind.toLowerCase() === 'liquidcargobay' ? 0.91 : 0.87)) * 1000) / 1000;
+        transport.cargo += w;
+        transport.cargoDoors = (transport.cargoDoors ?? 0) + (Number(t.split(':')[2]) || 0);
+        transport.specialCargoCost = (transport.specialCargoCost ?? 0)
+          + ({ liquidcargobay: 100, refrigeratedcargobay: 200, insulatedcargobay: 250 } as Record<string, number>)[kind.toLowerCase()] * Math.ceil(w);
+        break;
+      }
       case 'troopspace': transport.troops += n; break;
       case 'battlearmorhandles - troopers': break;
       // Unit bays: infantrybay:<platoons>:<doors>:<bay>:<platoon type>, others <size>:<doors>:…
@@ -1387,7 +1393,7 @@ function main() {
       const issues = validateSupport(d, s);
       supports.push({
         n: `${d.chassis} ${d.model}`.trim(), t: d.tonnage, tb: d.techBase, era: d.era, y: p.year, k: d.svType,
-        bv: 0, ok: issues.every((i) => i.severity !== 'error'), w: Math.abs(s.weights.total - d.tonnage) < 1e-6,
+        bv: supportBV(d).total, ok: issues.every((i) => i.severity !== 'error'), w: Math.abs(s.weights.total - d.tonnage) < 1e-6,
         src: p.source, mul: p.mulId, d: encodeSupport(d),
       });
     } catch (e) {
@@ -1472,8 +1478,9 @@ function main() {
       try {
         const p = parseStationaryBlk(text, kind);
         const key = `${p.design.chassis} ${p.design.model}`.trim();
-        if (stseen.has(key)) continue;
-        stseen.add(key);
+        // Inner Sphere and Clan versions of a turret share a name.
+        if (stseen.has(`${key}|${p.design.techBase}`)) continue;
+        stseen.add(`${key}|${p.design.techBase}`);
         const d = settleEra(p.design, p.year, (x) => validateStationary(x).map((i) => i.message));
         const s = computeStationary(d);
         const issues = validateStationary(d, s);

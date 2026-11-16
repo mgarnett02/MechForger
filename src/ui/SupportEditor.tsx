@@ -14,6 +14,8 @@ import {
   supportReadout, svEngineMultiplier, svEnginesFor, svBayWeight, svItemLocations, svItemWeight,
 } from '../rules/support';
 import { NumberField } from './NumberField';
+import { ValueCard } from './ValueCard';
+import { supportBV, supportCost } from '../rules/battleValue';
 
 interface Props {
   design: SupportVehicleDesign;
@@ -216,7 +218,7 @@ function SupportArmorPanel({ design, summary, update }: Props) {
   );
 }
 
-const TRANSPORT_FIELDS: { key: Exclude<keyof SVTransport, 'bays'>; label: string; unit: string; step: number }[] = [
+const TRANSPORT_FIELDS: { key: Exclude<keyof SVTransport, 'bays' | 'specialCargoCost'>; label: string; unit: string; step: number }[] = [
   { key: 'seats', label: 'Standard seats', unit: 'seats · 75 kg each', step: 1 },
   { key: 'pillionSeats', label: 'Pillion seats', unit: 'seats · 25 kg each', step: 1 },
   { key: 'ejectionSeats', label: 'Ejection seats', unit: 'seats · 100 kg each', step: 1 },
@@ -225,6 +227,7 @@ const TRANSPORT_FIELDS: { key: Exclude<keyof SVTransport, 'bays'>; label: string
   { key: 'firstClass', label: '1st class quarters', unit: 't · 10 t per person', step: 0.5 },
   { key: 'crewQuarters', label: 'Crew quarters', unit: 't · 7 t per person', step: 0.5 },
   { key: 'cargo', label: 'Cargo space', unit: 't', step: 0.5 },
+  { key: 'cargoDoors', label: 'Cargo bay doors', unit: 'doors · 1,000 C-bills each', step: 1 },
   { key: 'troops', label: 'Troop space', unit: 't', step: 0.5 },
 ];
 
@@ -237,7 +240,7 @@ function TransportPanel({ design, summary, update }: Props) {
           <div key={f.key} style={{ display: 'contents' }}>
             <label>{f.label}</label>
             <div>
-              <NumberField label={f.label} value={design.transport[f.key]} min={0} step={f.step}
+              <NumberField label={f.label} value={design.transport[f.key] ?? 0} min={0} step={f.step}
                 onChange={(n) => update((d) => ({ ...d, transport: { ...d.transport, [f.key]: Math.max(0, f.step === 1 ? Math.round(n) : n) } }))} />
               <span className="muted small"> {f.unit}</span>
             </div>
@@ -379,7 +382,9 @@ function SupportSummaryPanel({ design, summary, issues }: Props) {
     ['Equipment', w.equipment],
   ] as [string, number][]).filter(([k, v]) => v !== 0 || ['Chassis / structure', 'Engine', 'Armor'].includes(k));
   const errors = issues.filter((i) => i.severity === 'error');
-  const readout = supportReadout(design, summary);
+  const bv = supportBV(design);
+  const cost = supportCost(design);
+  const readout = supportReadout(design, summary, { bv: bv.total, cost: cost.total });
   const pct = Math.min(100, (w.total / Math.max(0.001, design.tonnage)) * 100);
   return (
     <section className="panel">
@@ -396,7 +401,7 @@ function SupportSummaryPanel({ design, summary, issues }: Props) {
         <div><span className="muted">Tech</span> {design.structureTech}-{design.engineTech}-{design.armorTech}</div>
         <div><span className="muted">Armor</span> {summary.armorTotal}/{summary.armorMax} (BAR {design.bar})</div>
       </div>
-      <p className="small muted">Battle Value and cost are not calculated for support vehicles.</p>
+      <ValueCard bv={bv} cost={cost} />
       <h3 id="validation">
         Validation{' '}
         {errors.length === 0 ? <span className="ok small">✓ legal design</span> : <span className="bad small">{errors.length} error{errors.length > 1 ? 's' : ''}</span>}

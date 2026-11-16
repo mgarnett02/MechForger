@@ -434,8 +434,11 @@ export function protoMechCost(d: ProtoMechDesign, s = computeProtoMech(d)): { to
     if (has(e, 'F_MASC')) return a + Math.round(s.rating * 1000 * t * 0.025);
     if (has(e, 'F_JUMP_JET') || has(e, 'F_UMU')) return a; // in the jump jet line
     if (has(e, 'F_PARTIAL_WING')) return a + protoItemWeight(d, i, e) * 50000;
+    // MegaMek loads a Fusillade with two bins of iATM 3 ammunition (75,000 each).
+    if (e.id === 'Fusillade') return a + mmNum(e.cost) + 2 * 75000;
     return a + mmNum(e.cost);
   }, 0);
+  const jumpForCost = s.jumpMP + (items.some(({ e }) => has(e, 'F_PARTIAL_WING')) ? 2 : 0);
   const lines: [string, number][] = [
     ['Cockpit', t >= 10 ? 800000 : 500000],
     ['Life support', 75000],
@@ -445,7 +448,8 @@ export function protoMechCost(d: ProtoMechDesign, s = computeProtoMech(d)): { to
     ['Arm actuators', 2 * 180 * t],
     ['Leg actuators', 540 * t],
     ['Engine', (5000 * t * s.rating) / 75],
-    ['Jump jets', t * s.jumpMP * s.jumpMP * 200],
+    // A partial wing adds 2 jump MP in a standard atmosphere, which MegaMek prices with the jump jets.
+    ['Jump jets', t * jumpForCost * jumpForCost * 200],
     // MegaMek prices heat sinks for the heat of every energy weapon.
     ['Heat sinks', 2000 * items.reduce((a, { e }) => a + (isWeapon(e) && has(e, 'F_ENERGY') ? e.heat ?? 0 : 0), 0)],
     ['Armor', s.armorTotal * mmNum(getMM(d.armorId)?.cost)],

@@ -19,6 +19,8 @@ import type { VesselDesign, VesselItem } from './vessel';
 import { BAY_INFO, VESSEL_ARMOR_COST, VESSEL_TYPE_NAMES, computeVessel, isLargeCraft, kfIntegrity, shotsPerBin, vesselItemWeight } from './vessel';
 import type { VehicleDesign } from './vehicle';
 import { computeVehicle, vehicleItemWeight } from './vehicle';
+import type { SupportVehicleDesign } from './support';
+import { SV_TYPES, computeSupport, svItemWeight, svStructureForCost, svTransportCost } from './support';
 import { DEFENSIVE_IDS, ITEM_VALUES, MML_AMMO_BV, isGaussType } from './values';
 
 export interface BVBreakdown {
@@ -67,8 +69,7 @@ export function ammoValue(eq: Equipment): { bv: number; cost: number } {
   }
   const w = value(weapon);
   let bv = (w?.ammoBV ?? 0) * scale;
-  if (eq.artemisAmmo) bv *= 1.2;
-  if (eq.artemisVAmmo) bv *= 1.3;
+  // MegaMek gives Artemis-capable ammunition the same BV as standard ammunition.
   // Artemis V ammunition costs twice as much (MegaMek).
   return { bv, cost: (w?.ammoCost ?? 0) * scale * (eq.artemisVAmmo ? 2 : 1) };
 }
@@ -877,4 +878,140 @@ function largeCraftCost(d: VesselDesign, s: ReturnType<typeof computeVessel>, co
   const subtotal = lines.reduce((a, [, v]) => a + v, 0);
   lines.push([`× ${multiplier} (${VESSEL_TYPE_NAMES[d.vesselType]})`, multiplier]);
   return { total: round(subtotal * multiplier), lines, approximate: false };
+}
+
+// ---------------------------------------------------------------------------
+// Support vehicles (MegaMek CombatVehicleBVCalculator / AeroBVCalculator, CombatVehicleCostCalculator /
+// FixedWingSupportCostCalculator)
+// ---------------------------------------------------------------------------
+
+/** Weapon BV multiplier for a support vehicle's fire control: none 0.8, basic 0.9, advanced 1. */
+export const SV_FIRE_CONTROL_BV = { none: 0.8, basic: 0.9, advanced: 1 } as const;
+
+export function supportBV(d: SupportVehicleDesign): BVBreakdown {
+  const s = computeSupport(d);
+  const aero = SV_TYPES[d.svType].aero;
+  const lines: [string, number][] = [];
+  const bar = d.bar / 10;
+  const armor = s.armorTotal * 2.5 * bar;
+  const defEquip = defensiveEquipmentBV(d.equipment);
+  const fc = SV_FIRE_CONTROL_BV[d.fireControl];
+  const rearLoc = aero ? 'AF' : 'RR';
+  const weapons = weaponEntries(d.equipment.map((e) => ({ ...e, rear: e.location === rearLoc })));
+  // MegaMek applies the fire-control modifier to weapons and to ammunition.
+  const ammo = ammoBV(d.equipment, weapons) * fc;
+  for (const w of weapons) w.bv *= fc;
+  const frontBV = weapons.filter((w) => !w.rear).reduce((a, w) => a + w.bv, 0);
+  const rearBV = weapons.filter((w) => w.rear).reduce((a, w) => a + w.bv, 0);
+  for (const w of weapons) if (rearBV > frontBV ? !w.rear : w.rear) w.bv /= 2;
+  const offEquip = d.equipment.reduce((a, i) => {
+    const eq = getEquipment(i.equipmentId);
+    return eq && !eq.isWeapon && eq.category !== 'Ammo' && !DEFENSIVE_IDS.has(eq.id) ? a + (value(eq.id)?.bv ?? 0) : a;
+  }, 0);
+
+  if (aero) {
+    // Fixed-wing support vehicles and airships: structural integrity = safe thrust; no TMM; type modifier 1;
+    // speed factor from maximum thrust.
+    const si = d.cruiseMP * 2;
+    let explosive = 0;
+    if (d.techBase !== 'Clan' && !d.equipment.some((e) => /(^|-)case(-ii)?$/.test(e.equipmentId))) {
+      const ammoTypes = new Set<string>();
+      for (const item of d.equipment) {
+        const eq = getEquipment(item.equipmentId);
+        if (!eq) continue;
+        if (eq.category === 'Ammo' && eq.ammoFor && !isGaussType(eq.ammoFor) && !/plasma/.test(eq.ammoFor)) ammoTypes.add(eq.id);
+        else if ((eq.isWeapon && isGaussType(eq.id)) || eq.explosive) explosive += 1;
+      }
+      explosive += 15 * ammoTypes.size;
+    }
+    const defensive = Math.max(1, armor + si + defEquip - explosive);
+    // Support aircraft, like conventional fighters, do not track heat (MegaMek's FixedWingSupport).
+    const weaponBV = weapons.reduce((a, w) => a + w.bv, 0);
+    const sf = speedFactor(s.flankMP);
+    const offensive = (weaponBV + ammo + offEquip) * sf;
+    lines.push([`Armor (× 2.5 × BAR ${d.bar}/10)`, armor], ['Structural integrity (× 2)', si]);
+    if (defEquip) lines.push(['Defensive equipment', defEquip]);
+    if (explosive) lines.push(['Explosive ammo / components', -explosive]);
+    lines.push([`Weapons (× ${fc} fire control)`, weaponBV], ['Ammunition', ammo]);
+    if (offEquip) lines.push(['Offensive equipment', offEquip]);
+    lines.push([`Speed factor (max thrust ${s.flankMP})`, sf]);
+    return { total: round(defensive + offensive), defensive, offensive, lines, approximate: false };
+  }
+
+  // Ground and naval support vehicles: as combat vehicles.
+  const structure = Math.ceil(d.tonnage / 10) * s.armorLocations.length * 1.5;
+  const naval = d.svType === 'naval' || d.svType === 'rail';
+  const body = d.svType === 'tracked' ? 0.9 : d.svType === 'wheeled' ? 0.8 : naval ? 0.6 : 0.7;
+  const tmm = targetMovementModifier(s.flankMP) + (d.svType === 'vtol' || d.svType === 'wige' ? 1 : 0);
+  const defensive = (armor + structure + defEquip) * body * (1 + tmm / 10);
+  const weaponBV = weapons.reduce((a, w) => a + w.bv, 0);
+  const trailer = d.chassisMods.includes('trailer') && d.cruiseMP === 0;
+  const speedMP = trailer ? 1 : d.svType === 'rail' ? d.cruiseMP : s.flankMP;
+  const sf = speedFactor(speedMP);
+  const offensive = (weaponBV + ammo + offEquip + d.tonnage / 2) * sf;
+  lines.push([`Armor (× 2.5 × BAR ${d.bar}/10)`, armor], ['Internal structure', structure]);
+  if (defEquip) lines.push(['Defensive equipment', defEquip]);
+  lines.push(['Body type modifier', body], [`Defensive factor (TMM ${tmm})`, 1 + tmm / 10]);
+  lines.push([`Weapons (× ${fc} fire control)`, weaponBV], ['Ammunition', ammo]);
+  if (offEquip) lines.push(['Offensive equipment', offEquip]);
+  lines.push(['Tonnage ÷ 2', d.tonnage / 2], [`Speed factor (${speedMP} MP)`, sf]);
+  return { total: round(defensive + offensive), defensive, offensive, lines, approximate: false };
+}
+
+/** BAR armor cost per point. */
+const BAR_COST: Record<number, number> = { 2: 50, 3: 100, 4: 150, 5: 200, 6: 250, 7: 300, 8: 400, 9: 500, 10: 625 };
+/** Support vehicle engine cost multipliers (cost = 5,000 × engine tons × multiplier). */
+const SV_ENGINE_COST: Record<string, number> = { steam: 0.8, battery: 1.2, 'fuel-cell': 1.4, solar: 1.6, maglev: 2.5, fission: 3, fusion: 2 };
+/** Chassis cost multipliers for chassis modifications (MegaMek). */
+const SV_CHASSIS_COST: Record<string, number> = {
+  amphibious: 1.25, armored: 2, bicycle: 0.75, convertible: 1.1, 'dune-buggy': 1.25, 'environmental-sealing': 1.75,
+  'external-power-pickup': 1.1, hydrofoil: 1.1, monocycle: 1.3, 'off-road': 1.2, prop: 0.75, snowmobile: 1.3, stol: 1.5,
+  submersible: 3.5, tractor: 1.1, trailer: 0.75, 'ultra-light': 1.5, vstol: 2,
+};
+const TECH_INDEX: Record<string, number> = { A: 0, B: 1, C: 2, D: 3, E: 4, F: 5 };
+
+export function supportCost(d: SupportVehicleDesign): CostBreakdown {
+  const s = computeSupport(d);
+  const w = s.weights;
+  const aero = SV_TYPES[d.svType].aero;
+  // MegaMek gives unpowered rail cars no chassis cost (their base chassis value is 0 without an engine).
+  let chassis = d.svType === 'rail' && d.engineType === 'none' ? 0 : 2500 * svStructureForCost(d);
+  for (const m of d.chassisMods) chassis *= SV_CHASSIS_COST[m] ?? 1;
+  const engine = d.engineType === 'none' ? 0 : 5000 * w.engine * (SV_ENGINE_COST[d.engineType] ?? 1);
+  const armor = s.armorTotal * (BAR_COST[d.bar] ?? 0);
+  const techMultiplier = 0.5 + TECH_INDEX[d.structureTech] * 0.25;
+  const structural = (chassis + engine + armor) * techMultiplier;
+  // Heat sinks: the heat of energy weapons that need them (fixed-wing: lasers and PPCs); SV engines give none free.
+  let sinks = 0;
+  let turret = 0;
+  let weaponCost = 0;
+  for (const item of d.equipment) {
+    const eq = getEquipment(item.equipmentId);
+    if (!eq?.isWeapon) continue;
+    weaponCost += value(eq.id)?.cost ?? 0;
+    if (aero ? /laser|ppc/.test(eq.id) && !eq.ammoPerTon : (eq.category === 'Energy' && !eq.ammoPerTon) || /plasma/.test(eq.id)) sinks += eq.heat;
+    if (item.location === 'TU') turret += svItemWeight(eq, d) / 10;
+  }
+  const transport = svTransportCost(d.transport);
+  const fireControl = d.fireControl === 'basic' ? weaponCost * 0.05 : d.fireControl === 'advanced' ? weaponCost * 0.1 : 0;
+  const equipment = equipmentCost(d.equipment, (eq) => svItemWeight(eq, d), 0) + fireControl;
+  const lines: [string, number][] = [
+    ['Chassis', chassis], ['Engine', engine], ['Armor', armor],
+    [`Final structural cost (× ${techMultiplier} for tech rating ${d.structureTech})`, structural],
+    ['Power amplifiers', 20000 * w.powerAmplifiers], ['Heat sinks', 2000 * sinks],
+    ...(aero ? [] : [['Turret', 5000 * (s.size === 'small' ? Math.ceil(turret * 1000) / 1000 : Math.ceil(turret * 2) / 2)] as [string, number]]),
+    [`Weapons & equipment${fireControl ? ' (incl. fire control)' : ''}`, equipment],
+    ['Seating', transport.seats], ['Quarters', transport.quarters], ['Transport bays', transport.bays],
+  ];
+  const subtotal = lines.slice(3).reduce((a, [, v]) => a + v, 0);
+  const omni = d.chassisMods.includes('omni') ? 1.25 : 1;
+  const t = d.tonnage;
+  const naval = d.svType === 'naval';
+  const multiplier = aero
+    ? (d.svType === 'airship' ? 1 + t / 10000 : 1 + t / 50)
+    : naval ? 1 + t / 100000
+      : 1 + t / ({ hover: 50, wheeled: 200, tracked: 100, vtol: 30, wige: 25, rail: 250 } as Record<string, number>)[d.svType];
+  if (omni !== 1) lines.push(['× 1.25 OmniVehicle', omni]);
+  lines.push(['× tonnage multiplier', multiplier]);
+  return { total: round(subtotal * omni * multiplier), lines: lines.filter(([, v]) => v !== 0), approximate: false };
 }

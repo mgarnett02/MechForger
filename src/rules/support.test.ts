@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { supportBV, supportCost } from './battleValue';
 import {
   addSupportItem, barWeightPerPoint, computeSupport, kgPerFuelPoint, newSupportVehicle, parseSupport,
   isLargeSupportTank, setSupportType, svBayWeight, sizeClass, supportReadout, svArmorLocations, svMaxArmor, validateSupport,
@@ -81,16 +82,23 @@ describe('canon support vehicles', () => {
     expect(S.length).toBeGreaterThan(100);
   });
 
-  it('most weigh exactly their published tonnage', () => {
-    expect(S.filter((e) => e.w).length / S.length).toBeGreaterThan(0.6);
+  it('almost all are within their published tonnage (engine to the nearest half ton, total rounded up, as MegaMek)', () => {
+    expect(S.filter((e) => e.ok).length / S.length).toBeGreaterThan(0.95);
   });
 
-  it.each(['Prime Mover (Succession Wars)', 'Cobra VTOL Transport', 'Caravan Heavy Transport', 'Flatbed Railcar', 'Silverback Coastal Cutter'])(
-    '%s comes out at exactly its tonnage', (n) => {
-      const d = canon(n);
-      expect(computeSupport(d).weights.total).toBe(d.tonnage);
+  it.each([['Prime Mover (Succession Wars)', 59.5], ['Cobra VTOL Transport', 29.5], ['Caravan Heavy Transport', 200], ['Flatbed Railcar', 120]] as const)(
+    '%s weighs what MegaMek\'s validator computes', (n, total) => {
+      expect(computeSupport(canon(n)).weights.total).toBe(total);
     },
   );
+
+  it('BV and cost match MegaMek', () => {
+    const chiHa = canon('Chi-Ha Infantry Combat Vehicle');
+    expect(supportBV(chiHa).total).toBe(132);
+    expect(supportCost(chiHa).total).toBe(151585);
+    expect(supportCost(canon('Atlantia Luxury Yacht')).total).toBe(572022); // quarters and bay doors
+    expect(supportBV(canon('Zugvogel Omni Support Aircraft Prime')).total).toBe(1159); // no heat tracking, CASE
+  });
 });
 
 describe('large support tanks, WiGE and OmniVehicles', () => {

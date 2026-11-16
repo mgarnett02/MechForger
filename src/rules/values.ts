@@ -243,15 +243,15 @@ export const ITEM_VALUES: Record<string, ItemValue> = {
 
   // Utility equipment (vehicles only)
   searchlight: v(0, 2000), 'searchlight-handheld': v(0, 500), 'lift-hoist': v(0, 50000),
-  'mining-drill': v(0, 10000), sprayer: v(0, 1000), 'im-ejection-seat': v(0, 25000),
+  'mining-drill': v(6, 10000), sprayer: v(0, 1000), 'im-ejection-seat': v(0, 25000),
   'sprayer-vehicle': v(0, 1000), 'mash-core': v(0, 35000), 'mash-theater': v(0, 10000), 'ladder-20m': v(0, 100),
   'cargo-1': v(0, 0), 'cargo-half': v(0, 0), 'liquid-storage-1': v(0, 0), 'liquid-storage-half': v(0, 0),
   'paramedic-equipment': v(0, 7500), 'cargo-container': v(0, 0), 'communications-equipment': v(0, 10000), 'mobile-hpg': v(0, 1000000000), 'ground-mobile-hpg': v(0, 4000000000),
-  bulldozer: v(0, 50000), backhoe: v(0, 50000), chainsaw: v(0, 100000), 'dual-saw': v(0, 100000),
-  'rock-cutter': v(0, 100000), combine: v(0, 75000), 'salvage-arm': v(0, 50000), 'spot-welder': v(0, 75000),
-  'pile-driver': v(0, 100000), 'field-kitchen': v(0, 25000), 'mobile-field-base': v(0, 150000),
+  bulldozer: v(10, 50000), backhoe: v(8, 50000), chainsaw: v(7, 100000), 'dual-saw': v(9, 100000),
+  'rock-cutter': v(6, 100000), combine: v(5, 75000), 'salvage-arm': v(0, 50000), 'spot-welder': v(5, 75000),
+  'pile-driver': v(5, 100000), 'field-kitchen': v(0, 25000), 'mobile-field-base': v(0, 150000),
   'lifeboat-maritime': v(0, 5000), 'lifeboat-atmospheric': v(0, 6000), 'refueling-drogue': v(0, 25000),
-  'mast-mount': v(0, 50000), 'trailer-hitch': v(0, 0), 'mine-dispenser': v(0, 20000), 'mine-sweeper': v(0, 40000),
+  'mast-mount': v(0, 50000), 'trailer-hitch': v(0, 0), 'mine-dispenser': v(8, 20000), 'mine-sweeper': v(0, 40000),
   'remote-sensor-dispenser': v(0, 51000), manipulator: v(0, 7500), 'recon-camera': v(0, 20000),
 };
 
@@ -265,6 +265,8 @@ export const DEFENSIVE_IDS = new Set([
   'ams', 'clan-ams', 'guardian-ecm', 'clan-ecm', 'angel-ecm', 'beagle-active-probe', 'clan-active-probe',
   'clan-light-active-probe', 'b-pod', 'm-pod', 'ap-pod', 'laser-ams', 'clan-laser-ams',
   'bloodhound-probe', 'clan-watchdog-ecm', 'clan-nova-cews',
+  // MegaMek counts a bulldozer blade as defensive equipment.
+  'bulldozer',
 ]);
 
 /** Gauss-type weapons: their ammo does not explode, but the weapon itself does. */

@@ -5,7 +5,7 @@ import { computeMech } from '../../rules/construction';
 import { getEra } from '../../rules/eras';
 import { ARMOR_NAMES, ENGINE_NAMES } from '../../rules/tables';
 import { activeConfigName } from '../../rules/omni';
-import { mechBV, mechCost, vehicleBV, vehicleCost } from '../../rules/battleValue';
+import { mechBV, mechCost, supportBV, supportCost, vehicleBV, vehicleCost } from '../../rules/battleValue';
 import type { SupportVehicleDesign } from '../../rules/support';
 import {
   CHASSIS_MODS, SV_BAY_INFO, SV_ENGINE_NAMES, SV_LOCATION_NAMES, SV_TYPES, computeSupport, isLargeSupportTank, svItemWeight,
@@ -513,6 +513,8 @@ export function SupportRecordSheet({ design }: { design: SupportVehicleDesign })
             <Field label="Tech Base" value={techBase(design)} />
             <Field label="Era" value={eraName(design)} />
             <Field label="Armor" value={`BAR ${design.bar}`} />
+            <Field label="Battle Value" value={supportBV(design).total.toLocaleString('en-US')} />
+            <Field label="Cost" value={`${supportCost(design).total.toLocaleString('en-US')} C-bills`} />
             {design.fuel > 0 && <Field label="Fuel" value={`${fmt(design.fuel)} t`} />}
             {design.fireControl !== 'none' && <Field label="Fire Control" value={design.fireControl === 'basic' ? 'Basic' : 'Advanced'} />}
             {design.chassisMods.length > 0 && (

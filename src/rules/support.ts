@@ -54,6 +54,10 @@ export interface SVTransport {
   troops: number;
   /** Transport bays for units (infantry, battle armor, vehicles, 'Mechs) and livestock. */
   bays?: SVBay[];
+  /** Doors on the cargo bays (1,000 C-bills each). */
+  cargoDoors?: number;
+  /** Cost of liquid, refrigerated and insulated cargo bays (canon designs). */
+  specialCargoCost?: number;
 }
 
 export type SVBayKind =
@@ -243,6 +247,11 @@ export function sizeClass(d: Pick<SupportVehicleDesign, 'svType' | 'tonnage'>): 
 const sizeIndex = (s: SizeClass) => (s === 'small' ? 0 : s === 'medium' ? 1 : 2);
 
 /** Small support vehicles weigh to the kilogram; others to the half ton. */
+function roundNearest(w: number, small: boolean): number {
+  const t = Math.round(w * 1e6) / 1e6;
+  return (small ? Math.round(t * 1000) / 1000 : Math.round(t * 2) / 2) || 0;
+}
+
 function roundUp(w: number, small: boolean): number {
   const t = Math.round(w * 1e6) / 1e6;
   return (small ? Math.ceil(t * 1000) / 1000 : Math.ceil(t * 2) / 2) || 0;
@@ -325,6 +334,35 @@ export interface SupportSummary {
 // Ammunition-fed flamers need neither power amplifiers nor heat sinks (as MegaMek).
 const isEnergyHeat = (eq: Equipment) => eq.isWeapon && eq.category === 'Energy' && !(eq.ammoPerTon && /flamer/.test(eq.id));
 
+/** Structure weight as MegaMek prices it (SupportVeeStructure: rounded down, not up). */
+export function svStructureForCost(d: SupportVehicleDesign): number {
+  const info = SV_TYPES[d.svType];
+  // Same order of floating-point operations as MegaMek, whose rounding down can turn 13.5 into 13.
+  let mods = 1;
+  for (const m of MM_CHASSIS_MOD_ORDER) if (d.chassisMods.includes(m)) mods *= CHASSIS_MODS.find((x) => x.id === m)?.multiplier ?? 1;
+  const w = info.baseChassis[sizeIndex(sizeClass(d))] * STRUCTURE_TECH[d.structureTech] * mods * d.tonnage;
+  return d.tonnage < 5 ? Math.floor(w * 1000) / 1000 : Math.floor(w * 2) / 2;
+}
+const MM_CHASSIS_MOD_ORDER = ['amphibious', 'armored', 'bicycle', 'convertible', 'dune-buggy', 'environmental-sealing', 'external-power-pickup',
+  'hydrofoil', 'monocycle', 'off-road', 'prop', 'snowmobile', 'stol', 'submersible', 'tractor', 'trailer', 'ultra-light', 'vstol'];
+
+/** Cost of seats, quarters and transport bays (as MegaMek's CostCalculator). */
+export function svTransportCost(t: SVTransport): { seats: number; quarters: number; bays: number } {
+  // MegaMek prices whole seats only.
+  const seats = 100 * Math.floor(t.seats) + 10 * Math.floor(t.pillionSeats) + 25000 * Math.floor(t.ejectionSeats);
+  const quarters = 30000 * Math.floor(t.firstClass / 10) + 15000 * Math.floor(t.secondClass / 7)
+    + 15000 * Math.floor(t.crewQuarters / 7) + 5000 * Math.floor(t.steerage / 5);
+  let bays = 1000 * (t.cargoDoors ?? 0) + (t.specialCargoCost ?? 0);
+  for (const b of t.bays ?? []) {
+    const w = svBayWeight(b);
+    bays += 1000 * b.doors + (b.kind.startsWith('infantry') || b.kind === 'battle-armor' ? 15000 * Math.ceil(w)
+      : b.kind === 'light-vehicle' || b.kind === 'heavy-vehicle' ? 10000 * b.size
+      : b.kind === 'mek' ? 20000 * b.size : b.kind === 'protomek' ? 10000 * Math.ceil(b.size)
+      : b.kind === 'livestock-cargo' ? 2500 * Math.ceil(w) : 0);
+  }
+  return { seats, quarters, bays };
+}
+
 export function computeSupport(d: SupportVehicleDesign): SupportSummary {
   const info = SV_TYPES[d.svType];
   const size = sizeClass(d);
@@ -368,7 +406,8 @@ export function computeSupport(d: SupportVehicleDesign): SupportSummary {
 
   const weights: SVWeights = {
     structure: roundUp(structure, small),
-    engine: roundUp(engine, small),
+    // Engine weight rounds to the nearest half ton (kilogram for small vehicles), TM p.133, as MegaMek.
+    engine: roundNearest(engine, small),
     fuel: roundUp(d.fuel, small),
     armor: roundUp(armorTotal * barWeightPerPoint(d.bar, d.armorTech), small),
     turret: d.turret ? roundUp(turretItems * 0.1, small) : 0,
@@ -386,7 +425,8 @@ export function computeSupport(d: SupportVehicleDesign): SupportSummary {
   const sum = weights.structure + weights.engine + weights.fuel + weights.armor + weights.turret +
     weights.fireControl + weights.powerAmplifiers + weights.heatSinks + weights.accommodations +
     weights.cargo + weights.bays + weights.equipment;
-  weights.total = Math.round(sum * 1000) / 1000;
+  // The total rounds up to the half ton (kilogram for small vehicles), as MegaMek's TestSupportVehicle.
+  weights.total = roundUp(sum, small);
   weights.free = Math.round((d.tonnage - weights.total) * 1000) / 1000;
 
   return {
@@ -643,7 +683,7 @@ export function parseSupport(raw: unknown): SupportVehicleDesign {
 // Readout
 // ---------------------------------------------------------------------------
 
-export function supportReadout(d: SupportVehicleDesign, s: SupportSummary = computeSupport(d)): string {
+export function supportReadout(d: SupportVehicleDesign, s: SupportSummary = computeSupport(d), values?: { bv: number; cost: number }): string {
   const t = (n: number) => (Number.isInteger(n) ? String(n) : String(Math.round(n * 1000) / 1000));
   const row = (label: string, mass: number | string) => `${label.padEnd(36)}${typeof mass === 'number' ? t(mass) : mass}`;
   const info = SV_TYPES[d.svType];
@@ -654,6 +694,7 @@ export function supportReadout(d: SupportVehicleDesign, s: SupportSummary = comp
   lines.push(`Type: ${info.name} support vehicle, ${t(d.tonnage)} tons (${s.size})`);
   lines.push(`Tech Base: ${d.mixedTech ? `Mixed (${TECH_BASE_NAMES[d.techBase]} chassis)` : TECH_BASE_NAMES[d.techBase]}`);
   if (era) lines.push(`Era: ${era.name} (${era.year})`);
+  if (values) lines.push(`Battle Value: ${values.bv.toLocaleString('en-US')}`, `Cost: ${values.cost.toLocaleString('en-US')} C-bills`);
   lines.push(`Tech ratings: structure ${d.structureTech}, engine ${d.engineTech}, armor ${d.armorTech}`);
   if (d.chassisMods.length) lines.push(`Chassis modifications: ${d.chassisMods.map((id) => CHASSIS_MODS.find((m) => m.id === id)?.name ?? id).join(', ')}`);
   lines.push('', row('Equipment', 'Mass'));

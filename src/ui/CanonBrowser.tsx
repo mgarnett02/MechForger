@@ -207,7 +207,7 @@ export function CanonBrowser({ unit, onLoad, onClose }: Props) {
                       <td className="num">{kind === 'battlearmor' ? Math.round(e.t * 1000) : e.t}</td>
                       <td>{e.tb === 'IS' ? 'IS' : 'Clan'}</td>
                       <td className="small">{e.y}</td>
-                      <td className="num">{kind === 'support' ? '—' : e.bv.toLocaleString()}</td>
+                      <td className="num">{e.bv.toLocaleString()}</td>
                       <td><button className="small" onClick={() => open(e)}>Load</button></td>
                     </tr>
                   ))}
