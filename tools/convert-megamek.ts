@@ -704,9 +704,11 @@ function parseBlk(text: string): { design: VehicleDesign; year: number; rulesLev
 // BLK fighters (aerospace and conventional)
 // ---------------------------------------------------------------------------
 
-const FIGHTER_ENGINES: Record<string, FighterDesign['engineType']> = { 0: 'standard', 1: 'ice', 2: 'xl', 4: 'light', 5: 'compact' };
+const FIGHTER_ENGINES: Record<string, FighterDesign['engineType']> = { 0: 'standard', 1: 'ice', 2: 'xl', 3: 'xxl', 4: 'light', 5: 'compact' };
 /** MegaMek armor codes: standard, ferro-aluminum, heavy and light ferro-aluminum. */
-const FIGHTER_ARMOR: Record<string, FighterArmorType> = { 0: 'standard', 19: 'ferro-fibrous', 20: 'heavy-ferro', 21: 'light-ferro', 39: 'primitive' };
+const FIGHTER_ARMOR: Record<string, FighterArmorType> = {
+  0: 'standard', 3: 'reflective', 16: 'ferro-lamellor', 19: 'ferro-fibrous', 20: 'heavy-ferro', 21: 'light-ferro', 22: 'stealth', 39: 'primitive',
+};
 
 const techBaseClanLike = (typeStr: string) => /^Clan|Clan Chassis/.test(typeStr);
 
@@ -746,6 +748,8 @@ function parseFighterBlk(text: string): { design: FighterDesign; year: number; m
     for (const raw0 of tags.get(tag) ?? []) {
       const rear = /\(R\)/.test(raw0);
       const raw = raw0.replace(/:OMNI$/i, '').replace(/:SIZE:[\d.]+$/i, '');
+      // Armor slots (stealth, ferro-lamellor, …) belong to the armor; MechForger reserves them itself.
+      if (/^(IS|CL|Clan)?\s*Vehicular Stealth$/i.test(raw) || r0IsArmorSlot(raw)) continue;
       const r = resolveName(raw, techBase);
       if (r.kind === 'fixed') continue;
       if (r.kind === 'unknown') fail(`unknown item "${r.name}"`);

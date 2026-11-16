@@ -158,8 +158,8 @@ export const EXTRA_EQUIPMENT: Equipment[] = [
   misc('infrared-imager', 'Infrared Imager', 5, 1, 'Both', '3025'),
   misc('extended-fuel-tank', 'Extended Fuel Tank', 1, 1, 'Both', '3025'),
   misc('vehicle-escape-pod', 'Vehicle Escape Pod', 4, 0, 'IS', '3025', { vehicleOnly: true }),
-  misc('cockpit-command-console', 'Command Console', 3, 0, 'Both', '3025', { vehicleOnly: true, supportOk: true }),
-  { id: 'flotation-hull', name: 'Flotation Hull', category: 'Utility', tons: 0, slots: 0, heat: 0, isWeapon: false, vehicleOnly: true, techBase: 'Both', firstEra: '3025' },
+  misc('cockpit-command-console', 'Command Console', 3, 0, 'Both', '3025', { vehicleOnly: true, supportOk: true, fighterOk: true }),
+  { id: 'flotation-hull', name: 'Flotation Hull', category: 'Utility', tons: 0, slots: 0, heat: 0, isWeapon: false, vehicleOnly: true, fighterOk: true, techBase: 'Both', firstEra: '3025' },
 ];
 
 export const EXTRA_EQUIPMENT_MM_NAMES: [string, string][] = [

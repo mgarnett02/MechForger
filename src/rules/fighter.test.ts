@@ -123,3 +123,16 @@ describe('canon fighters', () => {
     expect(parseFighter(JSON.parse(JSON.stringify(d))).equipment.length).toBe(d.equipment.length);
   });
 });
+
+describe('fighter reflective, ferro-lamellor and stealth armor, XXL engines', () => {
+  it('canon fighters with them convert and match MegaMek', () => {
+    for (const t of ['reflective', 'ferro-lamellor', 'stealth']) {
+      expect(F.some((e) => decodeFighter(e.d).armorType === t)).toBe(true);
+    }
+    expect(F.some((e) => decodeFighter(e.d).engineType === 'xxl')).toBe(true);
+    const cheetah = canon('Cheetah OF-17');
+    expect(cheetah.armorType).toBe('stealth');
+    expect(fighterBV(cheetah).total).toBe(278); // stealth: type modifier + 0.3
+    expect(fighterCost(cheetah).total).toBe(3968681);
+  });
+});

@@ -26,10 +26,10 @@ import type { Issue } from './validation';
 // ---------------------------------------------------------------------------
 
 export type FighterType = 'aerospace' | 'conventional';
-export type FighterEngineType = 'ice' | 'standard' | 'xl' | 'light' | 'compact';
+export type FighterEngineType = 'ice' | 'standard' | 'xl' | 'xxl' | 'light' | 'compact';
 /** Primitive fighters (Interstellar Operations) use a primitive cockpit and primitive fighter armor. */
 export type FighterCockpitType = BasicCockpitType | 'primitive';
-export type FighterArmorType = BasicArmorType | 'primitive';
+export type FighterArmorType = BasicArmorType | 'primitive' | 'reflective' | 'ferro-lamellor' | 'stealth';
 
 /** Nose, left wing, right wing, aft (armored, weapon arcs) and the fuselage (equipment only). */
 export const FIGHTER_LOCATIONS = ['NOS', 'LWG', 'RWG', 'AFT', 'FUS'] as const;
@@ -97,23 +97,24 @@ export const SLOTS_PER_ARC = 5;
 export const FUEL_POINTS_PER_TON: Record<FighterType, number> = { aerospace: 80, conventional: 160 };
 
 export const FIGHTER_ENGINE_LABELS: Record<FighterEngineType, string> = {
-  ice: 'ICE', standard: 'Fusion', xl: 'XL Fusion', light: 'Light Fusion', compact: 'Compact Fusion',
+  ice: 'ICE', standard: 'Fusion', xl: 'XL Fusion', xxl: 'XXL Fusion', light: 'Light Fusion', compact: 'Compact Fusion',
 };
 
 export const FIGHTER_ENGINE_OPTIONS: Record<FighterEngineType, ComponentOption> = {
   ice: { label: 'ICE engines', techBase: 'Both', firstEra: '3025' },
-  standard: ENGINE_OPTIONS.standard, xl: ENGINE_OPTIONS.xl, light: ENGINE_OPTIONS.light, compact: ENGINE_OPTIONS.compact,
+  standard: ENGINE_OPTIONS.standard, xl: ENGINE_OPTIONS.xl, xxl: ENGINE_OPTIONS.xxl, light: ENGINE_OPTIONS.light, compact: ENGINE_OPTIONS.compact,
 };
 
 /** Aerospace armor names (ferro-aluminum is the aerospace counterpart of ferro-fibrous). */
 export const FIGHTER_ARMOR_NAMES: Record<FighterArmorType, string> = {
   standard: 'Standard', 'ferro-fibrous': 'Ferro-Aluminum', 'light-ferro': 'Light Ferro-Aluminum',
-  'heavy-ferro': 'Heavy Ferro-Aluminum', primitive: 'Primitive Fighter',
+  'heavy-ferro': 'Heavy Ferro-Aluminum', primitive: 'Primitive Fighter', reflective: 'Reflective', 'ferro-lamellor': 'Ferro-Lamellor',
+  stealth: 'Stealth',
 };
 
 /** Weapon slots each armor type takes from the arcs. */
 export const FIGHTER_ARMOR_SLOTS: Record<FighterArmorType, number> = {
-  standard: 0, 'ferro-fibrous': 2, 'light-ferro': 1, 'heavy-ferro': 4, primitive: 0,
+  standard: 0, 'ferro-fibrous': 2, 'light-ferro': 1, 'heavy-ferro': 4, primitive: 0, reflective: 1, 'ferro-lamellor': 2, stealth: 2,
 };
 
 export function fighterEngineRating(d: Pick<FighterDesign, 'fighterType' | 'tonnage' | 'safeThrust'> & { cockpitType?: FighterCockpitType }): number {
@@ -172,7 +173,7 @@ export function usesWeaponSlot(eq: Equipment): boolean {
 
 /** Equipment a fighter can carry. */
 export function isFighterEquipment(eq: Equipment): boolean {
-  if (eq.id === 'remote-sensor-dispenser') return true; // the one utility item fighters carry (TM)
+  if (eq.id === 'remote-sensor-dispenser' || eq.fighterOk) return true; // utility, vehicle or spacecraft items fighters carry
   if (eq.managed || eq.melee || eq.lamOnly || eq.vehicleOnly || eq.vesselOnly || eq.capitalClass || eq.category === 'Utility' || eq.variableWeight === 'masc' || eq.variableWeight === 'supercharger' || eq.variableWeight === 'mechTurret') return false;
   return true;
 }
@@ -386,6 +387,7 @@ export function validateFighter(d: FighterDesign, s: FighterSummary = computeFig
   if (conventional && d.cockpitType !== 'standard') error('Conventional fighters can only have a standard cockpit.');
   if (d.cockpitType === 'primitive' && d.armorType !== 'primitive' && d.armorType !== 'standard') error('Primitive fighters can only use primitive or standard armor.');
   if (d.armorType === 'primitive' && d.cockpitType !== 'primitive') error('Primitive fighter armor is only for primitive fighters.');
+  if (d.armorType === 'stealth' && !d.equipment.some((e) => /ecm/.test(e.equipmentId))) error('Stealth armor needs an ECM suite.');
   if (d.cockpitType === 'primitive' && d.engineType !== 'standard' && d.engineType !== 'ice') error('Primitive fighters need a standard fusion or ICE engine.');
   if (!conventional && d.vstol) error('Only conventional fighters fit VSTOL gear.');
 
@@ -550,13 +552,13 @@ export function parseFighter(raw: unknown): FighterDesign {
     model: typeof r.model === 'string' ? r.model : '',
     tonnage: num(r.tonnage, 'tonnage'),
     safeThrust: num(r.safeThrust, 'safeThrust'),
-    engineType: pick(r.engineType, ['ice', 'standard', 'xl', 'light', 'compact'] as const, 'standard'),
+    engineType: pick(r.engineType, ['ice', 'standard', 'xl', 'xxl', 'light', 'compact'] as const, 'standard'),
     cockpitType: pick(r.cockpitType, ['standard', 'small', 'primitive'] as const, 'standard'),
     heatSinkType: pick(r.heatSinkType, ['single', 'double'] as const, 'single'),
     heatSinks: typeof r.heatSinks === 'number' ? r.heatSinks : fighterType === 'conventional' ? 0 : 10,
     fuelTons: typeof r.fuelTons === 'number' ? r.fuelTons : 0,
     ...(typeof r.cargo === 'number' && r.cargo > 0 ? { cargo: r.cargo } : {}),
-    armorType: pick(r.armorType, ['standard', 'ferro-fibrous', 'light-ferro', 'heavy-ferro', 'primitive'] as const, 'standard'),
+    armorType: pick(r.armorType, ['standard', 'ferro-fibrous', 'light-ferro', 'heavy-ferro', 'primitive', 'reflective', 'ferro-lamellor', 'stealth'] as const, 'standard'),
     armor,
     vstol: r.vstol === true,
     equipment,

@@ -77,6 +77,8 @@ export interface Equipment {
   vesselOnly?: boolean;
   /** Spacecraft equipment that support vehicles may also mount. */
   supportOk?: boolean;
+  /** Vehicle, utility or spacecraft equipment that aerospace fighters may also mount. */
+  fighterOk?: boolean;
   /** Land-Air 'Mech equipment only. */
   lamOnly?: boolean;
   /** Artillery: tube or missile artillery (indirect fire, range in mapsheets) or an artillery cannon. */
@@ -617,13 +619,13 @@ export const OTHER_EQUIPMENT: readonly Equipment[] = [
   { id: 'naval-comm-scanner-large', name: 'Naval Comm-Scanner Suite (Large)', category: 'Other', tons: 500, slots: 1, heat: 0, isWeapon: false, vesselOnly: true, techBase: 'Both', firstEra: '3025' },
   { id: 'naval-c3', name: 'Naval C3', category: 'Other', tons: 0, slots: 0, heat: 0, isWeapon: false, variableWeight: 'vesselFormula', vesselOnly: true, techBase: 'IS', firstEra: '3062' },
   { id: 'naval-tug-adaptor', name: 'Naval Tug Adaptor', category: 'Other', tons: 0, slots: 1, heat: 0, isWeapon: false, variableWeight: 'vesselFormula', vesselOnly: true, techBase: 'Both', firstEra: '3025' },
-  { id: 'look-down-radar', name: 'Look-Down Radar', category: 'Other', tons: 5, slots: 1, heat: 0, isWeapon: false, vesselOnly: true, supportOk: true, techBase: 'Both', firstEra: '3025' },
-  { id: 'hyperspectral-imager', name: 'Hyperspectral Imager', category: 'Other', tons: 7.5, slots: 1, heat: 0, isWeapon: false, vesselOnly: true, supportOk: true, techBase: 'IS', firstEra: '3050' },
+  { id: 'look-down-radar', name: 'Look-Down Radar', category: 'Other', tons: 5, slots: 1, heat: 0, isWeapon: false, vesselOnly: true, supportOk: true, fighterOk: true, techBase: 'Both', firstEra: '3025' },
+  { id: 'hyperspectral-imager', name: 'Hyperspectral Imager', category: 'Other', tons: 7.5, slots: 1, heat: 0, isWeapon: false, vesselOnly: true, supportOk: true, fighterOk: true, techBase: 'IS', firstEra: '3050' },
   { id: 'caspar-dcs', name: 'Caspar Drone Control System', category: 'Other', tons: 0, slots: 0, heat: 0, isWeapon: false, variableWeight: 'vesselFormula', vesselOnly: true, techBase: 'Both', firstEra: '3025' },
   { id: 'improved-caspar-dcs', name: 'Improved Caspar Drone Control System', category: 'Other', tons: 0, slots: 0, heat: 0, isWeapon: false, variableWeight: 'vesselFormula', vesselOnly: true, techBase: 'Both', firstEra: '3025' },
   { id: 'caspar-ii-dcs', name: 'Caspar II Drone Control System', category: 'Other', tons: 0, slots: 0, heat: 0, isWeapon: false, variableWeight: 'vesselFormula', vesselOnly: true, techBase: 'IS', firstEra: '3062' },
   { id: 'improved-caspar-ii-dcs', name: 'Improved Caspar II Drone Control System', category: 'Other', tons: 0, slots: 0, heat: 0, isWeapon: false, variableWeight: 'vesselFormula', vesselOnly: true, techBase: 'IS', firstEra: '3062' },
-  { id: 'high-res-imager', name: 'Satellite Imager (High-Resolution Imager)', category: 'Other', tons: 2.5, slots: 1, heat: 0, isWeapon: false, vesselOnly: true, supportOk: true, techBase: 'IS', firstEra: '3025' },
+  { id: 'high-res-imager', name: 'Satellite Imager (High-Resolution Imager)', category: 'Other', tons: 2.5, slots: 1, heat: 0, isWeapon: false, vesselOnly: true, supportOk: true, fighterOk: true, techBase: 'IS', firstEra: '3025' },
   { id: 'sds-self-destruct', name: 'SDS Self-Destruct System', category: 'Other', tons: 0, slots: 0, heat: 0, isWeapon: false, variableWeight: 'vesselFormula', vesselOnly: true, techBase: 'Both', firstEra: '3025' },
   // Booby trap ('Mechs, vehicles and craft): 10% of the unit, rounded up to the half ton.
   { id: 'booby-trap', name: 'Booby Trap', category: 'Other', tons: 0, slots: 1, heat: 0, isWeapon: false, variableWeight: 'boobyTrap', techBase: 'IS', firstEra: '3081' },
@@ -749,7 +751,7 @@ export const UTILITY_EQUIPMENT: readonly Equipment[] = [
   utility('mine-sweeper', 'Mine Sweeper', 3),
   utility('remote-sensor-dispenser', 'Remote Sensors / Dispenser', 0.5),
   utility('manipulator', 'Manipulator (industrial)', 0.01),
-  utility('recon-camera', 'Recon Camera', 0.5),
+  { ...utility('recon-camera', 'Recon Camera', 0.5), fighterOk: true },
   utility('mining-drill', 'Mining Drill', 3),
   utility('sprayer', 'Sprayer', 0.5),
   utility('im-ejection-seat', 'IM Ejection Seat', 0.5),

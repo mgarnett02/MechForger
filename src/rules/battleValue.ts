@@ -642,7 +642,8 @@ export function fighterBV(d: FighterDesign): BVBreakdown {
   const conventional = d.fighterType === 'conventional';
 
   // Defensive: armor, structural integrity, defensive equipment, unprotected explosives, type modifier.
-  const armor = s.armorTotal * 2.5;
+  // Reflective armor ×1.5, ferro-lamellor ×1.2 (as 'Mechs, MegaMek).
+  const armor = s.armorTotal * 2.5 * (ARMOR_BV_MULTIPLIER[d.armorType as MechDesign['armorType']] ?? 1);
   const structure = s.si * 2;
   const defEquip = defensiveEquipmentBV(d.equipment);
   // Clan fighters and fighters with CASE ignore explosives; otherwise −15 per ammo type, −1 per Gauss weapon.
@@ -659,12 +660,13 @@ export function fighterBV(d: FighterDesign): BVBreakdown {
     }
     explosive += 15 * ammoTypes.size;
   }
-  const typeModifier = conventional ? 1.1 : 1.2;
+  // Stealth armor adds 0.3 to the type modifier (MegaMek).
+  const typeModifier = (conventional ? 1.1 : 1.2) + (d.armorType === 'stealth' ? 0.3 : 0);
   const defensive = Math.max(1, armor + structure + defEquip - explosive) * typeModifier;
   lines.push(['Armor', armor], ['Structural integrity', structure]);
   if (defEquip) lines.push(['Defensive equipment', defEquip]);
   if (explosive) lines.push(['Explosive ammo / components', -explosive]);
-  lines.push([`Type modifier (${conventional ? 'conventional' : 'aerospace'} fighter)`, typeModifier]);
+  lines.push([`Type modifier (${conventional ? 'conventional' : 'aerospace'} fighter${d.armorType === 'stealth' ? ', stealth' : ''})`, typeModifier]);
 
   // Offensive: aft and rear-facing weapons are the rear arc; the weaker arc counts half.
   const weapons = weaponEntries(d.equipment.map((e) => ({ ...e, rear: e.rear || e.location === 'AFT' })));
