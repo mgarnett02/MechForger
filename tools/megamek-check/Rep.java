@@ -10,7 +10,7 @@ public class Rep {
     for (String f : args) {
       Entity e = new MekFileParser(new File(f)).getEntity();
       TextCalculationReport bv = new TextCalculationReport();
-      e.calculateBattleValue(true, true, bv);
+      e.getBvCalculator().calculateBV(true, true, bv);
       TextCalculationReport c = new TextCalculationReport();
       e.getCost(c, false);
       System.out.println("=== " + e.getChassis() + " " + e.getModel());

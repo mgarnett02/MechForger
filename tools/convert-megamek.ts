@@ -37,6 +37,7 @@ import { computeStationary, stationaryBV, validateStationary } from '../src/rule
 import { PROTO_EDP_ARMOR, PROTO_STANDARD_ARMOR, computeProtoMech, emptyProtoArmor, protoMechBV, validateProtoMech } from '../src/rules/protomech';
 import { battleArmorBV, computeBattleArmor, syncArmorSlots, validateBattleArmor } from '../src/rules/battlearmor';
 import { MM_EQUIPMENT, findMM, findMMOfKind } from '../src/rules/mmEquipment';
+import { svWeaponId } from '../src/rules/svWeapons';
 import type { Augmentation, FieldGun, InfantryDesign, InfantryMotion } from '../src/rules/infantry';
 import { AUGMENTATIONS, BEASTS, SPECIALIZATIONS, computeInfantry, infantryBV, validateInfantry } from '../src/rules/infantry';
 import type { FighterArmorType, FighterDesign, FighterItem, FighterLocation } from '../src/rules/fighter';
@@ -1249,6 +1250,20 @@ function parseSupportBlk(text: string): { design: SupportVehicleDesign; year: nu
         for (let n = 0; n < Math.max(1, Math.round(size / 20)); n++) equipment.push({ uid: `s${uid++}`, equipmentId: 'ladder-20m', location: 'BD' });
         continue;
       }
+      // Pintle turrets and pintle-mounted "(PT)" weapons (small support vehicles).
+      if (/^ISDroneCarrierControlSystem$/i.test(raw)) {
+        for (let k = 0; k <= Math.round(size); k++) equipment.push({ uid: `s${uid++}`, equipmentId: k ? 'drone-carrier-slot' : 'drone-carrier-control', location: 'BD' });
+        continue;
+      }
+      if (/^PintleTurret$/i.test(raw)) { equipment.push({ uid: `s${uid++}`, equipmentId: 'pintle-turret', location: loc }); continue; }
+      const pintle = /\(PT\)\s*$/.test(raw);
+      // Infantry weapons: SIZE is the number of ammunition clips.
+      const inf = findMMOfKind(raw.replace(/\s*\(PT\)\s*$/, ''), 'infantryWeapon', techBase);
+      if (inf && getEquipment(svWeaponId(inf.id))) {
+        equipment.push({ uid: `s${uid++}`, equipmentId: svWeaponId(inf.id), location: loc,
+          ...(Math.round(size) > 1 ? { clips: Math.round(size) } : {}), ...(pintle ? { pintle: true } : {}) });
+        continue;
+      }
       if (/^Basic Fire Control$/i.test(raw)) { fireControl = 'basic'; continue; }
       if (/^Advanced Fire Control$/i.test(raw)) { fireControl = 'advanced'; continue; }
       const r = resolveName(raw, techBase);
@@ -1311,6 +1326,7 @@ function parseSupportBlk(text: string): { design: SupportVehicleDesign; year: nu
     cruiseMP: Number(aero ? one('SafeThrust') : one('cruiseMP')) || 0,
     structureTech: rating('structural_tech_rating'), engineTech: rating('engine_tech_rating'), armorTech: rating('armor_tech_rating'),
     engineType, bar, chassisMods: [...chassisMods], fuel: 0, turret, fireControl, armor, transport, equipment,
+    ...(tags.has('baseChassisSponsonPintleWeight') && equipment.some((e) => e.equipmentId === 'pintle-turret') ? { pintleWeight: Number(one('baseChassisSponsonPintleWeight')) } : {}),
   };
   const fuel = Number(one('fuel')) || 0;
   design.fuel = aero ? Math.ceil((fuel * kgPerFuelPoint(design)) / 1000 * 2 - 1e-9) / 2 : fuel;

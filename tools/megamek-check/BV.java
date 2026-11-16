@@ -12,7 +12,8 @@ public class BV {
     while ((f = in.readLine()) != null) {
       try {
         Entity e = new MekFileParser(new File(f)).getEntity();
-        int bv = e.calculateBattleValue(true, true);
+        // MegaMek's calculated BV (calculateBattleValue would return a manual BV some files carry instead).
+        int bv = e.getBvCalculator().calculateBV(true, true);
         long cost = Math.round(e.getCost(false));
         long dry = Math.round(e.getCost(true));
         System.out.println(f + "\t" + e.getChassis() + "\t" + e.getModel() + "\t" + bv + "\t" + cost + "\t" + dry + "\t" + (e.isClan() ? "Clan" : "IS") + "\t" + e.getWeight());

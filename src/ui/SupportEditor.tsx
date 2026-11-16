@@ -16,6 +16,7 @@ import {
 import { NumberField } from './NumberField';
 import { ValueCard } from './ValueCard';
 import { supportBV, supportCost } from '../rules/battleValue';
+import { SV_INFANTRY_WEAPONS, svClipExtras } from '../rules/svWeapons';
 
 interface Props {
   design: SupportVehicleDesign;
@@ -301,9 +302,10 @@ function TransportPanel({ design, summary, update }: Props) {
   );
 }
 
-const TABS: { id: EquipmentCategory; label: string }[] = [
+type SupportTab = EquipmentCategory | 'Infantry';
+const TABS: { id: SupportTab; label: string }[] = [
   { id: 'Energy', label: 'Energy' }, { id: 'Ballistic', label: 'Ballistic' }, { id: 'Missile', label: 'Missile' },
-  { id: 'Ammo', label: 'Ammo' }, { id: 'Other', label: 'Equipment' }, { id: 'Utility', label: 'Utility' },
+  { id: 'Infantry', label: 'Infantry weapons' }, { id: 'Ammo', label: 'Ammo' }, { id: 'Other', label: 'Equipment' }, { id: 'Utility', label: 'Utility' },
 ];
 
 const rangeText = (eq: Equipment) => {
@@ -313,16 +315,19 @@ const rangeText = (eq: Equipment) => {
 };
 
 function SupportEquipmentPanel({ design, summary, update }: Props) {
-  const [tab, setTab] = useState<EquipmentCategory>('Utility');
-  const available = ALL_EQUIPMENT.filter((e) => isSupportEquipment(e) && isEquipmentAvailable(e, design.era, design.techBase, design.mixedTech));
-  const tabs = TABS.filter((x) => available.some((e) => e.category === x.id));
+  const [tab, setTab] = useState<SupportTab>('Utility');
+  const ok = (e: Equipment) => isEquipmentAvailable(e, design.era, design.techBase, design.mixedTech);
+  const available = ALL_EQUIPMENT.filter((e) => isSupportEquipment(e) && ok(e));
+  const infantry = SV_INFANTRY_WEAPONS.filter(ok).sort((a, b) => a.name.localeCompare(b.name));
+  const tabs = TABS.filter((x) => (x.id === 'Infantry' ? infantry.length > 0 : available.some((e) => e.category === x.id)));
   const active = tabs.some((x) => x.id === tab) ? tab : tabs[0]?.id ?? 'Utility';
-  const catalog = available.filter((e) => e.category === active);
+  const catalog = active === 'Infantry' ? infantry : available.filter((e) => e.category === active);
   const combat = !['Ammo', 'Utility', 'Other'].includes(active);
+  const pintleLocs = new Set(design.equipment.filter((e) => e.equipmentId === 'pintle-turret').map((e) => e.location));
   return (
     <section className="panel">
       <h2>Equipment</h2>
-      {summary.size === 'small' && <p className="small muted">Small support vehicles can only carry infantry weapons, which MechForger does not model; utility equipment is fine.</p>}
+      {summary.size === 'small' && <p className="small muted">Small support vehicles can only carry infantry weapons (and utility equipment); a pintle turret lets them fire in every direction.</p>}
       <div className="tabs" role="tablist">
         {tabs.map((x) => (
           <button key={x.id} role="tab" aria-selected={active === x.id} className={active === x.id ? 'active' : ''} onClick={() => setTab(x.id)}>{x.label}</button>
@@ -353,9 +358,20 @@ function SupportEquipmentPanel({ design, summary, update }: Props) {
             <li key={item.uid} className={item.location ? '' : 'unallocated'}>
               <span className="item-name">
                 <strong style={{ fontWeight: 500 }}>{equipmentName(eq, design)}</strong>
-                <span className="muted small">{t(svItemWeight(eq, design))} t</span>
+                <span className="muted small">{t(svItemWeight(eq, design) + svClipExtras(eq.id, item.clips).tons)} t</span>
               </span>
               <span className="spacer" />
+              {eq.infantryWeapon && (
+                <NumberField label={`${eq.name} clips`} value={item.clips ?? 1} min={1} max={999}
+                  onChange={(n) => update((d) => ({ ...d, equipment: d.equipment.map((x) => (x.uid === item.uid ? { ...x, clips: Math.max(1, Math.round(n)) > 1 ? Math.max(1, Math.round(n)) : undefined } : x)) }))} />
+              )}
+              {eq.isWeapon && item.location && pintleLocs.has(item.location) && (
+                <label className="check small" title="Pintle-mounted: fires in every direction">
+                  <input type="checkbox" checked={!!item.pintle}
+                    onChange={(e) => update((d) => ({ ...d, equipment: d.equipment.map((x) => (x.uid === item.uid ? { ...x, pintle: e.target.checked || undefined } : x)) }))} />
+                  Pintle
+                </label>
+              )}
               <select aria-label={`${eq.name} location`} value={item.location ?? ''}
                 onChange={(e) => update((d) => ({ ...d, equipment: d.equipment.map((x) => (x.uid === item.uid ? { ...x, location: (e.target.value || null) as SVLocation | null } : x)) }))}>
                 <option value="">— unallocated —</option>

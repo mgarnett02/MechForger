@@ -5,6 +5,8 @@
  * best known and should be treated as approximate.
  */
 
+import { SV_WEAPON_VALUES } from './svWeapons';
+
 export interface ItemValue {
   bv: number;
   cost: number;
@@ -258,6 +260,8 @@ export const ITEM_VALUES: Record<string, ItemValue> = {
 };
 
 // Weapons and equipment with MegaMek's figures (extraWeapons.ts).
+Object.assign(ITEM_VALUES, SV_WEAPON_VALUES);
+
 Object.assign(ITEM_VALUES, {
   'clan-er-small-laser-prototype': v(17, 11250), mass: v(9, 4000), 'laser-insulator': v(0, 3000), 'harjel-ii': v(0, 240000), 'harjel-iii': v(0, 360000),
   'chaff-pod': v(19, 2000), 'ew-equipment': v(39, 500000), 'risc-viral-jammer-decoy': v(284, 990000), 'risc-viral-jammer-homing': v(284, 990000),

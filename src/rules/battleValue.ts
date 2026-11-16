@@ -13,6 +13,7 @@ import { canArmor, getEquipment, isArtemisVCapable, isDirectFire, isPPC, itemSlo
 import { armoredSystemSlots, computeMech, fixedSlots } from './construction';
 import { armorPointsPerTon, engineSideTorsoSlots, isLargeEngine } from './tables';
 import { meleeBV, meleeCost } from './melee';
+import { svClipExtras } from './svWeapons';
 import type { FighterDesign } from './fighter';
 import { computeFighter, fighterItemWeight } from './fighter';
 import type { VesselDesign, VesselItem } from './vessel';
@@ -464,6 +465,7 @@ export function equipmentCost<T extends { equipmentId: string; location?: string
     else if (eq.variableWeight === 'partialWing') total += weight(eq) * 50000;
     else if (eq.variableWeight === 'droneOS') total += weight(eq) * 10000 + 5000;
     else if (eq.variableWeight === 'mechTurret') total += weight(eq) * 10000;
+    else if (eq.variableWeight === 'pintleTurret') total += weight(eq) * 1000;
     // SRCS: 10,000 per ton + 5,000 (shielded aerospace: 12,500 per ton + 6,250).
     else if (eq.variableWeight === 'srcs') total += eq.id.includes('shielded') ? weight(eq) * 12500 + 6250 : weight(eq) * 10000 + 5000;
     else if (eq.vehicleChassisMod) total += weight(eq) * (/armored-motive/.test(eq.id) ? 100000 : /amphibious/.test(eq.id) ? 10000 : 0);
@@ -994,7 +996,8 @@ export function supportBV(d: SupportVehicleDesign): BVBreakdown {
   const weapons = weaponEntries(d.equipment.map((e) => ({ ...e, rear: e.location === rearLoc })), true);
   // MegaMek applies the fire-control modifier to weapons and to ammunition.
   const ammo = ammoBV(d.equipment, weapons) * fc;
-  for (const w of weapons) w.bv *= fc;
+  // Infantry weapons ignore fire control (MegaMek).
+  for (const w of weapons) if (!getEquipment(w.id)?.infantryWeapon) w.bv *= fc;
   // Ground craft compare the rear with the front facing only; aircraft with everything not aft (MegaMek).
   const isFront = (w: { rear: boolean; loc?: string | null }) => (aero ? !w.rear : w.loc === 'FR');
   const frontBV = weapons.filter(isFront).reduce((a, w) => a + w.bv, 0);
@@ -1038,11 +1041,13 @@ export function supportBV(d: SupportVehicleDesign): BVBreakdown {
   const structure = Math.ceil(d.tonnage / 10) * s.armorLocations.length * 1.5;
   const naval = d.svType === 'naval' || d.svType === 'rail';
   const body = d.svType === 'tracked' ? 0.9 : d.svType === 'wheeled' ? 0.8 : naval ? 0.6 : 0.7;
-  const tmm = targetMovementModifier(s.flankMP) + (d.svType === 'vtol' || d.svType === 'wige' ? 1 : 0);
+  // A supercharger doubles cruise MP for the running TMM and speed factor (as combat vehicles, MegaMek).
+  const runMP = d.equipment.some((e) => e.equipmentId === 'supercharger') ? d.cruiseMP * 2 : s.flankMP;
+  const tmm = targetMovementModifier(runMP) + (d.svType === 'vtol' || d.svType === 'wige' ? 1 : 0);
   const defensive = (armor + structure + defEquip) * body * (1 + tmm / 10);
   const weaponBV = weapons.reduce((a, w) => a + w.bv, 0);
   const trailer = d.chassisMods.includes('trailer') && d.cruiseMP === 0;
-  const speedMP = trailer ? 1 : d.svType === 'rail' ? d.cruiseMP : s.flankMP;
+  const speedMP = trailer ? 1 : d.svType === 'rail' ? d.cruiseMP : runMP;
   const sf = speedFactor(speedMP);
   const offensive = (weaponBV + ammo + offEquip + d.tonnage / 2) * sf;
   lines.push([`Armor (× 2.5 × BAR ${d.bar}/10)`, armor], ['Internal structure', structure]);
@@ -1090,7 +1095,10 @@ export function supportCost(d: SupportVehicleDesign): CostBreakdown {
   }
   const transport = svTransportCost(d.transport);
   const fireControl = d.fireControl === 'basic' ? weaponCost * 0.05 : d.fireControl === 'advanced' ? weaponCost * 0.1 : 0;
-  const equipment = equipmentCost(d.equipment, (eq) => svItemWeight(eq, d), 0) + fireControl;
+  const clips = d.equipment.reduce((a, i) => a + svClipExtras(i.equipmentId, i.clips).cost, 0);
+  // A support vehicle supercharger costs 10,000 per ton of engine (MegaMek).
+  const supercharger = d.equipment.filter((e) => e.equipmentId === 'supercharger').length * 10000 * w.engine;
+  const equipment = equipmentCost(d.equipment, (eq) => svItemWeight(eq, d), 0) + clips + supercharger + fireControl;
   const lines: [string, number][] = [
     ['Chassis', chassis], ['Engine', engine], ['Armor', armor],
     [`Final structural cost (× ${techMultiplier} for tech rating ${d.structureTech})`, structural],

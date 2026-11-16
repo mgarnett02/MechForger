@@ -12,6 +12,7 @@ import type { EraId } from './eras';
 import { DEFAULT_ERA, getEra, isAvailableIn } from './eras';
 import type { Equipment } from './equipment';
 import { shortEquipmentName, getEquipment, isDirectFire, isEquipmentAvailable, srcsWeight, usesAmmo } from './equipment';
+import { svClipExtras } from './svWeapons';
 import type { Issue } from './validation';
 
 // ---------------------------------------------------------------------------
@@ -39,6 +40,10 @@ export interface SVItem {
   uid: string;
   equipmentId: string;
   location: SVLocation | null;
+  /** Infantry weapons: ammunition clips carried (the first is free). */
+  clips?: number;
+  /** Small support vehicles: mounted in the pintle turret of its location. */
+  pintle?: boolean;
 }
 
 /** Crew, passenger and cargo space. Seats are counts; the rest are tons. */
@@ -96,6 +101,8 @@ export function svBayWeight(b: SVBay): number {
 export interface SupportVehicleDesign {
   /** Master Unit List id, for designs loaded from the canon list. */
   mulId?: number;
+  /** Pintle turrets built empty at a fixed total weight (tons), shared by every pintle turret. */
+  pintleWeight?: number;
   schemaVersion: 1;
   unitType: 'support';
   era: EraId;
@@ -271,7 +278,7 @@ export function svArmorLocations(d: Pick<SupportVehicleDesign, 'svType' | 'turre
 }
 
 export function svItemLocations(eq: Equipment, d: Pick<SupportVehicleDesign, 'svType' | 'turret' | 'tonnage'>): SVLocation[] {
-  if (!eq.isWeapon) return ['BD'];
+  if (!eq.isWeapon && eq.variableWeight !== 'pintleTurret') return ['BD'];
   return [...svArmorLocations(d).filter((l) => l !== 'RO'), 'BD'];
 }
 
@@ -332,7 +339,8 @@ export interface SupportSummary {
 }
 
 // Ammunition-fed flamers need neither power amplifiers nor heat sinks (as MegaMek).
-const isEnergyHeat = (eq: Equipment) => eq.isWeapon && eq.category === 'Energy' && !(eq.ammoPerTon && !/plasma/.test(eq.id));
+// Infantry weapons need neither heat sinks nor power amplifiers.
+const isEnergyHeat = (eq: Equipment) => eq.isWeapon && !eq.infantryWeapon && eq.category === 'Energy' && !(eq.ammoPerTon && !/plasma/.test(eq.id));
 
 /** Structure weight as MegaMek prices it (SupportVeeStructure: rounded down, not up). */
 export function svStructureForCost(d: SupportVehicleDesign): number {
@@ -382,7 +390,7 @@ export function computeSupport(d: SupportVehicleDesign): SupportSummary {
   for (const item of d.equipment) {
     const eq = getEquipment(item.equipmentId);
     if (!eq) continue;
-    const w = svItemWeight(eq, d);
+    const w = svItemWeight(eq, d) + svClipExtras(eq.id, item.clips).tons;
     equipment += w;
     if (item.location === 'TU') turretItems += w;
     if (eq.isWeapon && !/ams$/.test(eq.id)) weapons += w;
@@ -447,7 +455,29 @@ function svRawEngineWeight(d: SupportVehicleDesign): number {
   return engine;
 }
 
+/**
+ * Pintle turrets (small support vehicles): a twentieth of the pintle-mounted weapons in their location,
+ * rounded up to the kilogram (as MegaMek). Several turrets share their total equally.
+ */
+export function svPintleWeight(d: SupportVehicleDesign): number {
+  const turrets = d.equipment.filter((e) => e.equipmentId === 'pintle-turret');
+  if (!turrets.length) return 0;
+  if (d.pintleWeight !== undefined) return d.pintleWeight / turrets.length;
+  const small = sizeClass(d) === 'small';
+  let total = 0;
+  for (const t of turrets) {
+    let w = 0;
+    for (const e of d.equipment) {
+      const eq = e.pintle && e.location === t.location ? getEquipment(e.equipmentId) : undefined;
+      if (eq?.isWeapon) w += eq.tons;
+    }
+    total += roundUp(w / 20, small);
+  }
+  return total / turrets.length;
+}
+
 export function svItemWeight(eq: Equipment, d: SupportVehicleDesign): number {
+  if (eq.variableWeight === 'pintleTurret') return svPintleWeight(d);
   if (eq.variableWeight === 'srcs') return srcsWeight(eq.id, d.tonnage, (n) => roundUp(n, sizeClass(d) === 'small'));
   if (eq.variableWeight === 'supercharger') {
     // 10% of the engine weight, rounded up to the half ton (kilogram for small vehicles).
@@ -532,8 +562,15 @@ export function validateSupport(d: SupportVehicleDesign, s: SupportSummary = com
   if (d.svType === 'vtol' && (d.armor.RO ?? 0) > 2) error('A VTOL rotor can carry at most 2 points of armor.');
   if (d.turret && info.aero) error('Fixed-wing aircraft and airships cannot mount turrets.');
 
-  if (s.size === 'small' && d.equipment.some((e) => getEquipment(e.equipmentId)?.isWeapon)) {
-    error('Small support vehicles can only mount infantry weapons, which MechForger does not model.');
+  if (s.size === 'small' && d.equipment.some((e) => { const eq = getEquipment(e.equipmentId); return eq?.isWeapon && !eq.infantryWeapon; })) {
+    error('Small support vehicles can only mount infantry weapons.');
+  }
+  const pintles = d.equipment.filter((e) => e.equipmentId === 'pintle-turret');
+  if (pintles.length && (s.size !== 'small' || d.svType === 'fixed-wing' || d.svType === 'naval')) {
+    error('Only small support vehicles (not fixed-wing or naval) can mount pintle turrets.');
+  }
+  for (const e of d.equipment) {
+    if (e.pintle && !pintles.some((p) => p.location === e.location)) error(`${getEquipment(e.equipmentId)?.name ?? e.equipmentId} is pintle-mounted, but its location has no pintle turret.`);
   }
 
   const reported = new Set<string>();

@@ -161,3 +161,23 @@ describe('transport bays', () => {
     expect(canon('Croyle Systems Cortez Series N').transport.bays?.[0].kind).toBe('infantry-foot');
   });
 });
+
+describe('support vehicle infantry weapons', () => {
+  it('canon small support vehicles mount infantry weapons, with BV and cost as MegaMek calculates them', () => {
+    expect(S.filter((e) => /"inf-/.test(JSON.stringify(e.d))).length).toBeGreaterThan(20);
+    const trike = canon('Trike');
+    expect(trike.equipment.some((e) => e.equipmentId === 'inf-flamer-heavy')).toBe(true);
+    expect(supportBV(trike).total).toBe(17); // infantry weapons ignore fire control
+    expect(supportCost(trike).total).toBe(3772);
+  });
+
+  it('extra ammunition clips add weight and cost; pintle turrets weigh a twentieth of their weapons', () => {
+    const base = canon('Trike');
+    const more = { ...base, equipment: base.equipment.map((e) => (e.equipmentId === 'inf-flamer-heavy' ? { ...e, clips: 5 } : e)) };
+    expect(computeSupport(more).weights.equipment).toBeGreaterThan(computeSupport(base).weights.equipment);
+    expect(supportCost(more).total).toBeGreaterThanOrEqual(supportCost(base).total);
+    const atv = canon('Heavy Combat ATV');
+    expect(atv.pintleWeight).toBe(0.022);
+    expect(supportCost(atv).total).toBe(1598);
+  });
+});

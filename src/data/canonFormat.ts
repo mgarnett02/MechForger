@@ -106,17 +106,28 @@ export function decodeVehicle(raw: unknown): VehicleDesign {
   };
 }
 
+/** Support vehicle items: flags N (pintle-mounted) and C<n> (ammunition clips). */
 export function encodeSupport(d: SupportVehicleDesign): unknown {
-  return { ...d, equipment: d.equipment.map(encItem) };
+  return {
+    ...d,
+    equipment: d.equipment.map((e): EncodedItem => {
+      const flags = `${e.pintle ? 'N' : ''}${e.clips && e.clips > 1 ? `C${e.clips}` : ''}`;
+      return flags ? [e.equipmentId, e.location, flags] : [e.equipmentId, e.location];
+    }),
+  };
 }
 
 export function decodeSupport(raw: unknown): SupportVehicleDesign {
   const r = raw as Omit<SupportVehicleDesign, 'equipment'> & { equipment: EncodedItem[] };
   return {
     ...r,
-    equipment: r.equipment.map(([equipmentId, location]) => ({
-      uid: newSupportUid(), equipmentId, location: location as SVLocation | null,
-    })),
+    equipment: r.equipment.map(([equipmentId, location, flags = '']) => {
+      const clips = /C(\d+)/.exec(flags);
+      return {
+        uid: newSupportUid(), equipmentId, location: location as SVLocation | null,
+        ...(flags.includes('N') ? { pintle: true } : {}), ...(clips ? { clips: Number(clips[1]) } : {}),
+      };
+    }),
   };
 }
 

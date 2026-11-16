@@ -123,6 +123,8 @@ const misc = (id: string, name: string, tons: number, slots: number, techBase: E
 export const EXTRA_EQUIPMENT: Equipment[] = [
   { id: 'clan-er-small-laser-prototype', name: 'Prototype ER Small Laser (CP)', category: 'Energy', tons: 0.5, slots: 1, heat: 2, damage: '3', range: { min: 0, short: 2, medium: 4, long: 5 }, isWeapon: true, techBase: 'Clan', firstEra: '3025' },
   misc('mass', 'MASS', 1.5, 1, 'Both', '3025'),
+  // Pintle turret (small support vehicles): a twentieth of the weapons it carries; 1,000 C-bills per ton.
+  misc('pintle-turret', 'Pintle Turret', 0, 1, 'Both', '3025', { variableWeight: 'pintleTurret', vehicleOnly: true, supportOk: true }),
   // 'Mech turrets (Tactical Operations): a tenth of the turret-mounted equipment's weight; 10,000 C-bills per ton.
   misc('mech-turret-head', 'Head Turret', 0, 1, 'Both', '3025', { variableWeight: 'mechTurret', allowedLocations: ['CT'] }),
   misc('mech-turret-shoulder', 'Shoulder Turret', 0, 1, 'Both', '3025', { variableWeight: 'mechTurret', allowedLocations: ['LT', 'RT'] }),

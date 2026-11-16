@@ -4,6 +4,7 @@ import type { EraId } from './eras';
 import { isAvailableIn } from './eras';
 import { EXTRA_EQUIPMENT, EXTRA_WEAPONS } from './extraWeapons';
 import { engineWeight, jumpJetWeight, mascWeight } from './tables';
+import { SV_INFANTRY_WEAPONS } from './svWeapons';
 
 export type EquipmentCategory = 'Energy' | 'Ballistic' | 'Missile' | 'Ammo' | 'Physical' | 'Capital' | 'Other' | 'Utility';
 
@@ -39,7 +40,7 @@ export interface Equipment {
   allowedLocations?: readonly Location[];
   isWeapon: boolean;
   /** Weight (and for MASC / targeting computers, slots) depends on the mech. */
-  variableWeight?: 'jumpJet' | 'improvedJumpJet' | 'masc' | 'supercharger' | 'targetingComputer' | 'aes' | 'partialWing' | 'droneOS' | 'tracks' | 'wheels' | 'vehicleJumpJet' | 'vesselFormula' | 'boobyTrap' | 'srcs' | 'mechTurret';
+  variableWeight?: 'jumpJet' | 'improvedJumpJet' | 'masc' | 'supercharger' | 'targetingComputer' | 'aes' | 'partialWing' | 'droneOS' | 'tracks' | 'wheels' | 'vehicleJumpJet' | 'vesselFormula' | 'boobyTrap' | 'srcs' | 'mechTurret' | 'pintleTurret';
   /** Combat vehicle chassis modification: weighs this share of the tonnage (Clan share if given). */
   vehicleChassisMod?: { share: number; clan?: number };
   /** Systems spread one piece per location (added and removed as a set). */
@@ -48,6 +49,8 @@ export interface Equipment {
   artemisCapable?: boolean;
   /** Ammo bins: Artemis IV-capable ammunition. */
   artemisAmmo?: boolean;
+  /** An infantry weapon mounted on a support vehicle (clips of ammunition instead of tons). */
+  infantryWeapon?: boolean;
   /** Ammo bins: flak autocannon ammunition (costs half as much again). */
   flakAmmo?: boolean;
   /** Ammo bins: Artemis V-capable ammunition. */
@@ -839,7 +842,8 @@ for (const [m, t, bv, cost] of [['Barracuda', 30, 65, 8000], ['White Shark', 40,
 
 export const ALL_EQUIPMENT: readonly Equipment[] = [...WEAPONS, ...AMMO, ...OTHER_EQUIPMENT, ...UTILITY_EQUIPMENT, ...CAPITAL_EQUIPMENT, ...EXTRA_EQUIPMENT];
 
-const BY_ID = new Map(ALL_EQUIPMENT.map((e) => [e.id, e]));
+// Support vehicle infantry weapons resolve by id but stay out of the shared catalog.
+const BY_ID = new Map([...ALL_EQUIPMENT, ...SV_INFANTRY_WEAPONS].map((e) => [e.id, e]));
 const AMMO_FED = new Set(AMMO.map((a) => a.ammoFor));
 
 /** Weapons that need ammunition (anything some ammo bin feeds). */
