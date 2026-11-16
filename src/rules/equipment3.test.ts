@@ -141,3 +141,32 @@ describe("'Mech turrets", () => {
     expect(mechCost(stiletto).total).toBe(4290660);
   });
 });
+
+describe('compact heat sinks, super-cooled myomer, prototype armor and jump jets, VR pod, override kit', () => {
+  const get = (n: string) => decodeMech(canon.find((e) => e.n === n)!.d);
+  it('compact heat sinks: twice as many in the engine, two per slot outside, 1.5 t each (MegaMek cost)', () => {
+    const wasp = get('Wasp WSP-3X');
+    expect(wasp.compactHeatSinks).toBe(true);
+    const s = computeMech(wasp);
+    expect(s.heatSinks.engineCapacity).toBe(8);
+    expect(wasp.equipment.filter((e) => e.equipmentId === 'compact-heat-sink-pair').length).toBe(1);
+    expect(s.weights.total).toBe(20);
+    expect(mechCost(wasp).total).toBe(4757040);
+  });
+  it('super-cooled myomer removes movement heat; RISC kit and VR pod scale BV', () => {
+    const emperor = get('Emperor EMP-6X');
+    expect(emperor.myomer).toBe('super-cooled');
+    expect(computeMech(emperor).heat.running).toBe(0);
+    expect(mechBV(emperor).total).toBe(3114);
+    expect(canon.some((e) => /"vrrp"/.test(JSON.stringify(e.d)))).toBe(true);
+  });
+  it('prototype ferro-fibrous and prototype improved jump jets match MegaMek', () => {
+    const knight = get('Black Knight BL-6-KNT (Ian)');
+    expect(knight.armorType).toBe('ferro-prototype');
+    expect(mechBV(knight).total).toBe(1861);
+    const griffin = get('Super-Griffin GRF-2N-X');
+    expect(griffin.jumpJetType).toBe('prototype-improved');
+    expect(computeMech(griffin).heat.jumping).toBe(12);
+    expect(mechBV(griffin).total).toBe(1269);
+  });
+});

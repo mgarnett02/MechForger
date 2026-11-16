@@ -12,13 +12,13 @@ import {
 } from './equipment';
 import { configurationDesigns, isFixedOnly } from './omni';
 import { getEra, isAvailableIn } from './eras';
-import { SPLIT_ADJACENT, TECH_BASE_NAMES, armorTypeAt, armorTypesUsed, isIndustrial, isPatchwork, isPrimitive, techOf } from './types';
+import { SPLIT_ADJACENT, TECH_BASE_NAMES, isTorsoCockpit, armorTypeAt, armorTypesUsed, isIndustrial, isPatchwork, isPrimitive, techOf } from './types';
 import type { TechBase } from './types';
 import { canSplit, tsmSlots } from './edit';
 import type { ComponentOption } from './tables';
 import {
   ARMOR_OPTIONS, COCKPIT_OPTIONS, ENGINE_OPTIONS, GYRO_OPTIONS, HEAT_SINK_OPTIONS, JUMP_JET_OPTIONS,
-  MYOMER_OPTIONS, STRUCTURE_OPTIONS, ARMOR_NAMES, STRUCTURE_NAMES, armorSlots, componentEraOk, patchworkSlots, componentTechOk, structureSlots,
+  COMPACT_HS_OPTION, MYOMER_OPTIONS, STRUCTURE_OPTIONS, ARMOR_NAMES, STRUCTURE_NAMES, armorSlots, componentEraOk, patchworkSlots, componentTechOk, structureSlots,
 } from './tables';
 import { armorPointsForTons } from './armor';
 import { locationArmor } from './armor';
@@ -157,7 +157,12 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
     error(`The engine can hold only ${hs.engineCapacity} heat sinks (has ${design.engineHeatSinks}).`);
   }
   const hsId = heatSinkIdFor(design);
-  const wrongHS = design.equipment.filter((e) => HEAT_SINK_IDS.includes(e.equipmentId) && e.equipmentId !== hsId);
+  const wrongHS = design.equipment.filter((e) => HEAT_SINK_IDS.includes(e.equipmentId) && e.equipmentId !== hsId
+    && !(hsId === 'compact-heat-sink' && e.equipmentId === 'compact-heat-sink-pair'));
+  if (design.compactHeatSinks && (design.heatSinkType !== 'single' || techOf(design, 'heatSinks') === 'Clan')) {
+    error('Compact heat sinks are Inner Sphere single-type heat sinks.');
+  }
+  if (design.compactHeatSinks && !componentEraOk(COMPACT_HS_OPTION, design.era)) error('Compact heat sinks are available from 3058 (Clan Invasion era).');
   if (wrongHS.length) {
     error(`Single and double heat sinks cannot be mixed (${wrongHS.length} heat sink(s) do not match the chosen type).`);
   }
@@ -174,7 +179,8 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
       error('IndustrialMechs can only use standard fusion, fission, fuel cell or internal combustion engines.');
     }
     if (design.gyroType !== 'standard') error('IndustrialMechs can only mount standard gyros.');
-    if (design.jumpJetType === 'improved') error('IndustrialMechs can only mount standard (or prototype) jump jets.');
+    if (design.jumpJetType === 'improved' || design.jumpJetType === 'prototype-improved') error('IndustrialMechs can only mount standard (or prototype) jump jets.');
+    if (design.myomer === 'super-cooled') error('IndustrialMechs cannot mount super-cooled myomer.');
     if (design.heatSinkType !== 'single') error('IndustrialMechs may only mount standard single heat sinks.');
     if (design.myomer === 'tsm') error('IndustrialMechs use Industrial TSM, not combat Triple-Strength Myomer.');
     if (design.cockpitType === 'industrial' && design.equipment.some((e) => /^(c3|improved-c3)/.test(e.equipmentId))) {
@@ -210,7 +216,7 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
     if (armoredItems.length || armoredSystems) error("Superheavy 'Mechs cannot have armored components.");
     if (design.lam) error("Superheavy 'Mechs cannot be Land-Air 'Mechs.");
     if (isQuadVee(design)) error('QuadVees cannot be built as superheavies.');
-    if (design.myomer !== 'standard') error("Superheavy 'Mechs cannot mount Triple-Strength Myomer.");
+    if (design.myomer !== 'standard') error(`Superheavy 'Mechs cannot mount ${design.myomer === 'super-cooled' ? 'super-cooled myomer' : 'Triple-Strength Myomer'}.`);
     if (['endo-prototype', 'reinforced'].includes(design.structureType)) error(`Superheavy 'Mechs cannot use ${STRUCTURE_NAMES[design.structureType]} structure.`);
     if (!['standard', 'industrial', 'command-console'].includes(design.cockpitType) && !(isTripod(design) && design.cockpitType === 'standard')) {
       error("Superheavy 'Mechs use a superheavy cockpit (standard, industrial or command console).");
@@ -241,7 +247,7 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
   }
 
   // Jump jets
-  if (design.jumpJetType === 'improved') {
+  if (design.jumpJetType === 'improved' || design.jumpJetType === 'prototype-improved') {
     if (summary.jumpMP > summary.runMP) {
       error(`Jumping MP (${summary.jumpMP}) cannot exceed running MP (${summary.runMP}) with improved jump jets.`);
     }
@@ -289,11 +295,11 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
   }
 
   // Cockpits
-  if (design.cockpitType === 'torso-mounted') {
+  if (isTorsoCockpit(design)) {
     const coreSlots = engineCenterSlots(design.engineType, sh, isLargeEngine(summary.rating)) + gyroSlots(design.gyroType);
     if (coreSlots > 10) error('A torso-mounted cockpit needs two free center-torso slots (not possible with this engine and gyro).');
   }
-  if (design.fullHeadEjection && (design.cockpitType === 'torso-mounted' || design.cockpitType === 'command-console')) {
+  if (design.fullHeadEjection && (isTorsoCockpit(design) || design.cockpitType === 'command-console')) {
     error('A full head ejection system cannot be combined with a torso-mounted cockpit or command console.');
   }
   if (design.cockpitType === 'command-console' && design.tonnage < 60) {
@@ -324,7 +330,7 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
   const nTurret = (id: string, loc?: string) => turretItems.filter((e) => e.equipmentId === id && (!loc || e.location === loc)).length;
   if (nTurret('mech-turret-shoulder') && isQuad(design)) error("Quad 'Mechs can't mount shoulder turrets.");
   if (nTurret('mech-turret-quad') && !isQuad(design)) error("Only quad 'Mechs can mount a quad turret.");
-  if (nTurret('mech-turret-head') && design.cockpitType !== 'torso-mounted') error('A head turret needs a torso-mounted cockpit.');
+  if (nTurret('mech-turret-head') && !isTorsoCockpit(design)) error('A head turret needs a torso-mounted cockpit.');
   if (nTurret('mech-turret-head') > 1 || nTurret('mech-turret-quad') > 1) error("A 'Mech mounts at most one head turret and one quad turret.");
   if (nTurret('mech-turret-shoulder', 'LT') > 1 || nTurret('mech-turret-shoulder', 'RT') > 1) error('At most one shoulder turret per side torso.');
   const turretLocs = new Set(turretItems.map((e) => mechTurretLocation(e.equipmentId, e.location)));
@@ -414,7 +420,8 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
   const fillerCheck: [string, number, string][] = [
     [ENDO_STEEL_ID, structureSlots(design.structureType, techOf(design, 'structure'), isSuperheavy(design)), STRUCTURE_NAMES[design.structureType]],
     [FERRO_FIBROUS_ID, isPatchwork(design) ? 0 : armorSlots(design.armorType, techOf(design, 'armor'), isSuperheavy(design)), `${ARMOR_NAMES[design.armorType]} armor`],
-    [TSM_ID, tsmSlots(design.myomer), design.myomer === 'industrial-tsm' ? 'Industrial TSM' : 'Triple-Strength Myomer'],
+    [TSM_ID, isSuperheavy(design) ? Math.ceil(tsmSlots(design.myomer) / 2) : tsmSlots(design.myomer),
+      design.myomer === 'industrial-tsm' ? 'Industrial TSM' : design.myomer === 'super-cooled' ? 'Super-Cooled Myomer' : 'Triple-Strength Myomer'],
   ];
   for (const [id, required, name] of fillerCheck) {
     const have = design.equipment.filter((e) => e.equipmentId === id).length;

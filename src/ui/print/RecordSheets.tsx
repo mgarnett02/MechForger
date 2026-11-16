@@ -203,7 +203,7 @@ export function MechRecordSheet({ design }: { design: MechDesign }) {
   const s = computeMech(design);
   const data = mechSheetData(design);
   const config = activeConfigName(design);
-  const hsType = design.heatSinkType === 'double' ? (design.laserHeatSinks ? 'Laser' : 'Double') : 'Single';
+  const hsType = design.heatSinkType === 'double' ? (design.laserHeatSinks ? 'Laser' : 'Double') : design.compactHeatSinks ? 'Compact' : 'Single';
   const engine = ENGINE_NAMES[design.engineType];
   const name = `${design.chassis} ${design.model}`.trim() || 'Unnamed';
   const structure = s.structure ?? { HD: 0, CT: 0, LT: 0, RT: 0, LA: 0, RA: 0, LL: 0, RL: 0, CL: 0 };

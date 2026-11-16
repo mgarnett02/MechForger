@@ -51,12 +51,12 @@ export function technicalReadout(design: MechDesign, summary: MechSummary = comp
     lines.push(`    AirMech MP: ${a.walk}/${a.run} ground, ${a.cruise}/${a.flank} flight`);
   }
   if (s.lam) lines.push(`    Fighter thrust: ${s.lam.fighter.safe} safe / ${s.lam.fighter.max} max`);
-  const hsLabel = design.heatSinkType === 'double' ? (design.laserHeatSinks ? ' Laser' : ' Double') : '';
+  const hsLabel = design.heatSinkType === 'double' ? (design.laserHeatSinks ? ' Laser' : ' Double') : design.compactHeatSinks ? ' Compact' : '';
   lines.push(row(`Heat Sinks:${hsLabel} ${s.heatSinks.total} [${s.heatSinks.dissipation}]`, s.weights.heatSinks));
   const gyroName = { standard: '', xl: ' XL', 'heavy-duty': ' Heavy-Duty', compact: ' Compact', none: ' None', superheavy: ' Superheavy' }[design.gyroType];
   lines.push(row(`Gyro:${gyroName}`, s.weights.gyro));
   const special = EFFECTIVE_COCKPIT_NAMES[effectiveCockpit(design)];
-  const cockpitName = special ? ` ${special}` : { standard: '', small: ' Small', 'torso-mounted': ' Torso-Mounted', 'command-console': ' Command Console', industrial: ' Industrial (no AFC)', primitive: ' Primitive', 'primitive-industrial': ' Primitive Industrial (no AFC)', interface: ' Interface' }[design.cockpitType];
+  const cockpitName = special ? ` ${special}` : { standard: '', small: ' Small', 'torso-mounted': ' Torso-Mounted', vrrp: ' Virtual-Reality Piloting Pod', 'command-console': ' Command Console', industrial: ' Industrial (no AFC)', primitive: ' Primitive', 'primitive-industrial': ' Primitive Industrial (no AFC)', interface: ' Interface' }[design.cockpitType];
   lines.push(row(`Cockpit:${cockpitName}`, s.weights.cockpit));
   if (s.weights.conversion) lines.push(row(`${isQuadVee(design) ? 'QuadVee' : 'LAM'} Conversion Equipment:`, s.weights.conversion));
   if (s.weights.armored) {
@@ -139,7 +139,7 @@ export function technicalReadout(design: MechDesign, summary: MechSummary = comp
   if (jj.length) {
     const locs = [...new Set(jj.map((e) => (e.location ? locationAbbr(design, e.location) : '—')))].join('/');
     const tons = (s.weights.jumpJets / Math.max(1, s.jumpMP)) * jj.length;
-    lines.push(`${(design.jumpJetType === 'improved' ? 'Improved Jump Jets' : design.jumpJetType === 'prototype' ? 'Prototype Jump Jets' : 'Jump Jets').padEnd(nameWidth)}${locs.padEnd(6)}${String(jj.length).padEnd(6)}${t(tons)}`);
+    lines.push(`${(design.jumpJetType === 'improved' ? 'Improved Jump Jets' : design.jumpJetType === 'prototype' ? 'Prototype Jump Jets' : design.jumpJetType === 'prototype-improved' ? 'Prototype Improved JJs' : 'Jump Jets').padEnd(nameWidth)}${locs.padEnd(6)}${String(jj.length).padEnd(6)}${t(tons)}`);
   }
   const hs = items.filter((e) => getEquipment(e.equipmentId)?.id.includes('heat-sink'));
   if (hs.length && design.omni) {

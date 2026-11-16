@@ -8,7 +8,7 @@ import {
   FREE_HEAT_SINKS, armorPointsPerTon, armorSlots, engineHeatSinkCapacity, maxWalkMP, structureSlots,
 } from './tables';
 import {
-  ENDO_STEEL_ID, ENV_SEAL_ID, FERRO_FIBROUS_ID, HEAT_SINK_IDS, JUMP_JET_IDS, TSM_ID, allowedLocations,
+  COMPACT_HEAT_SINK_ID, COMPACT_HEAT_SINK_PAIR_ID, ENDO_STEEL_ID, ENV_SEAL_ID, FERRO_FIBROUS_ID, HEAT_SINK_IDS, heatSinkUnits, JUMP_JET_IDS, TSM_ID, allowedLocations,
   canRearMount, getEquipment, heatSinkIdFor, mechTurretLocation, itemSlots, jumpJetIdFor, spreadLocations,
 } from './equipment';
 import { isFixedOnly } from './omni';
@@ -57,7 +57,7 @@ export function newDesign(era: EraId = DEFAULT_ERA, techBase: TechBase = 'IS'): 
 }
 
 function totalHeatSinks(d: MechDesign): number {
-  return d.engineHeatSinks + d.equipment.filter((e) => HEAT_SINK_IDS.includes(e.equipmentId)).length;
+  return d.engineHeatSinks + d.equipment.reduce((a, e) => a + heatSinkUnits(e.equipmentId), 0);
 }
 
 /** Make the number of `equipmentId` items equal `count`, removing unallocated ones first. */
@@ -82,9 +82,20 @@ function syncCount(d: MechDesign, equipmentId: string, count: number): MechDesig
 
 /** Keep total heat sinks constant while respecting the engine's capacity. */
 function refitHeatSinks(d: MechDesign, total: number, preferredInEngine: number): MechDesign {
-  const cap = engineHeatSinkCapacity(engineRatingFor(d));
+  const cap = engineHsCapacity(d);
   const inEngine = Math.max(0, Math.min(preferredInEngine, cap, total));
-  return syncCount({ ...d, engineHeatSinks: inEngine }, heatSinkIdFor(d), total - inEngine);
+  const external = total - inEngine;
+  // Compact heat sinks outside the engine go two to a slot, with a single one for an odd count.
+  if (d.compactHeatSinks && d.heatSinkType === 'single') {
+    const withPairs = syncCount({ ...d, engineHeatSinks: inEngine }, COMPACT_HEAT_SINK_PAIR_ID, Math.floor(external / 2));
+    return syncCount(withPairs, COMPACT_HEAT_SINK_ID, external % 2);
+  }
+  return syncCount({ ...d, engineHeatSinks: inEngine }, heatSinkIdFor(d), external);
+}
+
+/** Heat sinks the engine holds (twice as many compact heat sinks). */
+export function engineHsCapacity(d: MechDesign): number {
+  return engineHeatSinkCapacity(engineRatingFor(d)) * (d.compactHeatSinks && d.heatSinkType === 'single' ? 2 : 1);
 }
 
 export function setHeatSinkTotal(d: MechDesign, total: number): MechDesign {
@@ -127,7 +138,7 @@ export function setWalkMP(d: MechDesign, walkMP: number): MechDesign {
   const w = Math.max(1, Math.min(Math.floor(walkMP), maxWalkMP(d.tonnage)));
   const next = { ...d, walkMP: w };
   // If the bigger engine gained room, move heat sinks inside; if it shrank, push them out.
-  const prevCap = engineHeatSinkCapacity(engineRatingFor(d));
+  const prevCap = engineHsCapacity(d);
   const wasFull = d.engineHeatSinks >= prevCap;
   const preferred = wasFull ? Number.MAX_SAFE_INTEGER : d.engineHeatSinks;
   return refitHeatSinks(next, totalHeatSinks(d), preferred);
@@ -365,6 +376,16 @@ export function setItemTurret(d: MechDesign, uid: string, turret: boolean): Mech
 /** Swap every heat sink to the id matching the design's type/tech base (unplacing resized ones). */
 function normalizeHeatSinks(d: MechDesign): MechDesign {
   const id = heatSinkIdFor(d);
+  // Switching to or from compact heat sinks regroups them (pairs share a slot) rather than renaming each.
+  const compactNow = id === COMPACT_HEAT_SINK_ID;
+  const hasCompact = d.equipment.some((e) => e.equipmentId === COMPACT_HEAT_SINK_ID || e.equipmentId === COMPACT_HEAT_SINK_PAIR_ID);
+  if (compactNow || hasCompact) {
+    const ok = (x: string) => (compactNow ? x === COMPACT_HEAT_SINK_ID || x === COMPACT_HEAT_SINK_PAIR_ID : x === id);
+    if (d.equipment.every((e) => !HEAT_SINK_IDS.includes(e.equipmentId) || ok(e.equipmentId)) && d.engineHeatSinks <= engineHsCapacity(d)) return d;
+    const total = totalHeatSinks(d);
+    const stripped = { ...d, equipment: d.equipment.filter((e) => !HEAT_SINK_IDS.includes(e.equipmentId)) };
+    return refitHeatSinks(stripped, total, d.engineHeatSinks);
+  }
   return {
     ...d,
     equipment: d.equipment.map((e) =>
@@ -380,14 +401,14 @@ function syncFillers(d: MechDesign): MechDesign {
   const sh = isSuperheavy(d);
   const withEndo = syncCount(d, ENDO_STEEL_ID, structureSlots(d.structureType, techOf(d, 'structure'), sh));
   const withFerro = syncCount(withEndo, FERRO_FIBROUS_ID, isPatchwork(d) ? 0 : armorSlots(d.armorType, techOf(d, 'armor'), sh));
-  const withTsm = syncCount(withFerro, TSM_ID, tsmSlots(d.myomer));
+  const withTsm = syncCount(withFerro, TSM_ID, sh ? Math.ceil(tsmSlots(d.myomer) / 2) : tsmSlots(d.myomer));
   return syncCount(withTsm, ENV_SEAL_ID, d.environmentalSealing ? 8 : 0);
 }
 
 /** Triple-Strength Myomer occupies 6 critical slots spread over the mech. */
 export const TSM_SLOTS = 6;
 /** Myomer slots spread over the mech: TSM 6, Industrial TSM 12. */
-export const tsmSlots = (m: MyomerType) => (m === 'tsm' ? TSM_SLOTS : m === 'industrial-tsm' ? 12 : 0);
+export const tsmSlots = (m: MyomerType) => (m === 'tsm' || m === 'super-cooled' ? TSM_SLOTS : m === 'industrial-tsm' ? 12 : 0);
 
 export function setEnvironmentalSealing(d: MechDesign, on: boolean): MechDesign {
   return syncFillers({ ...d, environmentalSealing: on || undefined });
@@ -479,7 +500,17 @@ export function setCockpitType(d: MechDesign, cockpitType: CockpitType): MechDes
 }
 
 export function setHeatSinkType(d: MechDesign, heatSinkType: HeatSinkType): MechDesign {
-  return normalizeHeatSinks({ ...d, heatSinkType });
+  const next: MechDesign = { ...d, heatSinkType };
+  delete next.compactHeatSinks;
+  return normalizeHeatSinks(next);
+}
+
+/** Compact heat sinks (single heat sinks, two per slot, twice as many in the engine). */
+export function setCompactHeatSinks(d: MechDesign, on: boolean): MechDesign {
+  const next: MechDesign = { ...d, heatSinkType: 'single', ...(on ? { compactHeatSinks: true } : {}) };
+  if (!on) delete next.compactHeatSinks;
+  delete next.laserHeatSinks;
+  return normalizeHeatSinks(next);
 }
 
 const PLACE_ORDER: Location[] = ['LT', 'RT', 'CT', 'LA', 'RA', 'LL', 'RL', 'HD'];
@@ -559,7 +590,7 @@ export function parseDesign(raw: unknown): MechDesign {
         pod: Array.isArray(c?.pod) ? parseItems(c.pod).map((p) => ({ ...p, pod: true })) : [],
         ...(ca && typeof ca === 'object' ? { actuators: { LA: arm(ca.LA), RA: arm(ca.RA) } } : {}),
         ...(typeof c?.mixedTech === 'boolean' ? { mixedTech: c.mixedTech } : {}),
-        ...(c?.jumpJetType === 'standard' || c?.jumpJetType === 'improved' || c?.jumpJetType === 'prototype' ? { jumpJetType: c.jumpJetType as JumpJetType } : {}),
+        ...(c?.jumpJetType === 'standard' || c?.jumpJetType === 'improved' || c?.jumpJetType === 'prototype' || c?.jumpJetType === 'prototype-improved' ? { jumpJetType: c.jumpJetType as JumpJetType } : {}),
       };
     });
     const active = typeof o.active === 'number' && configurations[o.active] ? o.active : 0;
@@ -574,7 +605,7 @@ export function parseDesign(raw: unknown): MechDesign {
     structureType: pick(r.structureType, Object.keys(STRUCTURE_OPTIONS) as StructureType[], 'standard'),
     engineType: pick(r.engineType, Object.keys(ENGINE_OPTIONS) as EngineType[], 'standard'),
     gyroType: pick(r.gyroType, Object.keys(GYRO_OPTIONS) as GyroType[], 'standard'),
-    jumpJetType: pick(r.jumpJetType, ['standard', 'improved', 'prototype'] as const, 'standard'),
+    jumpJetType: pick(r.jumpJetType, ['standard', 'improved', 'prototype', 'prototype-improved'] as const, 'standard'),
     cockpitType: pick(r.cockpitType, Object.keys(COCKPIT_OPTIONS) as CockpitType[], 'standard'),
     heatSinkType: pick(r.heatSinkType, ['single', 'double'] as const, 'single'),
     armorType: pick(r.armorType, Object.keys(ARMOR_OPTIONS) as ArmorType[], 'standard'),

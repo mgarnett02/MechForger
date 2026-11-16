@@ -184,22 +184,25 @@ export const TECH_BASE_NAMES: Record<TechBase, string> = { IS: 'Inner Sphere', C
 export type StructureType = 'standard' | 'endo-steel' | 'endo-prototype' | 'endo-composite' | 'composite' | 'reinforced' | 'industrial';
 export type EngineType = 'standard' | 'xl' | 'xxl' | 'light' | 'compact' | 'ice' | 'fuel-cell' | 'fission';
 export type GyroType = 'standard' | 'xl' | 'heavy-duty' | 'compact' | 'none' | 'superheavy';
-export type JumpJetType = 'standard' | 'improved' | 'prototype';
+export type JumpJetType = 'standard' | 'improved' | 'prototype' | 'prototype-improved';
 /** Cockpits shared with fighters. */
 export type BasicCockpitType = 'standard' | 'small';
 /** 'industrial': an IndustrialMech cockpit without advanced fire control (a standard cockpit on an IndustrialMech has it). */
-export type CockpitType = BasicCockpitType | 'command-console' | 'torso-mounted' | 'industrial' | 'primitive' | 'primitive-industrial' | 'interface';
+export type CockpitType = BasicCockpitType | 'command-console' | 'torso-mounted' | 'industrial' | 'primitive' | 'primitive-industrial' | 'interface' | 'vrrp';
+
+/** Torso-mounted cockpits and the virtual-reality piloting pod built on one (IO:AE p.63). */
+export const isTorsoCockpit = (d: { cockpitType: CockpitType }) => d.cockpitType === 'torso-mounted' || d.cockpitType === 'vrrp';
 export type HeatSinkType = 'single' | 'double';
 /** Armor types shared by vehicles and fighters. */
 export type BasicArmorType = 'standard' | 'ferro-fibrous' | 'light-ferro' | 'heavy-ferro';
 /** Structure types shared by vehicles. */
 export type BasicStructureType = 'standard' | 'endo-steel';
 export type ArmorType =
-  | 'standard' | 'ferro-fibrous' | 'light-ferro' | 'heavy-ferro' | 'primitive'
+  | 'standard' | 'ferro-fibrous' | 'light-ferro' | 'heavy-ferro' | 'primitive' | 'ferro-prototype'
   | 'stealth' | 'reactive' | 'reflective' | 'hardened' | 'ferro-lamellor'
   | 'ballistic-reinforced' | 'anti-penetrative' | 'heat-dissipating' | 'impact-resistant'
   | 'commercial' | 'industrial' | 'heavy-industrial';
-export type MyomerType = 'standard' | 'tsm' | 'industrial-tsm';
+export type MyomerType = 'standard' | 'tsm' | 'industrial-tsm' | 'super-cooled';
 
 export interface MechDesign {
   /** Master Unit List id, for designs loaded from the canon list. */
@@ -232,6 +235,10 @@ export interface MechDesign {
   environmentalSealing?: boolean;
   /** Clan laser heat sinks in place of double heat sinks (same weight, slots and dissipation). */
   laserHeatSinks?: boolean;
+  /** RISC heat sink override kit (BV ×1.01, as MegaMek). */
+  heatSinkOverrideKit?: boolean;
+  /** Compact heat sinks (with single heat sinks): 1.5 t each, two per slot, twice as many fit in the engine. */
+  compactHeatSinks?: boolean;
   /**
    * Mixed tech: the tech base of individual components when it differs from the chassis
    * (e.g. Clan double heat sinks or Clan ferro-fibrous armor on an Inner Sphere chassis).

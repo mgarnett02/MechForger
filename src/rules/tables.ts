@@ -98,6 +98,7 @@ export function gyroWeight(rating: number): number {
 /** Weight per standard jump jet. */
 /** Improved jump jets weigh and occupy twice as much as standard ones. */
 export function jumpJetWeightFor(type: JumpJetType, tonnage: number): number {
+  // Prototype improved jump jets weigh as standard ones (MegaMek).
   return jumpJetWeight(tonnage) * (type === 'improved' ? 2 : 1);
 }
 
@@ -222,7 +223,7 @@ export function gyroSlots(type: GyroType): number {
 /** Cockpit weight: small 2, standard 3, torso-mounted 4, command console 6 (cockpit plus console); superheavy, tripod and QuadVee cockpits as MegaMek. */
 export function cockpitWeight(type: EffectiveCockpit): number {
   return {
-    small: 2, standard: COCKPIT_WEIGHT, 'torso-mounted': 4, 'command-console': 6, industrial: COCKPIT_WEIGHT, primitive: 5,
+    small: 2, standard: COCKPIT_WEIGHT, 'torso-mounted': 4, vrrp: 3, 'command-console': 6, industrial: COCKPIT_WEIGHT, primitive: 5,
     'primitive-industrial': 5, interface: 4, superheavy: 4, 'superheavy-industrial': 4, 'superheavy-command-console': 7,
     tripod: 4, 'tripod-industrial': 4, 'superheavy-tripod': 5, 'superheavy-tripod-industrial': 5, quadvee: 4,
   }[type];
@@ -265,6 +266,7 @@ function baseArmorSlots(type: ArmorType, techBase: TechBase): number {
   const clan = techBase === 'Clan';
   switch (type) {
     case 'ferro-fibrous': return clan ? 7 : 14;
+    case 'ferro-prototype': return 16;
     case 'light-ferro': return 7;
     case 'heavy-ferro': return 21;
     case 'reactive': return clan ? 7 : 14;
@@ -286,6 +288,7 @@ function basePatchworkSlots(type: ArmorType, techBase: TechBase): number {
   const clan = techBase === 'Clan';
   switch (type) {
     case 'ferro-fibrous': case 'reactive': case 'reflective': return clan ? 1 : 2;
+    case 'ferro-prototype': return 2;
     case 'light-ferro': case 'heat-dissipating': case 'anti-penetrative': return 1;
     case 'heavy-ferro': return 3;
     case 'stealth': case 'ferro-lamellor': case 'impact-resistant': case 'ballistic-reinforced': return 2;
@@ -294,7 +297,7 @@ function basePatchworkSlots(type: ArmorType, techBase: TechBase): number {
 }
 
 const ARMOR_PPT_MULTIPLIER: Partial<Record<ArmorType, number>> = {
-  'light-ferro': 1.06, 'heavy-ferro': 1.24, hardened: 0.5, 'ferro-lamellor': 0.875, 'ballistic-reinforced': 0.75,
+  'ferro-prototype': 1.12, 'light-ferro': 1.06, 'heavy-ferro': 1.24, hardened: 0.5, 'ferro-lamellor': 0.875, 'ballistic-reinforced': 0.75,
   'anti-penetrative': 0.75, 'heat-dissipating': 0.625, 'impact-resistant': 0.875, commercial: 1.5, industrial: 0.67, primitive: 0.67,
 };
 
@@ -314,7 +317,7 @@ export const ENGINE_NAMES: Record<EngineType, string> = {
   ice: 'I.C.E.', 'fuel-cell': 'Fuel Cell', fission: 'Fission',
 };
 export const ARMOR_NAMES: Record<ArmorType, string> = {
-  standard: 'Standard', 'ferro-fibrous': 'Ferro-Fibrous', 'light-ferro': 'Light Ferro-Fibrous', 'heavy-ferro': 'Heavy Ferro-Fibrous',
+  standard: 'Standard', 'ferro-fibrous': 'Ferro-Fibrous', 'ferro-prototype': 'Ferro-Fibrous Prototype', 'light-ferro': 'Light Ferro-Fibrous', 'heavy-ferro': 'Heavy Ferro-Fibrous',
   stealth: 'Stealth', reactive: 'Reactive', reflective: 'Reflective', hardened: 'Hardened', 'ferro-lamellor': 'Ferro-Lamellor',
   'ballistic-reinforced': 'Ballistic-Reinforced', 'anti-penetrative': 'Anti-Penetrative Ablation',
   'heat-dissipating': 'Heat-Dissipating', 'impact-resistant': 'Impact-Resistant',
@@ -376,6 +379,8 @@ export const COCKPIT_OPTIONS: Record<CockpitType, ComponentOption> = {
   small: opt('Small cockpits', 'Both', '3062', '3081'), // Clan small cockpits from 3080 (as MegaMek)
   'command-console': opt('Command consoles', 'Both', '3025'),
   'torso-mounted': opt('Torso-mounted cockpits', 'Both', '3050'),
+  // Virtual-reality piloting pod (Interstellar Operations, 3052): a torso-mounted cockpit, 3 t, BV ×1.4.
+  vrrp: opt('Virtual-reality piloting pod', 'IS', '3050'),
   industrial: opt('Industrial cockpits', 'Both', '3025'),
   primitive: opt('Primitive cockpits', 'IS', '3025'),
   interface: opt('Interface cockpits', 'Both', '3068'),
@@ -388,6 +393,8 @@ export const HEAT_SINK_OPTIONS: Record<HeatSinkType, ComponentOption> = {
 export const ARMOR_OPTIONS: Record<ArmorType, ComponentOption> = {
   standard: opt('Standard armor', 'Both', '3025'),
   'ferro-fibrous': opt('Ferro-Fibrous armor', 'Both', '3050'),
+  // Prototype ferro-fibrous (2557; extinct, reintroduced 3034): 16 slots, ×1.12 points per ton.
+  'ferro-prototype': opt('Ferro-Fibrous Prototype armor', 'IS', '3025'),
   'light-ferro': opt('Light Ferro-Fibrous armor', 'IS', '3062'),
   'heavy-ferro': opt('Heavy Ferro-Fibrous armor', 'IS', '3068'),
   stealth: opt('Stealth armor', 'IS', '3050'),
@@ -410,6 +417,8 @@ export const JUMP_JET_OPTIONS: Record<JumpJetType, ComponentOption> = {
   improved: opt('Improved jump jets', 'Both', '3068', '3050'),
   // Prototype jump jets (2464, extinct by 2471): built as standard jets; +3 to the landing piloting roll.
   prototype: opt('Prototype jump jets', 'Both', '3025'),
+  // Prototype improved jump jets (3020; extinct 3069): standard weight, 1 slot, jump to running MP, heat 2 per MP (min 6).
+  'prototype-improved': opt('Prototype improved jump jets', 'IS', '3025'),
 };
 /** Large engines (rated over 400; Tactical Operations). Compact, fuel cell and fission engines have no large version. */
 export const LARGE_ENGINE_OPTION = opt('Large engines', 'Both', '3068');
@@ -420,10 +429,15 @@ export const SUPERHEAVY_INDUSTRIAL_OPTION = opt('Superheavy IndustrialMechs', 'I
 export const TRIPOD_OPTION = opt('Tripod \'Mechs', 'IS', '3025');
 export const QUADVEE_OPTION = opt('QuadVees', 'Clan', '3131');
 
+/** Compact heat sinks (Inner Sphere, 3058). */
+export const COMPACT_HS_OPTION: ComponentOption = opt('Compact heat sinks', 'IS', '3050');
+
 export const MYOMER_OPTIONS: Record<MyomerType, ComponentOption> = {
   standard: opt('Standard myomer', 'Both', '3025'),
   tsm: opt('Triple-Strength Myomer', 'IS', '3050'),
   'industrial-tsm': opt('Industrial Triple-Strength Myomer', 'IS', '3025'),
+  // RISC super-cooled myomer (3133): 6 slots, no movement heat.
+  'super-cooled': opt('Super-Cooled Myomer', 'IS', '3131'),
 };
 
 export function componentFirstEra(o: ComponentOption, techBase: TechBase = 'IS'): EraId {

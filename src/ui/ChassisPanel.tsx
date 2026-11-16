@@ -4,7 +4,7 @@ import type {
 import { EFFECTIVE_COCKPIT_NAMES, effectiveCockpit, isIndustrial, isQuadVee, isSuperheavy, isTripod } from '../rules/types';
 import type { ComponentOption } from '../rules/tables';
 import {
-  COCKPIT_OPTIONS, ENGINE_OPTIONS, GYRO_OPTIONS, HEAT_SINK_OPTIONS, JUMP_JET_OPTIONS, MYOMER_OPTIONS,
+  COCKPIT_OPTIONS, COMPACT_HS_OPTION, ENGINE_OPTIONS, GYRO_OPTIONS, HEAT_SINK_OPTIONS, JUMP_JET_OPTIONS, MYOMER_OPTIONS,
   STRUCTURE_NAMES, STRUCTURE_OPTIONS, componentAvailable, structureSlots, componentEraOk, componentFirstEra,
 } from '../rules/tables';
 import { ARM_LOCATIONS, LAM_TYPE_NAMES, LOCATION_NAMES, TECH_BASE_NAMES, isQuad, techOf } from '../rules/types';
@@ -14,7 +14,7 @@ import type { MechSummary } from '../rules/construction';
 import { SUPERHEAVY_TONNAGES, TONNAGES, engineSideTorsoSlots, freeHeatSinks, isLargeEngine, maxWalkMP } from '../rules/tables';
 import {
   setActuator, setCockpitType, setConfig, setFullHeadEjection, setLam, setEngineHeatSinks, setEngineType, setGyroType, setHeatSinkTotal,
-  setHeatSinkType, setJumpJetType, setJumpMP, setLaserHeatSinks,
+  setCompactHeatSinks, setHeatSinkType, setJumpJetType, setJumpMP, setLaserHeatSinks,
   setEnvironmentalSealing, setMixedTech, setMyomer, setQuadVeeMotive, setStructureType, setTechBase, setTonnage, setWalkMP,
 } from '../rules/edit';
 import { setOmni } from '../rules/omni';
@@ -44,7 +44,7 @@ export function ChassisPanel({ design, summary, update }: Props) {
   const xlSlots = sideSlots('xl');
   const large = isLargeEngine(summary.rating);
   const specialCockpit = EFFECTIVE_COCKPIT_NAMES[effectiveCockpit(design)];
-  const jumpMax = design.jumpJetType === 'improved' ? summary.runMP : design.walkMP;
+  const jumpMax = design.jumpJetType === 'improved' || design.jumpJetType === 'prototype-improved' ? summary.runMP : design.walkMP;
   /** Whether a construction option can be chosen, and why not when it can't. */
   const ok = (o: ComponentOption) => componentAvailable(o, design.era, design.techBase, design.mixedTech);
   const why = (o: ComponentOption) => {
@@ -204,6 +204,9 @@ export function ChassisPanel({ design, summary, update }: Props) {
               title={isIndustrial(design) ? why(MYOMER_OPTIONS['industrial-tsm']) : 'IndustrialMechs only'}>
               Industrial TSM (12 slots)
             </option>
+            <option value="super-cooled" disabled={!ok(MYOMER_OPTIONS['super-cooled']) || isIndustrial(design)} title="RISC super-cooled myomer: no heat from walking or running">
+              Super-Cooled (6 slots)
+            </option>
           </select>
           {summary.tsmMP && (
             <span className="muted"> {summary.tsmMP.walk}/{summary.tsmMP.run} at 9+ heat</span>
@@ -239,6 +242,9 @@ export function ChassisPanel({ design, summary, update }: Props) {
             <option value="torso-mounted" disabled={!ok(COCKPIT_OPTIONS['torso-mounted'])} title={why(COCKPIT_OPTIONS['torso-mounted'])}>
               Torso-mounted (cockpit in center torso)
             </option>
+            <option value="vrrp" disabled={!ok(COCKPIT_OPTIONS.vrrp)} title="Virtual-reality piloting pod: built like a torso-mounted cockpit (3 t); BV × 1.4">
+              Virtual-reality piloting pod
+            </option>
             <option value="command-console" disabled={!ok(COCKPIT_OPTIONS['command-console'])} title={why(COCKPIT_OPTIONS['command-console'])}>
               Command console (+2 initiative, heavy/assault)
             </option>
@@ -270,6 +276,7 @@ export function ChassisPanel({ design, summary, update }: Props) {
               Improved (up to run MP)
             </option>
             <option value="prototype" disabled={!ok(JUMP_JET_OPTIONS.prototype)} title="Built as standard jump jets; +3 to the landing piloting roll">Prototype</option>
+            <option value="prototype-improved" disabled={!ok(JUMP_JET_OPTIONS['prototype-improved'])} title="Standard weight and slots; jump up to running MP for 2 heat per MP (at least 6)">Prototype improved</option>
           </select>
           <span className="muted"> {summary.weights.jumpJets} t{summary.partialWing?.jumpBonus ? ` · +${summary.partialWing.jumpBonus} partial wing = ${summary.totalJumpMP}` : ''}</span>
         </div>
@@ -279,16 +286,23 @@ export function ChassisPanel({ design, summary, update }: Props) {
           <NumberField label="Total heat sinks" value={hs.total} min={freeHeatSinks(design.engineType)}
             invalid={hs.total < freeHeatSinks(design.engineType)}
             onChange={(n) => update((d) => setHeatSinkTotal(d, n))} />
-          <select aria-label="Heat sink type" value={design.laserHeatSinks ? 'laser' : design.heatSinkType}
+          <select aria-label="Heat sink type" value={design.laserHeatSinks ? 'laser' : design.compactHeatSinks ? 'compact' : design.heatSinkType}
             onChange={(e) => update((d) => e.target.value === 'laser'
               ? setLaserHeatSinks(setHeatSinkType(d, 'double'), true)
+              : e.target.value === 'compact' ? setCompactHeatSinks(d, true)
               : setLaserHeatSinks(setHeatSinkType(d, e.target.value as HeatSinkType), false))}>
             <option value="single">Single</option>
             <option value="double" disabled={!ok(HEAT_SINK_OPTIONS.double)} title={why(HEAT_SINK_OPTIONS.double)}>Double</option>
             <option value="laser" disabled={!ok(HEAT_SINK_OPTIONS.double) || techOf(design, 'heatSinks') !== 'Clan'} title="Clan laser heat sinks: same weight, slots and dissipation as Clan double heat sinks">Laser (Clan)</option>
+            <option value="compact" disabled={!ok(COMPACT_HS_OPTION) || techOf(design, 'heatSinks') === 'Clan'} title="Compact heat sinks: 1.5 t, two per slot, twice as many in the engine (Inner Sphere, 3058)">Compact (IS)</option>
           </select>{' '}
           {design.heatSinkType === 'double' && <TechPicker design={design} part="heatSinks" update={update} />}
           <span className="muted"> {summary.weights.heatSinks} t · dissipates {hs.dissipation}</span>
+          <label className="check small" title="RISC heat sink override kit (Dark Age, Experimental): BV × 1.01">
+            <input type="checkbox" checked={!!design.heatSinkOverrideKit} disabled={!isAvailableIn('3131', design.era) && !design.heatSinkOverrideKit}
+              onChange={(e) => update((d) => ({ ...d, heatSinkOverrideKit: e.target.checked || undefined }))} />
+            Override kit
+          </label>
         </div>
 
         <label>In engine</label>

@@ -270,7 +270,7 @@ export function mechBV(d: MechDesign): BVBreakdown {
 
   // --- Defensive battle rating
   // A torso-mounted cockpit counts the center torso armor twice.
-  const cockpitArmor = d.cockpitType === 'torso-mounted' ? d.armor.CT + d.armor.CTR : 0;
+  const cockpitArmor = d.cockpitType === 'torso-mounted' || d.cockpitType === 'vrrp' ? d.armor.CT + d.armor.CTR : 0;
   // Commercial armor has a barrier armor rating of 5 (half value).
   const bar = d.armorType === 'commercial' ? 0.5 : 1;
   // Modular armor: 10 extra armor points each.
@@ -286,9 +286,10 @@ export function mechBV(d: MechDesign): BVBreakdown {
     return m && e.location ? a + locPoints(d, e.location as Location) * 2.5 * armorMult(d.armorType) * bar * m : a;
   }, 0);
   const isPoints = s.structure ? LOCATIONS.reduce((a, l) => a + s.structure![l], 0) : 0;
-  // Engine multiplier from the side-torso engine slots (as MegaMek): 6+ → 0.25, 3+ → 0.5, 2 → 0.75.
-  const sideSlots = engineSideTorsoSlots(d.engineType, techOf(d, 'engine'));
-  const engineMod = sideSlots >= 6 ? 0.25 : sideSlots >= 3 ? 0.5 : sideSlots === 2 ? 0.75 : 1;
+  // Engine multiplier from the side-torso engine slots (as MegaMek; superheavies have half as many):
+  // 6+ → 0.25, 3+ → 0.5, 2 → 0.75, 1 → 0.825.
+  const sideSlots = engineSideTorsoSlots(d.engineType, techOf(d, 'engine'), isSuperheavy(d));
+  const engineMod = sideSlots >= 6 ? 0.25 : sideSlots >= 3 ? 0.5 : sideSlots === 2 ? 0.75 : sideSlots === 1 ? 0.825 : 1;
   const structureMod = d.structureType === 'composite' || d.structureType === 'industrial' ? 0.5 : d.structureType === 'reinforced' ? 2 : 1;
   const structure = isPoints * 1.5 * structureMod * engineMod;
   const gyro = d.tonnage * (d.gyroType === 'heavy-duty' ? 1 : 0.5);
@@ -404,10 +405,13 @@ export function mechBV(d: MechDesign): BVBreakdown {
   // Small and torso-mounted cockpits cost 5% of the total.
   // (A Drone Operating System also costs 5%; MegaMek applies one 0.95 modifier, not both.)
   const droneOS = d.equipment.some((e) => e.equipmentId === 'drone-os');
-  const cockpitMod = d.cockpitType === 'small' || d.cockpitType === 'torso-mounted' || droneOS ? 0.95 : 1;
-  if (cockpitMod !== 1) lines.push([`× 0.95 ${d.cockpitType === 'small' ? 'small cockpit' : d.cockpitType === 'torso-mounted' ? 'torso-mounted cockpit' : 'drone operating system'}`, cockpitMod]);
+  // A virtual-reality piloting pod multiplies BV by 1.4 (IO:AE p.183); a RISC heat sink override kit by 1.01 (MegaMek).
+  const cockpitMod = d.cockpitType === 'vrrp' ? 1.4 : d.cockpitType === 'small' || d.cockpitType === 'torso-mounted' || droneOS ? 0.95 : 1;
+  if (cockpitMod !== 1) lines.push([`× ${cockpitMod} ${d.cockpitType === 'vrrp' ? 'virtual-reality piloting pod' : d.cockpitType === 'small' ? 'small cockpit' : d.cockpitType === 'torso-mounted' ? 'torso-mounted cockpit' : 'drone operating system'}`, cockpitMod]);
+  const riscKit = d.heatSinkOverrideKit ? 1.01 : 1;
+  if (riscKit !== 1) lines.push(['× 1.01 RISC heat sink override kit', riscKit]);
 
-  return { total: round((defensive + offensive) * cockpitMod), defensive, offensive, lines, approximate: false };
+  return { total: round((defensive + offensive) * cockpitMod * riscKit), defensive, offensive, lines, approximate: false };
 }
 
 const ENGINE_COST: Record<string, number> = {
@@ -415,7 +419,7 @@ const ENGINE_COST: Record<string, number> = {
 };
 const GYRO_COST: Record<string, number> = { standard: 300000, xl: 750000, compact: 400000, 'heavy-duty': 500000, none: 0, superheavy: 500000 };
 const ARMOR_COST: Record<string, number> = {
-  standard: 10000, 'ferro-fibrous': 20000, 'light-ferro': 15000, 'heavy-ferro': 25000, stealth: 50000, reactive: 30000,
+  standard: 10000, 'ferro-fibrous': 20000, 'ferro-prototype': 60000, 'light-ferro': 15000, 'heavy-ferro': 25000, stealth: 50000, reactive: 30000,
   reflective: 30000, hardened: 15000, 'ferro-lamellor': 35000, 'ballistic-reinforced': 25000, 'anti-penetrative': 15000,
   'heat-dissipating': 25000, 'impact-resistant': 20000, commercial: 3000, industrial: 5000, 'heavy-industrial': 10000, primitive: 5000,
 };
@@ -429,7 +433,7 @@ const SUPERHEAVY_STRUCTURE_COST: Record<string, number> = {
 };
 /** Cockpit costs, including the superheavy, tripod and QuadVee cockpits (MegaMek). */
 const COCKPIT_COST: Record<EffectiveCockpit, number> = {
-  standard: 200000, small: 175000, 'torso-mounted': 750000, 'command-console': 700000, industrial: 100000, primitive: 200000,
+  standard: 200000, small: 175000, 'torso-mounted': 750000, vrrp: 1250000, 'command-console': 700000, industrial: 100000, primitive: 200000,
   'primitive-industrial': 100000, interface: 200000, superheavy: 300000, 'superheavy-industrial': 200000,
   'superheavy-command-console': 800000, tripod: 400000, 'tripod-industrial': 300000, 'superheavy-tripod': 500000,
   'superheavy-tripod-industrial': 400000, quadvee: 375000,
@@ -502,14 +506,19 @@ export function mechCost(d: MechDesign): CostBreakdown {
     const act = d.actuators[arm];
     return a + 100 * t + (act.lowerArm ? 50 * t : 0) + (act.lowerArm && act.hand ? 80 * t : 0);
   }, 0);
-  const jumpCost = (d.jumpJetType === 'improved' ? 500 : 200) * t * s.jumpMP ** 2;
+  const jumpCost = (d.jumpJetType === 'improved' ? 500 : 200) * t * s.jumpMP ** 2; // prototype improved: 200 (MegaMek)
   // MegaMek: every double heat sink is paid for; single heat sinks have 10 free (whatever the engine).
-  const hsCost = d.heatSinkType === 'double' ? 6000 * s.heatSinks.total : 2000 * Math.max(0, s.heatSinks.total - 10);
+  // Compact heat sinks (MegaMek): 3,000 each for the sinks themselves, and the heat sink line is charged as
+  // double heat sinks (6,000 each, none free) once a two-sink item is fitted.
+  const compactHS = d.heatSinkType === 'single' && !!d.compactHeatSinks;
+  const compactPair = compactHS && d.equipment.some((e) => e.equipmentId === 'compact-heat-sink-pair');
+  const hsCost = (d.heatSinkType === 'double' || compactPair ? 6000 * s.heatSinks.total : 2000 * Math.max(0, s.heatSinks.total - 10))
+    + (compactHS ? 3000 * s.heatSinks.total : 0);
   const lines: [string, number][] = [
     ['Cockpit', COCKPIT_COST[effectiveCockpit(d)]],
     ['Life support', 50000],
     ['Sensors', 2000 * t],
-    ['Musculature', (d.myomer === 'tsm' ? 16000 : d.myomer === 'industrial-tsm' ? 12000 : sh ? 12000 : 2000) * t],
+    ['Musculature', (d.myomer === 'super-cooled' ? 10000 : d.myomer === 'tsm' ? 16000 : d.myomer === 'industrial-tsm' ? 12000 : sh ? 12000 : 2000) * t],
     // Superheavy structure has its own costs; a tripod's costs 20% more.
     ['Internal structure', ((sh ? SUPERHEAVY_STRUCTURE_COST : STRUCTURE_COST)[d.structureType] ?? 0) * t * (tripod ? 1.2 : 1)],
     // Superheavy actuators cost double.

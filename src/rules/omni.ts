@@ -1,5 +1,5 @@
 import type { MechDesign, MountedItem } from './types';
-import { ARMORED_TONS_PER_SLOT, FILLER_IDS, HEAT_SINK_IDS, getEquipment, itemSlots, itemWeight } from './equipment';
+import { ARMORED_TONS_PER_SLOT, FILLER_IDS, HEAT_SINK_IDS, getEquipment, heatSinkUnits, itemSlots, itemWeight } from './equipment';
 import { freeHeatSinks } from './tables';
 
 /**
@@ -150,18 +150,18 @@ export interface OmniWeights {
  * The 10 free heat sinks are counted against engine and fixed heat sinks first.
  */
 export function omniWeights(d: MechDesign, totalWeight: number): OmniWeights {
-  const fixedHS = d.engineHeatSinks + fixedItems(d).filter((e) => HEAT_SINK_IDS.includes(e.equipmentId)).length;
+  const fixedHS = d.engineHeatSinks + fixedItems(d).reduce((a, e) => a + heatSinkUnits(e.equipmentId), 0);
   const freeLeft = Math.max(0, freeHeatSinks(d.engineType) - fixedHS);
   let podHS = 0;
   let podUsed = 0;
   for (const item of podItems(d)) {
     const eq = getEquipment(item.equipmentId);
     if (!eq) continue;
-    if (HEAT_SINK_IDS.includes(eq.id)) podHS++;
+    if (HEAT_SINK_IDS.includes(eq.id)) podHS += heatSinkUnits(eq.id);
     else podUsed += itemWeight(eq, d);
     if (item.armored) podUsed += ARMORED_TONS_PER_SLOT * itemSlots(eq, d);
   }
-  podUsed += Math.max(0, podHS - freeLeft);
+  podUsed += Math.max(0, podHS - freeLeft) * (d.compactHeatSinks && d.heatSinkType === 'single' ? 1.5 : 1);
   const fixed = totalWeight - podUsed;
   return { fixed, podSpace: d.tonnage - fixed, podUsed };
 }

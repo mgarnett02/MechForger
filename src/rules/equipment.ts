@@ -480,11 +480,16 @@ export const DOUBLE_HEAT_SINK_ID = 'double-heat-sink';
 export const CLAN_DOUBLE_HEAT_SINK_ID = 'clan-double-heat-sink';
 export const CLAN_LASER_HEAT_SINK_ID = 'clan-laser-heat-sink';
 export const PROTOTYPE_DOUBLE_HEAT_SINK_ID = 'prototype-double-heat-sink';
-export const HEAT_SINK_IDS: readonly string[] = [HEAT_SINK_ID, DOUBLE_HEAT_SINK_ID, CLAN_DOUBLE_HEAT_SINK_ID, CLAN_LASER_HEAT_SINK_ID];
+export const COMPACT_HEAT_SINK_ID = 'compact-heat-sink';
+export const COMPACT_HEAT_SINK_PAIR_ID = 'compact-heat-sink-pair';
+export const HEAT_SINK_IDS: readonly string[] = [HEAT_SINK_ID, DOUBLE_HEAT_SINK_ID, CLAN_DOUBLE_HEAT_SINK_ID, CLAN_LASER_HEAT_SINK_ID, COMPACT_HEAT_SINK_ID, COMPACT_HEAT_SINK_PAIR_ID];
+/** Heat sinks an item stands for (a compact pair is two in one slot). */
+export const heatSinkUnits = (id: string) => (id === COMPACT_HEAT_SINK_PAIR_ID ? 2 : HEAT_SINK_IDS.includes(id) ? 1 : 0);
 export const JUMP_JET_ID = 'jump-jet';
 export const IMPROVED_JUMP_JET_ID = 'improved-jump-jet';
 export const PROTOTYPE_JUMP_JET_ID = 'prototype-jump-jet';
-export const JUMP_JET_IDS: readonly string[] = [JUMP_JET_ID, IMPROVED_JUMP_JET_ID, PROTOTYPE_JUMP_JET_ID];
+export const PROTOTYPE_IMPROVED_JUMP_JET_ID = 'prototype-improved-jump-jet';
+export const JUMP_JET_IDS: readonly string[] = [JUMP_JET_ID, IMPROVED_JUMP_JET_ID, PROTOTYPE_JUMP_JET_ID, PROTOTYPE_IMPROVED_JUMP_JET_ID];
 export const ENDO_STEEL_ID = 'endo-steel';
 export const FERRO_FIBROUS_ID = 'ferro-fibrous';
 export const TSM_ID = 'tsm';
@@ -502,6 +507,8 @@ export const OTHER_EQUIPMENT: readonly Equipment[] = [
   managed(IS_3050, DOUBLE_HEAT_SINK_ID, 'Double Heat Sink', 1, 3),
   managed(CLAN_3050, CLAN_DOUBLE_HEAT_SINK_ID, 'Double Heat Sink', 1, 2),
   managed(CLAN_3050, CLAN_LASER_HEAT_SINK_ID, 'Laser Heat Sink', 1, 2),
+  managed(IS_3050, COMPACT_HEAT_SINK_ID, 'Compact Heat Sink', 1.5, 1),
+  managed(IS_3050, COMPACT_HEAT_SINK_PAIR_ID, '2 Compact Heat Sinks', 3, 1),
   {
     ...managed(ANY_3025, JUMP_JET_ID, 'Jump Jet', 0, 1),
     variableWeight: 'jumpJet',
@@ -510,6 +517,12 @@ export const OTHER_EQUIPMENT: readonly Equipment[] = [
   {
     ...managed(ANY_3025, PROTOTYPE_JUMP_JET_ID, 'Prototype Jump Jet', 0, 1),
     variableWeight: 'jumpJet',
+    allowedLocations: ['CT', 'LT', 'RT', 'LL', 'RL'],
+  },
+  {
+    ...managed(ANY_3025, PROTOTYPE_IMPROVED_JUMP_JET_ID, 'Prototype Improved Jump Jet', 0, 1),
+    variableWeight: 'jumpJet',
+    explosiveLow: true, // can explode when hit; −1 BV per slot (MegaMek)
     allowedLocations: ['CT', 'LT', 'RT', 'LL', 'RL'],
   },
   {
@@ -910,9 +923,10 @@ export function isEquipmentAvailable(eq: Equipment, era: EraId, techBase: TechBa
 /** Spread-out structure / armor slots are named after the design's structure or armor type. */
 const FILLER_NAMES: Record<string, Record<string, string>> = {
   'endo-steel': { 'endo-prototype': 'Endo Steel Prototype', 'endo-composite': 'Endo-Composite' },
-  tsm: { 'industrial-tsm': 'Industrial TSM' },
+  // (ferro-fibrous fillers are named after the armor type below)
+  tsm: { 'industrial-tsm': 'Industrial TSM', 'super-cooled': 'Super-Cooled Myomer' },
   'ferro-fibrous': {
-    'light-ferro': 'Light Ferro-Fibrous', 'heavy-ferro': 'Heavy Ferro-Fibrous', reactive: 'Reactive', reflective: 'Reflective',
+    'ferro-prototype': 'Ferro-Fibrous Prototype', 'light-ferro': 'Light Ferro-Fibrous', 'heavy-ferro': 'Heavy Ferro-Fibrous', reactive: 'Reactive', reflective: 'Reflective',
     'ferro-lamellor': 'Ferro-Lamellor', 'ballistic-reinforced': 'Ballistic-Reinforced', 'anti-penetrative': 'Anti-Penetrative Ablation',
     'heat-dissipating': 'Heat-Dissipating', 'impact-resistant': 'Impact-Resistant',
   },
@@ -1155,12 +1169,13 @@ export function meleeSlots(kind: MeleeKind, tonnage: number): number {
 }
 
 export function jumpJetIdFor(d: Pick<MechDesign, 'jumpJetType'>): string {
-  return d.jumpJetType === 'improved' ? IMPROVED_JUMP_JET_ID : d.jumpJetType === 'prototype' ? PROTOTYPE_JUMP_JET_ID : JUMP_JET_ID;
+  return d.jumpJetType === 'improved' ? IMPROVED_JUMP_JET_ID : d.jumpJetType === 'prototype' ? PROTOTYPE_JUMP_JET_ID
+    : d.jumpJetType === 'prototype-improved' ? PROTOTYPE_IMPROVED_JUMP_JET_ID : JUMP_JET_ID;
 }
 
 /** Heat sink equipment id for a design's heat sink type and tech base. */
-export function heatSinkIdFor(d: Pick<MechDesign, 'heatSinkType' | 'techBase'> & Partial<Pick<MechDesign, 'mixedTech' | 'componentTech' | 'laserHeatSinks'>>): string {
-  if (d.heatSinkType === 'single') return HEAT_SINK_ID;
+export function heatSinkIdFor(d: Pick<MechDesign, 'heatSinkType' | 'techBase'> & Partial<Pick<MechDesign, 'mixedTech' | 'componentTech' | 'laserHeatSinks' | 'compactHeatSinks'>>): string {
+  if (d.heatSinkType === 'single') return d.compactHeatSinks ? COMPACT_HEAT_SINK_ID : HEAT_SINK_ID;
   if (techOf(d, 'heatSinks') !== 'Clan') return DOUBLE_HEAT_SINK_ID;
   return d.laserHeatSinks ? CLAN_LASER_HEAT_SINK_ID : CLAN_DOUBLE_HEAT_SINK_ID;
 }

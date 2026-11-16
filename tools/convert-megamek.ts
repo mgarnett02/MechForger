@@ -18,7 +18,7 @@ import type {
 import type { EraId } from '../src/rules/eras';
 import { ERAS } from '../src/rules/eras';
 import type { Equipment } from '../src/rules/equipment';
-import { ALL_EQUIPMENT, HEAT_SINK_IDS, getEquipment, itemSlots } from '../src/rules/equipment';
+import { ALL_EQUIPMENT, HEAT_SINK_IDS, getEquipment, heatSinkUnits, itemSlots } from '../src/rules/equipment';
 import { EXTRA_EQUIPMENT_MM_NAMES, EXTRA_WEAPON_MM_NAMES } from '../src/rules/extraWeapons';
 import { canSplit } from '../src/rules/edit';
 import { engineRatingFor } from '../src/rules/types';
@@ -229,7 +229,8 @@ function resolveName(raw: string, unitTech: TechBase): Resolved {
     heavyferrofibrous: 'ferro-fibrous', triplestrengthmyomer: 'tsm', industrialtriplestrengthmyomer: 'tsm',
     commercial: 'ferro-fibrous', industrial: 'ferro-fibrous', heavyindustrial: 'ferro-fibrous',
     environmentalsealingmech: 'environmental-sealing', heatsink: 'heat-sink',
-    jumpjet: 'jump-jet', improvedjumpjet: 'improved-jump-jet', prototypejumpjet: 'prototype-jump-jet', case: 'case',
+    jumpjet: 'jump-jet', improvedjumpjet: 'improved-jump-jet', prototypejumpjet: 'prototype-jump-jet', prototypeimprovedjumpjet: 'prototype-improved-jump-jet',
+    ferrofibrousprototype: 'ferro-fibrous', supercooledmyomer: 'tsm', riscsupercooledmyomer: 'tsm', case: 'case',
     endocomposite: 'endo-steel', endosteelprototype: 'endo-steel', ferrolamellor: 'ferro-fibrous', reactive: 'ferro-fibrous',
     reflective: 'ferro-fibrous', ballisticreinforced: 'ferro-fibrous', impactresistant: 'ferro-fibrous',
     heatdissipating: 'ferro-fibrous', antipenetrativeablation: 'ferro-fibrous',
@@ -239,6 +240,8 @@ function resolveName(raw: string, unitTech: TechBase): Resolved {
   if (structural[b]) return { kind: 'item', id: structural[b] };
   if (UTILITY_NAMES[b]) return { kind: 'item', id: UTILITY_NAMES[b] };
   if (b === 'caseii') return { kind: 'item', id: (tech ?? unitTech) === 'Clan' ? 'clan-case-ii' : 'case-ii' };
+  if (b === '1compactheatsink' || b === 'compactheatsink') return { kind: 'item', id: 'compact-heat-sink' };
+  if (b === '2compactheatsinks') return { kind: 'item', id: 'compact-heat-sink-pair' };
   if (b === 'doubleheatsink') {
     return { kind: 'item', id: (tech ?? unitTech) === 'Clan' ? 'clan-double-heat-sink' : 'double-heat-sink' };
   }
@@ -366,7 +369,7 @@ function parseMtf(text: string): ParsedMech {
   const structureType = st === '' ? 'standard' : STRUCTURES[st.replace(/^(IS|Clan) /, '')] ?? fail(`structure ${st}`);
   const ar = get('armor');
   const ARMORS: Record<string, MechDesign['armorType']> = {
-    Standard: 'standard', 'Ferro-Fibrous': 'ferro-fibrous', 'Light Ferro-Fibrous': 'light-ferro', 'Heavy Ferro-Fibrous': 'heavy-ferro',
+    Standard: 'standard', 'Ferro-Fibrous': 'ferro-fibrous', 'Ferro-Fibrous Prototype': 'ferro-prototype', 'Light Ferro-Fibrous': 'light-ferro', 'Heavy Ferro-Fibrous': 'heavy-ferro',
     Stealth: 'stealth', Reactive: 'reactive', Reflective: 'reflective', Hardened: 'hardened', 'Ferro-Lamellor': 'ferro-lamellor',
     'Ballistic-Reinforced': 'ballistic-reinforced', 'Anti-Penetrative Ablation': 'anti-penetrative',
     'Heat-Dissipating': 'heat-dissipating', 'Impact-Resistant': 'impact-resistant',
@@ -406,7 +409,9 @@ function parseMtf(text: string): ParsedMech {
   const hsTotal = Number(/^(\d+)/.exec(hs)?.[1]);
   // Clan laser heat sinks are built like Clan double heat sinks.
   const laserHeatSinks = /Laser/.test(hs);
-  const heatSinkType: HeatSinkType = /Double|Laser/.test(hs) ? 'double' : /Single/.test(hs) ? 'single' : fail(`heat sinks ${hs}`);
+  // Compact heat sinks are single heat sinks, two per slot outside the engine.
+  const compactHeatSinks = /Compact/.test(hs);
+  const heatSinkType: HeatSinkType = /Double|Laser/.test(hs) ? 'double' : /Single|Compact/.test(hs) ? 'single' : fail(`heat sinks ${hs}`);
   const gy = get('gyro');
   const gyroType: GyroType = !gy || /^Standard/.test(gy) ? (tonnage > 100 ? 'superheavy' : 'standard') : /^None/.test(gy) ? 'none'
     : /^Superheavy/.test(gy) ? 'superheavy' : /^XL/.test(gy) ? 'xl'
@@ -421,9 +426,12 @@ function parseMtf(text: string): ParsedMech {
     // An industrial cockpit with advanced fire control is built like a standard cockpit.
     : /^Industrial Cockpit/.test(ck) ? (/adv\. FCS/i.test(ck) ? 'standard' : 'industrial')
     : /^Primitive Industrial Cockpit/.test(ck) ? (/adv\. FCS/i.test(ck) ? 'primitive' : 'primitive-industrial')
-    : /^Primitive Cockpit/.test(ck) ? 'primitive' : /^Interface Cockpit/.test(ck) ? 'interface' : fail(`cockpit ${ck}`);
+    : /^Primitive Cockpit/.test(ck) ? 'primitive' : /^Interface Cockpit/.test(ck) ? 'interface'
+    : /^Virtual Reality Piloting Pod/.test(ck) ? 'vrrp' : fail(`cockpit ${ck}`);
+  // RISC heat sink override kit (BV ×1.01).
+  const heatSinkOverrideKit = /RISC Heat Sink Override Kit/.test(get('heat sink kit'));
   const my = get('myomer');
-  const myomer = !my || my === 'Standard' ? 'standard' : my === 'Triple-Strength' ? 'tsm' : my === 'Industrial Triple-Strength' ? 'industrial-tsm' : fail(`myomer ${my}`);
+  const myomer = !my || my === 'Standard' ? 'standard' : my === 'Triple-Strength' ? 'tsm' : my === 'Industrial Triple-Strength' ? 'industrial-tsm' : my === 'Super-Cooled' ? 'super-cooled' : fail(`myomer ${my}`);
   // A Full Head Ejection System (Hatchetman, Axman…) takes no slots or weight; other systems aren't supported.
   if (kv.has('ejection') && !/^Full Head Ejection System$/i.test(get('ejection'))) fail('special systems');
 
@@ -537,15 +545,18 @@ function parseMtf(text: string): ParsedMech {
     if (/\(OMNIPOD\)/.test(main.raw)) pods.add(item);
   }
   fixAmmoTech(equipment);
-  const externalHS = equipment.filter((e) => HEAT_SINK_IDS.includes(e.equipmentId) || e.equipmentId === 'prototype-double-heat-sink').length;
+  const externalHS = equipment.reduce((a, e) => a + heatSinkUnits(e.equipmentId) + (e.equipmentId === 'prototype-double-heat-sink' ? 1 : 0), 0);
   const jets = equipment.filter((e) => /jump-jet$/.test(e.equipmentId));
   const design: MechDesign = {
     schemaVersion: 1, era: '3025', techBase, mixedTech,
     ...(Object.keys(componentTech).length ? { componentTech } : {}),
     ...(laserHeatSinks ? { laserHeatSinks: true } : {}),
+    ...(compactHeatSinks ? { compactHeatSinks: true } : {}),
+    ...(heatSinkOverrideKit ? { heatSinkOverrideKit: true } : {}),
     structureType, engineType, gyroType, cockpitType, heatSinkType,
     ...(equipment.some((e) => e.equipmentId === 'environmental-sealing') ? { environmentalSealing: true } : {}),
-    jumpJetType: jets.some((e) => e.equipmentId === 'improved-jump-jet') ? 'improved' : jets.some((e) => e.equipmentId === 'prototype-jump-jet') ? 'prototype' : 'standard',
+    jumpJetType: jets.some((e) => e.equipmentId === 'improved-jump-jet') ? 'improved' : jets.some((e) => e.equipmentId === 'prototype-jump-jet') ? 'prototype'
+      : jets.some((e) => e.equipmentId === 'prototype-improved-jump-jet') ? 'prototype-improved' : 'standard',
     armorType, ...(Object.keys(patchwork).length ? { patchwork } : {}), myomer,
     config: quadVee ? 'quadvee' : quad ? 'quad' : tripod ? 'tripod' : 'biped', ...(quadVeeMotive ? { quadVeeMotive } : {}), lam, omni: null,
     ...(kv.has('ejection') ? { fullHeadEjection: true } : {}),

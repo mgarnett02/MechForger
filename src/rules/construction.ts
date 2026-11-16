@@ -1,7 +1,7 @@
 import type { Location, MechDesign, MountedItem, WeightClass } from './types';
 import {
   LOCATIONS, REAR_FACING, armorTypeAt, effectiveCockpit, engineRatingFor, isIndustrial, isPatchwork, isQuad, isQuadVee,
-  isSuperheavy, isTripod, techOf,
+  isSuperheavy, isTripod, techOf, isTorsoCockpit,
 } from './types';
 import {
   freeHeatSinks, armorPointsPerTon, cockpitWeight, engineCenterSlots, engineHeatSinkCapacity,
@@ -10,7 +10,7 @@ import {
   weightClass,
 } from './tables';
 import type { Equipment } from './equipment';
-import { ARMORED_TONS_PER_SLOT, HEAT_SINK_IDS, PROTOTYPE_DOUBLE_HEAT_SINK_ID, JUMP_JET_IDS, canArmor, canArmorSystem, equipmentName, getEquipment, itemSlots, itemWeight, shortEquipmentName } from './equipment';
+import { ARMORED_TONS_PER_SLOT, PROTOTYPE_DOUBLE_HEAT_SINK_ID, heatSinkUnits, JUMP_JET_IDS, canArmor, canArmorSystem, equipmentName, getEquipment, itemSlots, itemWeight, shortEquipmentName } from './equipment';
 import type { OmniWeights } from './omni';
 import { omniWeights } from './omni';
 import { armorTonnage, maxArmorByLocation, maxTotalArmor, totalArmorPoints } from './armor';
@@ -190,7 +190,7 @@ function baseFixedSlots(design: MechDesign, loc: Location): (string | null)[] {
         case 'command-console': case 'superheavy-command-console':
           return ['Life Support', 'Sensors', 'Cockpit', 'Command Console', 'Sensors', 'Life Support'];
         // Torso-mounted cockpit: two sensor slots stay in the head (as MegaMek places them).
-        case 'torso-mounted': return ['Sensors', 'Sensors', null, null, null, null];
+        case 'torso-mounted': case 'vrrp': return ['Sensors', 'Sensors', null, null, null, null];
         // Interface and QuadVee cockpits: two cockpit slots.
         case 'interface': case 'quadvee': return ['Life Support', 'Sensors', 'Cockpit', 'Cockpit', 'Sensors', 'Life Support'];
         default: return ['Life Support', 'Sensors', 'Cockpit', null, 'Sensors', 'Life Support'];
@@ -203,14 +203,14 @@ function baseFixedSlots(design: MechDesign, loc: Location): (string | null)[] {
       // The gyro sits between the two halves of a full-size engine.
       const fixed = [...engine.slice(0, 3), ...gyro, ...engine.slice(3)];
       // A torso-mounted cockpit and a sensor slot take the next open center-torso slots.
-      if (design.cockpitType === 'torso-mounted') fixed.push('Cockpit', 'Sensors');
+      if (isTorsoCockpit(design)) fixed.push('Cockpit', 'Sensors');
       return [...fixed, ...Array(Math.max(0, 12 - fixed.length)).fill(null)].slice(0, 12);
     }
     case 'LT':
     case 'RT': {
       const n = engineSideTorsoSlots(design.engineType, techOf(design, 'engine'), isSuperheavy(design));
       // A torso-mounted cockpit puts life support in the first slot of each side torso.
-      const ls = design.cockpitType === 'torso-mounted' ? ['Life Support'] : [];
+      const ls = isTorsoCockpit(design) ? ['Life Support'] : [];
       const fixed = [...ls, ...Array(n).fill(ENGINE_LABEL[design.engineType])];
       return [...fixed, ...Array(Math.max(0, 12 - fixed.length)).fill(null)].slice(0, 12);
     }
@@ -335,7 +335,8 @@ export function computeMech(design: MechDesign): MechSummary {
   const jumpPenalty = ids.filter((id) => id === 'medium-shield').length + (ids.includes('modular-armor') ? 1 : 0);
   const totalJumpMP = ids.includes('large-shield') ? 0 : Math.max(0, jumpMP + (wing?.jumpBonus ?? 0) - (jumpMP > 0 ? jumpPenalty : 0));
   const umuMP = count((id) => id === 'umu');
-  const externalHS = count((id) => HEAT_SINK_IDS.includes(id));
+  const externalHS = design.equipment.reduce((a, e) => a + heatSinkUnits(e.equipmentId), 0);
+  const compactHS = design.heatSinkType === 'single' && !!design.compactHeatSinks;
   // Prototype double heat sinks (freezers) mount alongside single heat sinks: each counts as a heat sink,
   // dissipates 2 and weighs its own ton (as MegaMek).
   const protoHS = design.heatSinkType === 'single' ? count((id) => id === PROTOTYPE_DOUBLE_HEAT_SINK_ID) : 0;
@@ -360,7 +361,8 @@ export function computeMech(design: MechDesign): MechSummary {
     engine: engineWt ?? 0,
     gyro: gyroWeightFor(design.gyroType, rating),
     cockpit: cockpitWeight(effectiveCockpit(design)),
-    heatSinks: Math.max(0, totalHS - freeHeatSinks(design.engineType) - protoHS),
+    // Compact heat sinks weigh 1.5 t each (MegaMek).
+    heatSinks: Math.max(0, totalHS - freeHeatSinks(design.engineType) - protoHS) * (compactHS ? 1.5 : 1),
     jumpJets: jumpMP * jumpJetWeightFor(design.jumpJetType, tonnage),
     armor: isPatchwork(design) ? patchworkArmorWeight(design) : armorTonnage(armorTotal, ppt),
     // Rounded to the kilogram (spread systems split their weight into fractions of a ton).
@@ -405,15 +407,16 @@ export function computeMech(design: MechDesign): MechSummary {
       total: totalHS,
       inEngine: design.engineHeatSinks,
       external: externalHS,
-      engineCapacity: engineHeatSinkCapacity(rating),
+      engineCapacity: engineHeatSinkCapacity(rating) * (compactHS ? 2 : 1),
       dissipation: totalHS * (design.heatSinkType === 'double' ? 2 : 1) + protoHS,
     },
     heat: {
       weapons: weaponHeat,
       // XXL engines run hot: 6 heat running, jumping 2 per MP (minimum 6). Stealth armor adds 10 when engaged.
       // IndustrialMechs take no movement heat (Total Warfare p. 158).
-      running: isIndustrial(design) ? 0 : xxl ? 6 : 2,
-      jumping: totalJumpMP > 0 ? (xxl ? Math.max(6, totalJumpMP * 2) : Math.max(3, totalJumpMP)) : 0,
+      // Super-cooled myomer removes walking and running heat; prototype improved jump jets: 2 per MP, at least 6.
+      running: isIndustrial(design) || design.myomer === 'super-cooled' ? 0 : xxl ? 6 : 2,
+      jumping: totalJumpMP > 0 ? (xxl || design.jumpJetType === 'prototype-improved' ? Math.max(6, totalJumpMP * 2) : Math.max(3, totalJumpMP)) : 0,
     },
     weights,
     slots,
