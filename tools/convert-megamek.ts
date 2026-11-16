@@ -19,6 +19,7 @@ import type { EraId } from '../src/rules/eras';
 import { ERAS } from '../src/rules/eras';
 import type { Equipment } from '../src/rules/equipment';
 import { ALL_EQUIPMENT, HEAT_SINK_IDS, getEquipment, itemSlots } from '../src/rules/equipment';
+import { EXTRA_WEAPON_MM_NAMES } from '../src/rules/extraWeapons';
 import { canSplit } from '../src/rules/edit';
 import { engineRatingFor } from '../src/rules/types';
 import { SPLIT_ADJACENT } from '../src/rules/types';
@@ -106,6 +107,15 @@ const FIXED = new Set([
   'upperarmactuator', 'lowerarmactuator', 'handactuator', 'hip', 'upperlegactuator', 'lowerlegactuator',
   'footactuator', 'xlgyro', 'compactgyro', 'heavydutygyro', 'landinggear', 'avionics', 'conversiongear', 'superheavygyro',
 ]);
+
+/** MegaMek internal names of generated weapons and their ammunition (extraWeapons.ts). */
+const MM_WEAPON = new Map<string, string>();
+const MM_AMMO = new Map<string, string>();
+for (const [w, id, ammo] of EXTRA_WEAPON_MM_NAMES) {
+  MM_WEAPON.set(norm(w), id);
+  MM_WEAPON.set(norm(splitTech(w).base), id);
+  if (ammo) MM_AMMO.set(norm(ammo), `ammo-${id}`);
+}
 
 const byKey = new Map<string, Equipment[]>();
 for (const eq of ALL_EQUIPMENT) {
@@ -202,6 +212,8 @@ function r0IsArmorSlot(raw: string): boolean {
 function resolveName(raw: string, unitTech: TechBase): Resolved {
   const name = raw.replace(/\s*\((R|OMNIPOD|ARMORED)\)/gi, '').trim();
   const n = norm(name);
+  if (MM_AMMO.has(n)) return { kind: 'item', id: MM_AMMO.get(n)! };
+  if (MM_WEAPON.has(n)) return { kind: 'item', id: MM_WEAPON.get(n)! };
   if (FIXED.has(n) || /engine$/.test(n)) return { kind: 'fixed' };
   if (/ammo|pods$/i.test(name)) {
     const id = resolveAmmo(name, unitTech);

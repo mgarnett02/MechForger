@@ -2,6 +2,7 @@ import type { Location, MechDesign, TechBase, MechConfig } from './types';
 import { LOCATIONS, engineRatingFor, isQuad, isTripod, legLocations, mechLocations, techOf } from './types';
 import type { EraId } from './eras';
 import { isAvailableIn } from './eras';
+import { EXTRA_WEAPONS } from './extraWeapons';
 import { engineWeight, jumpJetWeight, mascWeight } from './tables';
 
 export type EquipmentCategory = 'Energy' | 'Ballistic' | 'Missile' | 'Ammo' | 'Physical' | 'Capital' | 'Other' | 'Utility';
@@ -38,7 +39,7 @@ export interface Equipment {
   allowedLocations?: readonly Location[];
   isWeapon: boolean;
   /** Weight (and for MASC / targeting computers, slots) depends on the mech. */
-  variableWeight?: 'jumpJet' | 'improvedJumpJet' | 'masc' | 'supercharger' | 'targetingComputer' | 'aes' | 'partialWing' | 'droneOS' | 'tracks' | 'wheels' | 'vehicleJumpJet' | 'vesselFormula';
+  variableWeight?: 'jumpJet' | 'improvedJumpJet' | 'masc' | 'supercharger' | 'targetingComputer' | 'aes' | 'partialWing' | 'droneOS' | 'tracks' | 'wheels' | 'vehicleJumpJet' | 'vesselFormula' | 'boobyTrap';
   /** Combat vehicle chassis modification: weighs this share of the tonnage (Clan share if given). */
   vehicleChassisMod?: { share: number; clan?: number };
   /** Systems spread one piece per location (added and removed as a set). */
@@ -57,6 +58,10 @@ export interface Equipment {
   melee?: MeleeKind;
   /** Arm-mounted only (so not available to quads, whose front legs share the arm locations). */
   armOnly?: boolean;
+  /** Prototype weapons that fire the standard weapon's ammunition: that weapon's id. */
+  ammoOf?: string;
+  /** Weight of one ammunition load when it is not a ton (cruise missiles). */
+  ammoTons?: number;
   /** One-shot launcher (built-in volley, no ammunition): standard or improved. */
   oneShot?: 'os' | 'ios';
   /** Torpedo launcher: fires only underwater. */
@@ -370,7 +375,7 @@ const ADVANCED_WEAPONS: Equipment[] = [
   weapon(CLAN_3050, 'clan-mech-mortar-8', "'Mech Mortar 8", 'Ballistic', 5, 3, 10, 'mortar', [6, 7, 14, 21], 4),
 ];
 
-const BASE_WEAPONS = [...IS_INTRO_WEAPONS, ...IS_3050_WEAPONS, ...IS_3062_WEAPONS, ...JIHAD_WEAPONS, ...CLAN_WEAPONS, ...ADVANCED_WEAPONS];
+const BASE_WEAPONS = [...IS_INTRO_WEAPONS, ...IS_3050_WEAPONS, ...IS_3062_WEAPONS, ...JIHAD_WEAPONS, ...CLAN_WEAPONS, ...ADVANCED_WEAPONS, ...EXTRA_WEAPONS];
 
 /**
  * Torpedoes (LRT / SRT): LRM and SRM launchers that fire only underwater, with the same weight, slots, damage,
@@ -413,7 +418,7 @@ export const AMMO: readonly Equipment[] = [
     ...ammoBase(w),
     id: `ammo-${w.id}`,
     name: `${w.name} Ammo (${w.ammoPerTon})`,
-    tons: 1,
+    tons: w.ammoTons ?? 1,
     firstEra: w.firstEra,
   })),
   // Artemis IV ammunition (Standard rules, from the Clan Invasion era).
@@ -595,7 +600,8 @@ export const OTHER_EQUIPMENT: readonly Equipment[] = [
   { id: 'improved-caspar-ii-dcs', name: 'Improved Caspar II Drone Control System', category: 'Other', tons: 0, slots: 0, heat: 0, isWeapon: false, variableWeight: 'vesselFormula', vesselOnly: true, techBase: 'IS', firstEra: '3062' },
   { id: 'high-res-imager', name: 'Satellite Imager (High-Resolution Imager)', category: 'Other', tons: 2.5, slots: 1, heat: 0, isWeapon: false, vesselOnly: true, techBase: 'IS', firstEra: '3025' },
   { id: 'sds-self-destruct', name: 'SDS Self-Destruct System', category: 'Other', tons: 0, slots: 0, heat: 0, isWeapon: false, variableWeight: 'vesselFormula', vesselOnly: true, techBase: 'Both', firstEra: '3025' },
-  { id: 'booby-trap', name: 'Booby Trap', category: 'Other', tons: 0, slots: 1, heat: 0, isWeapon: false, variableWeight: 'vesselFormula', vesselOnly: true, techBase: 'IS', firstEra: '3081' },
+  // Booby trap ('Mechs, vehicles and craft): 10% of the unit, rounded up to the half ton.
+  { id: 'booby-trap', name: 'Booby Trap', category: 'Other', tons: 0, slots: 1, heat: 0, isWeapon: false, variableWeight: 'boobyTrap', techBase: 'IS', firstEra: '3081' },
   // Actuator Enhancement System (3070): one per arm (or in every leg); weight tonnage/35 (quads /50),
   // 1–4 slots by weight class. Weapons in an AES arm count ×1.25 BV.
   {
@@ -903,6 +909,7 @@ export function equipmentName(eq: Equipment, d: Pick<MechDesign, 'mixedTech'>): 
 
 /** Standard short forms, always applied in compact names. */
 const ABBREVIATIONS: [RegExp, string][] = [
+  [/Prototype Medium Pulse Laser/g, 'Proto. Med. Pulse L.'],
   [/Light Machine Gun/g, 'LMG'], [/Heavy Machine Gun/g, 'HMG'], [/Machine Gun/g, 'MG'],
   [/Anti-Missile System/g, 'AMS'], [/Narc Missile Beacon/g, 'Narc'], [/iNarc Launcher/g, 'iNarc'],
   [/Hyper-Assault Gauss/g, 'HAG'], [/Magshot Gauss Rifle/g, 'Magshot'], [/AP Gauss Rifle/g, 'AP Gauss'],
@@ -914,6 +921,12 @@ const ABBREVIATIONS: [RegExp, string][] = [
   [/Beagle Active Probe/g, 'Beagle Probe'], [/Chameleon Light Polarization Shield/g, 'Chameleon LPS'],
   [/Naval Comm-Scanner Suite \((Small|Large)\)/g, '$1 Comm-Scanner'], [/Improved Caspar/g, 'Imp. Caspar'], [/Drone Control System/g, 'DCS'],
   [/Satellite Imager \(High-Resolution Imager\)/g, 'High-Res Imager'], [/SDS Self-Destruct System/g, 'SDS Self-Destruct'],
+  [/Primitive Prototype Autocannon\//g, 'Prim. AC/'], [/Primitive Prototype /g, 'Prim. '], [/^Prototype /g, 'Proto. '], [/ Autocannon\//g, ' AC/'],
+  [/RISC Advanced Point Defense System/g, 'RISC APDS'],
+  [/C3 Remote Sensor Launcher/g, 'C3 Sensor Launcher'], [/Centurion Weapon System/g, 'Centurion WS'], [/Vehicular Grenade Launcher/g, 'Veh. Grenade L.'],
+  [/Small Chemical Laser/g, 'Sm. Chem. Laser'], [/Medium Chemical Laser/g, 'Med. Chem. Laser'], [/Large Chemical Laser/g, 'Lg. Chem. Laser'], [/Chem\. Laser Ammo/g, 'Chem. Ammo'],
+  [/ \(CP\)/g, ''], [/ Autocannon\b/g, ' AC'], [/^Improved (?!Heavy)/g, 'Imp. '], [/Proto\. Med\. Pulse Laser/g, 'Proto. Med. Pulse L.'], [/C3 Sensor Launcher Ammo/g, 'C3 Sensor Ammo'],
+  [/Rifle \(Cannon, (Light|Medium|Heavy)\)/g, '$1 Rifle'], [/Cruise Missile\//g, 'Cruise M./'], [/Nail\/Rivet Gun Ammo/g, 'Nail/Rivet Ammo'],
   [/Actuator Enhancement System/g, 'AES'], [/Fully Amphibious Chassis/g, 'Fully Amphibious'], [/Limited Amphibious Chassis/g, 'Ltd. Amphibious'],
   [/Environmental Sealed Chassis/g, 'Env. Sealed Chassis'], [/Armored Motive System/g, 'Armored Motive'], [/Radical Heat Sink System/g, 'Radical HS'], [/Binary Laser \(Blazer\) Cannon/g, 'Blazer Cannon'],
   [/Extended LRM/g, 'ELRM'], [/Enhanced LRM/g, 'NLRM'], [/Improved ATM/g, 'iATM'], [/Silver Bullet Gauss Rifle/g, 'SB Gauss'],
@@ -999,6 +1012,7 @@ export function itemWeight(eq: Equipment, d: SizingDesign): number {
   if (eq.variableWeight === 'targetingComputer') return targetingComputerWeight(eq, d);
   if (eq.variableWeight === 'aes') return upHalf(d.tonnage / (isQuad(d) ? 50 : 35));
   if (eq.variableWeight === 'droneOS') return upHalf(d.tonnage / 10 + 0.5);
+  if (eq.variableWeight === 'boobyTrap') return upHalf(d.tonnage / 10);
   // Tracks: 10% of the tonnage, one piece per leg.
   if (eq.variableWeight === 'tracks') return upHalf(d.tonnage * 0.1) / legCount(d);
   if (eq.variableWeight === 'wheels') return upHalf(d.tonnage * 0.15) / legCount(d);

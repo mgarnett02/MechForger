@@ -378,6 +378,7 @@ export function vehicleItemWeight(eq: Equipment, d: VehicleDesign): number {
   }
   if (eq.variableWeight === 'droneOS') return halfUp(d.tonnage / 10 + 0.5);
   if (eq.variableWeight === 'vehicleJumpJet') return vehicleJumpJetWeight(d.tonnage);
+  if (eq.variableWeight === 'boobyTrap') return halfUp(d.tonnage / 10);
   if (eq.variableWeight === 'targetingComputer') {
     let tons = 0;
     for (const m of d.equipment) {
@@ -432,7 +433,8 @@ export function computeVehicle(d: VehicleDesign): VehicleSummary {
     if (item.location === 'TU2') turret2Items += w;
     if (item.sponson && eq.category !== 'Ammo') sponsonItems += w;
     // Ammunition-fed flamers (vehicle and heavy flamers) need neither power amplifiers nor heat sinks (as MegaMek).
-    if (eq.isWeapon && eq.category === 'Energy' && !(eq.ammoPerTon && /flamer/.test(eq.id))) {
+    // (as are other ammunition-fed energy weapons such as chemical lasers; plasma weapons still count).
+    if (eq.isWeapon && eq.category === 'Energy' && !(eq.ammoPerTon && !/plasma/.test(eq.id))) {
       energyTons += eq.tons;
       energyHeat += eq.heat;
     }
@@ -643,7 +645,7 @@ export function validateVehicle(d: VehicleDesign, s: VehicleSummary = computeVeh
   if (artemisV > launchersV) error(`${artemisV} Artemis V FCS but only ${launchersV} Clan LRM/SRM launcher(s) to link them to.`);
   else if (artemis + artemisV > launchers) error(`${artemis} Artemis IV FCS but only ${launchers} LRM/SRM launcher(s) to link them to.`);
 
-  const idSet = new Set(ids);
+  const idSet = new Set(ids.flatMap((id) => [id, getEquipment(id)?.ammoOf ?? id]));
   const fed = new Set(ids.map((id) => getEquipment(id)?.ammoFor).filter(Boolean));
   for (const id of idSet) {
     const eq = getEquipment(id);

@@ -257,6 +257,62 @@ export const ITEM_VALUES: Record<string, ItemValue> = {
   'remote-sensor-dispenser': v(0, 51000), manipulator: v(0, 7500), 'recon-camera': v(0, 20000),
 };
 
+// Weapons generated from MegaMek's definitions (extraWeapons.ts).
+Object.assign(ITEM_VALUES, {
+  'clan-small-chem-laser': v(7, 10000, 1, 30000),
+  'clan-medium-chem-laser': v(37, 30000, 5, 30000),
+  'clan-large-chem-laser': v(99, 75000, 12, 30000),
+  'clan-improved-ac-5': v(70, 125000, 9, 4500),
+  'clan-improved-gauss-rifle': v(320, 300000, 40, 20000),
+  'clan-improved-lrm-10': v(90, 100000, 11, 30000),
+  'clan-improved-lrm-15': v(136, 175000, 17, 30000),
+  'clan-improved-srm-6': v(79, 80000, 10, 27000),
+  'clan-er-medium-laser-prototype': v(62, 80000),
+  'clan-streak-srm-4-prototype': v(59, 60000),
+  'clan-streak-srm-6-prototype': v(89, 120000),
+  'clan-uac-10-prototype': v(210, 320000),
+  'primitive-ac-5': v(70, 125000, 9, 4500),
+  'primitive-ac-10': v(123, 200000, 12, 12000),
+  'primitive-ac-20': v(178, 300000, 22, 10000),
+  'primitive-ppc': v(176, 200000),
+  'apds': v(64, 200000, 22, 2000),
+  'c3-remote-sensor-launcher': v(30, 400000, 6, 100000),
+  'centurion-weapon-system': v(190, 1000000),
+  'cruise-missile-50': v(601, 900000, 75, 20000),
+  'cruise-missile-70': v(1031, 1250000, 129, 50000),
+  'cruise-missile-90': v(1530, 1250000, 191, 90000),
+  'cruise-missile-120': v(2281, 3000000, 285, 140000),
+  'er-large-laser-prototype': v(136, 600000),
+  'gauss-rifle-prototype': v(320, 1200000),
+  'lb-10x-prototype': v(148, 2000000),
+  'medium-pulse-laser-prototype': v(43, 300000),
+  'hvac-2': v(53, 100000, 7, 3000),
+  'hvac-5': v(109, 160000, 14, 10000),
+  'hvac-10': v(158, 230000, 20, 20000),
+  'mech-mortar-1': v(10, 7000, 1.2, 28000),
+  'mech-mortar-2': v(14, 15000, 2.4, 28000),
+  'mech-mortar-4': v(26, 32000, 3.6, 28000),
+  'mech-mortar-8': v(50, 70000, 7.2, 28000),
+  'nail-rivet-gun': v(1, 7000, 1, 300),
+  'risc-hyper-laser': v(596, 750000),
+  'rifle-light': v(21, 37750, 3, 1000),
+  'rifle-medium': v(51, 75750, 6, 1000),
+  'rifle-heavy': v(91, 90000, 11, 1000),
+  'tsemp-one-shot': v(98, 500000),
+  'tsemp-repeating-cannon': v(600, 1200000),
+  'vehicular-grenade-launcher': v(15, 10000),
+  'rl-10-prototype': v(15, 15000),
+  'rl-15-prototype': v(18, 30000),
+  'rl-20-prototype': v(19, 45000),
+  'clan-improved-lrm-5': v(45, 30000, 6, 30000),
+  'clan-improved-lrm-20': v(181, 250000, 23, 30000),
+  'clan-improved-srm-2': v(28, 10000, 4, 27000),
+  'clan-improved-srm-4': v(39, 60000, 7, 27000),
+  'clan-improved-ac-2': v(37, 75000, 5, 1000),
+  'clan-improved-ac-10': v(123, 200000, 15, 6000),
+  'clan-improved-ac-20': v(178, 300000, 22, 10000),
+});
+
 // Torpedoes have the values of the matching LRM / SRM; one-shot launchers rate 1/5 of the launcher's BV and cost half
 // (improved one-shot: 80%), as MegaMek.
 for (const [id, val] of Object.entries({ ...ITEM_VALUES })) {
@@ -280,7 +336,7 @@ export const DEFENSIVE_IDS = new Set([
   'clan-light-active-probe', 'b-pod', 'm-pod', 'ap-pod', 'laser-ams', 'clan-laser-ams',
   'bloodhound-probe', 'clan-watchdog-ecm', 'clan-nova-cews',
   // MegaMek counts a bulldozer blade as defensive equipment.
-  'bulldozer',
+  'bulldozer', 'apds',
 ]);
 
 /** Gauss-type weapons: their ammo does not explode, but the weapon itself does. */

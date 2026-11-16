@@ -607,7 +607,7 @@ export function vesselFormulaCost(id: string, weight: number): number | null {
 }
 
 export function vesselItemWeight(eq: Equipment, d: VesselDesign, item?: VesselItem): number {
-  if (eq.variableWeight === 'vesselFormula') return vesselFormulaWeight(eq.id, d);
+  if (eq.variableWeight === 'vesselFormula' || eq.variableWeight === 'boobyTrap') return vesselFormulaWeight(eq.id, d);
   if (eq.category === 'Ammo') {
     const bins = Math.ceil((item?.shots ?? shotsPerBin(eq)) / shotsPerBin(eq));
     // Large craft round each ammunition load up to the half ton.

@@ -332,7 +332,7 @@ export interface SupportSummary {
 }
 
 // Ammunition-fed flamers need neither power amplifiers nor heat sinks (as MegaMek).
-const isEnergyHeat = (eq: Equipment) => eq.isWeapon && eq.category === 'Energy' && !(eq.ammoPerTon && /flamer/.test(eq.id));
+const isEnergyHeat = (eq: Equipment) => eq.isWeapon && eq.category === 'Energy' && !(eq.ammoPerTon && !/plasma/.test(eq.id));
 
 /** Structure weight as MegaMek prices it (SupportVeeStructure: rounded down, not up). */
 export function svStructureForCost(d: SupportVehicleDesign): number {
@@ -543,7 +543,7 @@ export function validateSupport(d: SupportVehicleDesign, s: SupportSummary = com
     }
   }
   if (s.unallocated.length) error(`${s.unallocated.length} item(s) not allocated to a location.`);
-  const ids = new Set(d.equipment.map((e) => e.equipmentId));
+  const ids = new Set(d.equipment.flatMap((e) => [e.equipmentId, getEquipment(e.equipmentId)?.ammoOf ?? e.equipmentId]));
   const fed = new Set(d.equipment.map((e) => getEquipment(e.equipmentId)?.ammoFor).filter(Boolean));
   for (const id of ids) {
     const eq = getEquipment(id);

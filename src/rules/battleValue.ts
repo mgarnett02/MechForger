@@ -148,7 +148,8 @@ export function weaponEntries(
       artemisLeft.set(k, artemisLeft.get(k)! - 1);
       bv *= 1.2;
     }
-    out.push({ bv: bv * drone, heat, rear: !!i.rear, id: eq.id, loc: i.location });
+    // Prototype weapons that share a standard weapon's ammunition are capped together with it.
+    out.push({ bv: bv * drone, heat, rear: !!i.rear, id: eq.ammoOf ?? eq.id, loc: i.location });
   }
   return out;
 }
@@ -203,7 +204,7 @@ export function defensiveEquipmentBV(items: { equipmentId: string }[]): number {
     else if (eq.ammoFor && DEFENSIVE_IDS.has(eq.ammoFor)) amsAmmo += ammoValue(eq).bv;
   }
   const amsBV = items
-    .filter((i) => i.equipmentId === 'ams' || i.equipmentId === 'clan-ams')
+    .filter((i) => i.equipmentId === 'ams' || i.equipmentId === 'clan-ams' || i.equipmentId === 'apds')
     .reduce((a, i) => a + (value(i.equipmentId)?.bv ?? 0), 0);
   return equipment + Math.min(amsAmmo, amsBV);
 }

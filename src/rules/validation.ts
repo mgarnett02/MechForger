@@ -543,7 +543,7 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
   }
 
   // Ammo sanity
-  const weaponIds = new Set(design.equipment.map((e) => e.equipmentId));
+  const weaponIds = new Set(design.equipment.flatMap((e) => [e.equipmentId, getEquipment(e.equipmentId)?.ammoOf ?? e.equipmentId]));
   const fedWeapons = new Set([...weaponIds].map((id) => getEquipment(id)?.ammoFor).filter(Boolean));
   const hasArtemis = weaponIds.has('artemis-iv') || weaponIds.has('clan-artemis-iv');
   const hasArtemisV = weaponIds.has('clan-artemis-v');
