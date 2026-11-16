@@ -25,6 +25,7 @@ export function meleeDamage(kind: MeleeKind, tonnage: number): string {
     case 'large-vibroblade': return '14';
     case 'small-shield': case 'medium-shield': case 'large-shield': return 'Bash / block';
     case 'wrecking-ball': return String(Math.ceil(tonnage / 5));
+    case 'flail': return '9';
   }
 }
 
@@ -49,6 +50,7 @@ export function meleeBV(kind: MeleeKind, d: MeleeDesign): number {
     case 'medium-shield': return 135;
     case 'large-shield': return 263;
     case 'wrecking-ball': return 8;
+    case 'flail': return 11;
   }
 }
 
@@ -72,10 +74,11 @@ export function meleeCost(kind: MeleeKind, d: MeleeDesign): number {
     case 'medium-shield': return 100000;
     case 'large-shield': return 300000;
     case 'wrecking-ball': return 110000;
+    case 'flail': return 110000;
   }
 }
 
 /** Melee kinds that occupy the "hand" of an arm: only one per location. */
-export const HAND_WEAPONS: readonly MeleeKind[] = ['hatchet', 'sword', 'mace', 'claw', 'retractable-blade', 'chain-whip'];
+export const HAND_WEAPONS: readonly MeleeKind[] = ['hatchet', 'sword', 'mace', 'claw', 'retractable-blade', 'chain-whip', 'flail'];
 /** Need both lower arm and hand actuators. */
 export const NEEDS_HAND: readonly MeleeKind[] = ['hatchet', 'sword', 'mace', 'chain-whip'];

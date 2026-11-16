@@ -11,7 +11,7 @@ import { TECH_BASE_NAMES } from './types';
 import type { EraId } from './eras';
 import { DEFAULT_ERA, getEra, isAvailableIn } from './eras';
 import type { Equipment } from './equipment';
-import { shortEquipmentName, getEquipment, isDirectFire, isEquipmentAvailable, usesAmmo } from './equipment';
+import { shortEquipmentName, getEquipment, isDirectFire, isEquipmentAvailable, srcsWeight, usesAmmo } from './equipment';
 import type { Issue } from './validation';
 
 // ---------------------------------------------------------------------------
@@ -448,6 +448,7 @@ function svRawEngineWeight(d: SupportVehicleDesign): number {
 }
 
 export function svItemWeight(eq: Equipment, d: SupportVehicleDesign): number {
+  if (eq.variableWeight === 'srcs') return srcsWeight(eq.id, d.tonnage, (n) => roundUp(n, sizeClass(d) === 'small'));
   if (eq.variableWeight === 'supercharger') {
     // 10% of the engine weight, rounded up to the half ton (kilogram for small vehicles).
     const small = sizeClass(d) === 'small';

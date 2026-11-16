@@ -68,6 +68,14 @@ export function findMM(name: string, techBase?: TechBase): MMItem | undefined {
   return BY_NAME.get(k) ?? BY_NAME.get(prefix + k) ?? BY_NAME.get((techBase === 'Clan' ? 'is ' : 'clan ') + k);
 }
 
+/** As findMM, but only items of one kind (names such as "Plasma Rifle (Man-Portable)" are shared by battle armor and infantry weapons). */
+export function findMMOfKind(name: string, kind: string, techBase?: TechBase): MMItem | undefined {
+  const hit = findMM(name, techBase);
+  if (hit?.kind === kind) return hit;
+  const k = name.trim().toLowerCase();
+  return MM_EQUIPMENT.find((e) => e.kind === kind && [e.id, e.name, ...(e.lookups ?? [])].some((n) => n.toLowerCase() === k));
+}
+
 export const has = (e: MMItem | undefined, flag: string) => !!e?.flags.includes(flag);
 export const mmNum = (v: number | 'variable' | undefined) => (typeof v === 'number' ? v : 0);
 

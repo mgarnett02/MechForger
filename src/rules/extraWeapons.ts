@@ -123,6 +123,14 @@ const misc = (id: string, name: string, tons: number, slots: number, techBase: E
 export const EXTRA_EQUIPMENT: Equipment[] = [
   { id: 'clan-er-small-laser-prototype', name: 'Prototype ER Small Laser (CP)', category: 'Energy', tons: 0.5, slots: 1, heat: 2, damage: '3', range: { min: 0, short: 2, medium: 4, long: 5 }, isWeapon: true, techBase: 'Clan', firstEra: '3025' },
   misc('mass', 'MASS', 1.5, 1, 'Both', '3025'),
+  // Smart robotic control systems (Interstellar Operations): a share of the tonnage.
+  misc('srcs', 'SRCS', 0, 0, 'Both', '3025', { variableWeight: 'srcs', fixedOnly: true }),
+  misc('improved-srcs', 'Improved SRCS', 0, 0, 'Both', '3025', { variableWeight: 'srcs', fixedOnly: true }),
+  misc('shielded-aero-srcs', 'Shielded Aero SRCS', 0, 0, 'Both', '3025', { variableWeight: 'srcs', fixedOnly: true }),
+  misc('improved-shielded-aero-srcs', 'Imp. Shielded SRCS', 0, 0, 'Both', '3025', { variableWeight: 'srcs', fixedOnly: true }),
+  // Drone carrier control system: 2 t, plus 0.5 t per drone controlled (10,000 C-bills per ton).
+  misc('drone-carrier-control', 'Drone Carrier Control', 2, 1, 'Both', '3025'),
+  misc('drone-carrier-slot', 'Drone Control Slot', 0.5, 0, 'Both', '3025'),
   misc('laser-insulator', 'Laser Insulator', 0.5, 1, 'Both', '3025'),
   misc('harjel-ii', 'HarJel II', 2, 1, 'Clan', '3101'),
   misc('harjel-iii', 'HarJel III', 3, 2, 'Clan', '3131'),
@@ -147,6 +155,8 @@ export const EXTRA_EQUIPMENT: Equipment[] = [
 ];
 
 export const EXTRA_EQUIPMENT_MM_NAMES: [string, string][] = [
+  ['SmartRoboticControlSystem', 'srcs'], ['ImprovedSmartRoboticControlSystem', 'improved-srcs'], ['ShieldedAeroSRCS', 'shielded-aero-srcs'],
+  ['ImprovedShieldedAeroSRCS', 'improved-shielded-aero-srcs'],
   ['CLERSmallLaserPrototype', 'clan-er-small-laser-prototype'], ['ISMASS', 'mass'], ['CLMASS', 'mass'], ['ISLaserInsulator', 'laser-insulator'], ['CLLaserInsulator', 'laser-insulator'],
   ['HarJel Repair Systems (HarJel II)', 'harjel-ii'], ['HarJel Repair Systems (HarJel III)', 'harjel-iii'], ['ISChaffPod', 'chaff-pod'],
   ['ISElectronicWarfareEquipment', 'ew-equipment'], ['RISC Viral Jammer (Decoy)', 'risc-viral-jammer-decoy'], ['RISC Viral Jammer (Homing)', 'risc-viral-jammer-homing'],

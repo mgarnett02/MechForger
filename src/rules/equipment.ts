@@ -12,7 +12,7 @@ export type CapitalClass = 'capital' | 'sub-capital' | 'capital-missile' | 'scre
 
 /** Physical (melee) weapons. Their weight, slots, damage, BV and cost mostly scale with the mech's tonnage. */
 export type MeleeKind = 'hatchet' | 'sword' | 'mace' | 'claw' | 'retractable-blade' | 'chain-whip' | 'talons' | 'spikes'
-  | 'lance' | 'small-vibroblade' | 'medium-vibroblade' | 'large-vibroblade' | 'small-shield' | 'medium-shield' | 'large-shield' | 'wrecking-ball';
+  | 'lance' | 'small-vibroblade' | 'medium-vibroblade' | 'large-vibroblade' | 'small-shield' | 'medium-shield' | 'large-shield' | 'wrecking-ball' | 'flail';
 
 export interface RangeBrackets {
   min: number;
@@ -39,7 +39,7 @@ export interface Equipment {
   allowedLocations?: readonly Location[];
   isWeapon: boolean;
   /** Weight (and for MASC / targeting computers, slots) depends on the mech. */
-  variableWeight?: 'jumpJet' | 'improvedJumpJet' | 'masc' | 'supercharger' | 'targetingComputer' | 'aes' | 'partialWing' | 'droneOS' | 'tracks' | 'wheels' | 'vehicleJumpJet' | 'vesselFormula' | 'boobyTrap';
+  variableWeight?: 'jumpJet' | 'improvedJumpJet' | 'masc' | 'supercharger' | 'targetingComputer' | 'aes' | 'partialWing' | 'droneOS' | 'tracks' | 'wheels' | 'vehicleJumpJet' | 'vesselFormula' | 'boobyTrap' | 'srcs';
   /** Combat vehicle chassis modification: weighs this share of the tonnage (Clan share if given). */
   vehicleChassisMod?: { share: number; clan?: number };
   /** Systems spread one piece per location (added and removed as a set). */
@@ -48,6 +48,8 @@ export interface Equipment {
   artemisCapable?: boolean;
   /** Ammo bins: Artemis IV-capable ammunition. */
   artemisAmmo?: boolean;
+  /** Ammo bins: flak autocannon ammunition (costs half as much again). */
+  flakAmmo?: boolean;
   /** Ammo bins: Artemis V-capable ammunition. */
   artemisVAmmo?: boolean;
   /** Can only be fixed equipment on an OmniMech (never pod-mounted). */
@@ -401,9 +403,9 @@ const ONE_SHOTS: Equipment[] = [...BASE_WEAPONS, ...TORPEDOES].filter((w) => ONE
 });
 
 const ALL_WEAPONS = [...BASE_WEAPONS, ...TORPEDOES, ...ONE_SHOTS];
-// Standard LRM / SRM launchers and torpedoes (not Streak, not one-shot) can take Artemis IV.
+// Standard, enhanced and improved LRM / SRM launchers and torpedoes (not Streak, not one-shot) can take Artemis IV.
 for (const w of ALL_WEAPONS) {
-  if (/^(clan-)?(lrm|srm|lrt|srt|mml)-\d+$/.test(w.id)) w.artemisCapable = true;
+  if (/^(clan-)?(lrm|srm|lrt|srt|mml|nlrm|improved-lrm)-\d+$/.test(w.id)) w.artemisCapable = true;
 }
 /** Clan LRM / SRM launchers (and torpedoes) that can be linked to an Artemis V fire-control system. */
 export function isArtemisVCapable(id: string): boolean {
@@ -448,6 +450,16 @@ export const AMMO: readonly Equipment[] = [
       { ...ammoBase(w), id: `ammo-${id}-srm`, name: `${w.name} SRM Ammo (${srm})`, tons: 1, firstEra: w.firstEra },
     ];
   }),
+  // Flak autocannon ammunition (Tactical Operations).
+  ...WEAPONS.filter((w) => /^ac-\d+$/.test(w.id)).map((w) => ({
+    ...ammoBase(w),
+    id: `ammo-${w.id}-flak`,
+    name: `${w.name} Flak Ammo (${w.ammoPerTon})`,
+    tons: 1,
+    flakAmmo: true,
+    techBase: 'Both' as const,
+    firstEra: w.firstEra,
+  })),
   // Half-ton machine gun ammunition (Standard rules).
   ...WEAPONS.filter((w) => w.id.endsWith('machine-gun')).map((w) => ({
     ...ammoBase(w),
@@ -533,6 +545,7 @@ export const OTHER_EQUIPMENT: readonly Equipment[] = [
     [IS_3062, 'medium-shield', 'Medium Shield', true],
     [IS_3062, 'large-shield', 'Large Shield', true],
     [ANY_3025, 'wrecking-ball', 'Wrecking Ball', true],
+    [IS_3050, 'flail', 'Flail', true],
   ] as const).map(([avail, id, name, armOnly]): Equipment => ({
     id, name, category: 'Physical', tons: 0, slots: 0, heat: 0, isWeapon: false, melee: id, ...avail,
     ...(armOnly ? { armOnly: true, allowedLocations: ['LA', 'RA'] as const } : {}),
@@ -946,6 +959,7 @@ const ABBREVIATIONS: [RegExp, string][] = [
   [/^Naval Gauss \((\w+)\)/, '$1 N-Gauss'], [/^(Capital Missile Launcher|Tele-operated Missile) \((.+?)( Launcher)?\)/, '$2'],
   [/^Sub-Capital Laser \/(\d)/, 'SCL/$1'], [/^Sub-Capital Cannon \((\w+)\)/, '$1 SCC'],
   [/^Sub-Capital Missile Launcher \((.+)\)/, '$1'], [/^Mass Driver \((\w+)\)/, '$1 Mass Driver'],
+  [/^Imp\. LRM (\d+) Art\. Ammo/, 'Imp. LRM $1 Art.'],
 ];
 
 /** Further short forms, used only while a name is still longer than COMPACT_LENGTH. */
@@ -1002,6 +1016,18 @@ export function spreadLocations(eq: Equipment, d: { config?: MechConfig }): Loca
   return [];
 }
 
+/** Share of the tonnage a smart robotic control system weighs (Interstellar Operations, as MegaMek). */
+export function srcsShare(id: string): number {
+  const shielded = id.includes('shielded');
+  return 0.05 + (id.startsWith('improved') ? (shielded ? 0.01 : 0.02) : 0);
+}
+
+/** SRCS weight: a share of the tonnage, rounded up to the half ton (units under 10 t: 1 t improved, else nothing). */
+export function srcsWeight(id: string, tonnage: number, round: (n: number) => number = upHalf): number {
+  if (tonnage < 10) return id.startsWith('improved') ? 1 : 0;
+  return round(tonnage * srcsShare(id));
+}
+
 export function itemWeight(eq: Equipment, d: SizingDesign): number {
   if (eq.variableWeight === 'jumpJet') return jumpJetWeight(d.tonnage);
   if (eq.variableWeight === 'improvedJumpJet') return jumpJetWeight(d.tonnage) * 2;
@@ -1015,6 +1041,7 @@ export function itemWeight(eq: Equipment, d: SizingDesign): number {
   if (eq.variableWeight === 'aes') return upHalf(d.tonnage / (isQuad(d) ? 50 : 35));
   if (eq.variableWeight === 'droneOS') return upHalf(d.tonnage / 10 + 0.5);
   if (eq.variableWeight === 'boobyTrap') return upHalf(d.tonnage / 10);
+  if (eq.variableWeight === 'srcs') return srcsWeight(eq.id, d.tonnage);
   // Tracks: 10% of the tonnage, one piece per leg.
   if (eq.variableWeight === 'tracks') return upHalf(d.tonnage * 0.1) / legCount(d);
   if (eq.variableWeight === 'wheels') return upHalf(d.tonnage * 0.15) / legCount(d);
@@ -1063,6 +1090,7 @@ export function meleeWeight(kind: MeleeKind, d: SizingDesign): number {
     case 'medium-shield': return 4;
     case 'large-shield': return 6;
     case 'wrecking-ball': return 4;
+    case 'flail': return 5;
   }
 }
 
@@ -1081,6 +1109,7 @@ export function meleeSlots(kind: MeleeKind, tonnage: number): number {
     case 'medium-shield': return 5;
     case 'large-shield': return 7;
     case 'wrecking-ball': return 5;
+    case 'flail': return 4;
   }
 }
 

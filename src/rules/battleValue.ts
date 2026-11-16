@@ -71,7 +71,8 @@ export function ammoValue(eq: Equipment): { bv: number; cost: number } {
   let bv = (w?.ammoBV ?? 0) * scale;
   // MegaMek gives Artemis-capable ammunition the same BV as standard ammunition.
   // Artemis IV- and V-capable ammunition costs twice as much (MegaMek).
-  return { bv, cost: (w?.ammoCost ?? 0) * scale * (eq.artemisVAmmo || eq.artemisAmmo ? 2 : 1) };
+  // Flak autocannon ammunition costs 1.5 times as much.
+  return { bv, cost: (w?.ammoCost ?? 0) * scale * (eq.artemisVAmmo || eq.artemisAmmo ? 2 : eq.flakAmmo ? 1.5 : 1) };
 }
 
 /** Heat a weapon counts for in the BV heat calculation. */
@@ -456,6 +457,8 @@ export function equipmentCost<T extends { equipmentId: string; location?: string
     else if (eq.variableWeight === 'aes' && mech) total += mech.tonnage * (legLocations(mech).includes(i.location as Location) ? 700 : 500);
     else if (eq.variableWeight === 'partialWing') total += weight(eq) * 50000;
     else if (eq.variableWeight === 'droneOS') total += weight(eq) * 10000 + 5000;
+    // SRCS: 10,000 per ton + 5,000 (shielded aerospace: 12,500 per ton + 6,250).
+    else if (eq.variableWeight === 'srcs') total += eq.id.includes('shielded') ? weight(eq) * 12500 + 6250 : weight(eq) * 10000 + 5000;
     else if (eq.vehicleChassisMod) total += weight(eq) * (/armored-motive/.test(eq.id) ? 100000 : /amphibious/.test(eq.id) ? 10000 : 0);
     else if ((eq.variableWeight === 'tracks' || eq.variableWeight === 'wheels') && mech) {
       total += Math.ceil(((eq.variableWeight === 'wheels' ? 750 : 500) * rating * mech.tonnage) / 75) / legLocations(mech).length;

@@ -16,7 +16,7 @@ import {
 } from './tables';
 import type { Equipment } from './equipment';
 import {
-  shortEquipmentName, getEquipment, isArtemisVCapable, isDirectFire, isEquipmentAvailable, usesAmmo,
+  shortEquipmentName, getEquipment, isArtemisVCapable, isDirectFire, isEquipmentAvailable, srcsWeight, usesAmmo,
 } from './equipment';
 import { armorPointsForTons, armorTonnage } from './armor';
 import type { Issue } from './validation';
@@ -379,6 +379,7 @@ export function vehicleItemWeight(eq: Equipment, d: VehicleDesign): number {
   if (eq.variableWeight === 'droneOS') return halfUp(d.tonnage / 10 + 0.5);
   if (eq.variableWeight === 'vehicleJumpJet') return vehicleJumpJetWeight(d.tonnage);
   if (eq.variableWeight === 'boobyTrap') return halfUp(d.tonnage / 10);
+  if (eq.variableWeight === 'srcs') return srcsWeight(eq.id, d.tonnage, halfUp);
   if (eq.variableWeight === 'targetingComputer') {
     let tons = 0;
     for (const m of d.equipment) {

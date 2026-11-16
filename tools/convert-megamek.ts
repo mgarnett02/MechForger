@@ -36,7 +36,7 @@ import type { StationaryDesign, StationaryItem } from '../src/rules/stationary';
 import { computeStationary, stationaryBV, validateStationary } from '../src/rules/stationary';
 import { PROTO_EDP_ARMOR, PROTO_STANDARD_ARMOR, computeProtoMech, emptyProtoArmor, protoMechBV, validateProtoMech } from '../src/rules/protomech';
 import { battleArmorBV, computeBattleArmor, syncArmorSlots, validateBattleArmor } from '../src/rules/battlearmor';
-import { MM_EQUIPMENT, findMM } from '../src/rules/mmEquipment';
+import { MM_EQUIPMENT, findMM, findMMOfKind } from '../src/rules/mmEquipment';
 import type { Augmentation, FieldGun, InfantryDesign, InfantryMotion } from '../src/rules/infantry';
 import { AUGMENTATIONS, BEASTS, SPECIALIZATIONS, computeInfantry, infantryBV, validateInfantry } from '../src/rules/infantry';
 import type { FighterArmorType, FighterDesign, FighterItem, FighterLocation } from '../src/rules/fighter';
@@ -153,7 +153,8 @@ function resolveAmmo(raw: string, unitTech: TechBase): string | null {
   const artemisV = /artemis v.capable/i.test(raw);
   const artemis = !artemisV && /artemis.capable/i.test(raw);
   const half = /half/i.test(raw);
-  let s = norm(raw.replace(/\(clan\)/gi, '')).replace(/^(clan|is|cl)/, '').replace(/ammo|pods|full|half|artemisvcapable|artemiscapable/g, '');
+  const flak = /flak/i.test(raw);
+  let s = norm(raw.replace(/\(clan\)/gi, '')).replace(/^(clan|is|cl)/, '').replace(/ammo|pods|full|half|flak|artemisvcapable|artemiscapable/g, '');
   s = s.replace(/^ammo/, '');
   const families: [RegExp, (m: RegExpExecArray) => string][] = [
     [/^arrowiv/, () => 'arrow-iv'], [/^longtomcannon/, () => 'long-tom-cannon'], [/^longtom/, () => 'long-tom'],
@@ -161,7 +162,7 @@ function resolveAmmo(raw: string, unitTech: TechBase): string | null {
     [/^thumper/, () => 'thumper'], [/^lac(\d+)/, (m) => `lac-${m[1]}`],
     [/^ultraac(\d+)/, (m) => `uac-${m[1]}`], [/^rotaryac(\d+)/, (m) => `rac-${m[1]}`],
     [/^lb(\d+)x/, (m) => `lb-${m[1]}x`], [/^ac(\d+)/, (m) => `ac-${m[1]}`],
-    [/^extendedlrm(\d+)/, (m) => `elrm-${m[1]}`], [/^enhancedlrm(\d+)/, (m) => `nlrm-${m[1]}`], [/^iatm(\d+)/, (m) => `iatm-${m[1]}`],
+    [/^extendedlrm(\d+)/, (m) => `elrm-${m[1]}`], [/^improvedlrm(\d+)/, (m) => `improved-lrm-${m[1]}`], [/^enhancedlrm(\d+)/, (m) => `nlrm-${m[1]}`], [/^iatm(\d+)/, (m) => `iatm-${m[1]}`],
     [/^scmortar(\d+)/, (m) => `mech-mortar-${m[1]}`], [/^protomechac(\d+)/, (m) => `protomech-ac-${m[1]}`],
     [/^silverbullet/, () => 'silver-bullet-gauss'], [/^improvedheavygauss/, () => 'improved-heavy-gauss'],
     [/^heavyflamer/, () => 'heavy-flamer'], [/^vehicleflamer/, () => 'vehicle-flamer'], [/^fluidgun/, () => 'fluid-gun'],
@@ -185,7 +186,7 @@ function resolveAmmo(raw: string, unitTech: TechBase): string | null {
     const clanFirst = tech === 'Clan' || (!tech && unitTech === 'Clan');
     const candidates = clanFirst ? [`clan-${weapon}`, weapon] : [weapon, `clan-${weapon}`];
     for (const w of candidates) {
-      const id = mml ? `ammo-${w}-${mml}` : `ammo-${w}${artemis ? '-artemis' : artemisV ? '-artemis-v' : ''}${half ? '-half' : ''}`;
+      const id = mml ? `ammo-${w}-${mml}` : `ammo-${w}${artemis ? '-artemis' : artemisV ? '-artemis-v' : flak ? '-flak' : ''}${half ? '-half' : ''}`;
       if (getEquipment(id)) return id;
     }
     return null;
@@ -650,6 +651,15 @@ function parseBlk(text: string): { design: VehicleDesign; year: number; rulesLev
       raw = raw.replace(/\s*\(ST\)\s*$/, '');
       const special = /^(VehicleJumpJet|VJJ)$/i.test(raw) ? 'vehicle-jump-jet' : /^(IS|CL)VTOLJetBooster$/i.test(raw) ? 'vtol-jet-booster' : null;
       if (special) { equipment.push({ uid: `v${uid++}`, equipmentId: special, location: 'BD' }); continue; }
+      // MASH (core + theaters) and drone carrier control (core + 0.5 t per drone) are sized items.
+      const sized = /^(MASH Equipment|ISDroneCarrierControlSystem)(?::OMNI)?:SIZE:([\d.]+)/i.exec(raw);
+      if (sized) {
+        const mash = /^MASH/i.test(sized[1]);
+        const n = Math.max(1, Math.round(Number(sized[2])));
+        if (mash) for (let k = 0; k < n; k++) equipment.push({ uid: `v${uid++}`, equipmentId: k === 0 ? 'mash-core' : 'mash-theater', location: 'BD' as VehicleLocation });
+        else for (let k = 0; k <= n; k++) equipment.push({ uid: `v${uid++}`, equipmentId: k === 0 ? 'drone-carrier-control' : 'drone-carrier-slot', location: 'BD' as VehicleLocation });
+        continue;
+      }
       const comms = /^Communications Equipment:SIZE:([\d.]+)/i.exec(raw);
       if (comms) {
         for (let c = 0; c < Math.round(Number(comms[1])); c++) equipment.push({ uid: `v${uid++}`, equipmentId: 'communications-equipment', location: 'BD' as VehicleLocation });
@@ -971,8 +981,8 @@ function parseInfantryBlk(text: string): { design: InfantryDesign; year: number;
   const motion: InfantryMotion = beastM ? 'beast' : INF_MOTION[motionRaw.toLowerCase()] ?? fail(`motion ${motionRaw}`);
   if (beastM && !BEASTS.some((b) => b.name === beastM[1])) fail(`beast ${beastM[1]}`);
   const weapon = (name: string) => {
-    const e = findMM(name, techBase);
-    if (!e || e.kind !== 'infantryWeapon') fail(`infantry weapon "${name}"`);
+    const e = findMMOfKind(name, 'infantryWeapon', techBase);
+    if (!e) fail(`infantry weapon "${name}"`);
     return e!.id;
   };
   let armorKit: string | null = null;
@@ -980,6 +990,8 @@ function parseInfantryBlk(text: string): { design: InfantryDesign; year: number;
   const tools: string[] = [];
   for (const raw of tags.get('troopers equipment') ?? []) {
     if (/^AntiMekGear$/i.test(raw)) { antiMek = true; continue; }
+    // A fire extinguisher weighs nothing and costs nothing; it has no construction effect.
+    if (/^Fire Extinguisher$/i.test(raw)) continue;
     const e = findMM(raw, techBase) ?? fail(`trooper item "${raw}"`);
     if (e.flags.includes('F_ARMOR_KIT')) armorKit = e.id;
     else if (e.flags.includes('F_TOOLS')) tools.push(e.id);
