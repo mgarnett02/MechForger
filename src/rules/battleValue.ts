@@ -92,11 +92,12 @@ interface WeaponEntry {
   rear: boolean;
   id: string;
   loc?: string | null;
+  turret?: boolean;
 }
 
 /** Weapon BV with targeting-computer and Artemis IV bonuses. */
 export function weaponEntries(
-  items: { equipmentId: string; location: string | null; rear?: boolean }[],
+  items: { equipmentId: string; location: string | null; rear?: boolean; turret?: boolean }[],
   /** Vehicles: Artemis links to a launcher in any location. */
   artemisAnywhere = false,
 ): WeaponEntry[] {
@@ -159,7 +160,7 @@ export function weaponEntries(
       bv *= 1.2;
     }
     // Prototype weapons that share a standard weapon's ammunition are capped together with it.
-    out.push({ bv: bv * drone, heat, rear: !!i.rear, id: eq.ammoOf ?? eq.id, loc: i.location });
+    out.push({ bv: bv * drone, heat, rear: !!i.rear, id: eq.ammoOf ?? eq.id, loc: i.location, ...(i.turret ? { turret: true } : {}) });
   }
   return out;
 }
@@ -357,9 +358,12 @@ export function mechBV(d: MechDesign): BVBreakdown {
   // Weapons (and melee weapons) in an arm with an Actuator Enhancement System: ×1.25.
   const aesArms = isQuad(d) ? new Set<string>() : new Set(d.equipment.filter((e) => e.equipmentId === 'aes' && (e.location === 'LA' || e.location === 'RA')).map((e) => e.location as string));
   for (const w of weapons) if (w.loc && aesArms.has(w.loc)) w.bv *= 1.25;
-  const frontBV = weapons.filter((w) => !w.rear).reduce((a, w) => a + w.bv, 0);
-  const rearBV = weapons.filter((w) => w.rear).reduce((a, w) => a + w.bv, 0);
-  for (const w of weapons) {
+  // Turret and arm weapons (arms can flip) sit outside the front/rear comparison (MegaMek).
+  const armLocs = isQuad(d) ? [] : ['LA', 'RA'];
+  const arced = weapons.filter((w) => !w.turret && !armLocs.includes(w.loc ?? ''));
+  const frontBV = arced.filter((w) => !w.rear).reduce((a, w) => a + w.bv, 0);
+  const rearBV = arced.filter((w) => w.rear).reduce((a, w) => a + w.bv, 0);
+  for (const w of arced) {
     if (rearBV > frontBV ? !w.rear : w.rear) w.bv /= 2;
   }
   const moveHeat = airMechFlank !== null ? Math.round(airMechFlank / 3) : Math.max(s.heat.running, s.heat.jumping);
@@ -459,6 +463,7 @@ export function equipmentCost<T extends { equipmentId: string; location?: string
     else if (eq.variableWeight === 'aes' && mech) total += mech.tonnage * (legLocations(mech).includes(i.location as Location) ? 700 : 500);
     else if (eq.variableWeight === 'partialWing') total += weight(eq) * 50000;
     else if (eq.variableWeight === 'droneOS') total += weight(eq) * 10000 + 5000;
+    else if (eq.variableWeight === 'mechTurret') total += weight(eq) * 10000;
     // SRCS: 10,000 per ton + 5,000 (shielded aerospace: 12,500 per ton + 6,250).
     else if (eq.variableWeight === 'srcs') total += eq.id.includes('shielded') ? weight(eq) * 12500 + 6250 : weight(eq) * 10000 + 5000;
     else if (eq.vehicleChassisMod) total += weight(eq) * (/armored-motive/.test(eq.id) ? 100000 : /amphibious/.test(eq.id) ? 10000 : 0);

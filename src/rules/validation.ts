@@ -8,7 +8,7 @@ import {
 } from './tables';
 import {
   ENDO_STEEL_ID, ENV_SEAL_ID, canArmor, spreadLocations, FERRO_FIBROUS_ID, HEAT_SINK_IDS, TSM_ID, allowedLocations, canRearMount, getEquipment, isArtemisVCapable, isPPC,
-  JUMP_JET_IDS, heatSinkIdFor, isDirectFire, isEquipmentAvailable, jumpJetIdFor, usesAmmo,
+  JUMP_JET_IDS, heatSinkIdFor, isDirectFire, isEquipmentAvailable, jumpJetIdFor, mechTurretLocation, usesAmmo,
 } from './equipment';
 import { configurationDesigns, isFixedOnly } from './omni';
 import { getEra, isAvailableIn } from './eras';
@@ -319,6 +319,21 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
   }
 
   if (design.gyroType === 'none' && design.cockpitType !== 'interface') error('Only an interface cockpit lets a \'Mech go without a gyro.');
+  // 'Mech turrets (Tactical Operations, as MegaMek checks them).
+  const turretItems = design.equipment.filter((e) => getEquipment(e.equipmentId)?.variableWeight === 'mechTurret');
+  const nTurret = (id: string, loc?: string) => turretItems.filter((e) => e.equipmentId === id && (!loc || e.location === loc)).length;
+  if (nTurret('mech-turret-shoulder') && isQuad(design)) error("Quad 'Mechs can't mount shoulder turrets.");
+  if (nTurret('mech-turret-quad') && !isQuad(design)) error("Only quad 'Mechs can mount a quad turret.");
+  if (nTurret('mech-turret-head') && design.cockpitType !== 'torso-mounted') error('A head turret needs a torso-mounted cockpit.');
+  if (nTurret('mech-turret-head') > 1 || nTurret('mech-turret-quad') > 1) error("A 'Mech mounts at most one head turret and one quad turret.");
+  if (nTurret('mech-turret-shoulder', 'LT') > 1 || nTurret('mech-turret-shoulder', 'RT') > 1) error('At most one shoulder turret per side torso.');
+  const turretLocs = new Set(turretItems.map((e) => mechTurretLocation(e.equipmentId, e.location)));
+  for (const e of design.equipment) {
+    if (!e.turret) continue;
+    const eq = getEquipment(e.equipmentId);
+    if (!e.location || !turretLocs.has(e.location)) error(`${eq?.name ?? e.equipmentId} is turret-mounted, but its location has no turret.`);
+    if (/heavy-gauss/.test(e.equipmentId)) error('Heavy Gauss rifles cannot be mounted in a turret.');
+  }
   if (design.heatSinkType === 'double' && design.equipment.some((e) => e.equipmentId === 'prototype-double-heat-sink')) {
     error('Prototype double heat sinks are mounted alongside single heat sinks.');
   }

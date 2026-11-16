@@ -9,7 +9,7 @@ import {
 } from './tables';
 import {
   ENDO_STEEL_ID, ENV_SEAL_ID, FERRO_FIBROUS_ID, HEAT_SINK_IDS, JUMP_JET_IDS, TSM_ID, allowedLocations,
-  canRearMount, getEquipment, heatSinkIdFor, itemSlots, jumpJetIdFor, spreadLocations,
+  canRearMount, getEquipment, heatSinkIdFor, mechTurretLocation, itemSlots, jumpJetIdFor, spreadLocations,
 } from './equipment';
 import { isFixedOnly } from './omni';
 import { computeMech } from './construction';
@@ -256,7 +256,9 @@ export function setItemLocation(d: MechDesign, uid: string, location: Location |
       const rear = e.rear && eq && canRearMount(eq, location, d) ? true : undefined;
       // Moving a split weapon keeps the split only if the second location still borders the new one.
       const split = e.split && location && SPLIT_ADJACENT[location].includes(e.split.location) ? e.split : undefined;
-      return { ...e, location, rear, split };
+      // A turret mount follows the item only into a location that has a turret.
+      const turret = e.turret && location && hasMechTurret(d, location) ? true : undefined;
+      return { ...e, location, rear, split, turret };
     }),
   };
 }
@@ -339,7 +341,20 @@ export function placeItem(d: MechDesign, uid: string, loc: Location): MechDesign
 export function setItemRear(d: MechDesign, uid: string, rear: boolean): MechDesign {
   return {
     ...d,
-    equipment: d.equipment.map((e) => (e.uid === uid ? { ...e, rear: rear || undefined } : e)),
+    equipment: d.equipment.map((e) => (e.uid === uid ? { ...e, rear: rear || undefined, ...(rear ? { turret: undefined } : {}) } : e)),
+  };
+}
+
+/** Whether a location has a 'Mech turret (the head turret sits in the centre torso but carries head items). */
+export function hasMechTurret(d: MechDesign, location: Location): boolean {
+  return d.equipment.some((e) => getEquipment(e.equipmentId)?.variableWeight === 'mechTurret' && mechTurretLocation(e.equipmentId, e.location) === location);
+}
+
+/** Mount an item in its location's 'Mech turret (turret items never face the rear). */
+export function setItemTurret(d: MechDesign, uid: string, turret: boolean): MechDesign {
+  return {
+    ...d,
+    equipment: d.equipment.map((e) => (e.uid === uid ? { ...e, turret: turret || undefined, ...(turret ? { rear: undefined } : {}) } : e)),
   };
 }
 

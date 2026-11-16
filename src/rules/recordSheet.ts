@@ -107,7 +107,7 @@ export function mechSheetData(d: MechDesign): SheetData {
   });
   const groups = group(placed, (e) => ({
     // A set of talons spans every leg: one row.
-    label: e.equipmentId === 'talons' ? 'Legs' : mountAbbr(d, e),
+    label: e.equipmentId === 'talons' ? 'Legs' : `${mountAbbr(d, e)}${e.turret ? ' (T)' : ''}`,
     order: e.location ? MECH_ORDER[e.location] : 99,
     rear: !!e.rear,
   }));

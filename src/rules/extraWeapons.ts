@@ -123,6 +123,10 @@ const misc = (id: string, name: string, tons: number, slots: number, techBase: E
 export const EXTRA_EQUIPMENT: Equipment[] = [
   { id: 'clan-er-small-laser-prototype', name: 'Prototype ER Small Laser (CP)', category: 'Energy', tons: 0.5, slots: 1, heat: 2, damage: '3', range: { min: 0, short: 2, medium: 4, long: 5 }, isWeapon: true, techBase: 'Clan', firstEra: '3025' },
   misc('mass', 'MASS', 1.5, 1, 'Both', '3025'),
+  // 'Mech turrets (Tactical Operations): a tenth of the turret-mounted equipment's weight; 10,000 C-bills per ton.
+  misc('mech-turret-head', 'Head Turret', 0, 1, 'Both', '3025', { variableWeight: 'mechTurret', allowedLocations: ['CT'] }),
+  misc('mech-turret-shoulder', 'Shoulder Turret', 0, 1, 'Both', '3025', { variableWeight: 'mechTurret', allowedLocations: ['LT', 'RT'] }),
+  misc('mech-turret-quad', 'Quad Turret', 0, 1, 'Both', '3025', { variableWeight: 'mechTurret', allowedLocations: ['LT', 'RT'] }),
   // Prototype (freezer) double heat sinks: mounted with single heat sinks, each dissipating 2.
   misc('prototype-double-heat-sink', 'Prototype Double HS', 1, 3, 'IS', '3025', { allowedLocations: ['CT', 'LT', 'RT', 'LA', 'RA', 'LL', 'RL'] }),
   // Smart robotic control systems (Interstellar Operations): a share of the tonnage.
@@ -157,7 +161,8 @@ export const EXTRA_EQUIPMENT: Equipment[] = [
 ];
 
 export const EXTRA_EQUIPMENT_MM_NAMES: [string, string][] = [
-  ['ISDoubleHeatSinkPrototype', 'prototype-double-heat-sink'], ['SmartRoboticControlSystem', 'srcs'], ['ImprovedSmartRoboticControlSystem', 'improved-srcs'], ['ShieldedAeroSRCS', 'shielded-aero-srcs'],
+  ['ISDoubleHeatSinkPrototype', 'prototype-double-heat-sink'], ['ISHeadTurret', 'mech-turret-head'], ['ISShoulderTurret', 'mech-turret-shoulder'],
+  ['ISQuadTurret', 'mech-turret-quad'], ['CLHeadTurret', 'mech-turret-head'], ['CLShoulderTurret', 'mech-turret-shoulder'], ['CLQuadTurret', 'mech-turret-quad'], ['SmartRoboticControlSystem', 'srcs'], ['ImprovedSmartRoboticControlSystem', 'improved-srcs'], ['ShieldedAeroSRCS', 'shielded-aero-srcs'],
   ['ImprovedShieldedAeroSRCS', 'improved-shielded-aero-srcs'],
   ['CLERSmallLaserPrototype', 'clan-er-small-laser-prototype'], ['ISMASS', 'mass'], ['CLMASS', 'mass'], ['ISLaserInsulator', 'laser-insulator'], ['CLLaserInsulator', 'laser-insulator'],
   ['HarJel Repair Systems (HarJel II)', 'harjel-ii'], ['HarJel Repair Systems (HarJel III)', 'harjel-iii'], ['ISChaffPod', 'chaff-pod'],

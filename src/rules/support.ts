@@ -466,7 +466,7 @@ export function svItemWeight(eq: Equipment, d: SupportVehicleDesign): number {
 }
 
 export function isSupportEquipment(eq: Equipment): boolean {
-  return !eq.managed && eq.variableWeight !== 'masc' && !eq.lamOnly && ((!eq.vehicleOnly && !eq.vesselOnly) || !!eq.supportOk) && !eq.melee && !eq.capitalClass && !eq.vehicleChassisMod;
+  return !eq.managed && eq.variableWeight !== 'masc' && !eq.lamOnly && eq.variableWeight !== 'mechTurret' && ((!eq.vehicleOnly && !eq.vesselOnly) || !!eq.supportOk) && !eq.melee && !eq.capitalClass && !eq.vehicleChassisMod;
 }
 
 // ---------------------------------------------------------------------------

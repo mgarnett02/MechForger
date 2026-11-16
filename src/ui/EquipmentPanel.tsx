@@ -8,7 +8,7 @@ import {
   isEquipmentAvailable, itemSlots, itemWeight, legCount,
 } from '../rules/equipment';
 import { meleeDamage } from '../rules/melee';
-import { addEquipment, canSplit, removeEquipment, setItemArmored, setItemLocation, setItemRear, setItemSplit } from '../rules/edit';
+import { addEquipment, canSplit, hasMechTurret, removeEquipment, setItemArmored, setItemLocation, setItemRear, setItemSplit, setItemTurret } from '../rules/edit';
 import { activeConfigName, isFixedOnly, setItemPod } from '../rules/omni';
 import { OmniBar } from './OmniBar';
 
@@ -173,6 +173,13 @@ function MountedRow({
           <input type="checkbox" checked={!!item.rear}
             onChange={(e) => update((d) => setItemRear(d, item.uid, e.target.checked))} />
           Rear
+        </label>
+      )}
+      {item.location && eq.variableWeight !== 'mechTurret' && eq.category !== 'Ammo' && hasMechTurret(design, item.location) && (
+        <label className="check small" title="Mounted in the turret: fires in every direction; the turret weighs a tenth of what it carries">
+          <input type="checkbox" checked={!!item.turret}
+            onChange={(e) => update((d) => setItemTurret(d, item.uid, e.target.checked))} />
+          Turret
         </label>
       )}
       {canArmor(eq) && item.location && (

@@ -137,6 +137,8 @@ export interface MountedItem {
   location: Location | null;
   /** Rear-firing (torso weapons only). */
   rear?: boolean;
+  /** Mounted in the 'Mech turret of its location (head turret: the head). */
+  turret?: boolean;
   /** OmniMechs: pod-mounted (belongs to the active configuration) rather than fixed. */
   pod?: boolean;
   /** Armored component (TO:AUE p. 95): +0.5 t per slot, survives a critical hit roll. */

@@ -39,7 +39,7 @@ export interface Equipment {
   allowedLocations?: readonly Location[];
   isWeapon: boolean;
   /** Weight (and for MASC / targeting computers, slots) depends on the mech. */
-  variableWeight?: 'jumpJet' | 'improvedJumpJet' | 'masc' | 'supercharger' | 'targetingComputer' | 'aes' | 'partialWing' | 'droneOS' | 'tracks' | 'wheels' | 'vehicleJumpJet' | 'vesselFormula' | 'boobyTrap' | 'srcs';
+  variableWeight?: 'jumpJet' | 'improvedJumpJet' | 'masc' | 'supercharger' | 'targetingComputer' | 'aes' | 'partialWing' | 'droneOS' | 'tracks' | 'wheels' | 'vehicleJumpJet' | 'vesselFormula' | 'boobyTrap' | 'srcs' | 'mechTurret';
   /** Combat vehicle chassis modification: weighs this share of the tonnage (Clan share if given). */
   vehicleChassisMod?: { share: number; clan?: number };
   /** Systems spread one piece per location (added and removed as a set). */
@@ -251,8 +251,8 @@ const JIHAD_WEAPONS: Equipment[] = [
   weapon(CLAN_3068, 'clan-rac-2', 'Rotary AC/2', 'Ballistic', 8, 4, 1, '2 (×6)', [0, 8, 17, 25], 45),
   weapon(CLAN_3068, 'clan-rac-5', 'Rotary AC/5', 'Ballistic', 10, 8, 1, '5 (×6)', [0, 7, 14, 21], 20),
   // Anti-infantry pods: one-shot, defensive; B-Pods (3068) and M-Pods (3064) explode when hit.
-  { ...weapon(ANY_3068, 'b-pod', 'B-Pod', 'Other', 1, 1, 0, '1d6 vs. infantry', [0, 0, 0, 0]), explosiveLow: true },
-  { ...weapon(IS_3062, 'm-pod', 'M-Pod', 'Other', 1, 1, 0, '15 (cluster)', [0, 1, 2, 3]), explosiveLow: true },
+  weapon(ANY_3068, 'b-pod', 'B-Pod', 'Other', 1, 1, 0, '1d6 vs. infantry', [0, 0, 0, 0]),
+  weapon(IS_3062, 'm-pod', 'M-Pod', 'Other', 1, 1, 0, '15 (cluster)', [0, 1, 2, 3]),
   // Re-engineered lasers (3120): pulse-like accuracy against reflective and reactive armor.
   weapon(IS_3101, 'small-re-engineered-laser', 'Small Re-engineered Laser', 'Energy', 1.5, 1, 4, '4', [0, 1, 2, 3]),
   weapon(IS_3101, 'medium-re-engineered-laser', 'Medium Re-engineered Laser', 'Energy', 2.5, 2, 6, '6', [0, 3, 6, 9]),
@@ -1035,6 +1035,33 @@ export function srcsWeight(id: string, tonnage: number, round: (n: number) => nu
   return round(tonnage * srcsShare(id));
 }
 
+/** The location whose turret-mounted items a 'Mech turret carries (the head turret sits in the centre torso). */
+export function mechTurretLocation(turretId: string, turretLoc: string | null): string | null {
+  return turretId === 'mech-turret-head' ? 'HD' : turretLoc;
+}
+
+/**
+ * 'Mech turret weight: a tenth of the turret-mounted items in its location (not ammunition or heat sinks),
+ * rounded up to the half ton (as MegaMek). Two shoulder turrets share their total equally.
+ */
+export function mechTurretWeight(turretId: string, d: SizingDesign): number {
+  const turrets = d.equipment.filter((e) => e.equipmentId === turretId);
+  if (!turrets.length) return 0;
+  let total = 0;
+  for (const t of turrets) {
+    const loc = mechTurretLocation(turretId, t.location);
+    let w = 0;
+    for (const e of d.equipment) {
+      if (!e.turret || e.location !== loc) continue;
+      const x = getEquipment(e.equipmentId);
+      if (!x || x.category === 'Ammo' || HEAT_SINK_IDS.includes(x.id) || x.variableWeight === 'mechTurret') continue;
+      w += itemWeight(x, d);
+    }
+    total += upHalf(w / 10);
+  }
+  return total / turrets.length;
+}
+
 export function itemWeight(eq: Equipment, d: SizingDesign): number {
   if (eq.variableWeight === 'jumpJet') return jumpJetWeight(d.tonnage);
   if (eq.variableWeight === 'improvedJumpJet') return jumpJetWeight(d.tonnage) * 2;
@@ -1049,6 +1076,7 @@ export function itemWeight(eq: Equipment, d: SizingDesign): number {
   if (eq.variableWeight === 'droneOS') return upHalf(d.tonnage / 10 + 0.5);
   if (eq.variableWeight === 'boobyTrap') return upHalf(d.tonnage / 10);
   if (eq.variableWeight === 'srcs') return srcsWeight(eq.id, d.tonnage);
+  if (eq.variableWeight === 'mechTurret') return mechTurretWeight(eq.id, d);
   // Tracks: 10% of the tonnage, one piece per leg.
   if (eq.variableWeight === 'tracks') return upHalf(d.tonnage * 0.1) / legCount(d);
   if (eq.variableWeight === 'wheels') return upHalf(d.tonnage * 0.15) / legCount(d);

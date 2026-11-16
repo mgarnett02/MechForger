@@ -265,7 +265,7 @@ export function vehicleItemLocations(eq: Equipment, d: Pick<VehicleDesign, 'moti
 /** Mech-only equipment that vehicles cannot mount. */
 export function isVehicleEquipment(eq: Equipment): boolean {
   if (eq.managed) return false; // heat sinks, jump jets, structure slots, TSM
-  if (eq.variableWeight === 'masc') return false;
+  if (eq.variableWeight === 'masc' || eq.variableWeight === 'mechTurret') return false;
   if (eq.lamOnly || eq.melee || eq.capitalClass || eq.vesselOnly) return false; // Land-Air 'Mech systems and 'Mech melee weapons
   return true;
 }

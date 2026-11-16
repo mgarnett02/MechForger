@@ -212,7 +212,7 @@ function r0IsArmorSlot(raw: string): boolean {
 }
 
 function resolveName(raw: string, unitTech: TechBase): Resolved {
-  const name = raw.replace(/\s*\((R|OMNIPOD|ARMORED)\)/gi, '').trim();
+  const name = raw.replace(/\s*\((R|T|OMNIPOD|ARMORED)\)/gi, '').trim();
   const n = norm(name);
   if (MM_AMMO.has(n)) return { kind: 'item', id: MM_AMMO.get(n)! };
   if (MM_WEAPON.has(n)) return { kind: 'item', id: MM_WEAPON.get(n)! };
@@ -513,6 +513,7 @@ function parseMtf(text: string): ParsedMech {
       for (let n = 0; n < Math.floor(run / size); n++) {
         const item: MountedItem = { uid: `c${uid++}`, equipmentId: eq.id, location: l };
         if (/\(R\)/.test(raw)) item.rear = true;
+        if (/\(T\)/.test(raw)) item.turret = true;
         if (/\(ARMORED\)/.test(raw)) item.armored = true;
         equipment.push(item);
         if (/\(OMNIPOD\)/.test(raw)) pods.add(item);

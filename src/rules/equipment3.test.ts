@@ -5,7 +5,8 @@ import { decodeMech, encodeMech } from '../data/canonFormat';
 import {
   addEquipment, computeMech, getEquipment, mechBV, mechCost, newDesign, shortEquipmentName, validate,
 } from './index';
-import { placeItem, setItemLocation, setItemSplit } from './edit';
+import { placeItem, setItemLocation, setItemSplit, setItemTurret } from './edit';
+import { itemWeight } from './equipment';
 import { mechSheetData } from './recordSheet';
 import type { MechDesign } from './types';
 
@@ -102,7 +103,8 @@ describe('pods and probes', () => {
     const d = addEquipment(addEquipment(newDesign('3068'), 'b-pod', 'LL'), 'ap-pod', 'RL');
     expect(line(d, /Defensive equipment/)).toBe(3);
     expect(line(addEquipment(newDesign('3050', 'Clan'), 'clan-light-active-probe', 'HD'), /Defensive equipment/)).toBe(7);
-    expect(line(addEquipment(newDesign('3068'), 'm-pod', 'LL'), /Explosive/)).toBe(-1);
+    // M- and B-pods carry no linked ammunition, so MegaMek never counts them as explosive for BV.
+    expect(line(addEquipment(newDesign('3068'), 'm-pod', 'LL'), /Explosive/)).toBeUndefined();
   });
 
   it('coolant pods add ⌈heat sinks × pods / 5⌉ to heat efficiency and explode for 1 BV', () => {
@@ -116,5 +118,26 @@ describe('pods and probes', () => {
     for (const re of [/clan-er-medium-pulse-laser/, /clan-streak-lrm/, /clan-rac/, /re-engineered/, /coolant-pod/, /clan-artemis-v/, /b-pod|m-pod|ap-pod/]) {
       expect(canon.filter((e) => re.test(JSON.stringify(e.d))).length).toBeGreaterThan(5);
     }
+  });
+});
+
+describe("'Mech turrets", () => {
+  it('weigh a tenth of the turret-mounted equipment, rounded up to the half ton, and need a turret in the location', () => {
+    let d = addEquipment(addEquipment(newDesign('3050'), 'large-laser', 'LT'), 'mech-turret-shoulder', 'LT');
+    const laser = d.equipment.find((e) => e.equipmentId === 'large-laser')!;
+    d = setItemTurret(d, laser.uid, true);
+    const turret = d.equipment.find((e) => e.equipmentId === 'mech-turret-shoulder')!;
+    expect(itemWeight(getEquipment(turret.equipmentId)!, d)).toBe(0.5); // 5 t laser → 0.5 t
+    expect(validate(d, computeMech(d)).some((i) => /no turret/.test(i.message))).toBe(false);
+    const moved = { ...d, equipment: d.equipment.map((e) => (e.uid === laser.uid ? { ...e, location: 'RT' as const } : e)) };
+    expect(validate(moved, computeMech(moved)).some((i) => /no turret/.test(i.message))).toBe(true);
+  });
+
+  it('canon turret designs convert and match MegaMek', () => {
+    const turreted = canon.filter((e) => /mech-turret/.test(JSON.stringify(e.d)));
+    expect(turreted.length).toBeGreaterThan(15);
+    const stiletto = decodeMech(canon.find((e) => e.n === 'Stiletto STO-6S')!.d);
+    expect(mechBV(stiletto).total).toBe(1171);
+    expect(mechCost(stiletto).total).toBe(4290660);
   });
 });
