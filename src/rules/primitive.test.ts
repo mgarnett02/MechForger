@@ -52,9 +52,9 @@ describe('primitive small craft and DropShips', () => {
     expect(parseVessel(JSON.parse(JSON.stringify(old))).primitiveYear).toBe(2320);
   });
 
-  it('only small craft and DropShips can be primitive', () => {
+  it('only small craft, DropShips and primitive-core JumpShips can be primitive', () => {
     const js = { ...newVessel('3025', 'IS', 'jumpship'), primitiveYear: 2300 };
-    expect(vErrors(js)).toContain('Only small craft and DropShips can be built as primitive craft.');
+    expect(vErrors(js)).toContain('Only small craft, DropShips and JumpShips with a primitive K-F core can be built as primitive craft.');
   });
 });
 

@@ -140,12 +140,27 @@ function VesselChassisPanel({ design, summary, update }: Props) {
             <label>K-F drive</label>
             <div className="row wrap">
               <select aria-label="Drive core" value={design.driveCore} disabled={design.vesselType === 'space-station'}
-                onChange={(e) => update((d) => ({ ...d, driveCore: e.target.value as DriveCore }))}>
+                onChange={(e) => update((d) => {
+                  const driveCore = e.target.value as DriveCore;
+                  if (driveCore === 'primitive') return { ...d, driveCore, primitiveYear: d.primitiveYear ?? 2200, jumpRange: d.jumpRange ?? 30 };
+                  const { primitiveYear: _p, jumpRange: _r, ...rest } = d;
+                  return { ...rest, driveCore };
+                })}>
                 <option value="standard">Standard core (95%)</option>
                 <option value="compact">Compact core (45.25%)</option>
                 <option value="subcompact">Sub-compact core (50%)</option>
+                <option value="primitive">Primitive core (5% + 3% per light-year)</option>
                 <option value="none">None</option>
               </select>
+              {design.driveCore === 'primitive' && (
+                <>
+                  <NumberField label="Jump range" value={design.jumpRange ?? 30} min={1} max={30} width="4rem"
+                    onChange={(n) => update((d) => ({ ...d, jumpRange: Math.max(1, Math.min(30, Math.round(n))) }))} />
+                  <span className="muted small">LY · built in</span>
+                  <NumberField label="Year of construction" value={design.primitiveYear ?? 2200} min={2000} max={2500} width="5rem"
+                    onChange={(n) => update((d) => ({ ...d, primitiveYear: Math.round(n) }))} />
+                </>
+              )}
               <span className="muted">{t(summary.weights.kfDrive)} t</span>
               <label className="check"><input type="checkbox" checked={design.sail} onChange={(e) => update((d) => ({ ...d, sail: e.target.checked }))} /> Jump sail</label>
               <label className="check"><input type="checkbox" checked={design.lfBattery} onChange={(e) => update((d) => ({ ...d, lfBattery: e.target.checked }))} /> L-F battery</label>

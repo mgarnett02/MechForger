@@ -69,8 +69,9 @@ describe('sample vehicles', () => {
 
 describe('vehicle validation', () => {
   it('tonnage limits by motive type', () => {
-    expect(errors({ ...newVehicle(), motive: 'vtol', tonnage: 35 }).some((m) => m.includes('1–30 tons'))).toBe(true);
-    expect(setVehicleMotive({ ...newVehicle(), tonnage: 90 }, 'hover').tonnage).toBe(50);
+    // Over the normal maximum is a superheavy (up to 60 t for VTOLs, 100 t for hovercraft).
+    expect(errors({ ...newVehicle(), motive: 'vtol', tonnage: 65 }).some((m) => m.includes('1–60 tons'))).toBe(true);
+    expect(setVehicleMotive({ ...newVehicle(), tonnage: 120 }, 'hover').tonnage).toBe(100);
     expect(errors({ ...newVehicle(), motive: 'naval', tonnage: 300, cruiseMP: 1 }).some((m) => m.includes('tons'))).toBe(false);
   });
 

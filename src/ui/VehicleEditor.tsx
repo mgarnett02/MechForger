@@ -14,7 +14,8 @@ import type {
 import {
   computeVehicle, MOTIVE_ORDER, MOTIVE_TYPES, VEHICLE_ENGINE_LABELS, VEHICLE_ENGINE_OPTIONS, VEHICLE_LOCATION_NAMES,
   VTOL_ROTOR_MAX_ARMOR, addVehicleItem, distributeVehicleArmor, emptyVehicleArmor, isVehicleEquipment,
-  removeVehicleItem, setVehicleArmorTonnage, setVehicleEngine, setVehicleItemLocation, setVehicleMotive,
+  removeVehicleItem, setVehicleArmorTonnage, setVehicleEngine, setVehicleItemLocation, setVehicleMotive, setVehicleTonnage,
+  hasSixFacings, isSuperheavyVehicle, motiveMaxTonnage,
   setVehicleTurret, turretName, vehicleArmorSlots, vehicleItemLocations, vehicleItemWeight, vehicleReadout,
   vehicleStructureSlots,
 } from '../rules/vehicle';
@@ -76,16 +77,19 @@ function VehicleChassisPanel({ design, summary, update }: Props) {
           <select aria-label="Motive type" value={design.motive}
             onChange={(e) => update((d) => setVehicleMotive(d, e.target.value as MotiveType))}>
             {MOTIVE_ORDER.map((m) => (
-              <option key={m} value={m}>{MOTIVE_TYPES[m].name} (up to {MOTIVE_TYPES[m].maxTonnage} t)</option>
+              <option key={m} value={m}>{MOTIVE_TYPES[m].name} (up to {MOTIVE_TYPES[m].maxTonnage} t{MOTIVE_TYPES[m].superheavyMax ? `, superheavy ${MOTIVE_TYPES[m].superheavyMax} t` : ''})</option>
             ))}
           </select>
         </div>
 
         <label>Tonnage</label>
         <div>
-          <NumberField label="Tonnage" value={design.tonnage} min={1} max={motive.maxTonnage}
-            invalid={design.tonnage > motive.maxTonnage}
-            onChange={(n) => update((d) => ({ ...d, tonnage: Math.max(1, Math.round(n)) }))} />
+          <NumberField label="Tonnage" value={design.tonnage} min={1} max={motiveMaxTonnage(design.motive)}
+            invalid={design.tonnage > motiveMaxTonnage(design.motive)}
+            onChange={(n) => update((d) => setVehicleTonnage(d, n))} />
+          {isSuperheavyVehicle(design) && (
+            <span className="muted small"> superheavy{hasSixFacings(design) ? ' · six armor facings' : ''} · structure {design.motive === 'naval' || design.motive === 'submarine' ? '10' : '20'}% of tonnage</span>
+          )}
           <span className="muted"> {summary.weightClass}</span>
         </div>
 

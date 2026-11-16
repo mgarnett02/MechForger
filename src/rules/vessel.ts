@@ -31,7 +31,7 @@ export type VesselArmorType =
   | 'standard' | 'ferro-aluminum' | 'light-ferro-aluminum' | 'heavy-ferro-aluminum'
   | 'improved-ferro-aluminum' | 'ferro-carbide' | 'lamellor-ferro-carbide';
 /** K-F drive core: standard (JumpShips), compact (WarShips), sub-compact (small WarShips) or none (stations). */
-export type DriveCore = 'standard' | 'compact' | 'subcompact' | 'none';
+export type DriveCore = 'standard' | 'compact' | 'subcompact' | 'none' | 'primitive';
 
 export const VESSEL_LOCATIONS = ['NOS', 'LS', 'RS', 'FLS', 'FRS', 'ALS', 'ARS', 'LBS', 'RBS', 'AFT', 'HULL'] as const;
 export type VesselLocation = (typeof VESSEL_LOCATIONS)[number];
@@ -178,6 +178,8 @@ export interface VesselDesign {
   /** Primitive small craft and DropShips (Interstellar Operations): the year of construction sets the
    * engine, control and fuel factors; armor gets only 66% of its points. */
   primitiveYear?: number;
+  /** Primitive K-F drives (JumpShips): maximum jump range in light-years (30 for a modern drive). */
+  jumpRange?: number;
   era: EraId;
   techBase: TechBase;
   mixedTech: boolean;
@@ -291,16 +293,32 @@ const PRIMITIVE_TABLE: Record<'engine' | 'controls' | 'fuel', [number, number, n
   controls: [[2500, 0.0075, 0.0075], [2400, 0.00825, 0.009], [2351, 0.00975, 0.009], [2300, 0.00975, 0.00975], [2251, 0.01125, 0.0105], [2201, 0.01275, 0.012], [2151, 0.01245, 0.0135], [0, 0.01575, 0.015]],
   fuel: [[2500, 1, 1], [2400, 1.2, 1.1], [2351, 1.4, 1.3], [2300, 1.4, 1.4], [2251, 1.5, 1.4], [2201, 1.7, 1.6], [2151, 1.9, 1.8], [0, 2.2, 2.0]],
 };
-export function isPrimitiveVessel(d: Partial<Pick<VesselDesign, 'primitiveYear' | 'vesselType'>>): boolean {
+/**
+ * Primitive craft (Interstellar Operations): small craft and DropShips with a year of construction, and
+ * JumpShips with a primitive K-F drive core (MegaMek stores those as WarShips with a primitive core).
+ */
+export function isPrimitiveVessel(d: Partial<Pick<VesselDesign, 'primitiveYear' | 'vesselType' | 'driveCore'>>): boolean {
+  if (d.vesselType === 'jumpship' || d.vesselType === 'warship') return d.driveCore === 'primitive';
   return d.primitiveYear !== undefined && (d.vesselType === 'small-craft' || d.vesselType === 'dropship');
 }
+/** Primitive JumpShip factors by year of construction: [from year, engine, controls, fuel] (MegaMek). */
+const PRIMITIVE_JUMPSHIP: [number, number, number, number][] = [
+  [2300, 0.06, 0.0025, 1], [2251, 0.066, 0.00275, 1.1], [2201, 0.084, 0.0035, 1.4], [2151, 0.102, 0.005, 1.7], [0, 0.12, 0.00625, 2],
+];
+export function primitiveJumpShipFactor(kind: 'engine' | 'controls' | 'fuel', year: number | undefined): number {
+  const row = PRIMITIVE_JUMPSHIP.find(([y]) => (year ?? 2300) >= y)!;
+  return row[kind === 'engine' ? 1 : kind === 'controls' ? 2 : 3];
+}
+const largePrimitive = (d: Partial<Pick<VesselDesign, 'primitiveYear' | 'vesselType' | 'driveCore'>>) =>
+  (d.vesselType === 'jumpship' || d.vesselType === 'warship') && d.driveCore === 'primitive';
 export function primitiveFactor(kind: keyof typeof PRIMITIVE_TABLE, d: Partial<Pick<VesselDesign, 'primitiveYear' | 'vesselType'>>): number {
   const row = PRIMITIVE_TABLE[kind].find(([y]) => (d.primitiveYear ?? 2500) >= y)!;
   return d.vesselType === 'dropship' ? row[2] : row[1];
 }
 
-export function vesselFuelPointsPerTon(d: Pick<VesselDesign, 'vesselType' | 'tonnage'> & Partial<Pick<VesselDesign, 'primitiveYear'>>): number {
+export function vesselFuelPointsPerTon(d: Pick<VesselDesign, 'vesselType' | 'tonnage'> & Partial<Pick<VesselDesign, 'primitiveYear' | 'driveCore'>>): number {
   const base = vesselBaseFuelPointsPerTon(d);
+  if (largePrimitive(d)) return base / primitiveJumpShipFactor('fuel', d.primitiveYear);
   return isPrimitiveVessel(d) ? base / primitiveFactor('fuel', d) : base;
 }
 
@@ -313,19 +331,21 @@ function vesselBaseFuelPointsPerTon(d: Pick<VesselDesign, 'vesselType' | 'tonnag
 
 const halfNearest = (n: number) => Math.round(n * 2) / 2;
 
-export function vesselEngineWeight(d: Pick<VesselDesign, 'tonnage' | 'safeThrust' | 'techBase'> & { vesselType?: VesselType; primitiveYear?: number }): number {
+export function vesselEngineWeight(d: Pick<VesselDesign, 'tonnage' | 'safeThrust' | 'techBase'> & { vesselType?: VesselType; primitiveYear?: number; driveCore?: DriveCore }): number {
   if (d.vesselType && isLargeCraft({ vesselType: d.vesselType })) {
-    // A station-keeping drive (0 thrust) weighs 1.2% of the craft; transit drives 6% per point of thrust.
-    return halfNearest(d.tonnage * (d.safeThrust === 0 ? 0.012 : d.safeThrust * 0.06));
+    // A station-keeping drive (0 thrust) weighs 1.2% of the craft; transit drives 6% per point of thrust
+    // (more on primitive JumpShips, by year of construction).
+    const perThrust = largePrimitive(d) ? primitiveJumpShipFactor('engine', d.primitiveYear) : 0.06;
+    return halfNearest(d.tonnage * (d.safeThrust === 0 ? 0.012 : d.safeThrust * perThrust));
   }
   const multiplier = d.techBase === 'Clan' ? 0.061 : isPrimitiveVessel(d) ? primitiveFactor('engine', d) : 0.065;
   return halfUp(d.tonnage * d.safeThrust * multiplier);
 }
 
 /** Weight-free heat sinks, from the engine tonnage. */
-export function vesselFreeHeatSinks(d: Pick<VesselDesign, 'tonnage' | 'safeThrust' | 'techBase' | 'shape' | 'military' | 'vesselType'> & { primitiveYear?: number }): number {
+export function vesselFreeHeatSinks(d: Pick<VesselDesign, 'tonnage' | 'safeThrust' | 'techBase' | 'shape' | 'military' | 'vesselType'> & { primitiveYear?: number; driveCore?: DriveCore }): number {
   const engine = vesselEngineWeight(d);
-  if (isLargeCraft(d)) return Math.floor(45 + Math.sqrt(engine * 2));
+  if (isLargeCraft(d)) return Math.floor(45 + Math.sqrt(engine * (largePrimitive(d as { vesselType: VesselType; driveCore?: DriveCore }) ? 1 : 2)));
   if (isPrimitiveVessel(d)) return d.shape === 'spheroid' ? Math.floor(Math.sqrt(engine * 1.3)) : Math.floor(engine / 75);
   const militaryDS = d.military && d.vesselType === 'dropship';
   return d.shape === 'spheroid'
@@ -366,19 +386,27 @@ export function maxBayDoors(d: Pick<VesselDesign, 'vesselType' | 'shape' | 'tonn
 }
 
 /** K-F drive weight: a share of the craft's tonnage by drive core. */
-export function kfDriveWeight(d: Pick<VesselDesign, 'vesselType' | 'driveCore' | 'tonnage'>): number {
+export function kfDriveWeight(d: Pick<VesselDesign, 'vesselType' | 'driveCore' | 'tonnage'> & { jumpRange?: number }): number {
   if (!isLargeCraft(d) || d.vesselType === 'space-station') return 0;
-  const pct = { standard: 0.95, compact: 0.4525, subcompact: 0.5, none: 0 }[d.driveCore];
+  // A primitive core weighs 5% plus 3% per light-year of jump range.
+  const pct = d.driveCore === 'primitive' ? 0.05 + 0.03 * (d.jumpRange ?? 30)
+    : { standard: 0.95, compact: 0.4525, subcompact: 0.5, none: 0 }[d.driveCore];
   return Math.ceil(d.tonnage * pct - 1e-9);
 }
 
 /** K-F drive integrity (used for cost). */
-export function kfIntegrity(d: Pick<VesselDesign, 'vesselType' | 'driveCore' | 'tonnage'>): number {
+export function kfIntegrity(d: Pick<VesselDesign, 'vesselType' | 'driveCore' | 'tonnage'> & { jumpRange?: number }): number {
   return Math.ceil(1.2 + kfDriveWeight(d) / 60000);
 }
 
-export function sailWeight(d: Pick<VesselDesign, 'vesselType' | 'sail' | 'tonnage'>): number {
+export function sailWeight(d: Pick<VesselDesign, 'vesselType' | 'sail' | 'tonnage'> & { driveCore?: DriveCore; primitiveYear?: number }): number {
   if (!isLargeCraft(d) || !d.sail) return 0;
+  if (largePrimitive(d)) {
+    // Primitive jump sails are heavier the older they are (MegaMek).
+    const y = d.primitiveYear ?? 2300;
+    const [div, add] = y < 2230 ? [2000, 300] : y < 2260 ? [4000, 150] : y < 2300 ? [8000, 75] : [20000, 30];
+    return Math.ceil(d.tonnage / div - 1e-9) + add;
+  }
   return Math.ceil(d.tonnage / (d.vesselType === 'warship' ? 20000 : 7500) - 1e-9) + 30;
 }
 
@@ -645,7 +673,7 @@ export function computeVessel(d: VesselDesign): VesselSummary {
     : d.vesselType === 'space-station' ? halfUp(t / 100)
     : halfUp((d.si * t) / (d.shape === 'spheroid' ? 500 : 200));
   const controls = d.vesselType === 'space-station' ? tonUp(t * 0.001)
-    : large ? tonUp(t * 0.0025)
+    : large ? tonUp(t * (largePrimitive(d) ? primitiveJumpShipFactor('controls', d.primitiveYear) : 0.0025))
     : d.vesselType === 'dropship' ? tonUp(t * primitiveFactor('controls', isPrimitiveVessel(d) ? d : {}))
     : halfUp(t * primitiveFactor('controls', isPrimitiveVessel(d) ? d : {}));
   const weights: VesselWeights = {
@@ -751,7 +779,7 @@ export function validateVessel(d: VesselDesign, s: VesselSummary = computeVessel
 
   // Large-craft systems
   if (large) {
-    if (d.vesselType === 'warship' && d.driveCore !== 'compact' && d.driveCore !== 'subcompact') warn('WarShips normally use a compact K-F drive core.');
+    if (d.vesselType === 'warship' && d.driveCore !== 'compact' && d.driveCore !== 'subcompact' && d.driveCore !== 'primitive') warn('WarShips normally use a compact K-F drive core.');
     if (d.vesselType === 'jumpship' && d.driveCore !== 'standard') warn('JumpShips normally use a standard K-F drive core.');
     if (d.vesselType === 'jumpship' && !d.sail) warn('JumpShips normally carry a jump sail to recharge.');
     if (d.gravDecks.length > maxGravDecks(d)) error(`At most ${maxGravDecks(d)} grav decks (has ${d.gravDecks.length}).`);
@@ -759,7 +787,13 @@ export function validateVessel(d: VesselDesign, s: VesselSummary = computeVessel
     if (d.gravDecks.some((g) => g > maxDia || g <= 0)) error(`Grav deck diameters must be 1–${maxDia} m.`);
     if (d.dockingCollars > s.maxDockingCollars) error(`At most ${s.maxDockingCollars} docking collars (has ${d.dockingCollars}).`);
   }
-  if (d.primitiveYear !== undefined && !isPrimitiveVessel(d)) error('Only small craft and DropShips can be built as primitive craft.');
+  if (d.primitiveYear !== undefined && !isPrimitiveVessel(d)) error('Only small craft, DropShips and JumpShips with a primitive K-F core can be built as primitive craft.');
+  if (d.driveCore === 'primitive') {
+    if (d.vesselType !== 'jumpship' && d.vesselType !== 'warship') error('Only JumpShips can have a primitive K-F drive core.');
+    if (d.primitiveYear === undefined) error('A primitive K-F drive needs a year of construction.');
+    const r = d.jumpRange ?? 30;
+    if (!Number.isInteger(r) || r < 1 || r > 30) error('A primitive K-F drive jumps 1–30 light-years.');
+  }
   if (s.armorPointsPerTon === 0) {
     error(`${VESSEL_ARMOR_NAMES[d.armorType]} armor cannot be used on a ${typeName.toLowerCase()}.`);
   }
@@ -957,7 +991,8 @@ export function parseVessel(raw: unknown): VesselDesign {
     crew: { crew: n(c.crew), officers: n(c.officers), gunners: n(c.gunners), passengers: n(c.passengers), marines: n(c.marines), battleArmor: n(c.battleArmor) },
     quarters: { crew: n(q.crew), 'first-class': n(q['first-class']), 'second-class': n(q['second-class']), steerage: n(q.steerage) },
     bays,
-    driveCore: pick(r.driveCore, ['standard', 'compact', 'subcompact', 'none'] as const,
+    ...(typeof r.jumpRange === 'number' ? { jumpRange: r.jumpRange } : {}),
+    driveCore: pick(r.driveCore, ['standard', 'compact', 'subcompact', 'none', 'primitive'] as const,
       r.vesselType === 'jumpship' ? 'standard' : r.vesselType === 'warship' ? 'compact' : 'none'),
     sail: r.sail === true,
     lfBattery: r.lfBattery === true,
@@ -986,7 +1021,7 @@ export function vesselReadout(d: VesselDesign, s: VesselSummary = computeVessel(
     ? `Tech Base: Mixed (${TECH_BASE_NAMES[d.techBase]} chassis) (Advanced)`
     : `Tech Base: ${TECH_BASE_NAMES[d.techBase]} (${era?.rulesLevel ?? '?'})`);
   if (era) lines.push(`Era: ${era.name} (${era.year})`);
-  if (isPrimitiveVessel(d)) lines.push(`Primitive craft (built ${d.primitiveYear})`);
+  if (isPrimitiveVessel(d)) lines.push(`Primitive craft (built ${d.primitiveYear})${d.driveCore === 'primitive' ? `, jump range ${d.jumpRange ?? 30} light-years` : ''}`);
   if (values) {
     lines.push(`Battle Value: ${values.bv.toLocaleString('en-US')}`);
     lines.push(`Cost: ${values.cost.toLocaleString('en-US')} C-bills`);

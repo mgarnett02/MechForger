@@ -11,8 +11,8 @@ import type { EraId } from './eras';
 import { DEFAULT_ERA, getEra, isAvailableIn } from './eras';
 import type { ComponentOption } from './tables';
 import {
-  ARMOR_NAMES, ARMOR_OPTIONS, STRUCTURE_OPTIONS, armorPointsPerTon, componentEraOk, componentTechOk, engineWeight,
-  standardFusionEngineWeight,
+  ARMOR_NAMES, ARMOR_OPTIONS, LARGE_ENGINE_OPTION, LARGE_ICE_OPTION, STRUCTURE_OPTIONS, armorPointsPerTon, componentEraOk,
+  componentTechOk, engineWeight, standardFusionEngineWeight,
 } from './tables';
 import type { Equipment } from './equipment';
 import {
@@ -30,13 +30,15 @@ export type VehicleEngineType = 'ice' | 'standard' | 'xl' | 'light' | 'compact' 
 /** Vehicle armor: the basic types plus advanced armors (Tactical Operations). */
 export type VehicleArmorType = BasicArmorType | 'reactive' | 'reflective' | 'hardened' | 'stealth' | 'ferro-lamellor' | 'ballistic-reinforced';
 
-export const VEHICLE_LOCATIONS = ['FR', 'LS', 'RS', 'RR', 'TU', 'RO', 'BD'] as const;
+/** FRS / FLS / RRS / RLS: the front and rear side facings of a superheavy vehicle (six armor facings). */
+export const VEHICLE_LOCATIONS = ['FR', 'FRS', 'FLS', 'LS', 'RS', 'RRS', 'RLS', 'RR', 'TU', 'RO', 'BD'] as const;
 export type VehicleLocation = (typeof VEHICLE_LOCATIONS)[number];
 /** Locations that carry armor (body holds equipment only). */
 export type VehicleArmorLocation = Exclude<VehicleLocation, 'BD'>;
 
 export const VEHICLE_LOCATION_NAMES: Record<VehicleLocation, string> = {
-  FR: 'Front', LS: 'Left Side', RS: 'Right Side', RR: 'Rear', TU: 'Turret', RO: 'Rotor', BD: 'Body',
+  FR: 'Front', FRS: 'Front Right', FLS: 'Front Left', LS: 'Left Side', RS: 'Right Side', RRS: 'Rear Right', RLS: 'Rear Left',
+  RR: 'Rear', TU: 'Turret', RO: 'Rotor', BD: 'Body',
 };
 
 export interface VehicleItem {
@@ -82,6 +84,8 @@ export interface VehicleDesign {
 export interface MotiveInfo {
   name: string;
   maxTonnage: number;
+  /** Superheavy vehicles (Tactical Operations, as MegaMek) may weigh up to this; none for hydrofoils. */
+  superheavyMax?: number;
   /** Lift / rotor / dive equipment as a fraction of tonnage. */
   liftFraction: number;
   liftName: string | null;
@@ -89,15 +93,26 @@ export interface MotiveInfo {
 }
 
 export const MOTIVE_TYPES: Record<MotiveType, MotiveInfo> = {
-  tracked: { name: 'Tracked', maxTonnage: 100, liftFraction: 0, liftName: null, description: 'Tanks: go almost anywhere on land.' },
-  wheeled: { name: 'Wheeled', maxTonnage: 80, liftFraction: 0, liftName: null, description: 'Fast and cheap, but roads and open ground only.' },
-  hover: { name: 'Hover', maxTonnage: 50, liftFraction: 0.1, liftName: 'Lift equipment', description: 'Very fast over land and water.' },
-  wige: { name: 'WiGE', maxTonnage: 80, liftFraction: 0.1, liftName: 'Wings / lift equipment', description: 'Wing-in-ground-effect craft: skims over land and water; at least 5 cruise MP.' },
-  vtol: { name: 'VTOL', maxTonnage: 30, liftFraction: 0.1, liftName: 'Rotor', description: 'Rotorcraft: flies over terrain; chin turret only.' },
-  naval: { name: 'Naval (displacement hull)', maxTonnage: 300, liftFraction: 0, liftName: null, description: 'Surface ships.' },
+  tracked: { name: 'Tracked', maxTonnage: 100, superheavyMax: 200, liftFraction: 0, liftName: null, description: 'Tanks: go almost anywhere on land.' },
+  wheeled: { name: 'Wheeled', maxTonnage: 80, superheavyMax: 160, liftFraction: 0, liftName: null, description: 'Fast and cheap, but roads and open ground only.' },
+  hover: { name: 'Hover', maxTonnage: 50, superheavyMax: 100, liftFraction: 0.1, liftName: 'Lift equipment', description: 'Very fast over land and water.' },
+  wige: { name: 'WiGE', maxTonnage: 80, superheavyMax: 160, liftFraction: 0.1, liftName: 'Wings / lift equipment', description: 'Wing-in-ground-effect craft: skims over land and water; at least 5 cruise MP.' },
+  vtol: { name: 'VTOL', maxTonnage: 30, superheavyMax: 60, liftFraction: 0.1, liftName: 'Rotor', description: 'Rotorcraft: flies over terrain; chin turret only.' },
+  naval: { name: 'Naval (displacement hull)', maxTonnage: 300, superheavyMax: 555, liftFraction: 0, liftName: null, description: 'Surface ships.' },
   hydrofoil: { name: 'Naval (hydrofoil)', maxTonnage: 100, liftFraction: 0.1, liftName: 'Hydrofoil equipment', description: 'Fast surface craft.' },
-  submarine: { name: 'Naval (submarine)', maxTonnage: 300, liftFraction: 0.1, liftName: 'Dive equipment', description: 'Operates underwater.' },
+  submarine: { name: 'Naval (submarine)', maxTonnage: 300, superheavyMax: 555, liftFraction: 0.1, liftName: 'Dive equipment', description: 'Operates underwater.' },
 };
+
+/** Superheavy: heavier than the motive type's normal maximum. */
+export function isSuperheavyVehicle(d: Pick<VehicleDesign, 'motive' | 'tonnage'>): boolean {
+  return d.tonnage > MOTIVE_TYPES[d.motive].maxTonnage;
+}
+/** Superheavy ground and naval vehicles have six armor facings (superheavy VTOLs keep four). */
+export function hasSixFacings(d: Pick<VehicleDesign, 'motive' | 'tonnage'>): boolean {
+  return isSuperheavyVehicle(d) && d.motive !== 'vtol';
+}
+/** Heaviest legal tonnage for the motive type, superheavy included. */
+export const motiveMaxTonnage = (m: MotiveType) => MOTIVE_TYPES[m].superheavyMax ?? MOTIVE_TYPES[m].maxTonnage;
 
 export const MOTIVE_ORDER: MotiveType[] = ['tracked', 'wheeled', 'hover', 'vtol', 'wige', 'naval', 'hydrofoil', 'submarine'];
 
@@ -111,15 +126,20 @@ const halfUp = (n: number) => Math.ceil(n * 2 - 1e-9) / 2 || 0;
 /** Suspension factor subtracted from cruise MP × tonnage to get the engine rating. */
 export function suspensionFactor(motive: MotiveType, tonnage: number): number {
   const band = Math.max(0, Math.ceil(tonnage / 10) - 1); // 0 = up to 10 t, 1 = 11–20 t, …
+  // Superheavy weights continue the tables as MegaMek does.
   switch (motive) {
     case 'tracked': return 0;
-    case 'wheeled': return 20;
+    case 'wheeled': return tonnage <= 80 ? 20 : 40;
     case 'naval':
-    case 'submarine': return 30;
-    case 'hover': return [40, 85, 130, 175, 235][Math.min(band, 4)];
-    case 'vtol': return [50, 95, 140][Math.min(band, 2)];
+    case 'submarine': {
+      if (tonnage <= 300) return 30;
+      const f = Math.ceil(tonnage / 10);
+      return f + (f % 5);
+    }
+    case 'hover': return tonnage <= 50 ? [40, 85, 130, 175, 235][Math.min(band, 4)] : 235 + 45 * Math.ceil((tonnage - 50) / 25);
+    case 'vtol': return tonnage <= 30 ? [50, 95, 140][Math.min(band, 2)] : 140 + 45 * Math.ceil((tonnage - 30) / 20);
     case 'hydrofoil': return [60, 105, 150, 195, 255, 300, 345, 390, 435, 480][Math.min(band, 9)];
-    case 'wige': return tonnage <= 15 ? 45 : tonnage <= 30 ? 80 : tonnage <= 45 ? 115 : 140;
+    case 'wige': return tonnage <= 15 ? 45 : tonnage <= 30 ? 80 : tonnage <= 45 ? 115 : tonnage <= 80 ? 140 : 140 + 35 * Math.ceil((tonnage - 80) / 30);
   }
 }
 
@@ -168,7 +188,8 @@ export const VEHICLE_ENGINE_OPTIONS: Record<VehicleEngineType, ComponentOption> 
   none: opt('No engine (trailers)', 'Both', '3025'),
 };
 
-export function vehicleWeightClass(tonnage: number): string {
+export function vehicleWeightClass(tonnage: number, motive?: MotiveType): string {
+  if (motive && tonnage > MOTIVE_TYPES[motive].maxTonnage) return 'Super-heavy';
   if (tonnage < 40) return 'Light';
   if (tonnage < 60) return 'Medium';
   if (tonnage < 80) return 'Heavy';
@@ -209,17 +230,19 @@ export function vehicleArmorSlots(type: VehicleArmorType, techBase: TechBase): n
 }
 
 /** Armor locations a vehicle has. */
-export function vehicleArmorLocations(d: Pick<VehicleDesign, 'motive' | 'turret'>): VehicleArmorLocation[] {
-  const locs: VehicleArmorLocation[] = ['FR', 'LS', 'RS', 'RR'];
+export function vehicleArmorLocations(d: Pick<VehicleDesign, 'motive' | 'turret'> & Partial<Pick<VehicleDesign, 'tonnage'>>): VehicleArmorLocation[] {
+  const locs: VehicleArmorLocation[] = d.tonnage !== undefined && hasSixFacings({ motive: d.motive, tonnage: d.tonnage })
+    ? ['FR', 'FRS', 'FLS', 'RRS', 'RLS', 'RR'] : ['FR', 'LS', 'RS', 'RR'];
   if (d.turret) locs.push('TU');
   if (d.motive === 'vtol') locs.push('RO');
   return locs;
 }
 
 /** Where an item may be mounted: weapons in firing arcs, everything else in the body. */
-export function vehicleItemLocations(eq: Equipment, d: Pick<VehicleDesign, 'motive' | 'turret'>): VehicleLocation[] {
+export function vehicleItemLocations(eq: Equipment, d: Pick<VehicleDesign, 'motive' | 'turret'> & Partial<Pick<VehicleDesign, 'tonnage'>>): VehicleLocation[] {
   if (!eq.isWeapon) return ['BD'];
-  const arcs: VehicleLocation[] = ['FR', 'LS', 'RS', 'RR'];
+  const arcs: VehicleLocation[] = d.tonnage !== undefined && hasSixFacings({ motive: d.motive, tonnage: d.tonnage })
+    ? ['FR', 'FRS', 'FLS', 'RRS', 'RLS', 'RR'] : ['FR', 'LS', 'RS', 'RR'];
   if (d.turret) arcs.push('TU');
   return arcs;
 }
@@ -246,7 +269,7 @@ export function newVehicleUid(): string {
 }
 
 export function emptyVehicleArmor(): Record<VehicleArmorLocation, number> {
-  return { FR: 0, LS: 0, RS: 0, RR: 0, TU: 0, RO: 0 };
+  return { FR: 0, FRS: 0, FLS: 0, LS: 0, RS: 0, RRS: 0, RLS: 0, RR: 0, TU: 0, RO: 0 };
 }
 
 export function newVehicle(era: EraId = DEFAULT_ERA, techBase: TechBase = 'IS'): VehicleDesign {
@@ -379,7 +402,9 @@ export function computeVehicle(d: VehicleDesign): VehicleSummary {
 
   const freeHeatSinks = vehicleFreeHeatSinks(d.engineType);
   const weights: VehicleWeights = {
-    structure: halfUp(d.tonnage * (d.structureType === 'endo-steel' ? 0.05 : 0.1)),
+    // Superheavy ground vehicles carry twice the structure (naval superheavies do not), as MegaMek.
+    structure: halfUp(d.tonnage * (d.structureType === 'endo-steel' ? 0.05 : 0.1)
+      * (isSuperheavyVehicle(d) && d.motive !== 'naval' && d.motive !== 'submarine' ? 2 : 1)),
     engine: engineWt ?? 0,
     lift: halfUp(d.tonnage * motive.liftFraction),
     controls: d.trailer && d.noControls ? 0 : halfUp(d.tonnage * 0.05),
@@ -402,7 +427,7 @@ export function computeVehicle(d: VehicleDesign): VehicleSummary {
     suspension: suspensionFactor(d.motive, d.tonnage),
     flankMP: Math.ceil(d.cruiseMP * 1.5),
     engineWeight: engineWt,
-    weightClass: vehicleWeightClass(d.tonnage),
+    weightClass: vehicleWeightClass(d.tonnage, d.motive),
     structurePoints: vehicleStructurePoints(d.tonnage),
     armorLocations,
     armorTotal,
@@ -448,12 +473,19 @@ export function validateVehicle(d: VehicleDesign, s: VehicleSummary = computeVeh
   }
 
   // Chassis and movement
-  if (!Number.isInteger(d.tonnage) || d.tonnage < 1 || d.tonnage > motive.maxTonnage) {
-    error(`${motive.name} vehicles must weigh 1–${motive.maxTonnage} tons in whole tons (got ${d.tonnage}).`);
+  const maxT = motiveMaxTonnage(d.motive);
+  if (!Number.isInteger(d.tonnage) || d.tonnage < 1 || d.tonnage > maxT) {
+    error(`${motive.name} vehicles must weigh 1–${maxT} tons${motive.superheavyMax ? ` (over ${motive.maxTonnage}: superheavy)` : ''} in whole tons (got ${d.tonnage}).`);
   }
   if (!Number.isInteger(d.cruiseMP) || (d.cruiseMP < 1 && !d.trailer && d.engineType !== 'none')) error('Cruising MP must be a whole number of at least 1.');
-  if (s.rating > 400) error(`Engine rating ${s.rating} exceeds the maximum of 400.`);
+  if (s.rating > 500) error(`Engine rating ${s.rating} exceeds the maximum of 500.`);
   else if (s.engineWeight === null) error(`No ${VEHICLE_ENGINE_LABELS[d.engineType]} engine exists with rating ${s.rating}.`);
+  else if (s.rating > 400) {
+    // Large engines (Tactical Operations).
+    if (['compact', 'fuel-cell', 'fission'].includes(d.engineType)) error(`There are no large ${VEHICLE_ENGINE_LABELS[d.engineType]} engines (rating over 400).`);
+    const o = d.engineType === 'ice' ? LARGE_ICE_OPTION : LARGE_ENGINE_OPTION;
+    if (era && !componentEraOk(o, d.era, d.techBase)) error(`${o.label} cannot be used in the ${era.name} era.`);
+  }
 
   // Weight
   if (s.weights.free < 0) error(`Overweight by ${fmt(-s.weights.free)} tons.`);
@@ -561,10 +593,35 @@ export function validateVehicle(d: VehicleDesign, s: VehicleSummary = computeVeh
 // ---------------------------------------------------------------------------
 
 export function setVehicleMotive(d: VehicleDesign, motive: MotiveType): VehicleDesign {
-  const tonnage = Math.min(d.tonnage, MOTIVE_TYPES[motive].maxTonnage);
+  const tonnage = Math.min(d.tonnage, motiveMaxTonnage(motive));
   const armor = { ...d.armor };
   if (motive !== 'vtol') armor.RO = 0;
-  return { ...d, motive, tonnage, armor };
+  return syncVehicleFacings(d, { ...d, motive, tonnage, armor });
+}
+
+export function setVehicleTonnage(d: VehicleDesign, tonnage: number): VehicleDesign {
+  return syncVehicleFacings(d, { ...d, tonnage: Math.max(1, Math.min(Math.round(tonnage), motiveMaxTonnage(d.motive))) });
+}
+
+/**
+ * Crossing into (or out of) superheavy weights changes the side facings: the left and right sides split
+ * into front and rear sides (armor shared out, weapons on the front side), or merge back.
+ */
+function syncVehicleFacings(before: VehicleDesign, next: VehicleDesign): VehicleDesign {
+  const was = hasSixFacings(before);
+  const now = hasSixFacings(next);
+  if (was === now) return next;
+  const a = { ...next.armor };
+  const move: Partial<Record<VehicleLocation, VehicleLocation>> = now
+    ? { LS: 'FLS', RS: 'FRS' } : { FLS: 'LS', RLS: 'LS', FRS: 'RS', RRS: 'RS' };
+  if (now) {
+    a.FLS = Math.ceil(a.LS / 2); a.RLS = Math.floor(a.LS / 2); a.FRS = Math.ceil(a.RS / 2); a.RRS = Math.floor(a.RS / 2);
+    a.LS = 0; a.RS = 0;
+  } else {
+    a.LS = a.FLS + a.RLS; a.RS = a.FRS + a.RRS;
+    a.FLS = 0; a.RLS = 0; a.FRS = 0; a.RRS = 0;
+  }
+  return { ...next, armor: a, equipment: next.equipment.map((e) => (e.location && move[e.location] ? { ...e, location: move[e.location]! } : e)) };
 }
 
 export function setVehicleTurret(d: VehicleDesign, turret: boolean): VehicleDesign {
@@ -607,9 +664,14 @@ export function distributeVehicleArmor(d: VehicleDesign, points: number): Vehicl
     armor.RO = Math.min(VTOL_ROTOR_MAX_ARMOR, left);
     left -= armor.RO;
   }
-  const shares: [VehicleArmorLocation, number][] = d.turret
-    ? [['FR', 0.3], ['LS', 0.2], ['RS', 0.2], ['RR', 0.12], ['TU', 0.18]]
-    : [['FR', 0.34], ['LS', 0.24], ['RS', 0.24], ['RR', 0.18]];
+  const six = hasSixFacings(d);
+  const shares: [VehicleArmorLocation, number][] = six
+    ? (d.turret
+      ? [['FR', 0.22], ['FRS', 0.12], ['FLS', 0.12], ['RRS', 0.09], ['RLS', 0.09], ['RR', 0.12], ['TU', 0.24]]
+      : [['FR', 0.26], ['FRS', 0.15], ['FLS', 0.15], ['RRS', 0.12], ['RLS', 0.12], ['RR', 0.2]])
+    : d.turret
+      ? [['FR', 0.3], ['LS', 0.2], ['RS', 0.2], ['RR', 0.12], ['TU', 0.18]]
+      : [['FR', 0.34], ['LS', 0.24], ['RS', 0.24], ['RR', 0.18]];
   let given = 0;
   for (const [l, f] of shares) {
     armor[l] = Math.floor(left * f);

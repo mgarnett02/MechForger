@@ -37,7 +37,7 @@ describe('combat WiGE', () => {
   it('needs 5 cruise MP and weighs at most 80 tons', () => {
     expect(errors(tank({ motive: 'wige', cruiseMP: 4 }))).toContain('WiGE vehicles need at least 5 cruise MP.');
     expect(errors(tank({ motive: 'wige', cruiseMP: 6 }))).toEqual([]);
-    expect(errors(tank({ motive: 'wige', cruiseMP: 6, tonnage: 85 })).some((m) => /1–80 tons/.test(m))).toBe(true);
+    expect(errors(tank({ motive: 'wige', cruiseMP: 6, tonnage: 165 })).some((m) => /1–160 tons/.test(m))).toBe(true); // superheavy to 160
     expect(computeVehicle(tank({ motive: 'wige', cruiseMP: 6 })).weights.lift).toBe(5);
   });
 });

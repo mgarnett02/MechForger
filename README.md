@@ -49,6 +49,8 @@ Everything above, plus:
   **Primitive** small craft and DropShips (Interstellar Operations, as MegaMek): engine, control and fuel
   factors by year of construction and 66% armor points. **ARTS** fighter and small craft bays (25% heavier,
   no bay crew, +1,000,000 C-bills) and the 50-ton **mobile HPG** (DropShips and larger)
+- **Primitive JumpShips** (as MegaMek): a primitive K-F core of 5% + 3% per light-year of jump range
+  (1–30), and engine, control, fuel and jump sail factors by year of construction; 66% armor points
 - **JumpShips, WarShips and space stations**: K-F drive (standard, compact and sub-compact cores), jump
   sail, lithium-fusion battery, HPG, grav decks, docking collars, capital armor and structure, broadsides,
   capital and sub-capital weapons (naval lasers, PPCs, autocannon and Gauss, capital missiles, mass
@@ -210,6 +212,10 @@ Advanced or Experimental level and is not modeled yet.
 
 - Motive types: tracked (up to 100 t), wheeled (80 t), hover (50 t), VTOL (30 t),
   WiGE (80 t, at least 5 cruise MP), naval displacement hull (300 t), hydrofoil (100 t) and submarine (300 t)
+- **Superheavy vehicles** (as MegaMek): tracked to 200 t, wheeled and WiGE to 160 t, hover to 100 t, VTOL to
+  60 t, naval and submarine to 555 t; superheavy suspension factors, large engines (to 500), double-weight
+  structure (not on naval vehicles), and six armor facings (front, front and rear sides, rear) on ground and
+  naval superheavies
 - Engine rating = cruising MP × tonnage − suspension factor (rounded up to 5);
   ICE engines (2× standard weight, power amplifiers for energy weapons), fuel cells (1 free heat sink),
   fission (5 free heat sinks) or fusion, XL, XXL, Light and Compact engines with 50% extra shielding weight
@@ -268,8 +274,8 @@ fixed-wing support).
 - Red / amber / green status light: illegal, legal but incomplete (unused tonnage,
   unallocated armor), or fully legal
 - **Canon units**: about 3,240 canon 'Mechs (about 110 of them IndustrialMechs), including 47 quads, 19 Land-Air 'Mechs, 3 superheavies, 5 tripods (with the Ares superheavy tripod OmniMech), 5 QuadVee designs and around 100 melee-armed designs (OmniMechs with all their
-  configurations), about 1,040 canon combat vehicles (OmniVehicles with all their configurations), 160 support vehicles, about 480 aerospace, Omni, primitive and
-  conventional fighters and about 370 spacecraft (small craft, DropShips, JumpShips, WarShips and
+  configurations), about 1,050 canon combat vehicles (10 superheavies) (OmniVehicles with all their configurations), 160 support vehicles, about 480 aerospace, Omni, primitive and
+  conventional fighters and about 380 spacecraft (small craft, DropShips, JumpShips, WarShips and
   space stations), about 1,190 battle armor squads and about 1,990 infantry platoons, searchable by name, era, tech base,
   weight and type, ready to load, modify and print (see *Canon unit data* below)
   - Apocryphal (video-game and other non-canon) designs are left out. A canon design keeps its Master
@@ -297,8 +303,8 @@ converted data is shared under the same license and may not be used
 commercially; see `src/data/canon/LICENSE.md`.
 
 Only units MechForger can represent are included: 'Mechs (biped, quad, tripod, QuadVee, LAM and
-superheavy), combat vehicles and support vehicles using modeled equipment. Superheavy vehicles and
-units with equipment MechForger does not model yet are skipped. Of the converted mechs, 99% weigh exactly their published tonnage
+superheavy), combat vehicles (superheavies too) and support vehicles using modeled equipment. Units with
+dual or sponson turrets, or with equipment MechForger does not model yet, are skipped. Of the converted mechs, 99% weigh exactly their published tonnage
 under MechForger's tables, and Battle Values match the Master Unit List for
 the checked designs. Weights match for about 93% of combat vehicles (99% pass every construction check) and 71% of
 support vehicles (most others within half a ton); in the

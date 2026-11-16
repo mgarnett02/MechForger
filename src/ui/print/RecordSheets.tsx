@@ -30,7 +30,7 @@ import type { AmmoRow, EquipmentRow, WeaponRow } from '../../rules/recordSheet';
 import { CONSCIOUSNESS, HEAT_SCALE, mechSheetData, vehicleSheetData } from '../../rules/recordSheet';
 import type { VehicleArmorLocation, VehicleDesign } from '../../rules/vehicle';
 import {
-  MOTIVE_TYPES, VEHICLE_ENGINE_LABELS, VEHICLE_LOCATION_NAMES, computeVehicle, turretName,
+  MOTIVE_TYPES, VEHICLE_ENGINE_LABELS, VEHICLE_LOCATION_NAMES, computeVehicle, hasSixFacings, turretName,
 } from '../../rules/vehicle';
 
 /*
@@ -392,7 +392,7 @@ export function VehicleRecordSheet({ design }: { design: VehicleDesign }) {
         </Panel>
 
         <Panel title="Armor Diagram" className="area-armor">
-          <div className={`rs-vehicle-figure motive-${design.motive} ${design.turret ? 'with-turret' : ''} ${isVtol ? 'vtol' : ''}`}>
+          <div className={`rs-vehicle-figure motive-${design.motive} ${design.turret ? 'with-turret' : ''} ${isVtol ? 'vtol' : ''} ${hasSixFacings(design) ? 'large' : ''}`}>
             {s.armorLocations.map((l) => (
               <div key={l} className={`rs-plate vplate-${l.toLowerCase()}`} style={{ gridArea: l.toLowerCase() }}>
                 <div className="rs-plate-label">{locName(l)} <b>({design.armor[l]})</b></div>
@@ -732,7 +732,7 @@ export function FighterRecordSheet({ design }: { design: FighterDesign }) {
 
 const VESSEL_PLATES: [VesselArc, string][] = [['NOS', 'no'], ['LS', 'lw'], ['RS', 'rw'], ['AFT', 'af']];
 const LARGE_PLATES: [VesselArc, string][] = [['NOS', 'no'], ['FLS', 'fl'], ['FRS', 'fr'], ['ALS', 'al'], ['ARS', 'ar'], ['AFT', 'af']];
-const DRIVE_NAMES = { standard: 'Standard', compact: 'Compact', subcompact: 'Sub-compact', none: 'None' } as const;
+const DRIVE_NAMES = { standard: 'Standard', compact: 'Compact', subcompact: 'Sub-compact', none: 'None', primitive: 'Primitive' } as const;
 
 export function VesselRecordSheet({ design }: { design: VesselDesign }) {
   const s = computeVessel(design);
@@ -763,7 +763,7 @@ export function VesselRecordSheet({ design }: { design: VesselDesign }) {
             <Field label="Cost" value={`${vesselCost(design).total.toLocaleString('en-US')} C-bills`} />
             <Field label="Fuel" value={`${s.fuelPoints.toLocaleString('en-US')} points`} />
             <Field label="Crew" value={`${design.crew.crew} (${design.crew.officers} off., ${design.crew.gunners} gun.)`} />
-            {large && <Field label="K-F Drive" value={`${DRIVE_NAMES[design.driveCore]}${design.driveCore !== 'none' ? ` (integrity ${kfIntegrity(design)})` : ''}${design.lfBattery ? ', L-F battery' : ''}`} />}
+            {large && <Field label="K-F Drive" value={`${DRIVE_NAMES[design.driveCore]}${design.driveCore === 'primitive' ? `, ${design.jumpRange ?? 30} LY` : ''}${design.driveCore !== 'none' ? ` (integrity ${kfIntegrity(design)})` : ''}${design.lfBattery ? ', L-F battery' : ''}`} />}
             {large && <Field label="Fittings" value={[design.sail && 'jump sail', design.hpg && 'HPG', design.dockingCollars && `${design.dockingCollars} docking collar${design.dockingCollars === 1 ? '' : 's'}`, design.gravDecks.length && `${design.gravDecks.length} grav deck${design.gravDecks.length === 1 ? '' : 's'}`].filter(Boolean).join(', ') || '—'} wide />}
           </div>
           <div className="rs-inventory">

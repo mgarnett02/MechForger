@@ -26,7 +26,7 @@ import { computeMech, fixedSlots } from '../src/rules/construction';
 import { validate } from '../src/rules/validation';
 import { fighterBV, mechBV, mechCost, vehicleBV, vehicleCost, vesselBV } from '../src/rules/battleValue';
 import type { MotiveType, VehicleArmorType, VehicleDesign, VehicleEngineType, VehicleLocation } from '../src/rules/vehicle';
-import { computeVehicle, emptyVehicleArmor, MOTIVE_TYPES, validateVehicle, vehicleFreeHeatSinks } from '../src/rules/vehicle';
+import { computeVehicle, emptyVehicleArmor, hasSixFacings, motiveMaxTonnage, validateVehicle, vehicleFreeHeatSinks } from '../src/rules/vehicle';
 import { armorPointsPerTon } from '../src/rules/tables';
 import { encodeBattleArmor, encodeInfantry, encodeFighter, encodeMech, encodeSupport, encodeVehicle, encodeVessel } from '../src/data/canonFormat';
 import type { BAItem, BattleArmorDesign } from '../src/rules/battlearmor';
@@ -37,7 +37,7 @@ import { AUGMENTATIONS, BEASTS, SPECIALIZATIONS, computeInfantry, infantryBV, va
 import type { FighterArmorType, FighterDesign, FighterItem, FighterLocation } from '../src/rules/fighter';
 import { computeFighter, emptyFighterArmor, validateFighter } from '../src/rules/fighter';
 import type { BayKind, QuartersKind, VesselDesign, VesselItem, VesselLocation } from '../src/rules/vessel';
-import { computeVessel, emptyVesselArmor, validateVessel } from '../src/rules/vessel';
+import { computeVessel, emptyVesselArmor, validateVessel, vesselFuelPointsPerTon } from '../src/rules/vessel';
 import type { SVBayKind, SVItem, SVLocation, SVType, SupportVehicleDesign, TechRating } from '../src/rules/support';
 import { SV_BAY_INFO, TECH_RATINGS, computeSupport, emptyTransport, isLargeSupportTank, kgPerFuelPoint, validateSupport } from '../src/rules/support';
 import type { CanonEntry } from '../src/data/canonFormat';
@@ -564,15 +564,18 @@ function parseBlk(text: string): { design: VehicleDesign; year: number; rulesLev
   const motive = BLK_MOTION[one('motion_type')] ?? fail(`motion ${one('motion_type')}`);
   const typeStr = one('type');
   const techBase: TechBase = /^Clan|Clan Chassis/.test(typeStr) ? 'Clan' : 'IS';
-  if (Number(one('tonnage')) > MOTIVE_TYPES[motive].maxTonnage) fail('superheavy vehicle');
+  if (Number(one('tonnage')) > motiveMaxTonnage(motive)) fail('vehicle too heavy');
+  // Superheavy ground and naval vehicles have six armor facings (MegaMek's SuperHeavyTank).
+  const six = hasSixFacings({ motive, tonnage: Number(one('tonnage')) });
   const mixedTech = /^Mixed/.test(typeStr);
   const tonnage = Number(one('tonnage'));
   const engineType = BLK_ENGINES[one('engine_type')] ?? fail(`engine ${one('engine_type')}`);
   const armorType = BLK_ARMOR[one('armor_type')] ?? fail(`armor ${one('armor_type')}`);
   if (tags.has('internal_type') && one('internal_type') !== '-1' && one('internal_type') !== '0') fail('structure');
-  for (const k of ['Front Turret Equipment', 'Rear Turret Equipment', 'Front Right Equipment', 'Front Left Equipment', 'Rear Right Equipment', 'Rear Left Equipment']) {
-    if (tags.has(k)) fail(k);
+  for (const k of ['Front Turret Equipment', 'Rear Turret Equipment', 'Turret 2 Equipment', ...(six ? ['Left Equipment', 'Right Equipment'] : ['Front Right Equipment', 'Front Left Equipment', 'Rear Right Equipment', 'Rear Left Equipment'])]) {
+    if ((tags.get(k) ?? []).length) fail(k);
   }
+  if (tags.has('Turret 2 Equipment')) fail('dual turret');
   const turret = tags.has('Turret Equipment');
   // Troop compartments and cargo bays (seats, quarters and handles are ignored).
   let cargo = 0;
@@ -584,14 +587,21 @@ function parseBlk(text: string): { design: VehicleDesign; year: number; rulesLev
   const armorVals = (tags.get('armor') ?? []).map(Number);
   // Order: front, right, left, rear, then turret or rotor.
   const armor = emptyVehicleArmor();
-  [armor.FR, armor.RS, armor.LS, armor.RR] = armorVals;
-  if (motive === 'vtol') armor.RO = armorVals[4] ?? 0;
-  else if (turret) armor.TU = armorVals[4] ?? 0;
+  if (six) {
+    // Superheavies: front, front right, front left, rear right, rear left, rear, then turret.
+    [armor.FR, armor.FRS, armor.FLS, armor.RRS, armor.RLS, armor.RR] = armorVals;
+    if (turret) armor.TU = armorVals[6] ?? 0;
+  } else {
+    [armor.FR, armor.RS, armor.LS, armor.RR] = armorVals;
+    if (motive === 'vtol') armor.RO = armorVals[4] ?? 0;
+    else if (turret) armor.TU = armorVals[4] ?? 0;
+  }
 
-  const blocks: [string, VehicleLocation][] = [
-    ['Front Equipment', 'FR'], ['Right Equipment', 'RS'], ['Left Equipment', 'LS'], ['Rear Equipment', 'RR'],
-    ['Turret Equipment', 'TU'], ['Body Equipment', 'BD'],
-  ];
+  const blocks: [string, VehicleLocation][] = six
+    ? [['Front Equipment', 'FR'], ['Front Right Equipment', 'FRS'], ['Front Left Equipment', 'FLS'], ['Rear Right Equipment', 'RRS'],
+      ['Rear Left Equipment', 'RLS'], ['Rear Equipment', 'RR'], ['Turret Equipment', 'TU'], ['Body Equipment', 'BD']]
+    : [['Front Equipment', 'FR'], ['Right Equipment', 'RS'], ['Left Equipment', 'LS'], ['Rear Equipment', 'RR'],
+      ['Turret Equipment', 'TU'], ['Body Equipment', 'BD']];
   const equipment = [];
   let uid = 0;
   for (const [tag, loc] of blocks) {
@@ -639,6 +649,8 @@ function parseBlk(text: string): { design: VehicleDesign; year: number; rulesLev
 const FIGHTER_ENGINES: Record<string, FighterDesign['engineType']> = { 0: 'standard', 1: 'ice', 2: 'xl', 4: 'light', 5: 'compact' };
 /** MegaMek armor codes: standard, ferro-aluminum, heavy and light ferro-aluminum. */
 const FIGHTER_ARMOR: Record<string, FighterArmorType> = { 0: 'standard', 19: 'ferro-fibrous', 20: 'heavy-ferro', 21: 'light-ferro', 39: 'primitive' };
+
+const techBaseClanLike = (typeStr: string) => /^Clan|Clan Chassis/.test(typeStr);
 
 function parseFighterBlk(text: string): { design: FighterDesign; year: number; mulId?: number; source: string } {
   const tags = new Map<string, string[]>();
@@ -899,10 +911,12 @@ function parseVesselBlk(text: string): { design: VesselDesign; year: number; mul
   const techBase: TechBase = /^Clan|Clan Chassis/.test(typeStr) ? 'Clan' : 'IS';
   const mixedTech = /^Mixed/.test(typeStr);
   const shape = one('motion_type') === 'Spheroid' ? 'spheroid' : one('motion_type') === 'Aerodyne' ? 'aerodyne' : fail(`motion ${one('motion_type')}`);
-  // Primitive aerospace armor (code 40) marks a primitive small craft or DropShip.
-  const primitive = one('armor_type') === '40';
-  if (primitive && large) fail('primitive large craft');
-  const armorType = primitive ? 'standard' : VESSEL_ARMOR[one('armor_type')] ?? fail(`armor type ${one('armor_type')}`);
+  // Primitive aerospace armor (code 40) marks primitive small craft and DropShips; JumpShips are primitive
+  // by their K-F core (4). Primitive armor rates match standard Inner Sphere aerospace armor.
+  const primitiveCore = large && one('kf_core') === '4';
+  const primitive = (one('armor_type') === '40' && !large) || primitiveCore;
+  if (one('armor_type') === '40' && large && techBaseClanLike(one('type'))) fail('Clan primitive armor');
+  const armorType = one('armor_type') === '40' ? 'standard' : VESSEL_ARMOR[one('armor_type')] ?? fail(`armor type ${one('armor_type')}`);
   const primitiveYear = Number(one('originalBuildYear')) || Number(one('year')) || 2500;
   if (one('collartype') === '1') fail('prototype docking collar');
   const av = (tags.get('armor') ?? []).map(Number);
@@ -969,16 +983,20 @@ function parseVesselBlk(text: string): { design: VesselDesign; year: number; mul
   const mixed = mixedTech || equipment.some((e) => { const tb = getEquipment(e.equipmentId)!.techBase; return tb !== 'Both' && tb !== techBase; });
   const tonnage = Number(one('tonnage'));
   const dropship = vesselType === 'dropship';
-  const fppt = large ? (tonnage < 110000 ? 10 : tonnage < 250000 ? 5 : 2.5) : !dropship ? 80 : tonnage < 400 ? 80 : tonnage < 800 ? 70 : tonnage < 1200 ? 60 : tonnage < 1900 ? 50 : tonnage < 3000 ? 40 : tonnage < 20000 ? 30 : tonnage < 40000 ? 20 : 10;
+  // Fuel points per ton as the rules give them (primitive craft get fewer by year of construction).
+  const fppt = vesselFuelPointsPerTon({
+    vesselType, tonnage, ...(primitive ? { primitiveYear } : {}), ...(primitiveCore ? { driveCore: 'primitive' as const } : {}),
+  });
   const design: VesselDesign = {
     schemaVersion: 1, unitType: 'vessel', vesselType, shape, military: one('designtype') !== '0', era: '3025', techBase, mixedTech: mixed,
     ...(primitive ? { primitiveYear } : {}),
+    ...(primitiveCore ? { jumpRange: int('jump_range') || 30 } : {}),
     chassis: one('Name'), model: one('Model'), tonnage, safeThrust: int('SafeThrust'), si: int('structural_integrity'),
     heatSinkType: one('sink_type') === '1' ? 'double' : 'single', heatSinks: int('heatsinks'), fuelTons: int('fuel') / fppt,
     armorType, armor,
     crew: { crew: int('crew'), officers: int('officers'), gunners: int('gunners'), passengers: int('passengers'), marines: int('marines'), battleArmor: int('battlearmor') },
     quarters, bays,
-    driveCore: large ? ({ 0: 'standard', 1: 'compact', 2: 'subcompact' } as const)[(tags.has('kf_core') ? int('kf_core') : vesselType === 'warship' ? 1 : vesselType === 'jumpship' ? 0 : 3) as 0] ?? (vesselType === 'space-station' ? 'none' : fail(`K-F core ${one('kf_core')}`)) : 'none',
+    driveCore: large ? ({ 0: 'standard', 1: 'compact', 2: 'subcompact', 4: 'primitive' } as const)[(tags.has('kf_core') ? int('kf_core') : vesselType === 'warship' ? 1 : vesselType === 'jumpship' ? 0 : 3) as 0] ?? (vesselType === 'space-station' ? 'none' : fail(`K-F core ${one('kf_core')}`)) : 'none',
     sail: large && (tags.has('sail') ? one('sail') !== '0' : vesselType === 'jumpship'),
     lfBattery: tags.has('lithium-fusion'),
     hpg: tags.has('hpg'),
