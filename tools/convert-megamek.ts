@@ -1079,6 +1079,8 @@ function parseVesselBlk(text: string): { design: VesselDesign; year: number; mul
   const design: VesselDesign = {
     schemaVersion: 1, unitType: 'vessel', vesselType, shape, military: one('designtype') !== '0', era: '3025', techBase, mixedTech: mixed,
     ...(primitive ? { primitiveYear } : {}),
+    // Non-primitive small craft and DropShips built before 2500 still have the heavier engines of their year.
+    ...(!primitive && !large && techBase === 'IS' && primitiveYear < 2500 ? { buildYear: primitiveYear } : {}),
     ...(primitiveCore ? { jumpRange: int('jump_range') || 30 } : {}),
     chassis: one('Name'), model: one('Model'), tonnage, safeThrust: int('SafeThrust'), si: int('structural_integrity'),
     heatSinkType: one('sink_type') === '1' ? 'double' : 'single', heatSinks: int('heatsinks'), fuelTons: int('fuel') / fppt,

@@ -178,6 +178,8 @@ export interface VesselDesign {
   /** Primitive small craft and DropShips (Interstellar Operations): the year of construction sets the
    * engine, control and fuel factors; armor gets only 66% of its points. */
   primitiveYear?: number;
+  /** Year of construction of a non-primitive small craft or DropShip built before 2500: its engine is heavier (MegaMek). */
+  buildYear?: number;
   /** Primitive K-F drives (JumpShips): maximum jump range in light-years (30 for a modern drive). */
   jumpRange?: number;
   era: EraId;
@@ -331,14 +333,15 @@ function vesselBaseFuelPointsPerTon(d: Pick<VesselDesign, 'vesselType' | 'tonnag
 
 const halfNearest = (n: number) => Math.round(n * 2) / 2;
 
-export function vesselEngineWeight(d: Pick<VesselDesign, 'tonnage' | 'safeThrust' | 'techBase'> & { vesselType?: VesselType; primitiveYear?: number; driveCore?: DriveCore }): number {
+export function vesselEngineWeight(d: Pick<VesselDesign, 'tonnage' | 'safeThrust' | 'techBase'> & { vesselType?: VesselType; primitiveYear?: number; buildYear?: number; driveCore?: DriveCore }): number {
   if (d.vesselType && isLargeCraft({ vesselType: d.vesselType })) {
     // A station-keeping drive (0 thrust) weighs 1.2% of the craft; transit drives 6% per point of thrust
     // (more on primitive JumpShips, by year of construction).
     const perThrust = largePrimitive(d) ? primitiveJumpShipFactor('engine', d.primitiveYear) : 0.06;
     return halfNearest(d.tonnage * (d.safeThrust === 0 ? 0.012 : d.safeThrust * perThrust));
   }
-  const multiplier = d.techBase === 'Clan' ? 0.061 : isPrimitiveVessel(d) ? primitiveFactor('engine', d) : 0.065;
+  const year = isPrimitiveVessel(d) ? d.primitiveYear : d.buildYear;
+  const multiplier = d.techBase === 'Clan' ? 0.061 : year !== undefined ? primitiveFactor('engine', { primitiveYear: year, vesselType: d.vesselType }) : 0.065;
   return halfUp(d.tonnage * d.safeThrust * multiplier);
 }
 
@@ -785,7 +788,8 @@ export function validateVessel(d: VesselDesign, s: VesselSummary = computeVessel
     if (d.gravDecks.length > maxGravDecks(d)) error(`At most ${maxGravDecks(d)} grav decks (has ${d.gravDecks.length}).`);
     const maxDia = d.vesselType === 'space-station' ? 1500 : 250;
     if (d.gravDecks.some((g) => g > maxDia || g <= 0)) error(`Grav deck diameters must be 1–${maxDia} m.`);
-    if (d.dockingCollars > s.maxDockingCollars) error(`At most ${s.maxDockingCollars} docking collars (has ${d.dockingCollars}).`);
+    // The hardpoint limit is not enforced by MegaMek, and several canon stations and yards exceed it.
+    if (d.dockingCollars > s.maxDockingCollars) warn(`The rules allow ${s.maxDockingCollars} docking collars at this tonnage (has ${d.dockingCollars}).`);
   }
   if (d.primitiveYear !== undefined && !isPrimitiveVessel(d)) error('Only small craft, DropShips and JumpShips with a primitive K-F core can be built as primitive craft.');
   if (d.driveCore === 'primitive') {
@@ -839,13 +843,14 @@ export function validateVessel(d: VesselDesign, s: VesselSummary = computeVessel
     }
   }
 
-  // Crew and quarters
+  // Crew and quarters (emergency-scale small craft of 25 tons or less, such as escape pods and lifeboats, are exempt, as MegaMek)
   const need = s.crewNeeded;
-  if (d.crew.crew < need.total) {
+  const crewRules = !(d.vesselType === 'small-craft' && d.tonnage <= 25);
+  if (crewRules && d.crew.crew < need.total) {
     error(`Needs a crew of ${need.total} (${need.base} base + ${need.gunners} gunners${need.bayPersonnel ? ` + ${need.bayPersonnel} bay personnel` : ''}); has ${d.crew.crew}.`);
   }
-  if (d.crew.officers < need.officers) error(`Needs at least ${need.officers} officers; has ${d.crew.officers}.`);
-  if (s.quartersCapacity < s.peopleAboard) error(`Quarters house ${s.quartersCapacity} but ${s.peopleAboard} people need them (crew other than bay personnel, passengers, marines, battle armor).`);
+  if (crewRules && d.crew.officers < need.officers) error(`Needs at least ${need.officers} officers; has ${d.crew.officers}.`);
+  if (crewRules && s.quartersCapacity < s.peopleAboard) error(`Quarters house ${s.quartersCapacity} but ${s.peopleAboard} people need them (crew other than bay personnel, passengers, marines, battle armor).`);
 
   // Transport bays
   for (const b of d.bays) {
@@ -975,6 +980,7 @@ export function parseVessel(raw: unknown): VesselDesign {
     shape: pick(r.shape, ['aerodyne', 'spheroid'] as const, 'spheroid'),
     military: r.military !== false,
     ...(typeof r.primitiveYear === 'number' ? { primitiveYear: r.primitiveYear } : {}),
+    ...(typeof r.buildYear === 'number' ? { buildYear: r.buildYear } : {}),
     era: getEra(String(r.era))?.id ?? DEFAULT_ERA,
     techBase: pick(r.techBase, ['IS', 'Clan'] as const, 'IS'),
     mixedTech: r.mixedTech === true,

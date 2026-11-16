@@ -307,9 +307,23 @@ fixed-wing support).
     Unit List id: the editor shows it as a link to the unit's MUL page. Units without a MUL entry
     (mostly infantry built from the published rules) are marked **no MUL** in the browser, and an
     **On the MUL only** filter hides them
-- **Battle Value (BV 2.0) and C-bill cost**, with the working shown; mech values
-  reproduce published canon figures (e.g. Atlas AS7-D: BV 1,897, 9,626,000 C-bills).
-  Vehicle values are marked as approximate
+- **Battle Value (BV 2.0) and C-bill cost**, with the working shown, for every unit type (support
+  vehicles included), checked against MegaMek's own calculators over the canon units. Share of canon
+  units whose value equals MegaMek's exactly:
+
+  | Unit type | BV | Cost |
+  |---|---|---|
+  | BattleMechs (3,005 compared) | 94% | 80% (96% within 2%) |
+  | Combat vehicles (1,044) | 94% | 53% (74% within 2%; marked approximate) |
+  | Support vehicles (175) | 96% | 93% |
+  | Aerospace / conventional fighters (479) | 99% | 71% (95% within 2%) |
+  | Small craft, DropShips, JumpShips, WarShips, stations (375) | 83% (95% within 2%) | 62% (99.7% within 2%) |
+  | ProtoMechs (86) | 100% | 100% |
+  | Gun emplacements and handheld weapons (971) | 98% | (emplacements have no cost in MegaMek) |
+
+  Known differences: LB-X cluster and other special munitions are not separate ammunition yet, and a few
+  canon files share a name with another design. Spacecraft ammunition bins are priced as MegaMek does (one
+  ton's price per bin, whatever its size), which is below the TechManual's per-ton price for big bins
 - **Printable record sheets** for BattleMechs (including every OmniMech configuration)
   and all vehicle types: weapons table, armor and structure boxes, critical slots,
   heat scale, warrior / crew and vehicle damage tracks, ammo counters; US Letter or
@@ -373,6 +387,14 @@ npm test           # rules-engine unit tests
 npm run build      # type-check and production web build
 npm run dist:win   # build the Windows installer, zip and portable exe into release/
 ```
+
+### Checking against MegaMek
+
+`tools/megamek-check/run.sh <megamek checkout> <mm-data checkout> [kind]` runs MegaMek's own BV and cost
+calculators over the canon unit files and compares them with MechForger's (`kind` is one of mechs,
+vehicles, support, fighters, vessels, protomechs, stationary). The MegaMek checkout must be compiled first
+(`gradle :megamek:compileJava`). `Rep.java` prints MegaMek's itemized BV and cost report for one unit, and
+`VerA.java` runs MegaMek's spacecraft validator.
 
 ## Layout
 

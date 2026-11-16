@@ -11,12 +11,12 @@ import { LOCATIONS, REAR_FACING, armorTypeAt, effectiveCockpit, isIndustrial, is
 import type { Equipment } from './equipment';
 import { canArmor, getEquipment, isArtemisVCapable, isDirectFire, isPPC, itemSlots, itemWeight } from './equipment';
 import { armoredSystemSlots, computeMech, fixedSlots } from './construction';
-import { armorPointsPerTon, engineSideTorsoSlots, freeHeatSinks, isLargeEngine } from './tables';
+import { armorPointsPerTon, engineSideTorsoSlots, isLargeEngine } from './tables';
 import { meleeBV, meleeCost } from './melee';
 import type { FighterDesign } from './fighter';
 import { computeFighter, fighterItemWeight } from './fighter';
 import type { VesselDesign, VesselItem } from './vessel';
-import { BAY_INFO, VESSEL_ARMOR_COST, VESSEL_TYPE_NAMES, computeVessel, isLargeCraft, kfIntegrity, shotsPerBin, vesselItemWeight } from './vessel';
+import { BAY_INFO, VESSEL_ARMOR_COST, bayWeight, isPrimitiveVessel, VESSEL_TYPE_NAMES, computeVessel, isLargeCraft, kfIntegrity, shotsPerBin, vesselItemWeight } from './vessel';
 import type { VehicleDesign } from './vehicle';
 import { computeVehicle, vehicleItemWeight } from './vehicle';
 import type { SupportVehicleDesign } from './support';
@@ -70,8 +70,8 @@ export function ammoValue(eq: Equipment): { bv: number; cost: number } {
   const w = value(weapon);
   let bv = (w?.ammoBV ?? 0) * scale;
   // MegaMek gives Artemis-capable ammunition the same BV as standard ammunition.
-  // Artemis V ammunition costs twice as much (MegaMek).
-  return { bv, cost: (w?.ammoCost ?? 0) * scale * (eq.artemisVAmmo ? 2 : 1) };
+  // Artemis IV- and V-capable ammunition costs twice as much (MegaMek).
+  return { bv, cost: (w?.ammoCost ?? 0) * scale * (eq.artemisVAmmo || eq.artemisAmmo ? 2 : 1) };
 }
 
 /** Heat a weapon counts for in the BV heat calculation. */
@@ -93,6 +93,8 @@ interface WeaponEntry {
 /** Weapon BV with targeting-computer and Artemis IV bonuses. */
 export function weaponEntries(
   items: { equipmentId: string; location: string | null; rear?: boolean }[],
+  /** Vehicles: Artemis links to a launcher in any location. */
+  artemisAnywhere = false,
 ): WeaponEntry[] {
   const ids = items.map((i) => i.equipmentId);
   const hasTC = ids.some((id) => getEquipment(id)?.variableWeight === 'targetingComputer');
@@ -101,9 +103,10 @@ export function weaponEntries(
   const artemisLeft = new Map<string, number>();
   const artemisVLeft = new Map<string, number>();
   for (const i of items) {
-    if (i.equipmentId === 'clan-artemis-v') artemisVLeft.set(i.location ?? '', (artemisVLeft.get(i.location ?? '') ?? 0) + 1);
+    const ak = artemisAnywhere ? '' : i.location ?? '';
+    if (i.equipmentId === 'clan-artemis-v') artemisVLeft.set(ak, (artemisVLeft.get(ak) ?? 0) + 1);
     if (i.equipmentId === 'artemis-iv' || i.equipmentId === 'clan-artemis-iv') {
-      const k = i.location ?? '';
+      const k = ak;
       artemisLeft.set(k, (artemisLeft.get(k) ?? 0) + 1);
     }
   }
@@ -134,7 +137,7 @@ export function weaponEntries(
       heat += 5;
     }
     if (hasTC && isDirectFire(eq)) bv *= 1.25;
-    const k = i.location ?? '';
+    const k = artemisAnywhere ? '' : i.location ?? '';
     if (isArtemisVCapable(eq.id) && (artemisVLeft.get(k) ?? 0) > 0) {
       artemisVLeft.set(k, artemisVLeft.get(k)! - 1);
       bv *= 1.3;
@@ -444,6 +447,21 @@ export function equipmentCost<T extends { equipmentId: string; location?: string
   return total;
 }
 
+/** Clan units pay for the CASE built into each location holding explosive items, less any CASE mounted (MegaMek). */
+function implicitClanCase(d: { techBase: string; equipment: { equipmentId: string; location?: string | null }[] }): number {
+  if (d.techBase !== 'Clan') return 0;
+  let explicit = 0;
+  const locs = new Set<string>();
+  for (const i of d.equipment) {
+    const eq = getEquipment(i.equipmentId);
+    if (!eq) continue;
+    if (eq.id === 'case') explicit++;
+    else if ((eq.category === 'Ammo' && eq.ammoFor && !isGaussType(eq.ammoFor) && !/plasma/.test(eq.ammoFor))
+      || (eq.isWeapon && isGaussType(eq.id)) || eq.explosive) locs.add(i.location ?? '');
+  }
+  return Math.max(0, locs.size - explicit);
+}
+
 export function mechCost(d: MechDesign): CostBreakdown {
   const s = computeMech(d);
   const t = d.tonnage;
@@ -455,7 +473,8 @@ export function mechCost(d: MechDesign): CostBreakdown {
     return a + 100 * t + (act.lowerArm ? 50 * t : 0) + (act.lowerArm && act.hand ? 80 * t : 0);
   }, 0);
   const jumpCost = (d.jumpJetType === 'improved' ? 500 : 200) * t * s.jumpMP ** 2;
-  const hsCost = (d.heatSinkType === 'double' ? 6000 : 2000) * Math.max(0, s.heatSinks.total - freeHeatSinks(d.engineType));
+  // MegaMek: every double heat sink is paid for; single heat sinks have 10 free (whatever the engine).
+  const hsCost = d.heatSinkType === 'double' ? 6000 * s.heatSinks.total : 2000 * Math.max(0, s.heatSinks.total - 10);
   const lines: [string, number][] = [
     ['Cockpit', COCKPIT_COST[effectiveCockpit(d)]],
     ['Life support', 50000],
@@ -474,7 +493,7 @@ export function mechCost(d: MechDesign): CostBreakdown {
     ['Armor', isPatchwork(d)
       ? LOCATIONS.reduce((a, l) => a + ARMOR_COST[armorTypeAt(d, l)] * locPoints(d, l) / armorPointsPerTon(armorTypeAt(d, l), techOf(d, 'armor')), 0)
       : ARMOR_COST[d.armorType] * s.weights.armor],
-    ['Weapons & equipment', equipmentCost(d.equipment, (eq) => itemWeight(eq, d), s.rating, d)],
+    ['Weapons & equipment', equipmentCost(d.equipment, (eq) => itemWeight(eq, d), s.rating, d) + 50000 * implicitClanCase(d)],
   ];
   if (d.fullHeadEjection) lines.push(['Full Head Ejection System', 1725000]);
   // Armored components: 150,000 C-bills per armored slot.
@@ -515,15 +534,25 @@ export function vehicleBV(d: VehicleDesign): BVBreakdown {
   const defEquip = defensiveEquipmentBV(d.equipment);
   // VTOLs and WiGEs +1; stealth armor +2.
   const tmm = targetMovementModifier(s.flankMP) + (d.motive === 'vtol' || d.motive === 'wige' ? 1 : 0) + (d.armorType === 'stealth' ? 2 : 0);
-  const body = BODY_MODIFIER[d.motive];
+  // Chassis modifications add to the body type modifier (MegaMek): fully amphibious +0.2; limited amphibious,
+  // dune buggy, flotation hull, environmental sealing and armored motive system +0.1 each.
+  let body = BODY_MODIFIER[d.motive];
+  for (const e of d.equipment) {
+    if (e.equipmentId === 'vehicle-fully-amphibious') body += 0.2;
+    else if (/^(vehicle-limited-amphibious|dune-buggy|flotation-hull|environmental-sealing|(clan-)?armored-motive-system)$/.test(e.equipmentId)) body += 0.1;
+  }
   const defensive = (armor + structure + defEquip) * body * (1 + tmm / 10);
   lines.push(['Armor', armor], ['Internal structure', structure]);
   if (defEquip) lines.push(['Defensive equipment', defEquip]);
   lines.push([`Body type modifier`, body], [`Defensive factor (TMM ${tmm})`, 1 + tmm / 10]);
 
-  const weapons = weaponEntries(d.equipment);
-  const weaponBV = weapons.reduce((a, w) => a + w.bv, 0);
+  const weapons = weaponEntries(d.equipment.map((e) => ({ ...e, rear: e.location === 'RR' })), true);
   const ammo = ammoBV(d.equipment, weapons);
+  // Rear-facing weapons count half, unless they outweigh the front-facing ones (then the front counts half).
+  const frontBV = weapons.filter((w) => w.loc === 'FR').reduce((a, w) => a + w.bv, 0);
+  const rearBV = weapons.filter((w) => w.rear).reduce((a, w) => a + w.bv, 0);
+  for (const w of weapons) if (rearBV > frontBV ? w.loc === 'FR' : w.rear) w.bv /= 2;
+  const weaponBV = weapons.reduce((a, w) => a + w.bv, 0);
   const tonnage = d.tonnage / 2;
   const sf = speedFactor(s.flankMP);
   const offensive = (weaponBV + ammo + tonnage) * sf;
@@ -711,7 +740,8 @@ export function vesselBV(d: VesselDesign): BVBreakdown {
     }
     explosive += 15 * ammoTypes.size;
   }
-  const typeModifier = large ? (station ? 0.7 : 0.75) : 1;
+  // MegaMek: WarShips 0.8, JumpShips 0.75, space stations 0.7.
+  const typeModifier = large ? (station ? 0.7 : warship ? 0.8 : 0.75) : 1;
   const defensive = Math.max(1, armor + structure + defEquip - explosive) * typeModifier;
   lines.push(['Armor', armor], ['Structural integrity', structure]);
   if (defEquip) lines.push(['Defensive equipment', defEquip]);
@@ -785,25 +815,31 @@ export function vesselBV(d: VesselDesign): BVBreakdown {
     const names = ['nose', 'left', 'left rear', 'aft', 'right rear', 'right', 'left broadside', 'right broadside'];
     lines.push([`Primary arc: ${names[nose]}`, arcBV[nose]]);
   }
-  // Large craft use a fixed speed factor: 1 MP (stations 0).
-  const sfMP = large ? (station ? 0 : 1) : s.maxThrust;
+  // JumpShips use a fixed 1 MP (stations 0); WarShips, like smaller craft, their maximum thrust.
+  const sfMP = large && !warship ? (station ? 0 : 1) : s.maxThrust;
   const sf = speedFactor(sfMP);
   const offensive = (weaponBV + ammo + offEquip) * sf;
   lines.push(['Weapons', weaponBV], ['Ammunition', ammo]);
   if (offEquip) lines.push(['Offensive equipment', offEquip]);
-  lines.push([large ? `Speed factor (${sfMP} MP)` : `Speed factor (max thrust ${s.maxThrust})`, sf]);
+  lines.push([large && !warship ? `Speed factor (${sfMP} MP)` : `Speed factor (max thrust ${s.maxThrust})`, sf]);
   return { total: round(defensive + offensive), defensive, offensive, lines, approximate: false };
+}
+
+/** Primitive craft carry Primitive Aerospace armor, 5,000 C-bills a ton (MegaMek). */
+function vesselArmorCostPerTon(d: VesselDesign): number {
+  return d.armorType === 'standard' && isPrimitiveVessel(d) ? 5000 : VESSEL_ARMOR_COST[d.armorType];
 }
 
 export function vesselCost(d: VesselDesign): CostBreakdown {
   const s = computeVessel(d);
   const t = d.tonnage;
-  const arcsWithGuns = new Set(d.equipment.filter((e) => getEquipment(e.equipmentId)?.isWeapon && e.location && e.location !== 'HULL').map((e) => e.location)).size;
+  const arcsWithGuns = new Set(d.equipment.filter((e) => getEquipment(e.equipmentId)?.isWeapon && e.location && e.location !== 'HULL').map((e) => `${e.location}${e.rear ? ':R' : ''}`)).size; // rear-facing side weapons are a separate arc (MegaMek)
   const people = d.crew.crew + d.crew.passengers;
   const equipment = d.equipment.reduce((a, item) => {
     const eq = getEquipment(item.equipmentId);
     if (!eq) return a;
-    if (eq.category === 'Ammo') return a + ammoValue(eq).cost * Math.ceil((item.shots ?? shotsPerBin(eq)) / shotsPerBin(eq));
+    // As MegaMek, an ammunition bin costs one ton's price whatever its size (the TechManual prices it per ton).
+    if (eq.category === 'Ammo') return a + ammoValue(eq).cost;
     return a + equipmentCost([item], (e) => vesselItemWeight(e, d, item), 0);
   }, 0);
   const lines: [string, number][] = [
@@ -819,16 +855,25 @@ export function vesselCost(d: VesselDesign): CostBreakdown {
     ['Engine', s.weights.engine * 1000],
     ['Drive unit', (500 * d.safeThrust * t) / 100],
     ['Fuel tanks', 200 * s.weights.fuel],
-    ['Armor', VESSEL_ARMOR_COST[d.armorType] * s.weights.armor],
+    ['Armor', vesselArmorCostPerTon(d) * s.weights.armor],
     ['Heat sinks', (d.heatSinkType === 'double' ? 6000 : 2000) * d.heatSinks],
     ['Weapons & equipment', equipment],
   ];
   if (isLargeCraft(d)) return largeCraftCost(d, s, lines.slice(0, 7), equipment);
   let multiplier = 1 + t / 50;
+  // Infantry and battle armor bays: 15,000 per (whole) ton on small craft, part of the structure on DropShips (MegaMek).
+  const sc = d.vesselType === 'small-craft';
+  const bays = d.bays.reduce((a, b) => a + ((b.kind.startsWith('infantry') || b.kind === 'battle-armor') ? (sc ? 15000 * Math.ceil(bayWeight(b) - 1e-9) : 0)
+    : BAY_INFO[b.kind].cost * Math.ceil(BAY_INFO[b.kind].cargo ? BAY_INFO[b.kind].tons * b.size : b.size)) + (b.arts ? 1000000 : 0), 0);
+  // Small craft quarters, per person: first class 30,000, second class and crew 15,000, steerage 5,000 (MegaMek;
+  // DropShip quarters are not priced).
+  const q = d.quarters;
+  const quarters = 30000 * (q['first-class'] ?? 0) + 15000 * ((q['second-class'] ?? 0) + (q.crew ?? 0)) + 5000 * (q.steerage ?? 0);
   if (d.vesselType === 'dropship') {
-    const bays = d.bays.reduce((a, b) => a + BAY_INFO[b.kind].cost * Math.ceil(BAY_INFO[b.kind].cargo ? BAY_INFO[b.kind].tons * b.size : b.size) + (b.arts ? 1000000 : 0), 0);
     lines.push(['Docking collar', 10000], ['Bays and doors', bays + 1000 * s.bayDoors], ['Life boats / escape pods', 5000 * (d.lifeboats + d.escapePods)]);
     multiplier = d.shape === 'spheroid' ? 28 : 36;
+  } else {
+    lines.push(['Bays and doors', bays + 1000 * s.bayDoors], ['Quarters', quarters]);
   }
   const subtotal = lines.reduce((a, [, v]) => a + v, 0);
   lines.push([d.vesselType === 'dropship' ? `× ${multiplier} (${d.shape} DropShip)` : '× (1 + tonnage/50)', multiplier]);
@@ -841,6 +886,8 @@ function largeCraftCost(d: VesselDesign, s: ReturnType<typeof computeVessel>, co
   const warship = d.vesselType === 'warship';
   const station = d.vesselType === 'space-station';
   const docks = d.dockingCollars;
+  // MegaMek's K-F drive cost counts each DropShuttle bay as two docking hardpoints.
+  const kfDocks = docks + 2 * d.bays.filter((b) => b.kind === 'drop-shuttle').reduce((a, b) => a + b.size, 0);
   const lines: [string, number][] = [...common];
   if (warship) {
     lines.push(['Drive unit', 500 * d.safeThrust * (t / 100)], ['Engine', 1000 * d.safeThrust * t * 0.06]);
@@ -849,8 +896,8 @@ function largeCraftCost(d: VesselDesign, s: ReturnType<typeof computeVessel>, co
   }
   lines.push(['Engine control unit', 1000]);
   if (!station) {
-    let drive = 60000000 + 75000000 * docks + 25000000 + 5000000 * docks + 50000000 + 50000 * kfIntegrity(d)
-      + 50000 * (30 + t / (warship ? 20000 : 7500)) + 500000 + 200000 * docks;
+    let drive = 60000000 + 75000000 * kfDocks + 25000000 + 5000000 * kfDocks + 50000000 + 50000 * kfIntegrity(d)
+      + 50000 * (30 + t / (warship ? 20000 : 7500)) + 500000 + 200000 * kfDocks;
     if (warship) drive *= 5;
     if (d.lfBattery) drive *= 3;
     lines.push(['K-F drive', drive]);
@@ -866,7 +913,7 @@ function largeCraftCost(d: VesselDesign, s: ReturnType<typeof computeVessel>, co
     ['Attitude thrusters', 25000],
     ['Docking collars', 100000 * docks],
     ['Fuel tanks', 200 * d.fuelTons * 1.02],
-    ['Armor', VESSEL_ARMOR_COST[d.armorType] * s.weights.armor],
+    ['Armor', vesselArmorCostPerTon(d) * s.weights.armor],
     ['Heat sinks', (d.heatSinkType === 'double' ? 6000 : 2000) * d.heatSinks],
     ['Life boats / escape pods', 5000 * (d.lifeboats + d.escapePods)],
     ['Grav decks', decks],
@@ -897,13 +944,15 @@ export function supportBV(d: SupportVehicleDesign): BVBreakdown {
   const defEquip = defensiveEquipmentBV(d.equipment);
   const fc = SV_FIRE_CONTROL_BV[d.fireControl];
   const rearLoc = aero ? 'AF' : 'RR';
-  const weapons = weaponEntries(d.equipment.map((e) => ({ ...e, rear: e.location === rearLoc })));
+  const weapons = weaponEntries(d.equipment.map((e) => ({ ...e, rear: e.location === rearLoc })), true);
   // MegaMek applies the fire-control modifier to weapons and to ammunition.
   const ammo = ammoBV(d.equipment, weapons) * fc;
   for (const w of weapons) w.bv *= fc;
-  const frontBV = weapons.filter((w) => !w.rear).reduce((a, w) => a + w.bv, 0);
+  // Ground craft compare the rear with the front facing only; aircraft with everything not aft (MegaMek).
+  const isFront = (w: { rear: boolean; loc?: string | null }) => (aero ? !w.rear : w.loc === 'FR');
+  const frontBV = weapons.filter(isFront).reduce((a, w) => a + w.bv, 0);
   const rearBV = weapons.filter((w) => w.rear).reduce((a, w) => a + w.bv, 0);
-  for (const w of weapons) if (rearBV > frontBV ? !w.rear : w.rear) w.bv /= 2;
+  for (const w of weapons) if (rearBV > frontBV ? isFront(w) : w.rear) w.bv /= 2;
   const offEquip = d.equipment.reduce((a, i) => {
     const eq = getEquipment(i.equipmentId);
     return eq && !eq.isWeapon && eq.category !== 'Ammo' && !DEFENSIVE_IDS.has(eq.id) ? a + (value(eq.id)?.bv ?? 0) : a;
