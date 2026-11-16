@@ -137,11 +137,12 @@ export function mechSheetData(d: MechDesign): SheetData {
   return { weapons, equipment, ammo };
 }
 
-const VEHICLE_ORDER: Record<string, number> = { FR: 0, LS: 1, RS: 2, RR: 3, TU: 4, BD: 5 };
+const VEHICLE_ORDER: Record<string, number> = { FR: 0, LS: 1, RS: 2, RR: 3, TU: 4, TU2: 4.5, BD: 5 };
 
 export function vehicleSheetData(d: VehicleDesign): SheetData {
   const locName = (l: string | null) => (l === 'TU' ? turretName(d) : l ? VEHICLE_LOCATION_NAMES[l as keyof typeof VEHICLE_LOCATION_NAMES] : '—');
-  const groups = group(d.equipment, (e) => ({ label: locName(e.location), order: VEHICLE_ORDER[e.location ?? ''] ?? 99, rear: false }));
+  // Sponson-mounted weapons are listed as "(ST)" in their side.
+  const groups = group(d.equipment, (e) => ({ label: `${locName(e.location)}${e.sponson ? ' (ST)' : ''}`, order: VEHICLE_ORDER[e.location ?? ''] ?? 99, rear: false }));
   const weapons = groups.filter((g) => g.eq.isWeapon).map((g) => weaponRow(g, shortEquipmentName(g.eq, d), true, true));
   const equipment = groups
     .filter((g) => !g.eq.isWeapon && g.eq.category !== 'Ammo')

@@ -16,7 +16,7 @@ import {
   VTOL_ROTOR_MAX_ARMOR, addVehicleItem, distributeVehicleArmor, emptyVehicleArmor, isVehicleEquipment,
   removeVehicleItem, setVehicleArmorTonnage, setVehicleEngine, setVehicleItemLocation, setVehicleMotive, setVehicleTonnage,
   hasSixFacings, isSuperheavyVehicle, motiveMaxTonnage,
-  setVehicleTurret, turretName, vehicleArmorSlots, vehicleItemLocations, vehicleItemWeight, vehicleReadout,
+  setVehicleTurret, setVehicleDualTurret, setVehicleSponsons, setVehicleItemSponson, SPONSON_LOCATIONS, turretName, vehicleArmorSlots, vehicleItemLocations, vehicleItemWeight, vehicleReadout,
   vehicleStructureSlots,
 } from '../rules/vehicle';
 import { NumberField } from './NumberField';
@@ -156,6 +156,19 @@ function VehicleChassisPanel({ design, summary, update }: Props) {
                 onChange={(n) => update((d) => ({ ...d, omniTurretTons: Math.max(0, Math.round(n * 2) / 2) }))} /> t
               {' '}({summary.turretItemTons} of {(design.omniTurretTons ?? summary.weights.turret) * 10} t of pods)
             </span>
+          )}
+          {design.motive !== 'vtol' && (
+            <div className="row wrap">
+              <label className="check" title="A second turret at the front (Tactical Operations); the main turret becomes the rear turret">
+                <input type="checkbox" checked={!!design.dualTurret} onChange={(e) => update((d) => setVehicleDualTurret(d, e.target.checked))} />
+                Dual turret (front and rear)
+              </label>
+              <label className="check" title="A pair of sponson turrets (Tactical Operations): mark side-mounted weapons as sponson-mounted; 10% of their weight">
+                <input type="checkbox" checked={!!design.sponsons} onChange={(e) => update((d) => setVehicleSponsons(d, e.target.checked))} />
+                Sponson turrets
+              </label>
+              {design.sponsons && <span className="muted"> {summary.weights.sponsons} t (10% of sponson weapons)</span>}
+            </div>
           )}
         </div>
 
@@ -374,6 +387,12 @@ function VehicleEquipmentPanel({ design, summary, update }: Props) {
                   <option key={l} value={l}>{l === 'TU' ? turretName(design) : VEHICLE_LOCATION_NAMES[l]}</option>
                 ))}
               </select>
+              {design.sponsons && eq.isWeapon && item.location && SPONSON_LOCATIONS.includes(item.location) && (
+                <label className="check small" title="Mounted in the sponson turret on this side">
+                  <input type="checkbox" checked={!!item.sponson} onChange={(e) => update((d) => setVehicleItemSponson(d, item.uid, e.target.checked))} />
+                  Sponson
+                </label>
+              )}
               <button className="small danger" aria-label={`Remove ${eq.name}`}
                 onClick={() => update((d) => removeVehicleItem(d, item.uid))}>✕</button>
             </li>
@@ -393,7 +412,8 @@ function VehicleSummaryPanel({ design, summary, issues }: Props) {
     ['Engine', w.engine],
     ...(motive.liftName ? [[motive.liftName, w.lift] as [string, number]] : []),
     ['Control equipment', w.controls],
-    ...(design.turret ? [[turretName(design), w.turret] as [string, number]] : []),
+    ...(design.turret ? [[design.dualTurret ? 'Turrets (rear and front)' : turretName(design), w.turret] as [string, number]] : []),
+    ...(design.sponsons ? [['Sponson turrets', w.sponsons] as [string, number]] : []),
     ...(w.powerAmplifiers ? [['Power amplifiers', w.powerAmplifiers] as [string, number]] : []),
     ...(w.cargo ? [['Troop / cargo space', w.cargo] as [string, number]] : []),
     ['Heat sinks', w.heatSinks],
@@ -421,7 +441,7 @@ function VehicleSummaryPanel({ design, summary, issues }: Props) {
         </tbody>
       </table>
       <div className="stats">
-        <div><span className="muted">Move</span> {design.cruiseMP}/{summary.flankMP}</div>
+        <div><span className="muted">Move</span> {design.cruiseMP}/{summary.flankMP}{summary.boostedFlankMP ? ` [${summary.boostedFlankMP}]` : ''}{summary.jumpMP ? `/${summary.jumpMP} jump` : ''}</div>
         <div><span className="muted">Type</span> {motive.name}</div>
         <div><span className="muted">Energy heat</span> {summary.energyHeat}/{design.heatSinks}</div>
         <div><span className="muted">Armor</span> {summary.armorTotal}/{summary.armorMax}</div>

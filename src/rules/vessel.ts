@@ -439,7 +439,7 @@ export function vesselUsesWeaponSlot(eq: Equipment): boolean {
 export function isVesselEquipment(eq: Equipment, d?: Pick<VesselDesign, 'vesselType'>): boolean {
   if (eq.id === 'remote-sensor-dispenser' || eq.id === 'cargo-container') return true;
   if (eq.id === 'mobile-hpg') return d?.vesselType !== 'small-craft';
-  if (eq.managed || eq.melee || eq.lamOnly || eq.category === 'Utility' || eq.variableWeight === 'masc' || eq.variableWeight === 'supercharger') return false;
+  if (eq.managed || eq.melee || eq.lamOnly || eq.vehicleOnly || eq.category === 'Utility' || eq.variableWeight === 'masc' || eq.variableWeight === 'supercharger') return false;
   if (eq.capitalClass && d) {
     if (d.vesselType === 'small-craft') return false;
     if (eq.capitalClass === 'mass-driver') return d.vesselType === 'warship';

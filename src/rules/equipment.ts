@@ -38,7 +38,7 @@ export interface Equipment {
   allowedLocations?: readonly Location[];
   isWeapon: boolean;
   /** Weight (and for MASC / targeting computers, slots) depends on the mech. */
-  variableWeight?: 'jumpJet' | 'improvedJumpJet' | 'masc' | 'supercharger' | 'targetingComputer' | 'aes' | 'partialWing' | 'droneOS' | 'tracks' | 'wheels';
+  variableWeight?: 'jumpJet' | 'improvedJumpJet' | 'masc' | 'supercharger' | 'targetingComputer' | 'aes' | 'partialWing' | 'droneOS' | 'tracks' | 'wheels' | 'vehicleJumpJet';
   /** Combat vehicle chassis modification: weighs this share of the tonnage (Clan share if given). */
   vehicleChassisMod?: { share: number; clan?: number };
   /** Systems spread one piece per location (added and removed as a set). */
@@ -57,6 +57,8 @@ export interface Equipment {
   melee?: MeleeKind;
   /** Arm-mounted only (so not available to quads, whose front legs share the arm locations). */
   armOnly?: boolean;
+  /** Combat vehicle equipment only. */
+  vehicleOnly?: boolean;
   /** Land-Air 'Mech equipment only. */
   lamOnly?: boolean;
   /** Artillery: tube or missile artillery (indirect fire, range in mapsheets) or an artillery cannon. */
@@ -538,6 +540,16 @@ export const OTHER_EQUIPMENT: readonly Equipment[] = [
   {
     id: 'supercharger', name: 'Supercharger', category: 'Other', tons: 0, slots: 1, heat: 0, isWeapon: false,
     variableWeight: 'supercharger', allowedLocations: TORSO, techBase: 'Both', firstEra: '3025',
+  },
+  // Vehicle equipment (Tactical Operations): jump jets (one per jump MP, by tonnage like 'Mech jump jets) and the
+  // VTOL jet booster (10% of the engine, rounded up to the half ton; flank speed becomes twice cruise speed).
+  {
+    id: 'vehicle-jump-jet', name: 'Vehicle Jump Jet', category: 'Other', tons: 0, slots: 1, heat: 0, isWeapon: false,
+    variableWeight: 'vehicleJumpJet', vehicleOnly: true, techBase: 'Both', firstEra: '3068',
+  },
+  {
+    id: 'vtol-jet-booster', name: 'VTOL Jet Booster', category: 'Other', tons: 0, slots: 1, heat: 0, isWeapon: false,
+    variableWeight: 'supercharger', vehicleOnly: true, techBase: 'Both', firstEra: '3068',
   },
   // Actuator Enhancement System (3070): one per arm (or in every leg); weight tonnage/35 (quads /50),
   // 1–4 slots by weight class. Weapons in an AES arm count ×1.25 BV.

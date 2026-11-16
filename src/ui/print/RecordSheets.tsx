@@ -379,7 +379,8 @@ export function VehicleRecordSheet({ design }: { design: VehicleDesign }) {
             <div className="rs-move">
               <span className="rs-label">Movement Points:</span>
               <Field label="Cruising" value={design.cruiseMP} />
-              <Field label="Flanking" value={s.flankMP} />
+              <Field label="Flanking" value={s.boostedFlankMP ? `${s.flankMP} [${s.boostedFlankMP}]` : s.flankMP} />
+              {s.jumpMP > 0 && <Field label="Jumping" value={s.jumpMP} />}
             </div>
             <Field label="Movement Type" value={motive.name} />
             <Field label="Engine Type" value={`${s.rating} ${VEHICLE_ENGINE_LABELS[design.engineType]}`} />
@@ -396,7 +397,7 @@ export function VehicleRecordSheet({ design }: { design: VehicleDesign }) {
         </Panel>
 
         <Panel title="Armor Diagram" className="area-armor">
-          <div className={`rs-vehicle-figure motive-${design.motive} ${design.turret ? 'with-turret' : ''} ${isVtol ? 'vtol' : ''} ${hasSixFacings(design) ? 'large' : ''}`}>
+          <div className={`rs-vehicle-figure motive-${design.motive} ${design.turret ? 'with-turret' : ''} ${isVtol ? 'vtol' : ''} ${hasSixFacings(design) ? 'large' : ''} ${design.dualTurret ? 'dual' : ''}`}>
             {s.armorLocations.map((l) => (
               <div key={l} className={`rs-plate vplate-${l.toLowerCase()}`} style={{ gridArea: l.toLowerCase() }}>
                 <div className="rs-plate-label">{locName(l)} <b>({design.armor[l]})</b></div>

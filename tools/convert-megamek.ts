@@ -25,7 +25,7 @@ import { SPLIT_ADJACENT } from '../src/rules/types';
 import { computeMech, fixedSlots } from '../src/rules/construction';
 import { validate } from '../src/rules/validation';
 import { fighterBV, mechBV, mechCost, supportBV, vehicleBV, vehicleCost, vesselBV } from '../src/rules/battleValue';
-import type { MotiveType, VehicleArmorType, VehicleDesign, VehicleEngineType, VehicleLocation } from '../src/rules/vehicle';
+import type { MotiveType, VehicleArmorType, VehicleDesign, VehicleEngineType, VehicleItem, VehicleLocation } from '../src/rules/vehicle';
 import { computeVehicle, emptyVehicleArmor, hasSixFacings, motiveMaxTonnage, validateVehicle, vehicleFreeHeatSinks } from '../src/rules/vehicle';
 import { armorPointsPerTon } from '../src/rules/tables';
 import { encodeBattleArmor, encodeProtoMech, encodeStationary, encodeInfantry, encodeFighter, encodeMech, encodeSupport, encodeVehicle, encodeVessel } from '../src/data/canonFormat';
@@ -576,11 +576,13 @@ function parseBlk(text: string): { design: VehicleDesign; year: number; rulesLev
   const engineType = BLK_ENGINES[one('engine_type')] ?? fail(`engine ${one('engine_type')}`);
   const armorType = BLK_ARMOR[one('armor_type')] ?? fail(`armor ${one('armor_type')}`);
   if (tags.has('internal_type') && one('internal_type') !== '-1' && one('internal_type') !== '0') fail('structure');
-  for (const k of ['Front Turret Equipment', 'Rear Turret Equipment', 'Turret 2 Equipment', ...(six ? ['Left Equipment', 'Right Equipment'] : ['Front Right Equipment', 'Front Left Equipment', 'Rear Right Equipment', 'Rear Left Equipment'])]) {
+  for (const k of ['Turret 2 Equipment', ...(six ? ['Left Equipment', 'Right Equipment'] : ['Front Right Equipment', 'Front Left Equipment', 'Rear Right Equipment', 'Rear Left Equipment'])]) {
     if ((tags.get(k) ?? []).length) fail(k);
   }
   if (tags.has('Turret 2 Equipment')) fail('dual turret');
-  const turret = tags.has('Turret Equipment');
+  // Dual turrets: a rear (main) turret and a front turret.
+  const dualTurret = tags.has('Front Turret Equipment') || tags.has('Rear Turret Equipment');
+  const turret = tags.has('Turret Equipment') || dualTurret;
   // Troop compartments and cargo bays (seats, quarters and handles are ignored).
   let cargo = 0;
   for (const t of tags.get('transporters') ?? []) {
@@ -595,23 +597,33 @@ function parseBlk(text: string): { design: VehicleDesign; year: number; rulesLev
     // Superheavies: front, front right, front left, rear right, rear left, rear, then turret.
     [armor.FR, armor.FRS, armor.FLS, armor.RRS, armor.RLS, armor.RR] = armorVals;
     if (turret) armor.TU = armorVals[6] ?? 0;
+    if (dualTurret) armor.TU2 = armorVals[7] ?? 0;
   } else {
     [armor.FR, armor.RS, armor.LS, armor.RR] = armorVals;
-    if (motive === 'vtol') armor.RO = armorVals[4] ?? 0;
+    // VTOLs list the rotor before the chin turret.
+    if (motive === 'vtol') { armor.RO = armorVals[4] ?? 0; if (turret) armor.TU = armorVals[5] ?? 0; }
     else if (turret) armor.TU = armorVals[4] ?? 0;
+    if (dualTurret) armor.TU2 = armorVals[5] ?? 0;
   }
 
   const blocks: [string, VehicleLocation][] = six
     ? [['Front Equipment', 'FR'], ['Front Right Equipment', 'FRS'], ['Front Left Equipment', 'FLS'], ['Rear Right Equipment', 'RRS'],
-      ['Rear Left Equipment', 'RLS'], ['Rear Equipment', 'RR'], ['Turret Equipment', 'TU'], ['Body Equipment', 'BD']]
+      ['Rear Left Equipment', 'RLS'], ['Rear Equipment', 'RR'], ['Turret Equipment', 'TU'], ['Rear Turret Equipment', 'TU'],
+      ['Front Turret Equipment', 'TU2'], ['Body Equipment', 'BD']]
     : [['Front Equipment', 'FR'], ['Right Equipment', 'RS'], ['Left Equipment', 'LS'], ['Rear Equipment', 'RR'],
-      ['Turret Equipment', 'TU'], ['Body Equipment', 'BD']];
-  const equipment = [];
+      ['Turret Equipment', 'TU'], ['Rear Turret Equipment', 'TU'], ['Front Turret Equipment', 'TU2'], ['Body Equipment', 'BD']];
+  const equipment: VehicleItem[] = [];
   let uid = 0;
+  let sponsons = false;
   for (const [tag, loc] of blocks) {
     for (const line of tags.get(tag) ?? []) {
-      const raw = line.replace(/:OMNI$/i, '');
+      let raw = line.replace(/:OMNI$/i, '');
       if (/^(IS|CL)?\s*Vehicular Stealth$/i.test(raw)) continue; // part of stealth armor
+      if (/^(IS|CL)?\s*Sponson ?Turret$/i.test(raw)) { sponsons = true; continue; }
+      const sponson = /\(ST\)\s*$/.test(raw);
+      raw = raw.replace(/\s*\(ST\)\s*$/, '');
+      const special = /^(VehicleJumpJet|VJJ)$/i.test(raw) ? 'vehicle-jump-jet' : /^(IS|CL)VTOLJetBooster$/i.test(raw) ? 'vtol-jet-booster' : null;
+      if (special) { equipment.push({ uid: `v${uid++}`, equipmentId: special, location: 'BD' }); continue; }
       const comms = /^Communications Equipment:SIZE:([\d.]+)/i.exec(raw);
       if (comms) {
         for (let c = 0; c < Math.round(Number(comms[1])); c++) equipment.push({ uid: `v${uid++}`, equipmentId: 'communications-equipment', location: 'BD' as VehicleLocation });
@@ -625,7 +637,7 @@ function parseBlk(text: string): { design: VehicleDesign; year: number; rulesLev
       if (eq.managed && id !== 'heat-sink') fail(`mech-only item ${id}`);
       if (id === 'heat-sink') continue;
       if (id === 'case' && techBase === 'Clan') continue; // Clan CASE is built in
-      equipment.push({ uid: `v${uid++}`, equipmentId: id, location: eq.isWeapon ? loc : 'BD' as VehicleLocation });
+      equipment.push({ uid: `v${uid++}`, equipmentId: id, location: eq.isWeapon ? loc : 'BD' as VehicleLocation, ...(sponson ? { sponson: true } : {}) });
     }
   }
   const design: VehicleDesign = {
@@ -636,6 +648,10 @@ function parseBlk(text: string): { design: VehicleDesign; year: number; rulesLev
     ...(['1', 'true'].includes(one('trailer')) ? { trailer: true } : {}),
     ...(['1', 'true'].includes(one('trailer')) && ['1', 'true'].includes(one('hasNoControlSystems')) ? { noControls: true } : {}),
     ...(omni && turret && tags.has('baseChassisTurretWeight') ? { omniTurretTons: Number(one('baseChassisTurretWeight')) } : {}),
+    ...(dualTurret ? { dualTurret: true } : {}),
+    ...(omni && dualTurret && tags.has('baseChassisTurret2Weight') ? { omniTurret2Tons: Number(one('baseChassisTurret2Weight')) } : {}),
+    ...(sponsons ? { sponsons: true } : {}),
+    ...(omni && sponsons && tags.has('baseChassisSponsonPintleWeight') ? { omniSponsonTons: Number(one('baseChassisSponsonPintleWeight')) } : {}),
     ...(cargo > 0 ? { cargo } : {}),
   };
   fixAmmoTech(design.equipment);

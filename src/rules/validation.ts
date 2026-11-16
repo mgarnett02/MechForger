@@ -431,6 +431,7 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
     }
     if (eq.capitalClass) error(`${eq.name} is a large-craft weapon and cannot be mounted on a BattleMech.`);
     if (eq.lamOnly && !design.lam) error(`${eq.name} can only be fitted to a Land-Air 'Mech.`);
+    if (eq.vehicleOnly) error(`${eq.name} is combat vehicle equipment.`);
     if (item.location !== null && !allowedLocations(eq, design).includes(item.location)) {
       error(`${eq.name} cannot be mounted in the ${locationName(design, item.location)}.`);
     }

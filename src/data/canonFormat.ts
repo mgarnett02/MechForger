@@ -47,8 +47,8 @@ export interface CanonEntry {
 /** Item: [equipmentId, location, flags] where flags may contain R (rear), P (pod), A (armored) and S<loc><n> (split). */
 type EncodedItem = [string, string | null, string?];
 
-const encItem = (e: { equipmentId: string; location: string | null; rear?: boolean; pod?: boolean; armored?: boolean; split?: { location: string; slots: number } }): EncodedItem => {
-  const flags = `${e.rear ? 'R' : ''}${e.pod ? 'P' : ''}${e.armored ? 'A' : ''}${e.split ? `S${e.split.location}${e.split.slots}` : ''}`;
+const encItem = (e: { equipmentId: string; location: string | null; rear?: boolean; pod?: boolean; armored?: boolean; sponson?: boolean; split?: { location: string; slots: number } }): EncodedItem => {
+  const flags = `${e.rear ? 'R' : ''}${e.pod ? 'P' : ''}${e.armored ? 'A' : ''}${e.sponson ? 'T' : ''}${e.split ? `S${e.split.location}${e.split.slots}` : ''}`;
   return flags ? [e.equipmentId, e.location, flags] : [e.equipmentId, e.location];
 };
 
@@ -99,8 +99,8 @@ export function decodeVehicle(raw: unknown): VehicleDesign {
   const r = raw as Omit<VehicleDesign, 'equipment'> & { equipment: EncodedItem[] };
   return {
     ...r,
-    equipment: r.equipment.map(([equipmentId, location]) => ({
-      uid: newVehicleUid(), equipmentId, location: location as VehicleLocation | null,
+    equipment: r.equipment.map(([equipmentId, location, flags = '']) => ({
+      uid: newVehicleUid(), equipmentId, location: location as VehicleLocation | null, ...(flags.includes('T') ? { sponson: true } : {}),
     })),
   };
 }

@@ -110,7 +110,7 @@ export function weaponEntries(
       artemisLeft.set(k, (artemisLeft.get(k) ?? 0) + 1);
     }
   }
-  const capacitorsLeft = capacitorCounts(items);
+  const capacitorsLeft = capacitorCounts(artemisAnywhere ? items.map((i) => ({ ...i, location: null })) : items);
   // Apollo FCS: ×1.15 for an MRM launcher in the same location.
   const apolloLeft = new Map<string, number>();
   for (const i of items) if (i.equipmentId === 'apollo-fcs') apolloLeft.set(i.location ?? '', (apolloLeft.get(i.location ?? '') ?? 0) + 1);
@@ -132,7 +132,7 @@ export function weaponEntries(
       bv *= 1.15;
     }
     // A PPC Capacitor adds its BV to the linked PPC (as MegaMek) and 5 heat.
-    if (takeCapacitor(capacitorsLeft, i)) {
+    if (takeCapacitor(capacitorsLeft, artemisAnywhere ? { ...i, location: null } : i)) {
       bv += CAPACITOR_BV[eq.id] ?? 0;
       heat += 5;
     }
@@ -533,7 +533,12 @@ export function vehicleBV(d: VehicleDesign): BVBreakdown {
   const structure = s.structurePoints * s.armorLocations.length * 1.5;
   const defEquip = defensiveEquipmentBV(d.equipment);
   // VTOLs and WiGEs +1; stealth armor +2.
-  const tmm = targetMovementModifier(s.flankMP) + (d.motive === 'vtol' || d.motive === 'wige' ? 1 : 0) + (d.armorType === 'stealth' ? 2 : 0);
+  // Running TMM (VTOLs and WiGEs +1; a supercharger or VTOL jet booster doubles cruise MP, as MegaMek), or jumping
+  // TMM (+1); stealth armor +2.
+  const runMP = s.boostedFlankMP ?? (d.equipment.some((e) => e.equipmentId === 'supercharger') ? d.cruiseMP * 2 : s.flankMP);
+  const runTMM = targetMovementModifier(runMP) + (d.motive === 'vtol' || d.motive === 'wige' ? 1 : 0);
+  const jumpTMM = s.jumpMP ? targetMovementModifier(s.jumpMP) + 1 : 0;
+  const tmm = Math.max(runTMM, jumpTMM) + (d.armorType === 'stealth' ? 2 : 0);
   // Chassis modifications add to the body type modifier (MegaMek): fully amphibious +0.2; limited amphibious,
   // dune buggy, flotation hull, environmental sealing and armored motive system +0.1 each.
   let body = BODY_MODIFIER[d.motive];
@@ -551,12 +556,19 @@ export function vehicleBV(d: VehicleDesign): BVBreakdown {
   // Rear-facing weapons count half, unless they outweigh the front-facing ones (then the front counts half).
   const frontBV = weapons.filter((w) => w.loc === 'FR').reduce((a, w) => a + w.bv, 0);
   const rearBV = weapons.filter((w) => w.rear).reduce((a, w) => a + w.bv, 0);
-  for (const w of weapons) if (rearBV > frontBV ? w.loc === 'FR' : w.rear) w.bv /= 2;
+  // When the rear outguns the front, every weapon except rear and turret ones counts half (MegaMek).
+  for (const w of weapons) if (rearBV > frontBV ? !w.rear && w.loc !== 'TU' && w.loc !== 'TU2' : w.rear) w.bv /= 2;
   const weaponBV = weapons.reduce((a, w) => a + w.bv, 0);
+  const offEquip = d.equipment.reduce((a, i) => {
+    const eq = getEquipment(i.equipmentId);
+    return eq && !eq.isWeapon && eq.category !== 'Ammo' && !DEFENSIVE_IDS.has(eq.id) ? a + (value(eq.id)?.bv ?? 0) : a;
+  }, 0);
   const tonnage = d.tonnage / 2;
-  const sf = speedFactor(s.flankMP);
-  const offensive = (weaponBV + ammo + tonnage) * sf;
-  lines.push(['Weapons', weaponBV], ['Ammunition', ammo], ['Tonnage ÷ 2', tonnage], ['Speed factor', sf]);
+  const sf = speedFactor(runMP + Math.round(s.jumpMP / 2));
+  const offensive = (weaponBV + ammo + offEquip + tonnage) * sf;
+  lines.push(['Weapons', weaponBV], ['Ammunition', ammo]);
+  if (offEquip) lines.push(['Offensive equipment', offEquip]);
+  lines.push(['Tonnage ÷ 2', tonnage], ['Speed factor', sf]);
   return { total: round(defensive + offensive), defensive, offensive, lines, approximate: true };
 }
 
@@ -569,6 +581,7 @@ export function vehicleCost(d: VehicleDesign): CostBreakdown {
     ['Control equipment', 10000 * w.controls],
     ['Lift / rotor / dive equipment', (LIFT_COST[d.motive] ?? 0) * w.lift],
     ['Turret', 5000 * w.turret],
+    ['Sponson turrets', 4000 * w.sponsons],
     ['Power amplifiers', 20000 * w.powerAmplifiers],
     ['Heat sinks', 2000 * Math.max(0, d.heatSinks - s.freeHeatSinks)],
     ['Armor', ARMOR_COST[d.armorType] * w.armor],
@@ -952,7 +965,7 @@ export function supportBV(d: SupportVehicleDesign): BVBreakdown {
   const isFront = (w: { rear: boolean; loc?: string | null }) => (aero ? !w.rear : w.loc === 'FR');
   const frontBV = weapons.filter(isFront).reduce((a, w) => a + w.bv, 0);
   const rearBV = weapons.filter((w) => w.rear).reduce((a, w) => a + w.bv, 0);
-  for (const w of weapons) if (rearBV > frontBV ? isFront(w) : w.rear) w.bv /= 2;
+  for (const w of weapons) if (rearBV > frontBV ? (aero ? isFront(w) : !w.rear && w.loc !== 'TU') : w.rear) w.bv /= 2;
   const offEquip = d.equipment.reduce((a, i) => {
     const eq = getEquipment(i.equipmentId);
     return eq && !eq.isWeapon && eq.category !== 'Ammo' && !DEFENSIVE_IDS.has(eq.id) ? a + (value(eq.id)?.bv ?? 0) : a;

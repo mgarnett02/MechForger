@@ -31,21 +31,26 @@ export type VehicleEngineType = 'ice' | 'standard' | 'xl' | 'light' | 'compact' 
 export type VehicleArmorType = BasicArmorType | 'reactive' | 'reflective' | 'hardened' | 'stealth' | 'ferro-lamellor' | 'ballistic-reinforced';
 
 /** FRS / FLS / RRS / RLS: the front and rear side facings of a superheavy vehicle (six armor facings). */
-export const VEHICLE_LOCATIONS = ['FR', 'FRS', 'FLS', 'LS', 'RS', 'RRS', 'RLS', 'RR', 'TU', 'RO', 'BD'] as const;
+export const VEHICLE_LOCATIONS = ['FR', 'FRS', 'FLS', 'LS', 'RS', 'RRS', 'RLS', 'RR', 'TU', 'TU2', 'RO', 'BD'] as const;
 export type VehicleLocation = (typeof VEHICLE_LOCATIONS)[number];
 /** Locations that carry armor (body holds equipment only). */
 export type VehicleArmorLocation = Exclude<VehicleLocation, 'BD'>;
 
 export const VEHICLE_LOCATION_NAMES: Record<VehicleLocation, string> = {
   FR: 'Front', FRS: 'Front Right', FLS: 'Front Left', LS: 'Left Side', RS: 'Right Side', RRS: 'Rear Right', RLS: 'Rear Left',
-  RR: 'Rear', TU: 'Turret', RO: 'Rotor', BD: 'Body',
+  RR: 'Rear', TU: 'Turret', TU2: 'Front Turret', RO: 'Rotor', BD: 'Body',
 };
 
 export interface VehicleItem {
   uid: string;
   equipmentId: string;
   location: VehicleLocation | null;
+  /** Mounted in a sponson turret (side locations only). */
+  sponson?: boolean;
 }
+
+/** Side locations, where sponson turrets go. */
+export const SPONSON_LOCATIONS: readonly VehicleLocation[] = ['LS', 'RS', 'FLS', 'FRS', 'RLS', 'RRS'];
 
 export interface VehicleDesign {
   /** Master Unit List id, for designs loaded from the canon list. */
@@ -73,6 +78,14 @@ export interface VehicleDesign {
   noControls?: boolean;
   /** Single turret (a chin turret on VTOLs). */
   turret: boolean;
+  /** A second, front turret (Tactical Operations; not on VTOLs). The main turret is then the rear turret. */
+  dualTurret?: boolean;
+  /** OmniVehicle: front turret weight fixed by the base chassis (tons). */
+  omniTurret2Tons?: number;
+  /** A pair of sponson turrets on the sides (Tactical Operations). */
+  sponsons?: boolean;
+  /** OmniVehicle: sponson turret weight fixed by the base chassis (tons). */
+  omniSponsonTons?: number;
   /** Total single heat sinks (fusion engines include 10 for free). */
   heatSinks: number;
   /** Troop compartment and cargo bay space, in tons. */
@@ -230,20 +243,22 @@ export function vehicleArmorSlots(type: VehicleArmorType, techBase: TechBase): n
 }
 
 /** Armor locations a vehicle has. */
-export function vehicleArmorLocations(d: Pick<VehicleDesign, 'motive' | 'turret'> & Partial<Pick<VehicleDesign, 'tonnage'>>): VehicleArmorLocation[] {
+export function vehicleArmorLocations(d: Pick<VehicleDesign, 'motive' | 'turret'> & Partial<Pick<VehicleDesign, 'tonnage' | 'dualTurret'>>): VehicleArmorLocation[] {
   const locs: VehicleArmorLocation[] = d.tonnage !== undefined && hasSixFacings({ motive: d.motive, tonnage: d.tonnage })
     ? ['FR', 'FRS', 'FLS', 'RRS', 'RLS', 'RR'] : ['FR', 'LS', 'RS', 'RR'];
   if (d.turret) locs.push('TU');
+  if (d.turret && d.dualTurret) locs.push('TU2');
   if (d.motive === 'vtol') locs.push('RO');
   return locs;
 }
 
 /** Where an item may be mounted: weapons in firing arcs, everything else in the body. */
-export function vehicleItemLocations(eq: Equipment, d: Pick<VehicleDesign, 'motive' | 'turret'> & Partial<Pick<VehicleDesign, 'tonnage'>>): VehicleLocation[] {
+export function vehicleItemLocations(eq: Equipment, d: Pick<VehicleDesign, 'motive' | 'turret'> & Partial<Pick<VehicleDesign, 'tonnage' | 'dualTurret'>>): VehicleLocation[] {
   if (!eq.isWeapon) return ['BD'];
   const arcs: VehicleLocation[] = d.tonnage !== undefined && hasSixFacings({ motive: d.motive, tonnage: d.tonnage })
     ? ['FR', 'FRS', 'FLS', 'RRS', 'RLS', 'RR'] : ['FR', 'LS', 'RS', 'RR'];
   if (d.turret) arcs.push('TU');
+  if (d.turret && d.dualTurret) arcs.push('TU2');
   return arcs;
 }
 
@@ -255,9 +270,16 @@ export function isVehicleEquipment(eq: Equipment): boolean {
   return true;
 }
 
-export function turretName(d: Pick<VehicleDesign, 'motive'>): string {
-  return d.motive === 'vtol' ? 'Chin turret' : 'Turret';
+export function turretName(d: Pick<VehicleDesign, 'motive'> & Partial<Pick<VehicleDesign, 'dualTurret'>>): string {
+  return d.motive === 'vtol' ? 'Chin turret' : d.dualTurret ? 'Rear turret' : 'Turret';
 }
+
+/** Jump jet weight per jet, as 'Mech jump jets: ½ t up to 55 tons, 1 t up to 85, 2 t above. */
+export function vehicleJumpJetWeight(tonnage: number): number {
+  return tonnage <= 55 ? 0.5 : tonnage <= 85 ? 1 : 2;
+}
+export const vehicleJumpMP = (d: Pick<VehicleDesign, 'equipment'>) => d.equipment.filter((e) => e.equipmentId === 'vehicle-jump-jet').length;
+export const hasJetBooster = (d: Pick<VehicleDesign, 'equipment'>) => d.equipment.some((e) => e.equipmentId === 'vtol-jet-booster');
 
 // ---------------------------------------------------------------------------
 // Design helpers
@@ -269,7 +291,7 @@ export function newVehicleUid(): string {
 }
 
 export function emptyVehicleArmor(): Record<VehicleArmorLocation, number> {
-  return { FR: 0, FRS: 0, FLS: 0, LS: 0, RS: 0, RRS: 0, RLS: 0, RR: 0, TU: 0, RO: 0 };
+  return { FR: 0, FRS: 0, FLS: 0, LS: 0, RS: 0, RRS: 0, RLS: 0, RR: 0, TU: 0, TU2: 0, RO: 0 };
 }
 
 export function newVehicle(era: EraId = DEFAULT_ERA, techBase: TechBase = 'IS'): VehicleDesign {
@@ -308,6 +330,8 @@ export interface VehicleWeights {
   lift: number;
   controls: number;
   turret: number;
+  /** Sponson turrets (both). */
+  sponsons: number;
   powerAmplifiers: number;
   heatSinks: number;
   armor: number;
@@ -321,6 +345,13 @@ export interface VehicleSummary {
   rating: number;
   /** Weight of the equipment mounted in the turret. */
   turretItemTons: number;
+  /** Weight of the equipment in the front turret (dual turrets). */
+  turret2ItemTons: number;
+  /** Weight of the equipment in the sponson turrets. */
+  sponsonItemTons: number;
+  jumpMP: number;
+  /** Flank MP with a VTOL jet booster engaged (twice cruise). */
+  boostedFlankMP: number | null;
   suspension: number;
   flankMP: number;
   engineWeight: number | null;
@@ -346,6 +377,7 @@ export function vehicleItemWeight(eq: Equipment, d: VehicleDesign): number {
     return halfUp(engine / 10);
   }
   if (eq.variableWeight === 'droneOS') return halfUp(d.tonnage / 10 + 0.5);
+  if (eq.variableWeight === 'vehicleJumpJet') return vehicleJumpJetWeight(d.tonnage);
   if (eq.variableWeight === 'targetingComputer') {
     let tons = 0;
     for (const m of d.equipment) {
@@ -362,14 +394,16 @@ export function vehicleSlotsUsed(d: VehicleDesign): number {
   let used = vehicleStructureSlots(d.structureType, d.techBase) + vehicleArmorSlots(d.armorType, d.techBase);
   const ammoTypes = new Set<string>();
   let comms = false;
+  let jets = false;
   for (const item of d.equipment) {
     const eq = getEquipment(item.equipmentId);
     if (!eq) continue;
     if (eq.category === 'Ammo') ammoTypes.add(eq.id);
     else if (eq.id === 'communications-equipment') comms = true; // any tonnage takes one slot
+    else if (eq.id === 'vehicle-jump-jet') jets = true; // all jump jets together take one slot (MegaMek)
     else used++;
   }
-  return used + (comms ? 1 : 0) + ammoTypes.size + ((d.cargo ?? 0) > 0 ? 1 : 0);
+  return used + (comms ? 1 : 0) + (jets ? 1 : 0) + ammoTypes.size + ((d.cargo ?? 0) > 0 ? 1 : 0);
 }
 
 export function computeVehicle(d: VehicleDesign): VehicleSummary {
@@ -385,6 +419,8 @@ export function computeVehicle(d: VehicleDesign): VehicleSummary {
 
   let equipment = 0;
   let turretItems = 0;
+  let turret2Items = 0;
+  let sponsonItems = 0;
   let energyTons = 0;
   let energyHeat = 0;
   for (const item of d.equipment) {
@@ -393,12 +429,18 @@ export function computeVehicle(d: VehicleDesign): VehicleSummary {
     const w = vehicleItemWeight(eq, d);
     equipment += w;
     if (item.location === 'TU') turretItems += w;
+    if (item.location === 'TU2') turret2Items += w;
+    if (item.sponson && eq.category !== 'Ammo') sponsonItems += w;
     // Ammunition-fed flamers (vehicle and heavy flamers) need neither power amplifiers nor heat sinks (as MegaMek).
     if (eq.isWeapon && eq.category === 'Energy' && !(eq.ammoPerTon && /flamer/.test(eq.id))) {
       energyTons += eq.tons;
       energyHeat += eq.heat;
     }
+    // Heat-producing equipment must be sunk too (MegaMek's heat-neutral rule).
+    if (!eq.isWeapon && eq.heat > 0) energyHeat += eq.heat;
   }
+  // Stealth armor generates 10 heat that the heat sinks must handle (as MegaMek).
+  if (d.armorType === 'stealth') energyHeat += 10;
 
   const freeHeatSinks = vehicleFreeHeatSinks(d.engineType);
   const weights: VehicleWeights = {
@@ -408,7 +450,11 @@ export function computeVehicle(d: VehicleDesign): VehicleSummary {
     engine: engineWt ?? 0,
     lift: halfUp(d.tonnage * motive.liftFraction),
     controls: d.trailer && d.noControls ? 0 : halfUp(d.tonnage * 0.05),
-    turret: d.turret ? (d.omni && d.omniTurretTons !== undefined ? d.omniTurretTons : halfUp(turretItems * 0.1)) : 0,
+    // Each turret weighs 10% of the equipment in it (OmniVehicles: as the base chassis sets).
+    turret: (d.turret ? (d.omni && d.omniTurretTons !== undefined ? d.omniTurretTons : halfUp(turretItems * 0.1)) : 0)
+      + (d.turret && d.dualTurret ? (d.omni && d.omniTurret2Tons !== undefined ? d.omniTurret2Tons : halfUp(turret2Items * 0.1)) : 0),
+    // The pair of sponson turrets weighs 10% of the equipment in them.
+    sponsons: d.sponsons ? (d.omni && d.omniSponsonTons !== undefined ? d.omniSponsonTons : halfUp(sponsonItems * 0.1)) : 0,
     powerAmplifiers: powersEnergy(d.engineType) ? 0 : halfUp(energyTons * 0.1),
     heatSinks: Math.max(0, d.heatSinks - freeHeatSinks),
     armor: armorTonnage(armorTotal, ppt),
@@ -417,13 +463,17 @@ export function computeVehicle(d: VehicleDesign): VehicleSummary {
     total: 0,
     free: 0,
   };
-  weights.total = weights.structure + weights.engine + weights.lift + weights.controls + weights.turret +
+  weights.total = weights.structure + weights.engine + weights.lift + weights.controls + weights.turret + weights.sponsons +
     weights.powerAmplifiers + weights.heatSinks + weights.armor + weights.equipment + weights.cargo;
   weights.free = d.tonnage - weights.total;
 
   return {
     rating,
     turretItemTons: turretItems,
+    turret2ItemTons: turret2Items,
+    sponsonItemTons: sponsonItems,
+    jumpMP: vehicleJumpMP(d),
+    boostedFlankMP: hasJetBooster(d) ? d.cruiseMP * 2 : null,
     suspension: suspensionFactor(d.motive, d.tonnage),
     flankMP: Math.ceil(d.cruiseMP * 1.5),
     engineWeight: engineWt,
@@ -507,6 +557,25 @@ export function validateVehicle(d: VehicleDesign, s: VehicleSummary = computeVeh
     error(`Turret pods weigh ${fmt(s.turretItemTons)} tons; the base chassis turret carries ${fmt(d.omniTurretTons * 10)}.`);
   }
   if (d.motive === 'vtol' && d.equipment.some((e) => e.equipmentId === 'supercharger')) error('VTOLs cannot mount superchargers.');
+  // Dual and sponson turrets, jump jets and jet boosters (Tactical Operations, as MegaMek)
+  if (d.dualTurret && !d.turret) error('A front turret needs the main turret as well.');
+  if (d.dualTurret && d.motive === 'vtol') error('VTOLs cannot have dual turrets.');
+  if (d.omni && d.dualTurret && d.omniTurret2Tons !== undefined && s.turret2ItemTons > d.omniTurret2Tons * 10 + 1e-9) {
+    error(`Front turret pods weigh ${fmt(s.turret2ItemTons)} tons; the base chassis front turret carries ${fmt(d.omniTurret2Tons * 10)}.`);
+  }
+  const sponsonItems = d.equipment.filter((e) => e.sponson);
+  if (sponsonItems.length && !d.sponsons) error('Equipment is marked for sponson turrets but the vehicle has none.');
+  if (sponsonItems.some((e) => !e.location || !SPONSON_LOCATIONS.includes(e.location))) error('Sponson turret weapons must be mounted on a side.');
+  if (d.sponsons && era && !isAvailableIn('3068', d.era)) error(`Sponson turrets cannot be used in the ${era.name} era.`);
+  if (d.dualTurret && era && !isAvailableIn('3068', d.era)) error(`Dual turrets cannot be used in the ${era.name} era.`);
+  if (s.jumpMP > 0) {
+    if (!['hover', 'wheeled', 'tracked', 'wige'].includes(d.motive)) error('Only hover, wheeled, tracked and WiGE vehicles can mount jump jets.');
+    if (d.sponsons) error('Vehicle jump jets cannot be combined with sponson turrets.');
+    if (s.jumpMP > d.cruiseMP) error(`Jumping MP (${s.jumpMP}) cannot exceed cruising MP (${d.cruiseMP}).`);
+  }
+  const boosters = d.equipment.filter((e) => e.equipmentId === 'vtol-jet-booster').length;
+  if (boosters && d.motive !== 'vtol') error('Only VTOLs can mount a jet booster.');
+  if (boosters > 1) error('Only one jet booster may be installed.');
   if (d.engineType === 'none' && !d.trailer) error('Only trailers can be built without an engine.');
   if (d.engineType === 'none' && d.cruiseMP > 0) error('A vehicle without an engine (a trailer) has no cruise MP.');
   const mods = d.equipment.map((e) => getEquipment(e.equipmentId)).filter((e) => e?.vehicleChassisMod);
@@ -529,7 +598,7 @@ export function validateVehicle(d: VehicleDesign, s: VehicleSummary = computeVeh
     error(`Fusion engines come with ${s.freeHeatSinks} heat sinks; the total cannot be lower.`);
   }
   if (d.heatSinks < s.energyHeat) {
-    error(`Energy weapons generate ${s.energyHeat} heat but only ${d.heatSinks} heat sink(s) are fitted.`);
+    error(`Energy weapons${d.armorType === 'stealth' ? ' and stealth armor' : ''} generate ${s.energyHeat} heat but only ${d.heatSinks} heat sink(s) are fitted.`);
   }
 
   // Slots
@@ -626,12 +695,31 @@ function syncVehicleFacings(before: VehicleDesign, next: VehicleDesign): Vehicle
 
 export function setVehicleTurret(d: VehicleDesign, turret: boolean): VehicleDesign {
   if (turret) return { ...d, turret };
+  const { dualTurret: _d, omniTurret2Tons: _o, ...rest } = d;
   return {
-    ...d,
+    ...rest,
     turret,
-    armor: { ...d.armor, TU: 0 },
-    equipment: d.equipment.map((e) => (e.location === 'TU' ? { ...e, location: null } : e)),
+    armor: { ...d.armor, TU: 0, TU2: 0 },
+    equipment: d.equipment.map((e) => (e.location === 'TU' || e.location === 'TU2' ? { ...e, location: null } : e)),
   };
+}
+
+/** Add or remove the front turret (its equipment becomes unplaced when removed). */
+export function setVehicleDualTurret(d: VehicleDesign, dual: boolean): VehicleDesign {
+  if (dual) return { ...d, turret: true, dualTurret: true };
+  const { dualTurret: _d, omniTurret2Tons: _o, ...rest } = d;
+  return { ...rest, armor: { ...d.armor, TU2: 0 }, equipment: d.equipment.map((e) => (e.location === 'TU2' ? { ...e, location: null } : e)) };
+}
+
+/** Add or remove the pair of sponson turrets (their equipment stays on the sides, unturreted, when removed). */
+export function setVehicleSponsons(d: VehicleDesign, sponsons: boolean): VehicleDesign {
+  if (sponsons) return { ...d, sponsons: true };
+  const { sponsons: _s, omniSponsonTons: _o, ...rest } = d;
+  return { ...rest, equipment: d.equipment.map(({ sponson: _x, ...e }) => e) };
+}
+
+export function setVehicleItemSponson(d: VehicleDesign, uid: string, sponson: boolean): VehicleDesign {
+  return { ...d, equipment: d.equipment.map((e) => (e.uid !== uid ? e : sponson ? { ...e, sponson: true } : (({ sponson: _x, ...rest }) => rest)(e))) };
 }
 
 export function setVehicleEngine(d: VehicleDesign, engineType: VehicleEngineType): VehicleDesign {
@@ -678,6 +766,7 @@ export function distributeVehicleArmor(d: VehicleDesign, points: number): Vehicl
     given += armor[l];
   }
   armor.FR += left - given; // remainder to the front
+  if (d.turret && d.dualTurret) { armor.TU2 = Math.floor(armor.TU / 2); armor.TU -= armor.TU2; }
   return { ...d, armor };
 }
 
@@ -708,7 +797,7 @@ export function parseVehicle(raw: unknown): VehicleDesign {
     const location = (VEHICLE_LOCATIONS as readonly string[]).includes(e.location as string)
       ? (e.location as VehicleLocation)
       : null;
-    return { uid: newVehicleUid(), equipmentId: e.equipmentId, location };
+    return { uid: newVehicleUid(), equipmentId: e.equipmentId, location, ...(e.sponson === true ? { sponson: true } : {}) };
   });
   return {
     schemaVersion: 1,
@@ -729,6 +818,10 @@ export function parseVehicle(raw: unknown): VehicleDesign {
     ...(r.trailer === true && r.noControls === true ? { noControls: true } : {}),
     ...(r.omni === true && typeof r.omniTurretTons === 'number' ? { omniTurretTons: r.omniTurretTons } : {}),
     turret: r.turret === true,
+    ...(r.turret === true && r.dualTurret === true ? { dualTurret: true } : {}),
+    ...(r.omni === true && typeof r.omniTurret2Tons === 'number' ? { omniTurret2Tons: r.omniTurret2Tons } : {}),
+    ...(r.sponsons === true ? { sponsons: true } : {}),
+    ...(r.omni === true && typeof r.omniSponsonTons === 'number' ? { omniSponsonTons: r.omniSponsonTons } : {}),
     heatSinks: typeof r.heatSinks === 'number' ? r.heatSinks : 0,
     cargo: typeof r.cargo === 'number' && r.cargo > 0 ? r.cargo : undefined,
     armor,
@@ -769,7 +862,8 @@ export function vehicleReadout(
   lines.push(row('Control Equipment:', s.weights.controls));
   if (motive.liftName) lines.push(row(`${motive.liftName}:`, s.weights.lift));
   if (s.weights.powerAmplifiers) lines.push(row('Power Amplifiers:', s.weights.powerAmplifiers));
-  if (d.turret) lines.push(row(`${turretName(d)}:`, s.weights.turret));
+  if (d.turret) lines.push(row(`${d.dualTurret ? 'Turrets (rear and front)' : turretName(d)}:`, s.weights.turret));
+  if (d.sponsons) lines.push(row('Sponson turrets:', s.weights.sponsons));
   if (s.weights.cargo) lines.push(row('Troop / Cargo Space:', s.weights.cargo));
   const armorLabel = d.armorType === 'standard' ? '' : ` (${ARMOR_NAMES[d.armorType]})`;
   lines.push(row(`Armor Factor${armorLabel}: ${s.armorTotal}`, s.weights.armor));

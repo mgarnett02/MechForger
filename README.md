@@ -250,11 +250,16 @@ Advanced or Experimental level and is not modeled yet.
   and the Inner Sphere / Clan armored motive system; superchargers (not on VTOLs)
 - Structure (standard or Endo Steel), lift / rotor / dive equipment, control
   equipment (5%), optional turret (chin turret on VTOLs, 10% of its weapons)
+- **Dual turrets** (front and rear, each 10% of its weapons, own armor; not on VTOLs) and **sponson turrets**
+  (a pair on the sides, 10% of the sponson-mounted weapons, 4,000 C-bills a ton), as MegaMek
+- **Vehicle jump jets** (hover, wheeled, tracked and WiGE; one per jump MP up to cruise MP, weighing as 'Mech
+  jump jets, all together one item slot; not with sponson turrets) and the **VTOL jet booster** (10% of the
+  engine; flank speed twice cruise)
 - Armor up to 3.5 × tonnage + 40 points (VTOL rotor max 2): all 'Mech armor types plus
   reactive, reflective, hardened, ferro-lamellor, ballistic-reinforced and vehicular stealth (needs ECM)
 - Item slots (5 + tonnage ÷ 5): one per weapon or item, one per ammunition type,
   plus Endo Steel / Ferro-Fibrous slots
-- Only energy weapons generate heat; fusion engines include 10 heat sinks
+- Only energy weapons (and vehicular stealth armor, 10 heat) generate heat; fusion engines include 10 heat sinks
 - Weapons go in the front, sides, rear or turret; ammo and equipment in the body
 - Original sample vehicles for each ground, air and naval type, plus a Clan tank (used by the test suite; not shown in the Load menu)
 
@@ -299,7 +304,7 @@ fixed-wing support).
 - Red / amber / green status light: illegal, legal but incomplete (unused tonnage,
   unallocated armor), or fully legal
 - **Canon units**: about 3,240 canon 'Mechs (about 110 of them IndustrialMechs), including 47 quads, 19 Land-Air 'Mechs, 3 superheavies, 5 tripods (with the Ares superheavy tripod OmniMech), 5 QuadVee designs and around 100 melee-armed designs (OmniMechs with all their
-  configurations), about 1,050 canon combat vehicles (10 superheavies) (OmniVehicles with all their configurations), 160 support vehicles, about 480 aerospace, Omni, primitive and
+  configurations), about 1,120 canon combat vehicles (10 superheavies) (OmniVehicles with all their configurations), 160 support vehicles, about 480 aerospace, Omni, primitive and
   conventional fighters and about 380 spacecraft (small craft, DropShips, JumpShips, WarShips and
   space stations), about 1,190 battle armor squads, 86 ProtoMechs, about 750 gun emplacements and handheld weapons and about 1,990 infantry platoons, searchable by name, era, tech base,
   weight and type, ready to load, modify and print (see *Canon unit data* below)
@@ -314,7 +319,7 @@ fixed-wing support).
   | Unit type | BV | Cost |
   |---|---|---|
   | BattleMechs (3,005 compared) | 94% | 80% (96% within 2%) |
-  | Combat vehicles (1,044) | 94% | 53% (74% within 2%; marked approximate) |
+  | Combat vehicles (1,109) | 97% | 52% (75% within 2%; marked approximate) |
   | Support vehicles (175) | 96% | 93% |
   | Aerospace / conventional fighters (479) | 99% | 71% (95% within 2%) |
   | Small craft, DropShips, JumpShips, WarShips, stations (375) | 83% (95% within 2%) | 62% (99.7% within 2%) |
@@ -421,6 +426,6 @@ vehicles, support, fighters, vessels, protomechs, stationary). The MegaMek check
 
 ## Not yet supported
 
-Some Advanced / Experimental equipment (e.g. rifles, Bloodhound probes, laser AMS), patchwork armor, and per-configuration jump jet type or tech base on OmniMechs
+Some Advanced / Experimental equipment (e.g. rifles, one-shot launchers, torpedoes, chemical lasers outside ProtoMechs, prototype weapons), special munitions (LB-X cluster and so on), and per-configuration jump jet type or tech base on OmniMechs
 (mixed-tech and improved-jump-jet configurations of a standard Prime are left out of the canon list).
 
