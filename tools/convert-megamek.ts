@@ -66,6 +66,8 @@ const ALIASES: Record<string, string> = {
   lightautocannon2: 'lightac2', lightautocannon5: 'lightac5', lac2: 'lightac2', lac5: 'lightac5',
   rl10: 'rocketlauncher10', rl15: 'rocketlauncher15', rl20: 'rocketlauncher20',
   improvedmediumheavylaser: 'improvedheavymediumlaser', improvedsmallheavylaser: 'improvedheavysmalllaser',
+  smallnavalcommscannersuite: 'navalcommscannersuitesmall', largenavalcommscannersuite: 'navalcommscannersuitelarge', nc3: 'navalc3',
+  hypersprectralimager: 'hyperspectralimager', highresimager: 'satelliteimagerhighresolutionimager', sdsselfdestructsystem: 'sdsselfdestructsystem', hyperspectralimager: 'hyperspectralimager',
   magshotgr: 'magshotgaussrifle', narcbeacon: 'narcmissilebeacon', improvednarc: 'inarclauncher',
   c3masterunit: 'c3mastercomputer', c3iunit: 'improvedc3computer', artemisiv: 'artemisivfcs',
   ams: 'antimissilesystem', ecmsuite: 'ecmsuite', guardianecm: 'guardianecmsuite',
@@ -1078,6 +1080,14 @@ function parseVesselBlk(text: string): { design: VesselDesign; year: number; mul
       let shots: number | undefined;
       const sm = /^(.*\bAmmo\b.*):(\d+)$/i.exec(raw) ?? /^(.*):(\d+)$/.exec(raw);
       if (sm && /ammo/i.test(sm[1])) { raw = sm[1]; shots = Number(sm[2]); }
+      // MASH: a core with one theater, plus a theater per extra size; zero-ton communications equipment is nothing.
+      const mash = /^MASH Equipment:SIZE:([\d.]+)/i.exec(raw);
+      if (mash) {
+        const n = Math.max(1, Math.round(Number(mash[1])));
+        for (let k = 0; k < n; k++) equipment.push({ uid: `s${uid++}`, equipmentId: k === 0 ? 'mash-core' : 'mash-theater', location: loc });
+        continue;
+      }
+      if (/^Communications Equipment:SIZE:0(\.0+)?$/i.test(raw)) continue;
       const capAmmo = CAPITAL_AMMO.get(norm(raw));
       const r = capAmmo ? { kind: 'item' as const, id: capAmmo } : resolveName(raw, techBase);
       if (r.kind === 'fixed') continue;

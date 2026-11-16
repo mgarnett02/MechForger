@@ -38,7 +38,7 @@ export interface Equipment {
   allowedLocations?: readonly Location[];
   isWeapon: boolean;
   /** Weight (and for MASC / targeting computers, slots) depends on the mech. */
-  variableWeight?: 'jumpJet' | 'improvedJumpJet' | 'masc' | 'supercharger' | 'targetingComputer' | 'aes' | 'partialWing' | 'droneOS' | 'tracks' | 'wheels' | 'vehicleJumpJet';
+  variableWeight?: 'jumpJet' | 'improvedJumpJet' | 'masc' | 'supercharger' | 'targetingComputer' | 'aes' | 'partialWing' | 'droneOS' | 'tracks' | 'wheels' | 'vehicleJumpJet' | 'vesselFormula';
   /** Combat vehicle chassis modification: weighs this share of the tonnage (Clan share if given). */
   vehicleChassisMod?: { share: number; clan?: number };
   /** Systems spread one piece per location (added and removed as a set). */
@@ -63,6 +63,8 @@ export interface Equipment {
   torpedo?: boolean;
   /** Combat vehicle equipment only. */
   vehicleOnly?: boolean;
+  /** Small craft, DropShip and large craft equipment only. */
+  vesselOnly?: boolean;
   /** Land-Air 'Mech equipment only. */
   lamOnly?: boolean;
   /** Artillery: tube or missile artillery (indirect fire, range in mapsheets) or an artillery cannon. */
@@ -578,6 +580,22 @@ export const OTHER_EQUIPMENT: readonly Equipment[] = [
     id: 'vtol-jet-booster', name: 'VTOL Jet Booster', category: 'Other', tons: 0, slots: 1, heat: 0, isWeapon: false,
     variableWeight: 'supercharger', vehicleOnly: true, techBase: 'Both', firstEra: '3068',
   },
+  // Spacecraft equipment (Strategic Operations / Tactical Operations, values as MegaMek). Variable weights are
+  // worked out by vesselItemWeight: naval C3 1% of the craft, naval tug adaptor 100 t + 10%, Caspar drone control
+  // systems a share of the craft by type, booby traps 10%.
+  { id: 'naval-comm-scanner-small', name: 'Naval Comm-Scanner Suite (Small)', category: 'Other', tons: 100, slots: 1, heat: 0, isWeapon: false, vesselOnly: true, techBase: 'Both', firstEra: '3025' },
+  { id: 'naval-comm-scanner-large', name: 'Naval Comm-Scanner Suite (Large)', category: 'Other', tons: 500, slots: 1, heat: 0, isWeapon: false, vesselOnly: true, techBase: 'Both', firstEra: '3025' },
+  { id: 'naval-c3', name: 'Naval C3', category: 'Other', tons: 0, slots: 0, heat: 0, isWeapon: false, variableWeight: 'vesselFormula', vesselOnly: true, techBase: 'IS', firstEra: '3062' },
+  { id: 'naval-tug-adaptor', name: 'Naval Tug Adaptor', category: 'Other', tons: 0, slots: 1, heat: 0, isWeapon: false, variableWeight: 'vesselFormula', vesselOnly: true, techBase: 'Both', firstEra: '3025' },
+  { id: 'look-down-radar', name: 'Look-Down Radar', category: 'Other', tons: 5, slots: 1, heat: 0, isWeapon: false, vesselOnly: true, techBase: 'Both', firstEra: '3025' },
+  { id: 'hyperspectral-imager', name: 'Hyperspectral Imager', category: 'Other', tons: 7.5, slots: 1, heat: 0, isWeapon: false, vesselOnly: true, techBase: 'IS', firstEra: '3050' },
+  { id: 'caspar-dcs', name: 'Caspar Drone Control System', category: 'Other', tons: 0, slots: 0, heat: 0, isWeapon: false, variableWeight: 'vesselFormula', vesselOnly: true, techBase: 'Both', firstEra: '3025' },
+  { id: 'improved-caspar-dcs', name: 'Improved Caspar Drone Control System', category: 'Other', tons: 0, slots: 0, heat: 0, isWeapon: false, variableWeight: 'vesselFormula', vesselOnly: true, techBase: 'Both', firstEra: '3025' },
+  { id: 'caspar-ii-dcs', name: 'Caspar II Drone Control System', category: 'Other', tons: 0, slots: 0, heat: 0, isWeapon: false, variableWeight: 'vesselFormula', vesselOnly: true, techBase: 'IS', firstEra: '3062' },
+  { id: 'improved-caspar-ii-dcs', name: 'Improved Caspar II Drone Control System', category: 'Other', tons: 0, slots: 0, heat: 0, isWeapon: false, variableWeight: 'vesselFormula', vesselOnly: true, techBase: 'IS', firstEra: '3062' },
+  { id: 'high-res-imager', name: 'Satellite Imager (High-Resolution Imager)', category: 'Other', tons: 2.5, slots: 1, heat: 0, isWeapon: false, vesselOnly: true, techBase: 'IS', firstEra: '3025' },
+  { id: 'sds-self-destruct', name: 'SDS Self-Destruct System', category: 'Other', tons: 0, slots: 0, heat: 0, isWeapon: false, variableWeight: 'vesselFormula', vesselOnly: true, techBase: 'Both', firstEra: '3025' },
+  { id: 'booby-trap', name: 'Booby Trap', category: 'Other', tons: 0, slots: 1, heat: 0, isWeapon: false, variableWeight: 'vesselFormula', vesselOnly: true, techBase: 'IS', firstEra: '3081' },
   // Actuator Enhancement System (3070): one per arm (or in every leg); weight tonnage/35 (quads /50),
   // 1–4 slots by weight class. Weapons in an AES arm count ×1.25 BV.
   {
@@ -894,6 +912,8 @@ const ABBREVIATIONS: [RegExp, string][] = [
   [/Improved Heavy (Small|Medium|Large) Laser/g, 'Imp. Heavy $1 L.'], [/Rocket Launcher (\d+)/g, 'RL $1'],
   [/Long Tom Cannon Ammo/g, 'LT Cannon Ammo'], [/(Sniper|Thumper) Cannon Ammo/g, '$1 C. Ammo'], [/Targeting Computer/g, 'Targeting Comp.'], [/Triple-Strength Myomer/g, 'TSM'],
   [/Beagle Active Probe/g, 'Beagle Probe'], [/Chameleon Light Polarization Shield/g, 'Chameleon LPS'],
+  [/Naval Comm-Scanner Suite \((Small|Large)\)/g, '$1 Comm-Scanner'], [/Improved Caspar/g, 'Imp. Caspar'], [/Drone Control System/g, 'DCS'],
+  [/Satellite Imager \(High-Resolution Imager\)/g, 'High-Res Imager'], [/SDS Self-Destruct System/g, 'SDS Self-Destruct'],
   [/Actuator Enhancement System/g, 'AES'], [/Fully Amphibious Chassis/g, 'Fully Amphibious'], [/Limited Amphibious Chassis/g, 'Ltd. Amphibious'],
   [/Environmental Sealed Chassis/g, 'Env. Sealed Chassis'], [/Armored Motive System/g, 'Armored Motive'], [/Radical Heat Sink System/g, 'Radical HS'], [/Binary Laser \(Blazer\) Cannon/g, 'Blazer Cannon'],
   [/Extended LRM/g, 'ELRM'], [/Enhanced LRM/g, 'NLRM'], [/Improved ATM/g, 'iATM'], [/Silver Bullet Gauss Rifle/g, 'SB Gauss'],

@@ -233,6 +233,18 @@ Selectable, with all of the Standard-level technology above. The Standard
 construction rules add little after the Jihad; most newer equipment is
 Advanced or Experimental level and is not modeled yet.
 
+### Launchers and spacecraft equipment (as MegaMek)
+
+- **One-shot (OS)** and **improved one-shot (I-OS)** versions of SRM, Streak SRM, LRM, Clan Streak LRM, torpedo and
+  Narc / iNarc launchers: OS +0.5 t, I-OS −0.5 t (from 3056), no ammunition, 1/5 of the launcher's BV, half (OS)
+  or 80% (I-OS) of its cost, a quarter of its heat for BV
+- **LRT / SRT torpedoes** (Inner Sphere and Clan): LRM / SRM launchers that fire only underwater, with their own,
+  Artemis IV and Artemis V ammunition
+- **Spacecraft equipment**: small and large naval comm-scanner suites (100 t / 500 t), naval C3 (1% of the craft),
+  naval tug adaptor (100 t + 10%), Caspar, Caspar II and improved drone control systems (a share of the craft by
+  type), look-down radar, hyperspectral and high-resolution imagers, SDS self-destruct systems, booby traps and
+  spacecraft MASH
+
 ### Combat vehicles (every era)
 
 - Motive types: tracked (up to 100 t), wheeled (80 t), hover (50 t), VTOL (30 t),
@@ -303,9 +315,9 @@ fixed-wing support).
 - Critical slot allocation (click to place, or **Auto-allocate**) with live validation
 - Red / amber / green status light: illegal, legal but incomplete (unused tonnage,
   unallocated armor), or fully legal
-- **Canon units**: about 3,240 canon 'Mechs (about 110 of them IndustrialMechs), including 47 quads, 19 Land-Air 'Mechs, 3 superheavies, 5 tripods (with the Ares superheavy tripod OmniMech), 5 QuadVee designs and around 100 melee-armed designs (OmniMechs with all their
-  configurations), about 1,120 canon combat vehicles (10 superheavies) (OmniVehicles with all their configurations), 160 support vehicles, about 480 aerospace, Omni, primitive and
-  conventional fighters and about 380 spacecraft (small craft, DropShips, JumpShips, WarShips and
+- **Canon units**: about 3,260 canon 'Mechs (about 110 of them IndustrialMechs), including 47 quads, 19 Land-Air 'Mechs, 3 superheavies, 5 tripods (with the Ares superheavy tripod OmniMech), 5 QuadVee designs and around 100 melee-armed designs (OmniMechs with all their
+  configurations), about 1,140 canon combat vehicles (10 superheavies) (OmniVehicles with all their configurations), 160 support vehicles, about 480 aerospace, Omni, primitive and
+  conventional fighters and about 415 spacecraft (small craft, DropShips, JumpShips, WarShips and
   space stations), about 1,190 battle armor squads, 86 ProtoMechs, about 750 gun emplacements and handheld weapons and about 1,990 infantry platoons, searchable by name, era, tech base,
   weight and type, ready to load, modify and print (see *Canon unit data* below)
   - Apocryphal (video-game and other non-canon) designs are left out. A canon design keeps its Master
@@ -426,6 +438,6 @@ vehicles, support, fighters, vessels, protomechs, stationary). The MegaMek check
 
 ## Not yet supported
 
-Some Advanced / Experimental equipment (e.g. rifles, one-shot launchers, torpedoes, chemical lasers outside ProtoMechs, prototype weapons), special munitions (LB-X cluster and so on), and per-configuration jump jet type or tech base on OmniMechs
+Some Advanced / Experimental equipment (e.g. rifles, chemical lasers outside ProtoMechs, prototype and primitive weapons, cruise missiles, tactical analysis computers, space mine dispensers), special munitions (LB-X cluster and so on), and per-configuration jump jet type or tech base on OmniMechs
 (mixed-tech and improved-jump-jet configurations of a standard Prime are left out of the canon list).
 

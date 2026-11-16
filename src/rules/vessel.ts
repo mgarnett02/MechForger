@@ -437,7 +437,7 @@ export function vesselUsesWeaponSlot(eq: Equipment): boolean {
 /** Whether a vessel of this type can carry the item (capital weapons need large craft; sub-capital
  * weapons, capital missiles and screen launchers also fit DropShips; mass drivers only WarShips). */
 export function isVesselEquipment(eq: Equipment, d?: Pick<VesselDesign, 'vesselType'>): boolean {
-  if (eq.id === 'remote-sensor-dispenser' || eq.id === 'cargo-container') return true;
+  if (eq.id === 'remote-sensor-dispenser' || eq.id === 'cargo-container' || eq.id === 'mash-core' || eq.id === 'mash-theater') return true;
   if (eq.id === 'mobile-hpg') return d?.vesselType !== 'small-craft';
   if (eq.managed || eq.melee || eq.lamOnly || eq.vehicleOnly || eq.category === 'Utility' || eq.variableWeight === 'masc' || eq.variableWeight === 'supercharger') return false;
   if (eq.capitalClass && d) {
@@ -578,7 +578,36 @@ export interface VesselSummary {
   unallocated: VesselItem[];
 }
 
+/** Weight of spacecraft equipment whose weight depends on the craft (MegaMek's MiscType formulas). */
+export function vesselFormulaWeight(id: string, d: Pick<VesselDesign, 'tonnage' | 'vesselType'>): number {
+  const t = d.tonnage;
+  const round = (w: number) => (isLargeCraft(d) ? Math.ceil(w - 1e-9) : halfUp(w));
+  switch (id) {
+    case 'naval-c3': return t * 0.01;
+    case 'naval-tug-adaptor': return 100 + t * 0.1;
+    case 'booby-trap': return halfUp(t / 10);
+    case 'sds-self-destruct': return Math.min(Math.ceil(t * 0.1 - 1e-9), 10000);
+    case 'caspar-dcs': case 'improved-caspar-dcs': case 'caspar-ii-dcs': case 'improved-caspar-ii-dcs': {
+      const two = id.includes('-ii-');
+      const by = { 'small-craft': two ? 0.06 : 0.05, dropship: two ? 0.08 : 0.04, 'space-station': two ? 0.1 : 0.08, warship: two ? 0.12 : 0.06, jumpship: two ? 0.06 : 0.05 } as const;
+      let pct: number = by[d.vesselType];
+      if (id.startsWith('improved')) pct += d.vesselType === 'small-craft' ? 0.02 : 0.04;
+      return round(t * pct);
+    }
+    default: return 0;
+  }
+}
+
+/** Cost of formula-priced spacecraft equipment (MegaMek); null for fixed prices. */
+export function vesselFormulaCost(id: string, weight: number): number | null {
+  if (id === 'naval-c3') return weight * 100000;
+  if (/^(improved-)?caspar-dcs$/.test(id)) return weight * 50000 + 500000;
+  if (/^(improved-)?caspar-ii-dcs$/.test(id)) return weight * 20000 + 50000;
+  return null;
+}
+
 export function vesselItemWeight(eq: Equipment, d: VesselDesign, item?: VesselItem): number {
+  if (eq.variableWeight === 'vesselFormula') return vesselFormulaWeight(eq.id, d);
   if (eq.category === 'Ammo') {
     const bins = Math.ceil((item?.shots ?? shotsPerBin(eq)) / shotsPerBin(eq));
     // Large craft round each ammunition load up to the half ton.

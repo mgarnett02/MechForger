@@ -16,7 +16,7 @@ import { meleeBV, meleeCost } from './melee';
 import type { FighterDesign } from './fighter';
 import { computeFighter, fighterItemWeight } from './fighter';
 import type { VesselDesign, VesselItem } from './vessel';
-import { BAY_INFO, VESSEL_ARMOR_COST, bayWeight, isPrimitiveVessel, VESSEL_TYPE_NAMES, computeVessel, isLargeCraft, kfIntegrity, shotsPerBin, vesselItemWeight } from './vessel';
+import { BAY_INFO, VESSEL_ARMOR_COST, bayWeight, isPrimitiveVessel, vesselFormulaCost, VESSEL_TYPE_NAMES, computeVessel, isLargeCraft, kfIntegrity, shotsPerBin, vesselItemWeight } from './vessel';
 import type { VehicleDesign } from './vehicle';
 import { computeVehicle, vehicleItemWeight } from './vehicle';
 import type { SupportVehicleDesign } from './support';
@@ -860,6 +860,8 @@ export function vesselCost(d: VesselDesign): CostBreakdown {
     if (!eq) return a;
     // As MegaMek, an ammunition bin costs one ton's price whatever its size (the TechManual prices it per ton).
     if (eq.category === 'Ammo') return a + ammoValue(eq).cost;
+    const formula = vesselFormulaCost(eq.id, vesselItemWeight(eq, d, item));
+    if (formula !== null) return a + formula;
     return a + equipmentCost([item], (e) => vesselItemWeight(e, d, item), 0);
   }, 0);
   const lines: [string, number][] = [

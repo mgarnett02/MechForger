@@ -106,7 +106,7 @@ const TABS: { id: EquipmentCategory; label: string }[] = [
   { id: 'Ammo', label: 'Ammo' }, { id: 'Other', label: 'Equipment' },
 ];
 
-const fits = (e: Equipment, kind: StationaryKind) => !e.managed && !e.spread && !e.capitalClass && !e.lamOnly
+const fits = (e: Equipment, kind: StationaryKind) => !e.managed && !e.spread && !e.capitalClass && !e.lamOnly && !e.vehicleOnly && !e.vesselOnly
   && (!e.variableWeight || e.variableWeight === 'targetingComputer') && e.category !== 'Physical' && e.category !== 'Utility'
   && (kind === 'emplacement' || !/searchlight/.test(e.id));
 
