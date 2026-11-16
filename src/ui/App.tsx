@@ -33,6 +33,9 @@ import { BattleArmorEditor } from './BattleArmorEditor';
 import type { ProtoMechDesign } from '../rules/protomech';
 import { computeProtoMech, newProtoMech, validateProtoMech } from '../rules/protomech';
 import { ProtoMechEditor } from './ProtoMechEditor';
+import type { StationaryDesign } from '../rules/stationary';
+import { computeStationary, newStationary, validateStationary } from '../rules/stationary';
+import { StationaryEditor } from './StationaryEditor';
 import type { InfantryDesign } from '../rules/infantry';
 import { computeInfantry, newInfantry, validateInfantry } from '../rules/infantry';
 import { InfantryEditor } from './InfantryEditor';
@@ -41,7 +44,7 @@ import { AboutDialog } from './AboutDialog';
 import { CanonBrowser } from './CanonBrowser';
 import type { AnyDesign, UnitType } from './storage';
 import {
-  clearLegacySaved, listLegacySaved, loadCurrent, loadCurrentBattleArmor, saveCurrentBattleArmor, loadCurrentProtoMech, saveCurrentProtoMech, loadCurrentInfantry, saveCurrentInfantry, loadCurrentFighter, loadCurrentSupport, loadCurrentVessel, loadCurrentVehicle, loadUnit,
+  clearLegacySaved, listLegacySaved, loadCurrent, loadCurrentBattleArmor, saveCurrentBattleArmor, loadCurrentProtoMech, saveCurrentProtoMech, loadCurrentStationary, saveCurrentStationary, loadCurrentInfantry, saveCurrentInfantry, loadCurrentFighter, loadCurrentSupport, loadCurrentVessel, loadCurrentVehicle, loadUnit,
   saveCurrent, saveCurrentFighter, saveCurrentSupport, saveCurrentVessel, saveCurrentVehicle, saveUnit, unitTypeOf,
 } from './storage';
 import { loadDesignFile, saveDesignFile, saveDesignFiles } from './designFiles';
@@ -56,6 +59,7 @@ export function App() {
   const [ba, setBA] = useState<BattleArmorDesign>(() => loadCurrentBattleArmor() ?? newBattleArmor());
   const [inf, setInf] = useState<InfantryDesign>(() => loadCurrentInfantry() ?? newInfantry());
   const [proto, setProto] = useState<ProtoMechDesign>(() => loadCurrentProtoMech() ?? newProtoMech());
+  const [st, setSt] = useState<StationaryDesign>(() => loadCurrentStationary() ?? newStationary());
   const [selected, setSelected] = useState<string | null>(null);
   const [legacy, setLegacy] = useState(() => Object.values(listLegacySaved()));
   const [notice, setNotice] = useState<string | null>(null);
@@ -83,6 +87,8 @@ export function App() {
   const infIssues = useMemo(() => validateInfantry(inf, infSummary), [inf, infSummary]);
   const pmSummary = useMemo(() => computeProtoMech(proto), [proto]);
   const pmIssues = useMemo(() => validateProtoMech(proto, pmSummary), [proto, pmSummary]);
+  const stSummary = useMemo(() => computeStationary(st), [st]);
+  const stIssues = useMemo(() => validateStationary(st, stSummary), [st, stSummary]);
 
   useEffect(() => saveCurrent(design), [design]);
   useEffect(() => saveCurrentVehicle(vehicle), [vehicle]);
@@ -92,6 +98,7 @@ export function App() {
   useEffect(() => saveCurrentBattleArmor(ba), [ba]);
   useEffect(() => saveCurrentInfantry(inf), [inf]);
   useEffect(() => saveCurrentProtoMech(proto), [proto]);
+  useEffect(() => saveCurrentStationary(st), [st]);
   useEffect(() => saveUnit(unit), [unit]);
   useEffect(() => {
     if (!notice) return;
@@ -105,14 +112,16 @@ export function App() {
   const updateFighter = useCallback((fn: (d: FighterDesign) => FighterDesign) => setFighter((d) => fn(d)), []);
   const updateVessel = useCallback((fn: (d: VesselDesign) => VesselDesign) => setVessel((d) => fn(d)), []);
   const updateBA = useCallback((fn: (d: BattleArmorDesign) => BattleArmorDesign) => setBA((d) => fn(d)), []);
+  const updateSt = useCallback((fn: (d: StationaryDesign) => StationaryDesign) => setSt((d) => fn(d)), []);
   const updateProto = useCallback((fn: (d: ProtoMechDesign) => ProtoMechDesign) => setProto((d) => fn(d)), []);
   const updateInf = useCallback((fn: (d: InfantryDesign) => InfantryDesign) => setInf((d) => fn(d)), []);
 
   /** The design being edited, whichever kind it is. */
-  const active: AnyDesign = unit === 'protomech' ? proto : unit === 'infantry' ? inf : unit === 'battlearmor' ? ba : unit === 'vessel' ? vessel : unit === 'fighter' ? fighter : unit === 'support' ? support : unit === 'vehicle' ? vehicle : design;
-  const issues = unit === 'protomech' ? pmIssues : unit === 'infantry' ? infIssues : unit === 'battlearmor' ? baIssues : unit === 'vessel' ? vsIssues : unit === 'fighter' ? fIssues : unit === 'support' ? sIssues : unit === 'vehicle' ? vIssues : mechIssues;
+  const active: AnyDesign = unit === 'stationary' ? st : unit === 'protomech' ? proto : unit === 'infantry' ? inf : unit === 'battlearmor' ? ba : unit === 'vessel' ? vessel : unit === 'fighter' ? fighter : unit === 'support' ? support : unit === 'vehicle' ? vehicle : design;
+  const issues = unit === 'stationary' ? stIssues : unit === 'protomech' ? pmIssues : unit === 'infantry' ? infIssues : unit === 'battlearmor' ? baIssues : unit === 'vessel' ? vsIssues : unit === 'fighter' ? fIssues : unit === 'support' ? sIssues : unit === 'vehicle' ? vIssues : mechIssues;
   const setName = (patch: { chassis?: string; model?: string }) =>
-    unit === 'protomech' ? updateProto((d) => ({ ...d, ...patch }))
+    unit === 'stationary' ? updateSt((d) => ({ ...d, ...patch }))
+      : unit === 'protomech' ? updateProto((d) => ({ ...d, ...patch }))
       : unit === 'infantry' ? updateInf((d) => ({ ...d, ...patch }))
       : unit === 'battlearmor' ? updateBA((d) => ({ ...d, ...patch }))
       : unit === 'vessel' ? updateVessel((d) => ({ ...d, ...patch }))
@@ -120,11 +129,14 @@ export function App() {
       : unit === 'support' ? updateSupport((d) => ({ ...d, ...patch }))
       : unit === 'vehicle' ? updateVehicle((d) => ({ ...d, ...patch })) : update((d) => ({ ...d, ...patch }));
   const newOf = (u: UnitType, era: EraId, tb: TechBase): AnyDesign =>
-    u === 'protomech' ? newProtoMech(era, tb) : u === 'infantry' ? newInfantry(era, tb) : u === 'battlearmor' ? newBattleArmor(era, tb) : u === 'vessel' ? newVessel(era, tb) : u === 'fighter' ? newFighter(era, tb) : u === 'support' ? newSupportVehicle(era, tb) : u === 'vehicle' ? newVehicle(era, tb) : newDesign(era, tb);
+    u === 'stationary' ? newStationary(era, tb, st.kind) : u === 'protomech' ? newProtoMech(era, tb) : u === 'infantry' ? newInfantry(era, tb) : u === 'battlearmor' ? newBattleArmor(era, tb) : u === 'vessel' ? newVessel(era, tb) : u === 'fighter' ? newFighter(era, tb) : u === 'support' ? newSupportVehicle(era, tb) : u === 'vehicle' ? newVehicle(era, tb) : newDesign(era, tb);
 
   const load = (d: AnyDesign) => {
     const kind = unitTypeOf(d);
-    if (kind === 'protomech') {
+    if (kind === 'stationary') {
+      setSt(d as StationaryDesign);
+      setUnit('stationary');
+    } else if (kind === 'protomech') {
       setProto(d as ProtoMechDesign);
       setUnit('protomech');
     } else if (kind === 'infantry') {
@@ -158,9 +170,10 @@ export function App() {
       : d.primary !== 'InfantryAssaultRifle' || !!d.secondary || d.fieldGuns.length > 0;
 
   const chooseEra = (era: EraId, techBase: TechBase, chosen: UnitType) => {
-    const current: AnyDesign = chosen === 'protomech' ? proto : chosen === 'infantry' ? inf : chosen === 'battlearmor' ? ba : chosen === 'vessel' ? vessel : chosen === 'fighter' ? fighter : chosen === 'support' ? support : chosen === 'vehicle' ? vehicle : design;
+    const current: AnyDesign = chosen === 'stationary' ? st : chosen === 'protomech' ? proto : chosen === 'infantry' ? inf : chosen === 'battlearmor' ? ba : chosen === 'vessel' ? vessel : chosen === 'fighter' ? fighter : chosen === 'support' ? support : chosen === 'vehicle' ? vehicle : design;
     if (techBase === current.techBase) {
-      if (chosen === 'protomech') updateProto((d) => (d.era === era ? d : { ...d, era }));
+      if (chosen === 'stationary') updateSt((d) => (d.era === era ? d : { ...d, era }));
+      else if (chosen === 'protomech') updateProto((d) => (d.era === era ? d : { ...d, era }));
       else if (chosen === 'infantry') updateInf((d) => (d.era === era ? d : { ...d, era }));
       else if (chosen === 'battlearmor') updateBA((d) => (d.era === era ? d : { ...d, era }));
       else if (chosen === 'vessel') updateVessel((d) => (d.era === era ? d : { ...d, era }));
@@ -231,7 +244,7 @@ export function App() {
         <h1>
           MechForger{' '}
           <span className="muted small">
-            {unit === 'vehicle' ? 'Vehicle · ' : unit === 'support' ? 'Support Vehicle · ' : unit === 'fighter' ? 'Fighter · ' : unit === 'vessel' ? 'Spacecraft · ' : unit === 'battlearmor' ? 'Battle Armor · ' : unit === 'infantry' ? 'Infantry · ' : unit === 'protomech' ? 'ProtoMech · ' : ''}
+            {unit === 'vehicle' ? 'Vehicle · ' : unit === 'support' ? 'Support Vehicle · ' : unit === 'fighter' ? 'Fighter · ' : unit === 'vessel' ? 'Spacecraft · ' : unit === 'battlearmor' ? 'Battle Armor · ' : unit === 'infantry' ? 'Infantry · ' : unit === 'protomech' ? 'ProtoMech · ' : unit === 'stationary' ? `${st.kind === 'handheld' ? 'Handheld Weapon' : 'Gun Emplacement'} · ` : ''}
             {era
               ? `${era.name} · ${active.mixedTech ? `Mixed tech (${TECH_BASE_NAMES[active.techBase]} chassis) · Advanced` : `${TECH_BASE_NAMES[active.techBase]} · ${era.rulesLevel}`} · ${era.year}`
               : active.era}
@@ -265,7 +278,9 @@ export function App() {
         {notice && <div className="notice" role="status">{notice}</div>}
       </header>
 
-      {unit === 'protomech' ? (
+      {unit === 'stationary' ? (
+        <StationaryEditor design={st} summary={stSummary} issues={stIssues} update={updateSt} />
+      ) : unit === 'protomech' ? (
         <ProtoMechEditor design={proto} summary={pmSummary} issues={pmIssues} update={updateProto} />
       ) : unit === 'infantry' ? (
         <InfantryEditor design={inf} summary={infSummary} issues={infIssues} update={updateInf} />

@@ -247,7 +247,7 @@ const JIHAD_WEAPONS: Equipment[] = [
 ];
 
 /** MML ammunition: [launcher, LRM shots per ton, SRM shots per ton]. */
-const MML_AMMO: [string, number, number][] = [
+export const MML_AMMO: [string, number, number][] = [
   ['mml-3', 40, 33], ['mml-5', 24, 20], ['mml-7', 17, 14], ['mml-9', 13, 11],
 ];
 

@@ -8,7 +8,7 @@ import { DISCLAIMER_SHORT } from './legal';
 interface Props {
   current: EraId;
   currentTechBase: TechBase;
-  onSelect: (era: EraId, techBase: TechBase, unit: 'mech' | 'vehicle' | 'support' | 'fighter' | 'vessel' | 'battlearmor' | 'infantry' | 'protomech') => void;
+  onSelect: (era: EraId, techBase: TechBase, unit: 'mech' | 'vehicle' | 'support' | 'fighter' | 'vessel' | 'battlearmor' | 'infantry' | 'protomech' | 'stationary') => void;
   /** When provided the dialog can be dismissed without choosing (Esc / Cancel). */
   onCancel?: () => void;
   theme: ThemeChoice;
@@ -66,8 +66,8 @@ export function EraDialog({ current, currentTechBase, onSelect, onCancel, theme,
     setPending(era);
     setStep('unit');
   };
-  const [unit, setUnit] = useState<'mech' | 'vehicle' | 'support' | 'fighter' | 'vessel' | 'battlearmor' | 'infantry' | 'protomech'>('mech');
-  const pickUnit = (u: 'mech' | 'vehicle' | 'support' | 'fighter' | 'vessel' | 'battlearmor' | 'infantry' | 'protomech') => {
+  const [unit, setUnit] = useState<'mech' | 'vehicle' | 'support' | 'fighter' | 'vessel' | 'battlearmor' | 'infantry' | 'protomech' | 'stationary'>('mech');
+  const pickUnit = (u: 'mech' | 'vehicle' | 'support' | 'fighter' | 'vessel' | 'battlearmor' | 'infantry' | 'protomech' | 'stationary') => {
     if (!pending) return;
     setUnit(u);
     if (pending.techBases.length === 1) onSelect(pending.id, pending.techBases[0], u);
@@ -130,6 +130,13 @@ export function EraDialog({ current, currentTechBase, onSelect, onCancel, theme,
                 </span>
                 <span className="era-year">ProtoMech</span>
                 <span className="era-desc">Clan ProtoMechs of 2–15 tons: biped, quad and glider, ultraheavy, main gun, jump jets and myomer boosters.</span>
+              </button>
+              <button className="era-btn" onClick={() => pickUnit('stationary')}>
+                <span className="unit-icon" aria-hidden="true">
+                  <svg viewBox="0 0 48 48" width="40" height="40"><path d="M6 26h22v16H6zM12 18h12v8H12zM24 20l18-6 1 4-19 6z" fill="currentColor" /></svg>
+                </span>
+                <span className="era-year">Emplacement / handheld</span>
+                <span className="era-desc">Gun emplacements (stationary turrets in buildings) and handheld weapons carried by 'Mechs.</span>
               </button>
               <button className="era-btn" onClick={() => pickUnit('infantry')}>
                 <span className="unit-icon" aria-hidden="true">

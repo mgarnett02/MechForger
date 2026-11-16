@@ -20,6 +20,8 @@ import type { VesselArc, VesselDesign } from '../../rules/vessel';
 import { BAY_INFO, VESSEL_ARMOR_NAMES, VESSEL_LOCATION_NAMES, VESSEL_TYPE_NAMES, armorThreshold as vesselThreshold, computeVessel, isLargeCraft, kfIntegrity } from '../../rules/vessel';
 import { vesselSheetData } from '../../rules/recordSheet';
 import { vesselBV, vesselCost } from '../../rules/battleValue';
+import type { StationaryDesign } from '../../rules/stationary';
+import { STATIONARY_KIND_NAMES, computeStationary, stationaryBV, stationaryCost, stationaryItemLabel } from '../../rules/stationary';
 import type { ProtoItem, ProtoMechDesign } from '../../rules/protomech';
 import { PROTO_ARMOR_LOCATIONS, PROTO_LOCATION_NAMES, PROTO_MOTION_NAMES, computeProtoMech, protoMaxArmor, protoMechBV, protoMechCost } from '../../rules/protomech';
 import type { BAItem, BattleArmorDesign } from '../../rules/battlearmor';
@@ -969,6 +971,72 @@ export function BattleArmorRecordSheet({ design }: { design: BattleArmorDesign }
             <Field label="Gunnery Skill" /><Field label="Anti-'Mech Skill" />
           </div>
           <p className="rs-note left">BV per trooper {Math.round(bv.perTrooper)} · each trooper weighs {Math.round(s.weights.total * 1000)} kg (limit {Math.round(s.trooperLimit * 1000)} kg).</p>
+        </Panel>
+      </div>
+      <Footer />
+    </article>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Gun emplacements and handheld weapons
+// ---------------------------------------------------------------------------
+
+export function StationaryRecordSheet({ design }: { design: StationaryDesign }) {
+  const s = computeStationary(design);
+  const name = `${design.chassis} ${design.model}`.trim() || 'Unnamed';
+  const handheld = design.kind === 'handheld';
+  const items = design.equipment.map((i) => ({ i, e: getEquipment(i.equipmentId) })).filter((x) => !!x.e);
+  const weapons = items.filter(({ e }) => e!.isWeapon);
+  const other = items.filter(({ e }) => !e!.isWeapon);
+  return (
+    <article className="record-sheet vehicle battlearmor">
+      <SheetHeader kind={`${STATIONARY_KIND_NAMES[design.kind]} Record Sheet`} name={name} />
+      <div className="rs-grid-ba">
+        <Panel title={handheld ? 'Weapon Data' : 'Emplacement Data'} className="area-data">
+          <div className="rs-fields">
+            <Field label="Type" value={`${name} — ${handheld ? `${design.tonnage}-ton handheld weapon` : `gun emplacement${design.turret ? ' (turret)' : ''}`}`} wide />
+            <Field label="Tech Base" value={techBase(design)} />
+            <Field label="Era" value={eraName(design)} />
+            <Field label="Rules Level" value={rulesLevel(design)} />
+            <Field label="Battle Value" value={stationaryBV(design).total.toLocaleString('en-US')} />
+            <Field label="Cost" value={`${stationaryCost(design).total.toLocaleString('en-US')} C-bills`} />
+          </div>
+          <div className="rs-inventory">
+            <div className="rs-subtitle">Weapons</div>
+            <table className="rs-table">
+              <thead><tr><th className="left">Type</th><th>Ht</th><th>Dmg</th><th>Min</th><th>Sht</th><th>Med</th><th>Lng</th></tr></thead>
+              <tbody>
+                {weapons.map(({ i, e }) => (
+                  <tr key={i.uid}>
+                    <td className="left">{e!.name}</td><td>{e!.heat}</td><td>{e!.damage ?? '—'}</td>
+                    <td>{e!.range?.min || '—'}</td><td>{e!.range?.short ?? '—'}</td><td>{e!.range?.medium ?? '—'}</td><td>{e!.range?.long || '—'}</td>
+                  </tr>
+                ))}
+                {weapons.length === 0 && <tr><td colSpan={7} className="rs-empty">No weapons</td></tr>}
+              </tbody>
+            </table>
+            <div className="rs-subtitle" style={{ marginTop: 4 }}>Equipment and ammunition</div>
+            <table className="rs-table">
+              <tbody>
+                {other.map(({ i }) => <tr key={i.uid}><td className="left">{stationaryItemLabel(design, i)}</td></tr>)}
+                {other.length === 0 && <tr><td className="rs-empty">None</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </Panel>
+        <Panel title={handheld ? 'Armor' : 'Crew'} className="area-armor">
+          {handheld ? (
+            <>
+              <div className="rs-trooper-track" style={{ flexWrap: 'wrap' }}><Pips count={design.armor} kind="armor" /></div>
+              <p className="rs-note left">{design.armor} armor points{s.heatSinks ? ` · ${s.heatSinks} heat sinks` : ''}. Carried in a 'Mech's hand; the 'Mech fires its weapons.</p>
+            </>
+          ) : (
+            <>
+              <div className="rs-fields"><Field label="Gunnery Skill" /><Field label="Building CF" /></div>
+              <p className="rs-note left">The emplacement takes damage through the building it is fitted in.</p>
+            </>
+          )}
         </Panel>
       </div>
       <Footer />

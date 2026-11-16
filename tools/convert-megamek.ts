@@ -28,9 +28,11 @@ import { fighterBV, mechBV, mechCost, vehicleBV, vehicleCost, vesselBV } from '.
 import type { MotiveType, VehicleArmorType, VehicleDesign, VehicleEngineType, VehicleLocation } from '../src/rules/vehicle';
 import { computeVehicle, emptyVehicleArmor, hasSixFacings, motiveMaxTonnage, validateVehicle, vehicleFreeHeatSinks } from '../src/rules/vehicle';
 import { armorPointsPerTon } from '../src/rules/tables';
-import { encodeBattleArmor, encodeProtoMech, encodeInfantry, encodeFighter, encodeMech, encodeSupport, encodeVehicle, encodeVessel } from '../src/data/canonFormat';
+import { encodeBattleArmor, encodeProtoMech, encodeStationary, encodeInfantry, encodeFighter, encodeMech, encodeSupport, encodeVehicle, encodeVessel } from '../src/data/canonFormat';
 import type { BAItem, BattleArmorDesign } from '../src/rules/battlearmor';
 import type { ProtoItem, ProtoLocation, ProtoMechDesign } from '../src/rules/protomech';
+import type { StationaryDesign, StationaryItem } from '../src/rules/stationary';
+import { computeStationary, stationaryBV, validateStationary } from '../src/rules/stationary';
 import { PROTO_EDP_ARMOR, PROTO_STANDARD_ARMOR, computeProtoMech, emptyProtoArmor, protoMechBV, validateProtoMech } from '../src/rules/protomech';
 import { battleArmorBV, computeBattleArmor, syncArmorSlots, validateBattleArmor } from '../src/rules/battlearmor';
 import { MM_EQUIPMENT, findMM } from '../src/rules/mmEquipment';
@@ -864,6 +866,42 @@ function parseProtoBlk(text: string): { design: ProtoMechDesign; year: number; m
 }
 
 // ---------------------------------------------------------------------------------------------------------------
+// Gun emplacements and handheld weapons
+// ---------------------------------------------------------------------------------------------------------------
+
+function parseStationaryBlk(text: string, kind: 'emplacement' | 'handheld'): { design: StationaryDesign; year: number; mulId?: number; source: string } {
+  const tags = new Map<string, string[]>();
+  const re = /<([^/>]+)>\s*\n([\s\S]*?)\n<\/\1>/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text))) tags.set(m[1].toLowerCase(), m[2].split(/\r?\n/).map((x) => x.trim()).filter(Boolean));
+  const one = (k: string) => tags.get(k.toLowerCase())?.[0] ?? '';
+  const typeStr = one('type');
+  const techBase: TechBase = techBaseClanLike(typeStr) ? 'Clan' : 'IS';
+  const mixedTech = /^Mixed/.test(typeStr);
+  const equipment: StationaryItem[] = [];
+  let uid = 0;
+  for (const raw0 of tags.get(kind === 'handheld' ? 'gun equipment' : 'guns equipment') ?? []) {
+    const shotsM = /:Shots(\d+)#/.exec(raw0);
+    const raw = raw0.replace(/:Shots\d+#/, '').replace(/:SIZE:.*$/i, '').replace(/:OMNI$/i, '').trim();
+    const r = resolveName(raw, techBase);
+    if (r.kind === 'fixed') continue;
+    if (r.kind === 'unknown') fail(`unknown item "${r.name}"`);
+    const id = (r as { id: string }).id;
+    const eq = getEquipment(id)!;
+    const item: StationaryItem = { uid: `s${uid++}`, equipmentId: id };
+    if (kind === 'handheld' && eq.category === 'Ammo') item.shots = shotsM ? Number(shotsM[1]) : Math.round((getEquipment(eq.ammoFor ?? '')?.ammoPerTon ?? 1) * eq.tons);
+    equipment.push(item);
+  }
+  fixAmmoTech(equipment);
+  const design: StationaryDesign = {
+    schemaVersion: 1, unitType: 'stationary', kind, era: '3025', techBase, mixedTech,
+    chassis: one('Name'), model: one('Model'), turret: kind === 'emplacement' && one('turret') === '1',
+    tonnage: kind === 'handheld' ? Number(one('tonnage')) || 1 : 0, armor: kind === 'handheld' ? Number(one('armor')) || 0 : 0, equipment,
+  };
+  return { design, year: Number(one('year')) || 3025, mulId: Number(one('mul id:')) || undefined, source: one('source') };
+}
+
+// ---------------------------------------------------------------------------------------------------------------
 // Conventional infantry
 // ---------------------------------------------------------------------------------------------------------------
 
@@ -1422,6 +1460,41 @@ function main() {
   protomechs.sort((a, b) => a.n.localeCompare(b.n));
   fs.writeFileSync(path.join(outDir, 'protomechs.json'), JSON.stringify(official(protomechs)));
   console.log(`ProtoMechs: ${protomechs.length} converted, ${pmSkipped} skipped; exact tonnage ${protomechs.filter((e) => e.w).length}, fully legal ${protomechs.filter((e) => e.ok).length}`);
+
+  // --- Gun emplacements and handheld weapons
+  const stationary: CanonEntry[] = [];
+  let stSkipped = 0;
+  const stseen = new Set<string>();
+  for (const [dir, kind, type] of [['ge', 'emplacement', 'GunEmplacement'], ['handheld', 'handheld', 'HandheldWeapon']] as const) {
+    for (const f of walk(path.join(root, 'data/mekfiles', dir), '.blk').sort()) {
+      const text = fs.readFileSync(f, 'utf8');
+      if (!new RegExp(`<UnitType>\\s*\\n${type}\\n`).test(text)) continue;
+      try {
+        const p = parseStationaryBlk(text, kind);
+        const key = `${p.design.chassis} ${p.design.model}`.trim();
+        if (stseen.has(key)) continue;
+        stseen.add(key);
+        const d = settleEra(p.design, p.year, (x) => validateStationary(x).map((i) => i.message));
+        const s = computeStationary(d);
+        const issues = validateStationary(d, s);
+        if (process.env.ST_DEBUG && issues.some((i) => i.severity === 'error' || /unused/.test(i.message))) {
+          console.error(`${key}: ${issues.map((i) => i.message).join(' | ')}`);
+        }
+        stationary.push({
+          n: key, t: kind === 'handheld' ? d.tonnage : s.weights.total, tb: d.techBase, era: d.era, y: p.year, k: kind,
+          bv: stationaryBV(d).total, ok: issues.every((i) => i.severity !== 'error'), w: s.weights.free > -1e-9,
+          src: p.source, mul: p.mulId, d: encodeStationary(d),
+        });
+      } catch (e) {
+        if (!(e instanceof Unsupported)) throw new Error(`${f}: ${(e as Error).stack}`);
+        stSkipped++;
+        note(`stationary: ${e.message}`);
+      }
+    }
+  }
+  stationary.sort((a, b) => a.n.localeCompare(b.n));
+  fs.writeFileSync(path.join(outDir, 'stationary.json'), JSON.stringify(official(stationary)));
+  console.log(`Gun emplacements / handheld weapons: ${stationary.length} converted (${stationary.filter((e) => e.k === 'handheld').length} handheld), ${stSkipped} skipped; fully legal ${stationary.filter((e) => e.ok).length}`);
 
   // --- Battle armor
   const baFiles = walk(path.join(root, 'data/mekfiles/battlearmor'), '.blk').sort();

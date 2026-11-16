@@ -125,6 +125,19 @@ Everything above, plus (Inner Sphere technology; Clan designs need mixed tech):
   tonnage, the EI interface free); a record sheet with the data block and five damage tracks for a point
 - 86 canon ProtoMechs (85 legal; the Svartalfa 3 is 100 kg over under the published rules)
 
+### Gun emplacements and handheld weapons (every era)
+
+- **Gun emplacements**: weapons and equipment fitted in a building, with or without a turret; BV as in
+  MegaMek (defensive equipment × 0.5, offense × 0.44 for 0 MP). MegaMek gives emplacements no cost, so
+  MechForger shows the price of the weapons alone (the building is priced separately)
+- **Handheld weapons** carried by 'Mechs with hands: armor (16 points per ton), up to six items, ammunition
+  bought by the shot (one bin per kind), one-ton heat sinks for energy weapons, weight to the half ton, BV
+  (armor × 2, no movement modifiers) and cost (twice the equipment) as MegaMek's TestHandheldWeapon
+- About 725 canon gun emplacements and 29 canon handheld weapons (IS 'Mech mortars, hyper-velocity
+  autocannon, cruise missiles, chemical lasers, rifles and vehicular grenade launchers are not in
+  MechForger's catalog yet, so 93 files are skipped). Mobile structures and other buildings (MegaMek's
+  *advanced buildings*) are not supported
+
 ### 3068 Jihad — Inner Sphere or Clan, Standard rules
 
 Everything above, plus:
@@ -288,7 +301,7 @@ fixed-wing support).
 - **Canon units**: about 3,240 canon 'Mechs (about 110 of them IndustrialMechs), including 47 quads, 19 Land-Air 'Mechs, 3 superheavies, 5 tripods (with the Ares superheavy tripod OmniMech), 5 QuadVee designs and around 100 melee-armed designs (OmniMechs with all their
   configurations), about 1,050 canon combat vehicles (10 superheavies) (OmniVehicles with all their configurations), 160 support vehicles, about 480 aerospace, Omni, primitive and
   conventional fighters and about 380 spacecraft (small craft, DropShips, JumpShips, WarShips and
-  space stations), about 1,190 battle armor squads, 86 ProtoMechs and about 1,990 infantry platoons, searchable by name, era, tech base,
+  space stations), about 1,190 battle armor squads, 86 ProtoMechs, about 750 gun emplacements and handheld weapons and about 1,990 infantry platoons, searchable by name, era, tech base,
   weight and type, ready to load, modify and print (see *Canon unit data* below)
   - Apocryphal (video-game and other non-canon) designs are left out. A canon design keeps its Master
     Unit List id: the editor shows it as a link to the unit's MUL page. Units without a MUL entry

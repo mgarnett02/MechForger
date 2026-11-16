@@ -10,6 +10,8 @@ import { newVesselUid } from '../rules/vessel';
 import type { BAItem, BattleArmorDesign } from '../rules/battlearmor';
 import type { ProtoItem, ProtoMechDesign } from '../rules/protomech';
 import { newProtoUid } from '../rules/protomech';
+import type { StationaryDesign, StationaryItem } from '../rules/stationary';
+import { newStationaryUid } from '../rules/stationary';
 import { newBAUid } from '../rules/battlearmor';
 import type { FieldGun, InfantryDesign } from '../rules/infantry';
 import { newInfantryUid } from '../rules/infantry';
@@ -154,6 +156,14 @@ export function encodeProtoMech(d: ProtoMechDesign): unknown {
 export function decodeProtoMech(raw: unknown): ProtoMechDesign {
   const r = raw as Omit<ProtoMechDesign, 'equipment'> & { equipment: Omit<ProtoItem, 'uid'>[] };
   return { ...r, equipment: r.equipment.map((e) => ({ ...e, uid: newProtoUid() })) };
+}
+
+export function encodeStationary(d: StationaryDesign): unknown {
+  return { ...d, equipment: d.equipment.map(({ uid: _uid, ...rest }) => rest) };
+}
+export function decodeStationary(raw: unknown): StationaryDesign {
+  const r = raw as Omit<StationaryDesign, 'equipment'> & { equipment: Omit<StationaryItem, 'uid'>[] };
+  return { ...r, equipment: r.equipment.map((e) => ({ ...e, uid: newStationaryUid() })) };
 }
 
 export function encodeInfantry(d: InfantryDesign): unknown {

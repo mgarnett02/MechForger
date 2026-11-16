@@ -52,12 +52,12 @@ export function speedFactor(mp: number): number {
   return Math.round(Math.pow(1 + (mp - 5) / 10, 1.2) * 100) / 100;
 }
 
-function value(id: string) {
+export function value(id: string) {
   return ITEM_VALUES[id];
 }
 
 /** BV and cost of one ammo bin (half-ton bins count half). */
-function ammoValue(eq: Equipment): { bv: number; cost: number } {
+export function ammoValue(eq: Equipment): { bv: number; cost: number } {
   if (eq.shotBV !== undefined) return { bv: eq.shotBV, cost: eq.shotCost ?? 0 }; // capital ammo: per shot
   const weapon = eq.ammoFor ?? '';
   const scale = eq.tons; // 1 or 0.5
@@ -90,7 +90,7 @@ interface WeaponEntry {
 }
 
 /** Weapon BV with targeting-computer and Artemis IV bonuses. */
-function weaponEntries(
+export function weaponEntries(
   items: { equipmentId: string; location: string | null; rear?: boolean }[],
 ): WeaponEntry[] {
   const ids = items.map((i) => i.equipmentId);
@@ -170,7 +170,7 @@ function takeCapacitor(left: Map<string, number>, i: { equipmentId: string; loca
 }
 
 /** Ammo BV, capped per weapon type at the BV of the weapons that use it. */
-function ammoBV(items: { equipmentId: string }[], weapons: WeaponEntry[]): number {
+export function ammoBV(items: { equipmentId: string }[], weapons: WeaponEntry[]): number {
   const perWeapon = new Map<string, number>();
   for (const i of items) {
     const eq = getEquipment(i.equipmentId);
@@ -186,7 +186,7 @@ function ammoBV(items: { equipmentId: string }[], weapons: WeaponEntry[]): numbe
 }
 
 /** BV of defensive equipment (AMS, ECM, active probes) and AMS ammo. */
-function defensiveEquipmentBV(items: { equipmentId: string }[]): number {
+export function defensiveEquipmentBV(items: { equipmentId: string }[]): number {
   let equipment = 0;
   let amsAmmo = 0;
   for (const i of items) {
@@ -418,7 +418,7 @@ const ARMOR_BV_MULTIPLIER: Partial<Record<MechDesign['armorType'], number>> = {
 };
 
 /** Cost of mounted weapons, ammo and equipment. */
-function equipmentCost<T extends { equipmentId: string; location?: string | null }>(
+export function equipmentCost<T extends { equipmentId: string; location?: string | null }>(
   items: T[], weight: (eq: Equipment) => number, rating: number, mech?: MechDesign,
 ): number {
   let total = 0;
