@@ -169,8 +169,9 @@ for (const [name, c] of classes) {
   if (!c.fields.internalName) continue;
   const r = resolve(name)!;
   const flags = new Set(r.flagsAdd);
-  if (!flags.has('F_BA_WEAPON') && !flags.has('F_INFANTRY')) continue;
-  weapons.push(record(flags.has('F_INFANTRY') ? 'infantryWeapon' : 'baWeapon', r, { ancestry: ancestry(name).slice(1) }));
+  if (!flags.has('F_BA_WEAPON') && !flags.has('F_INFANTRY') && !flags.has('F_PROTO_WEAPON')) continue;
+  const kind = flags.has('F_INFANTRY') ? 'infantryWeapon' : flags.has('F_BA_WEAPON') ? 'baWeapon' : 'protoWeapon';
+  weapons.push(record(kind, r, { ancestry: ancestry(name).slice(1) }));
 }
 
 // ---------------------------------------------------------------- misc / ammo / armor (factory methods)
@@ -186,20 +187,25 @@ function factories(file: string, prefix: string): Parsed[] {
 }
 
 const misc = factories('equipment/MiscType.java', 'misc.')
-  .filter((p) => p.flagsAdd.some((f) => f === 'F_BA_EQUIPMENT' || f === 'F_INF_EQUIPMENT' || f === 'F_BA_MANIPULATOR' || f === 'F_ARMOR_KIT' || f === 'F_ANTI_MEK_GEAR'))
+  .filter((p) => p.flagsAdd.some((f) => f === 'F_BA_EQUIPMENT' || f === 'F_INF_EQUIPMENT' || f === 'F_BA_MANIPULATOR' || f === 'F_ARMOR_KIT' || f === 'F_ANTI_MEK_GEAR' || f === 'F_PROTOMEK_EQUIPMENT'))
   .map((p) => record('misc', p, { factory: p.cls ?? null }));
 
 const ammo = factories('equipment/AmmoType.java', 'ammo.')
   .filter((p) => p.flagsAdd.includes('F_BATTLEARMOR') || p.fields.kgPerShot !== undefined || /^BA|BA /.test(String(p.fields.internalName ?? '')))
   .map((p) => record('ammo', p, { factory: p.cls ?? null }));
 
-const armor = factories('equipment/ArmorType.java', 'armor.')
+const armorFactories = factories('equipment/ArmorType.java', 'armor.');
+const armor = armorFactories
   .filter((p) => p.flagsAdd.includes('F_BA_EQUIPMENT') || /^BA|BA /i.test(String(p.fields.internalName ?? p.fields.name ?? '')))
   .map((p) => record('baArmor', p, { factory: p.cls ?? null }));
+// ProtoMech armor: standard and Electric Discharge (EDP).
+const protoArmor = armorFactories
+  .filter((p) => /PROTOMEK|EDP/.test(String(p.fields.armorType ?? '')))
+  .map((p) => record('protoArmor', p, { factory: p.cls ?? null }));
 
 // ---------------------------------------------------------------- compact output for MechForger
 const num = (v: unknown) => (typeof v === 'number' ? v : undefined);
-const KEEP_FLAGS = /^(F_BA_WEAPON|F_INFANTRY|F_INF_\w+|F_MISSILE|F_BALLISTIC|F_ENERGY|F_PLASMA|F_LASER|F_PULSE|F_FLAMER|F_AMS|F_NARC|F_TAG|F_ARTILLERY|F_ONESHOT|F_DOUBLE_ONESHOT|F_BURST_FIRE|F_DIRECT_FIRE|F_BA_EQUIPMENT|F_BA_MANIPULATOR|F_AP_MOUNT|F_ARMORED_GLOVE|F_BASIC_MANIPULATOR|F_BATTLE_CLAW|F_MAGNET_CLAW|F_VIBROCLAW|F_MAGNETIC_CLAMP|F_CAMO_SYSTEM|F_ECM|F_ANGEL_ECM|F_BAP|F_JUMP_BOOSTER|F_MECHANICAL_JUMP_BOOSTER|F_MASC|F_PARTIAL_WING|F_DETACHABLE_WEAPON_PACK|F_SPACE_ADAPTATION|F_HEAT_SENSOR|F_ARMOR_KIT|F_INF_EQUIPMENT|F_ANTI_MEK_GEAR|F_BATTLEARMOR|F_ENCUMBERING|F_TOOLS|F_FIRE_RESISTANT|S_\w+)$/;
+const KEEP_FLAGS = /^(F_PPC|F_PROTO_WEAPON|F_PROTOMEK_EQUIPMENT|F_PROTOMEK_MELEE|F_JUMP_JET|F_UMU|F_EI_INTERFACE|F_BA_WEAPON|F_INFANTRY|F_INF_\w+|F_MISSILE|F_BALLISTIC|F_ENERGY|F_PLASMA|F_LASER|F_PULSE|F_FLAMER|F_AMS|F_NARC|F_TAG|F_ARTILLERY|F_ONESHOT|F_DOUBLE_ONESHOT|F_BURST_FIRE|F_DIRECT_FIRE|F_BA_EQUIPMENT|F_BA_MANIPULATOR|F_AP_MOUNT|F_ARMORED_GLOVE|F_BASIC_MANIPULATOR|F_BATTLE_CLAW|F_MAGNET_CLAW|F_VIBROCLAW|F_MAGNETIC_CLAMP|F_CAMO_SYSTEM|F_ECM|F_ANGEL_ECM|F_BAP|F_JUMP_BOOSTER|F_MECHANICAL_JUMP_BOOSTER|F_MASC|F_PARTIAL_WING|F_DETACHABLE_WEAPON_PACK|F_SPACE_ADAPTATION|F_HEAT_SENSOR|F_ARMOR_KIT|F_INF_EQUIPMENT|F_ANTI_MEK_GEAR|F_BATTLEARMOR|F_ENCUMBERING|F_TOOLS|F_FIRE_RESISTANT|S_\w+)$/;
 function compact(e: ReturnType<typeof record>) {
   const f = e as Record<string, unknown>;
   const t = e.tech as Raw;
@@ -220,13 +226,13 @@ function compact(e: ReturnType<typeof record>) {
   else if (typeof f.damage === 'string') out.damage = String(f.damage).replace(/^DAMAGE_/, '').toLowerCase();
   if (typeof f.ammoType === 'string' && f.ammoType !== 'NA') out.ammoType = f.ammoType;
   if (typeof f.armorType === 'string') out.armorType = String(f.armorType).replace(/^T_ARMOR_/, '');
-  if (e.kind === 'baWeapon' || e.kind === 'infantryWeapon') {
+  if (e.kind === 'baWeapon' || e.kind === 'infantryWeapon' || e.kind === 'protoWeapon') {
     if (range.some((x) => x)) out.range = range;
     out.parent = (f.ancestry as string[] | undefined)?.[0];
   }
   return out;
 }
-const all = [...weapons, ...misc, ...ammo, ...armor.filter((a) => !/^BAR/.test(String(a.internalName)))].map(compact);
+const all = [...weapons, ...misc, ...ammo, ...armor.filter((a) => !/^BAR/.test(String(a.internalName))), ...protoArmor].map(compact);
 // Keep the first entry per internal name.
 const seen = new Set<string>();
 const unique = all.filter((e) => (seen.has(String(e.id)) ? false : (seen.add(String(e.id)), true)));

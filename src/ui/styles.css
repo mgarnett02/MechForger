@@ -683,6 +683,8 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 .rs-troopers .pips > span { width: 10px; height: 10px; }
 .rs-trooper-track { display: inline-flex; align-items: center; gap: 6px; flex-wrap: nowrap; }
 .rs-trooper-track .pips { display: inline-flex; flex-wrap: nowrap; }
+.protomech .rs-grid-ba { grid-template-columns: 1fr 1.15fr; }
+.protomech .rs-troopers .pips { display: inline-flex; flex-wrap: wrap; }
 
 /* Infantry damage-by-troopers strip (editor and record sheet) */
 .inf-damage { display: grid; grid-template-columns: repeat(auto-fill, minmax(2.2rem, 1fr)); gap: 2px; font-size: 0.8rem; text-align: center; }

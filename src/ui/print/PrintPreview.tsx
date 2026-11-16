@@ -5,7 +5,7 @@ import type { VehicleDesign } from '../../rules/vehicle';
 import { isVehicle } from '../../rules/vehicle';
 import type { SupportVehicleDesign } from '../../rules/support';
 import { isSupport } from '../../rules/support';
-import { BattleArmorRecordSheet, InfantryRecordSheet, FighterRecordSheet, MechRecordSheet, SupportRecordSheet, VehicleRecordSheet, VesselRecordSheet } from './RecordSheets';
+import { ProtoMechRecordSheet, BattleArmorRecordSheet, InfantryRecordSheet, FighterRecordSheet, MechRecordSheet, SupportRecordSheet, VehicleRecordSheet, VesselRecordSheet } from './RecordSheets';
 import type { VesselDesign } from '../../rules/vessel';
 import { isVessel } from '../../rules/vessel';
 import type { FighterDesign } from '../../rules/fighter';
@@ -13,10 +13,12 @@ import { isFighter } from '../../rules/fighter';
 import type { BattleArmorDesign } from '../../rules/battlearmor';
 import { isBattleArmor } from '../../rules/battlearmor';
 import type { InfantryDesign } from '../../rules/infantry';
+import type { ProtoMechDesign } from '../../rules/protomech';
+import { isProtoMech } from '../../rules/protomech';
 import { isInfantry } from '../../rules/infantry';
 
 interface Props {
-  design: MechDesign | VehicleDesign | SupportVehicleDesign | FighterDesign | VesselDesign | BattleArmorDesign | InfantryDesign;
+  design: MechDesign | VehicleDesign | SupportVehicleDesign | FighterDesign | VesselDesign | BattleArmorDesign | InfantryDesign | ProtoMechDesign;
   onClose: () => void;
 }
 
@@ -24,7 +26,7 @@ type Paper = 'letter' | 'a4';
 
 /** Full-screen preview of the record sheet(s), printed with the browser / app print dialog. */
 export function PrintPreview({ design, onClose }: Props) {
-  const isMech = !isVehicle(design) && !isSupport(design) && !isFighter(design) && !isVessel(design) && !isBattleArmor(design) && !isInfantry(design);
+  const isMech = !isVehicle(design) && !isSupport(design) && !isFighter(design) && !isVessel(design) && !isBattleArmor(design) && !isInfantry(design) && !isProtoMech(design);
   const mech = isMech ? (design as MechDesign) : null;
   const [allConfigs, setAllConfigs] = useState(false);
   const [paper, setPaper] = useState<Paper>(() => (navigator.language === 'en-US' ? 'letter' : 'a4'));
@@ -74,6 +76,7 @@ export function PrintPreview({ design, onClose }: Props) {
       <div className={`print-pages paper-${paper}`}>
         {isMech
           ? mechs.map((m, i) => <MechRecordSheet key={i} design={m} />)
+          : isProtoMech(design) ? <ProtoMechRecordSheet design={design} />
           : isBattleArmor(design) ? <BattleArmorRecordSheet design={design} />
           : isInfantry(design) ? <InfantryRecordSheet design={design} />
           : isVessel(design) ? <VesselRecordSheet design={design} />

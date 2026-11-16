@@ -11,13 +11,15 @@ import { isVessel, parseVessel } from '../rules/vessel';
 import type { BattleArmorDesign } from '../rules/battlearmor';
 import { isBattleArmor, parseBattleArmor } from '../rules/battlearmor';
 import type { InfantryDesign } from '../rules/infantry';
+import type { ProtoMechDesign } from '../rules/protomech';
+import { isProtoMech, parseProtoMech } from '../rules/protomech';
 import { isInfantry, parseInfantry } from '../rules/infantry';
 
-export type AnyDesign = MechDesign | VehicleDesign | SupportVehicleDesign | FighterDesign | VesselDesign | BattleArmorDesign | InfantryDesign;
-export type UnitType = 'mech' | 'vehicle' | 'support' | 'fighter' | 'vessel' | 'battlearmor' | 'infantry';
+export type AnyDesign = MechDesign | VehicleDesign | SupportVehicleDesign | FighterDesign | VesselDesign | BattleArmorDesign | InfantryDesign | ProtoMechDesign;
+export type UnitType = 'mech' | 'vehicle' | 'support' | 'fighter' | 'vessel' | 'battlearmor' | 'infantry' | 'protomech';
 
 export function unitTypeOf(d: AnyDesign): UnitType {
-  return isInfantry(d) ? 'infantry' : isBattleArmor(d) ? 'battlearmor' : isVessel(d) ? 'vessel' : isFighter(d) ? 'fighter' : isSupport(d) ? 'support' : isVehicle(d) ? 'vehicle' : 'mech';
+  return isProtoMech(d) ? 'protomech' : isInfantry(d) ? 'infantry' : isBattleArmor(d) ? 'battlearmor' : isVessel(d) ? 'vessel' : isFighter(d) ? 'fighter' : isSupport(d) ? 'support' : isVehicle(d) ? 'vehicle' : 'mech';
 }
 
 const KEY = 'mechforger.designs.v1';
@@ -28,6 +30,7 @@ const CURRENT_FIGHTER = 'mechforger.currentFighter.v1';
 const CURRENT_VESSEL = 'mechforger.currentVessel.v1';
 const CURRENT_BA = 'mechforger.currentBattleArmor.v1';
 const CURRENT_INF = 'mechforger.currentInfantry.v1';
+const CURRENT_PROTO = 'mechforger.currentProtoMech.v1';
 const UNIT = 'mechforger.unit.v1';
 
 /** Carry a canon design's Master Unit List id through parsing. */
@@ -38,6 +41,7 @@ function keepMul<T extends object>(raw: unknown, d: T): T {
 
 /** Parse a saved or imported file as whichever kind of design it is. */
 export function parseAny(raw: unknown): AnyDesign {
+  if (isProtoMech(raw)) return keepMul(raw, parseProtoMech(raw));
   if (isInfantry(raw)) return keepMul(raw, parseInfantry(raw));
   if (isBattleArmor(raw)) return keepMul(raw, parseBattleArmor(raw));
   if (isVessel(raw)) return keepMul(raw, parseVessel(raw));
@@ -120,7 +124,7 @@ export function saveCurrentVehicle(d: VehicleDesign) {
 
 export function loadUnit(): UnitType {
   const u = read(UNIT);
-  return u === 'vehicle' || u === 'support' || u === 'fighter' || u === 'vessel' || u === 'battlearmor' || u === 'infantry' ? u : 'mech';
+  return u === 'vehicle' || u === 'support' || u === 'fighter' || u === 'vessel' || u === 'battlearmor' || u === 'infantry' || u === 'protomech' ? u : 'mech';
 }
 
 export function loadCurrentSupport(): SupportVehicleDesign | null {
@@ -191,6 +195,20 @@ export function loadCurrentInfantry(): InfantryDesign | null {
 
 export function saveCurrentInfantry(d: InfantryDesign) {
   write(CURRENT_INF, d);
+}
+
+export function loadCurrentProtoMech(): ProtoMechDesign | null {
+  const raw = read(CURRENT_PROTO);
+  if (!raw) return null;
+  try {
+    return keepMul(raw, parseProtoMech(raw));
+  } catch {
+    return null;
+  }
+}
+
+export function saveCurrentProtoMech(d: ProtoMechDesign) {
+  write(CURRENT_PROTO, d);
 }
 
 export function saveUnit(unit: UnitType) {

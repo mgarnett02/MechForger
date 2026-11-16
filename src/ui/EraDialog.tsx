@@ -8,7 +8,7 @@ import { DISCLAIMER_SHORT } from './legal';
 interface Props {
   current: EraId;
   currentTechBase: TechBase;
-  onSelect: (era: EraId, techBase: TechBase, unit: 'mech' | 'vehicle' | 'support' | 'fighter' | 'vessel' | 'battlearmor' | 'infantry') => void;
+  onSelect: (era: EraId, techBase: TechBase, unit: 'mech' | 'vehicle' | 'support' | 'fighter' | 'vessel' | 'battlearmor' | 'infantry' | 'protomech') => void;
   /** When provided the dialog can be dismissed without choosing (Esc / Cancel). */
   onCancel?: () => void;
   theme: ThemeChoice;
@@ -66,8 +66,8 @@ export function EraDialog({ current, currentTechBase, onSelect, onCancel, theme,
     setPending(era);
     setStep('unit');
   };
-  const [unit, setUnit] = useState<'mech' | 'vehicle' | 'support' | 'fighter' | 'vessel' | 'battlearmor' | 'infantry'>('mech');
-  const pickUnit = (u: 'mech' | 'vehicle' | 'support' | 'fighter' | 'vessel' | 'battlearmor' | 'infantry') => {
+  const [unit, setUnit] = useState<'mech' | 'vehicle' | 'support' | 'fighter' | 'vessel' | 'battlearmor' | 'infantry' | 'protomech'>('mech');
+  const pickUnit = (u: 'mech' | 'vehicle' | 'support' | 'fighter' | 'vessel' | 'battlearmor' | 'infantry' | 'protomech') => {
     if (!pending) return;
     setUnit(u);
     if (pending.techBases.length === 1) onSelect(pending.id, pending.techBases[0], u);
@@ -123,6 +123,13 @@ export function EraDialog({ current, currentTechBase, onSelect, onCancel, theme,
                 </span>
                 <span className="era-year">Battle Armor</span>
                 <span className="era-desc">Powered armor squads: weight class, manipulators, jump/VTOL/UMU, weapons and anti-personnel mounts.</span>
+              </button>
+              <button className="era-btn" onClick={() => pickUnit('protomech')}>
+                <span className="unit-icon" aria-hidden="true">
+                  <svg viewBox="0 0 48 48" width="40" height="40"><path d="M20 6h8v7h-8zM14 15h20l3 12h-4l-1-5v10h-3l2 12h-5l-2-10-2 10h-5l2-12h-3V22l-1 5h-4z" fill="currentColor" /></svg>
+                </span>
+                <span className="era-year">ProtoMech</span>
+                <span className="era-desc">Clan ProtoMechs of 2–15 tons: biped, quad and glider, ultraheavy, main gun, jump jets and myomer boosters.</span>
               </button>
               <button className="era-btn" onClick={() => pickUnit('infantry')}>
                 <span className="unit-icon" aria-hidden="true">

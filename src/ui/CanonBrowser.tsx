@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CanonEntry } from '../data/canonFormat';
-import { decodeBattleArmor, decodeInfantry, decodeFighter, decodeMech, decodeSupport, decodeVehicle, decodeVessel } from '../data/canonFormat';
+import { decodeProtoMech, decodeBattleArmor, decodeInfantry, decodeFighter, decodeMech, decodeSupport, decodeVehicle, decodeVessel } from '../data/canonFormat';
 import { BA_MOTION_NAMES, BA_WEIGHT_CLASS_NAMES } from '../rules/battlearmor';
 import type { BAMotion } from '../rules/battlearmor';
 import { INFANTRY_MOTION_NAMES } from '../rules/infantry';
@@ -20,6 +20,7 @@ interface Props {
 const PAGE = 150;
 
 function weightClass(t: number, unit: UnitType, k = ''): string {
+  if (unit === 'protomech') return t <= 4 ? 'Light' : t <= 7 ? 'Medium' : t <= 9 ? 'Heavy' : 'Ultraheavy';
   if (unit === 'battlearmor') return BA_WEIGHT_CLASS_NAMES[Number(k.split(':')[0])] ?? '';
   if (unit === 'infantry') return ['leg', 'jump', 'motorized', 'umu', 'motorized-umu', 'beast'].includes(k) ? 'Foot / jump / motorized' : 'Mechanized';
   if (unit === 'support') {
@@ -42,6 +43,9 @@ function kindLabel(k: string): string {
   if (k in INFANTRY_MOTION_NAMES) return INFANTRY_MOTION_NAMES[k as InfantryMotion];
   const ba = /^(\d):(biped|quad):(\w+)$/.exec(k);
   if (ba) return `${BA_WEIGHT_CLASS_NAMES[Number(ba[1])]} ${ba[2]}${ba[3] === 'leg' ? '' : ` (${BA_MOTION_NAMES[ba[3] as BAMotion].toLowerCase()})`}`;
+  if (k === 'proto-biped') return 'ProtoMech';
+  if (k === 'proto-quad') return 'Quad ProtoMech';
+  if (k === 'proto-glider') return 'Glider ProtoMech';
   if (k === 'mech') return 'BattleMech';
   if (k === 'quad') return 'Quad BattleMech';
   if (k === 'lam') return "Land-Air 'Mech";
@@ -84,7 +88,8 @@ export function CanonBrowser({ unit, onLoad, onClose }: Props) {
   useEffect(() => {
     setEntries(null);
     setSub('');
-    const load = kind === 'infantry' ? import('../data/canon/infantry.json')
+    const load = kind === 'protomech' ? import('../data/canon/protomechs.json')
+      : kind === 'infantry' ? import('../data/canon/infantry.json')
       : kind === 'battlearmor' ? import('../data/canon/battlearmor.json')
       : kind === 'vessel' ? import('../data/canon/vessels.json')
       : kind === 'fighter' ? import('../data/canon/fighters.json')
@@ -126,7 +131,7 @@ export function CanonBrowser({ unit, onLoad, onClose }: Props) {
   }, [entries, query, tech, era, cls, sub, legalOnly, mulOnly, kind]);
 
   const open = (e: CanonEntry) => {
-    const d: AnyDesign = (kind === 'infantry' ? decodeInfantry(e.d) : kind === 'battlearmor' ? decodeBattleArmor(e.d) : kind === 'vessel' ? decodeVessel(e.d) : kind === 'fighter' ? decodeFighter(e.d) : kind === 'support' ? decodeSupport(e.d) : kind === 'vehicle' ? decodeVehicle(e.d) : decodeMech(e.d));
+    const d: AnyDesign = (kind === 'protomech' ? decodeProtoMech(e.d) : kind === 'infantry' ? decodeInfantry(e.d) : kind === 'battlearmor' ? decodeBattleArmor(e.d) : kind === 'vessel' ? decodeVessel(e.d) : kind === 'fighter' ? decodeFighter(e.d) : kind === 'support' ? decodeSupport(e.d) : kind === 'vehicle' ? decodeVehicle(e.d) : decodeMech(e.d));
     onLoad(e.mul ? { ...d, mulId: e.mul } : d);
     onClose();
   };
@@ -143,6 +148,7 @@ export function CanonBrowser({ unit, onLoad, onClose }: Props) {
             <button role="radio" aria-checked={kind === 'fighter'} className={kind === 'fighter' ? 'active' : ''} onClick={() => setKind('fighter')}>Fighters</button>
             <button role="radio" aria-checked={kind === 'vessel'} className={kind === 'vessel' ? 'active' : ''} onClick={() => setKind('vessel')}>Spacecraft</button>
             <button role="radio" aria-checked={kind === 'battlearmor'} className={kind === 'battlearmor' ? 'active' : ''} onClick={() => setKind('battlearmor')}>Battle armor</button>
+            <button role="radio" aria-checked={kind === 'protomech'} className={kind === 'protomech' ? 'active' : ''} onClick={() => setKind('protomech')}>ProtoMechs</button>
             <button role="radio" aria-checked={kind === 'infantry'} className={kind === 'infantry' ? 'active' : ''} onClick={() => setKind('infantry')}>Infantry</button>
           </div>
           <span className="spacer" />
@@ -161,7 +167,7 @@ export function CanonBrowser({ unit, onLoad, onClose }: Props) {
           </select>
           <select aria-label="Weight class" value={cls} onChange={(e) => setCls(e.target.value)}>
             <option value="">All weights</option>
-            {(kind === 'infantry' ? ['Foot / jump / motorized', 'Mechanized'] : kind === 'battlearmor' ? [...BA_WEIGHT_CLASS_NAMES] : kind === 'support' ? ['Small', 'Medium', 'Large'] : kind === 'fighter' ? ['Light', 'Medium', 'Heavy'] : kind === 'vessel' ? ['Small craft', 'Small DropShip', 'Medium DropShip', 'Large DropShip'] : ['Light', 'Medium', 'Heavy', 'Assault', ...(kind === 'vehicle' ? ['Super-heavy'] : [])]).map((c) => <option key={c}>{c}</option>)}
+            {(kind === 'protomech' ? ['Light', 'Medium', 'Heavy', 'Ultraheavy'] : kind === 'infantry' ? ['Foot / jump / motorized', 'Mechanized'] : kind === 'battlearmor' ? [...BA_WEIGHT_CLASS_NAMES] : kind === 'support' ? ['Small', 'Medium', 'Large'] : kind === 'fighter' ? ['Light', 'Medium', 'Heavy'] : kind === 'vessel' ? ['Small craft', 'Small DropShip', 'Medium DropShip', 'Large DropShip'] : ['Light', 'Medium', 'Heavy', 'Assault', ...(kind === 'vehicle' ? ['Super-heavy'] : [])]).map((c) => <option key={c}>{c}</option>)}
           </select>
           <select aria-label="Type" value={sub} onChange={(e) => setSub(e.target.value)}>
             <option value="">All types</option>

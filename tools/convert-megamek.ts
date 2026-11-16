@@ -28,8 +28,10 @@ import { fighterBV, mechBV, mechCost, vehicleBV, vehicleCost, vesselBV } from '.
 import type { MotiveType, VehicleArmorType, VehicleDesign, VehicleEngineType, VehicleLocation } from '../src/rules/vehicle';
 import { computeVehicle, emptyVehicleArmor, hasSixFacings, motiveMaxTonnage, validateVehicle, vehicleFreeHeatSinks } from '../src/rules/vehicle';
 import { armorPointsPerTon } from '../src/rules/tables';
-import { encodeBattleArmor, encodeInfantry, encodeFighter, encodeMech, encodeSupport, encodeVehicle, encodeVessel } from '../src/data/canonFormat';
+import { encodeBattleArmor, encodeProtoMech, encodeInfantry, encodeFighter, encodeMech, encodeSupport, encodeVehicle, encodeVessel } from '../src/data/canonFormat';
 import type { BAItem, BattleArmorDesign } from '../src/rules/battlearmor';
+import type { ProtoItem, ProtoLocation, ProtoMechDesign } from '../src/rules/protomech';
+import { PROTO_EDP_ARMOR, PROTO_STANDARD_ARMOR, computeProtoMech, emptyProtoArmor, protoMechBV, validateProtoMech } from '../src/rules/protomech';
 import { battleArmorBV, computeBattleArmor, syncArmorSlots, validateBattleArmor } from '../src/rules/battlearmor';
 import { MM_EQUIPMENT, findMM } from '../src/rules/mmEquipment';
 import type { Augmentation, FieldGun, InfantryDesign, InfantryMotion } from '../src/rules/infantry';
@@ -813,6 +815,55 @@ function parseBattleArmorBlk(text: string): { design: BattleArmorDesign; year: n
 }
 
 // ---------------------------------------------------------------------------------------------------------------
+// ProtoMechs
+// ---------------------------------------------------------------------------------------------------------------
+
+const PROTO_BLOCKS: [string, ProtoLocation][] = [
+  ['Body Equipment', 'BD'], ['Head Equipment', 'HD'], ['Torso Equipment', 'TO'], ['Right Arm Equipment', 'RA'],
+  ['Left Arm Equipment', 'LA'], ['Legs Equipment', 'LG'], ['Main Gun Equipment', 'MG'],
+];
+
+function parseProtoBlk(text: string): { design: ProtoMechDesign; year: number; mulId?: number; source: string } {
+  const tags = new Map<string, string[]>();
+  const re = /<([^/>]+)>\s*\n([\s\S]*?)\n<\/\1>/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text))) tags.set(m[1].toLowerCase(), m[2].split(/\r?\n/).map((x) => x.trim()).filter(Boolean));
+  const one = (k: string) => tags.get(k.toLowerCase())?.[0] ?? '';
+  const int = (k: string) => Number(one(k)) || 0;
+  const typeStr = one('type');
+  const mixedTech = /^Mixed/.test(typeStr);
+  const techBase: TechBase = /^IS|Inner Sphere/.test(typeStr) || /IS Chassis/.test(typeStr) ? 'IS' : 'Clan';
+  const motion = ({ biped: 'biped', quad: 'quad', wige: 'glider', glider: 'glider' } as const)[one('motion_type').toLowerCase() as 'biped'] ?? fail(`proto motion ${one('motion_type')}`);
+  const armorId = ({ 42: PROTO_STANDARD_ARMOR, 18: PROTO_EDP_ARMOR } as Record<string, string>)[one('armor_type') || '42'] ?? fail(`proto armor ${one('armor_type')}`);
+  const equipment: ProtoItem[] = [];
+  let uid = 0;
+  for (const [tag, loc] of PROTO_BLOCKS) {
+    for (const raw0 of tags.get(tag.toLowerCase()) ?? []) {
+      let raw = raw0;
+      const rear = /\(R\)/.test(raw);
+      raw = raw.replace(/\(R\)/, '').replace(/:OMNI$/i, '').trim();
+      let shots: number | undefined;
+      const sm = /^(.*?)\s*\((\d+)\)$/.exec(raw);
+      if (sm && /ammo/i.test(sm[1])) { raw = sm[1]; shots = Number(sm[2]); }
+      const e = findMM(raw, techBase) ?? findMM(raw.replace(/^CL/, 'Clan '), techBase) ?? fail(`unknown proto item "${raw}"`);
+      if (e.kind === 'protoArmor') continue;
+      if (e.kind === 'ammo' && shots === undefined) shots = e.shots ?? 1;
+      equipment.push({ uid: `p${uid++}`, equipmentId: e.id, location: loc, ...(shots !== undefined ? { shots } : {}), ...(rear ? { rear: true } : {}) });
+    }
+  }
+  const values = (tags.get('armor') ?? []).map(Number);
+  const armor = emptyProtoArmor();
+  (['HD', 'TO', 'RA', 'LA', 'LG', 'MG'] as const).forEach((l, i) => { armor[l] = values[i] ?? 0; });
+  const design: ProtoMechDesign = {
+    schemaVersion: 1, unitType: 'protomech', era: '3062', techBase, mixedTech,
+    chassis: one('Name'), model: one('Model'), tonnage: Number(one('tonnage')) || 2, motion,
+    walkMP: int('cruiseMP'), armorId, ...(one('interface_cockpit') === 'true' ? { interfaceCockpit: true } : {}),
+    armor, equipment,
+  };
+  return { design, year: Number(one('year')) || 3060, mulId: Number(one('mul id:')) || undefined, source: one('source') };
+}
+
+// ---------------------------------------------------------------------------------------------------------------
 // Conventional infantry
 // ---------------------------------------------------------------------------------------------------------------
 
@@ -1337,6 +1388,40 @@ function main() {
   vessels.sort((a, b) => a.n.localeCompare(b.n));
   fs.writeFileSync(path.join(outDir, 'vessels.json'), JSON.stringify(official(vessels)));
   console.log(`Small craft / DropShips / large craft: ${vessels.length} converted, ${vslSkipped} skipped; exact tonnage ${vessels.filter((e) => e.w).length}, fully legal ${vessels.filter((e) => e.ok).length}`);
+
+  // --- ProtoMechs
+  const pmFiles = walk(path.join(root, 'data/mekfiles/protomeks'), '.blk').sort();
+  const protomechs: CanonEntry[] = [];
+  let pmSkipped = 0;
+  const pmseen = new Set<string>();
+  for (const f of pmFiles) {
+    const text = fs.readFileSync(f, 'utf8');
+    if (!/<UnitType>\s*\nProtoMek\n/.test(text)) continue;
+    try {
+      const p = parseProtoBlk(text);
+      const key = `${p.design.chassis} ${p.design.model}`;
+      if (pmseen.has(key)) continue;
+      pmseen.add(key);
+      const d = settleEra(p.design, p.year, (x) => validateProtoMech(x).map((i) => i.message));
+      const s = computeProtoMech(d);
+      const issues = validateProtoMech(d, s);
+      if (process.env.PM_DEBUG && issues.some((i) => i.severity === 'error' || /unused/.test(i.message))) {
+        console.error(`${key}: ${issues.map((i) => i.message).join(' | ')}`);
+      }
+      protomechs.push({
+        n: key.trim(), t: d.tonnage, tb: d.techBase, era: d.era, y: p.year, k: `proto-${d.motion}`, bv: protoMechBV(d, s).total,
+        ok: issues.every((i) => i.severity !== 'error'), w: s.weights.free > -1e-9,
+        src: p.source, mul: p.mulId, d: encodeProtoMech(d),
+      });
+    } catch (e) {
+      if (!(e instanceof Unsupported)) throw new Error(`${f}: ${(e as Error).stack}`);
+      pmSkipped++;
+      note(`protomech: ${e.message}`);
+    }
+  }
+  protomechs.sort((a, b) => a.n.localeCompare(b.n));
+  fs.writeFileSync(path.join(outDir, 'protomechs.json'), JSON.stringify(official(protomechs)));
+  console.log(`ProtoMechs: ${protomechs.length} converted, ${pmSkipped} skipped; exact tonnage ${protomechs.filter((e) => e.w).length}, fully legal ${protomechs.filter((e) => e.ok).length}`);
 
   // --- Battle armor
   const baFiles = walk(path.join(root, 'data/mekfiles/battlearmor'), '.blk').sort();

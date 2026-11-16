@@ -20,10 +20,12 @@ import type { VesselArc, VesselDesign } from '../../rules/vessel';
 import { BAY_INFO, VESSEL_ARMOR_NAMES, VESSEL_LOCATION_NAMES, VESSEL_TYPE_NAMES, armorThreshold as vesselThreshold, computeVessel, isLargeCraft, kfIntegrity } from '../../rules/vessel';
 import { vesselSheetData } from '../../rules/recordSheet';
 import { vesselBV, vesselCost } from '../../rules/battleValue';
+import type { ProtoItem, ProtoMechDesign } from '../../rules/protomech';
+import { PROTO_ARMOR_LOCATIONS, PROTO_LOCATION_NAMES, PROTO_MOTION_NAMES, computeProtoMech, protoMaxArmor, protoMechBV, protoMechCost } from '../../rules/protomech';
 import type { BAItem, BattleArmorDesign } from '../../rules/battlearmor';
 import { BA_MOTION_NAMES, BA_WEIGHT_CLASS_NAMES, battleArmorBV, battleArmorCost, canMakeAntiMek, computeBattleArmor } from '../../rules/battlearmor';
 import type { MMItem } from '../../rules/mmEquipment';
-import { getMM, mmName } from '../../rules/mmEquipment';
+import { getMM, has, mmName } from '../../rules/mmEquipment';
 import type { InfantryDesign } from '../../rules/infantry';
 import { INFANTRY_MOTION_NAMES, SPECIALIZATION_NAMES, computeInfantry, damageTable, infantryBV, infantryCost } from '../../rules/infantry';
 import type { AmmoRow, EquipmentRow, WeaponRow } from '../../rules/recordSheet';
@@ -967,6 +969,102 @@ export function BattleArmorRecordSheet({ design }: { design: BattleArmorDesign }
             <Field label="Gunnery Skill" /><Field label="Anti-'Mech Skill" />
           </div>
           <p className="rs-note left">BV per trooper {Math.round(bv.perTrooper)} · each trooper weighs {Math.round(s.weights.total * 1000)} kg (limit {Math.round(s.trooperLimit * 1000)} kg).</p>
+        </Panel>
+      </div>
+      <Footer />
+    </article>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// ProtoMechs
+// ---------------------------------------------------------------------------
+
+/** A ProtoMech point: the unit's data once, then five copies of the damage tracks. */
+export function ProtoMechRecordSheet({ design }: { design: ProtoMechDesign }) {
+  const s = computeProtoMech(design);
+  const name = `${design.chassis} ${design.model}`.trim() || 'Unnamed';
+  const bv = protoMechBV(design, s);
+  const items = design.equipment.map((i) => ({ i, e: getMM(i.equipmentId) }))
+    .filter((x): x is { i: ProtoItem; e: MMItem } => !!x.e && !has(x.e, 'F_JUMP_JET') && !has(x.e, 'F_EI_INTERFACE'));
+  const weapons = items.filter(({ e }) => e.kind !== 'misc' && e.kind !== 'ammo');
+  const other = items.filter(({ e }) => e.kind === 'misc' || e.kind === 'ammo');
+  const dmg = (e: MMItem) => {
+    if (typeof e.damage === 'number') return String(e.damage);
+    if (e.rackSize) return `${/SRM/.test(e.ammoType ?? '') ? 2 : 1}/Msl [${e.rackSize}]`;
+    return 'special';
+  };
+  const locs = PROTO_ARMOR_LOCATIONS.filter((l) => protoMaxArmor(design, l) > 0 || s.structure[l] > 0);
+  return (
+    <article className="record-sheet vehicle battlearmor protomech">
+      <SheetHeader kind="ProtoMech Record Sheet" name={name} />
+      <div className="rs-grid-ba">
+        <Panel title="ProtoMech Data" className="area-data">
+          <div className="rs-fields">
+            <Field label="Type" value={`${name} — ${design.tonnage}-ton ${PROTO_MOTION_NAMES[design.motion].toLowerCase()}${s.ultraheavy ? ' (ultraheavy)' : ''}`} wide />
+            <div className="rs-move">
+              <span className="rs-label">Movement:</span>
+              <Field label="Walk" value={design.walkMP} />
+              <Field label="Run" value={s.boostedRunMP ? `${s.runMP} [${s.boostedRunMP}]` : s.runMP} />
+              {s.jumpMP > 0 && <Field label="Jump" value={s.jumpMP} />}
+              {s.umuMP > 0 && <Field label="UMU" value={s.umuMP} />}
+            </div>
+            <Field label="Tech Base" value={techBase(design)} />
+            <Field label="Era" value={eraName(design)} />
+            <Field label="Rules Level" value={rulesLevel(design)} />
+            <Field label="Battle Value" value={bv.total.toLocaleString('en-US')} />
+            <Field label="Cost" value={`${protoMechCost(design, s).total.toLocaleString('en-US')} C-bills`} />
+            <Field label="Armor" value={mmName(getMM(design.armorId) ?? ({ name: design.armorId } as MMItem))} />
+          </div>
+          <div className="rs-inventory">
+            <div className="rs-subtitle">Weapons</div>
+            <table className="rs-table">
+              <thead><tr><th className="left">Type</th><th>Loc</th><th>Ht</th><th>Dmg</th><th>Min</th><th>Sht</th><th>Med</th><th>Lng</th></tr></thead>
+              <tbody>
+                {weapons.map(({ i, e }) => {
+                  const r = e.range ?? [0, 0, 0, 0];
+                  return (
+                    <tr key={i.uid}>
+                      <td className="left">{mmName(e)}{i.rear ? ' (R)' : ''}</td>
+                      <td>{i.location ?? '—'}</td><td>{e.heat ?? 0}</td><td>{dmg(e)}</td><td>{r[0] || '—'}</td><td>{r[1] || '—'}</td><td>{r[2] || '—'}</td><td>{r[3] || '—'}</td>
+                    </tr>
+                  );
+                })}
+                {weapons.length === 0 && <tr><td colSpan={8} className="rs-empty">No weapons</td></tr>}
+              </tbody>
+            </table>
+            <div className="rs-subtitle" style={{ marginTop: 4 }}>Equipment</div>
+            <table className="rs-table">
+              <tbody>
+                {other.map(({ i, e }) => (
+                  <tr key={i.uid}><td className="left">{mmName(e)}{e.kind === 'ammo' ? ` (${i.shots ?? 0} shots)` : ''}</td><td>{i.location === 'BD' ? 'Body' : i.location ?? '—'}</td></tr>
+                ))}
+                {other.length === 0 && <tr><td colSpan={2} className="rs-empty">None</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </Panel>
+
+        <Panel title="Point (5 ProtoMechs)" className="area-armor">
+          <table className="rs-table rs-troopers">
+            <thead><tr><th>#</th><th className="left">Location: armor and structure</th></tr></thead>
+            <tbody>
+              {[1, 2, 3, 4, 5].map((n) => (
+                <tr key={n}>
+                  <td>{n}</td>
+                  <td className="left">
+                    {locs.map((l) => (
+                      <div key={l} style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+                        <span className="rs-label" style={{ width: '5.5em', flex: 'none' }}>{PROTO_LOCATION_NAMES[l]}</span>
+                        <Pips count={design.armor[l]} kind="armor" /><Pips count={s.structure[l]} kind="structure" />
+                      </div>
+                    ))}
+                    <div className="rs-fields"><Field label="Pilot" /><Field label="Gunnery" /></div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </Panel>
       </div>
       <Footer />

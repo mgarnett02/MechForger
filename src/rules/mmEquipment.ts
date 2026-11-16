@@ -11,7 +11,7 @@ import type { TechBase } from './types';
 export interface MMItem {
   id: string;
   name: string;
-  kind: 'baWeapon' | 'infantryWeapon' | 'misc' | 'ammo' | 'baArmor';
+  kind: 'baWeapon' | 'infantryWeapon' | 'protoWeapon' | 'misc' | 'ammo' | 'baArmor' | 'protoArmor';
   techBase: TechBase | 'Both';
   introIS: number | null;
   introClan: number | null;

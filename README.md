@@ -113,6 +113,18 @@ Everything above, plus (Inner Sphere technology; Clan designs need mixed tech):
 - Rotary AC/2 and AC/5, iNarc, Improved C3 and the Inner Sphere targeting computer
 - Light, Heavy and Snub-Nose PPCs and ER flamers (IS and Clan), introduced 3067
 
+### ProtoMechs (Clan, from 3059)
+
+- **ProtoMechs** of 2–9 tons and **ultraheavy** ProtoMechs of 10–15 tons; biped, **quad** and
+  **glider** (WiGE) configurations, with the engine rating, structure, armor maximums, torso / arm /
+  main gun slot and weight limits and the heat-sink rule of MegaMek's ProtoMech validator
+- Proto-sized missile launchers, a **main gun**, rear-firing torso weapons, ammunition bought by the
+  shot, standard and **extended jump jets**, UMUs, the **myomer booster**, magnetic clamps, partial
+  wings, ProtoMech melee weapons and the quad melee system, and **Electric Discharge ProtoMech armor**
+- BV and cost as in MegaMek (gliders +1 TMM, the ProtoMech +0.1 defensive factor, melee weapons by
+  tonnage, the EI interface free); a record sheet with the data block and five damage tracks for a point
+- 86 canon ProtoMechs (85 legal; the Svartalfa 3 is 100 kg over under the published rules)
+
 ### 3068 Jihad — Inner Sphere or Clan, Standard rules
 
 Everything above, plus:
@@ -276,7 +288,7 @@ fixed-wing support).
 - **Canon units**: about 3,240 canon 'Mechs (about 110 of them IndustrialMechs), including 47 quads, 19 Land-Air 'Mechs, 3 superheavies, 5 tripods (with the Ares superheavy tripod OmniMech), 5 QuadVee designs and around 100 melee-armed designs (OmniMechs with all their
   configurations), about 1,050 canon combat vehicles (10 superheavies) (OmniVehicles with all their configurations), 160 support vehicles, about 480 aerospace, Omni, primitive and
   conventional fighters and about 380 spacecraft (small craft, DropShips, JumpShips, WarShips and
-  space stations), about 1,190 battle armor squads and about 1,990 infantry platoons, searchable by name, era, tech base,
+  space stations), about 1,190 battle armor squads, 86 ProtoMechs and about 1,990 infantry platoons, searchable by name, era, tech base,
   weight and type, ready to load, modify and print (see *Canon unit data* below)
   - Apocryphal (video-game and other non-canon) designs are left out. A canon design keeps its Master
     Unit List id: the editor shows it as a link to the unit's MUL page. Units without a MUL entry
