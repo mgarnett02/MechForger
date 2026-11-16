@@ -81,6 +81,8 @@ function bvHeat(eq: Equipment): number {
   if (/(^|-)uac-/.test(eq.id)) return eq.heat * 2;
   if (/(^|-)rac-/.test(eq.id)) return eq.heat * 6;
   if (/streak/.test(eq.id)) return eq.heat / 2;
+  // Prototype lasers with 1d6 extra heat count half of it (+3) for BV (MegaMek).
+  if (eq.id === 'er-large-laser-prototype' || eq.id === 'medium-pulse-laser-prototype') return eq.heat + 3;
   return eq.heat;
 }
 

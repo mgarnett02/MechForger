@@ -10,7 +10,7 @@ import {
   weightClass,
 } from './tables';
 import type { Equipment } from './equipment';
-import { ARMORED_TONS_PER_SLOT, HEAT_SINK_IDS, JUMP_JET_IDS, canArmor, canArmorSystem, equipmentName, getEquipment, itemSlots, itemWeight, shortEquipmentName } from './equipment';
+import { ARMORED_TONS_PER_SLOT, HEAT_SINK_IDS, PROTOTYPE_DOUBLE_HEAT_SINK_ID, JUMP_JET_IDS, canArmor, canArmorSystem, equipmentName, getEquipment, itemSlots, itemWeight, shortEquipmentName } from './equipment';
 import type { OmniWeights } from './omni';
 import { omniWeights } from './omni';
 import { armorTonnage, maxArmorByLocation, maxTotalArmor, totalArmorPoints } from './armor';
@@ -336,7 +336,10 @@ export function computeMech(design: MechDesign): MechSummary {
   const totalJumpMP = ids.includes('large-shield') ? 0 : Math.max(0, jumpMP + (wing?.jumpBonus ?? 0) - (jumpMP > 0 ? jumpPenalty : 0));
   const umuMP = count((id) => id === 'umu');
   const externalHS = count((id) => HEAT_SINK_IDS.includes(id));
-  const totalHS = design.engineHeatSinks + externalHS;
+  // Prototype double heat sinks (freezers) mount alongside single heat sinks: each counts as a heat sink,
+  // dissipates 2 and weighs its own ton (as MegaMek).
+  const protoHS = design.heatSinkType === 'single' ? count((id) => id === PROTOTYPE_DOUBLE_HEAT_SINK_ID) : 0;
+  const totalHS = design.engineHeatSinks + externalHS + protoHS;
   const hasMasc = design.equipment.some((e) => getEquipment(e.equipmentId)?.variableWeight === 'masc');
   const hasSupercharger = design.equipment.some((e) => getEquipment(e.equipmentId)?.variableWeight === 'supercharger');
 
@@ -357,7 +360,7 @@ export function computeMech(design: MechDesign): MechSummary {
     engine: engineWt ?? 0,
     gyro: gyroWeightFor(design.gyroType, rating),
     cockpit: cockpitWeight(effectiveCockpit(design)),
-    heatSinks: Math.max(0, totalHS - freeHeatSinks(design.engineType)),
+    heatSinks: Math.max(0, totalHS - freeHeatSinks(design.engineType) - protoHS),
     jumpJets: jumpMP * jumpJetWeightFor(design.jumpJetType, tonnage),
     armor: isPatchwork(design) ? patchworkArmorWeight(design) : armorTonnage(armorTotal, ppt),
     // Rounded to the kilogram (spread systems split their weight into fractions of a ton).
@@ -403,7 +406,7 @@ export function computeMech(design: MechDesign): MechSummary {
       inEngine: design.engineHeatSinks,
       external: externalHS,
       engineCapacity: engineHeatSinkCapacity(rating),
-      dissipation: totalHS * (design.heatSinkType === 'double' ? 2 : 1),
+      dissipation: totalHS * (design.heatSinkType === 'double' ? 2 : 1) + protoHS,
     },
     heat: {
       weapons: weaponHeat,

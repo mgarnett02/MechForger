@@ -139,7 +139,7 @@ export function technicalReadout(design: MechDesign, summary: MechSummary = comp
   if (jj.length) {
     const locs = [...new Set(jj.map((e) => (e.location ? locationAbbr(design, e.location) : '—')))].join('/');
     const tons = (s.weights.jumpJets / Math.max(1, s.jumpMP)) * jj.length;
-    lines.push(`${(design.jumpJetType === 'improved' ? 'Improved Jump Jets' : 'Jump Jets').padEnd(nameWidth)}${locs.padEnd(6)}${String(jj.length).padEnd(6)}${t(tons)}`);
+    lines.push(`${(design.jumpJetType === 'improved' ? 'Improved Jump Jets' : design.jumpJetType === 'prototype' ? 'Prototype Jump Jets' : 'Jump Jets').padEnd(nameWidth)}${locs.padEnd(6)}${String(jj.length).padEnd(6)}${t(tons)}`);
   }
   const hs = items.filter((e) => getEquipment(e.equipmentId)?.id.includes('heat-sink'));
   if (hs.length && design.omni) {

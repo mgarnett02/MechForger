@@ -408,6 +408,8 @@ export const JUMP_JET_OPTIONS: Record<JumpJetType, ComponentOption> = {
   standard: opt('Standard jump jets', 'Both', '3025'),
   // Clan improved jump jets date from the 3020s; the Inner Sphere's from the Jihad.
   improved: opt('Improved jump jets', 'Both', '3068', '3050'),
+  // Prototype jump jets (2464, extinct by 2471): built as standard jets; +3 to the landing piloting roll.
+  prototype: opt('Prototype jump jets', 'Both', '3025'),
 };
 /** Large engines (rated over 400; Tactical Operations). Compact, fuel cell and fission engines have no large version. */
 export const LARGE_ENGINE_OPTION = opt('Large engines', 'Both', '3068');

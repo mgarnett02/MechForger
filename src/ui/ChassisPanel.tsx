@@ -269,6 +269,7 @@ export function ChassisPanel({ design, summary, update }: Props) {
             <option value="improved" disabled={!ok(JUMP_JET_OPTIONS.improved)} title={why(JUMP_JET_OPTIONS.improved)}>
               Improved (up to run MP)
             </option>
+            <option value="prototype" disabled={!ok(JUMP_JET_OPTIONS.prototype)} title="Built as standard jump jets; +3 to the landing piloting roll">Prototype</option>
           </select>
           <span className="muted"> {summary.weights.jumpJets} t{summary.partialWing?.jumpBonus ? ` · +${summary.partialWing.jumpBonus} partial wing = ${summary.totalJumpMP}` : ''}</span>
         </div>

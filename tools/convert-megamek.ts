@@ -228,7 +228,7 @@ function resolveName(raw: string, unitTech: TechBase): Resolved {
     heavyferrofibrous: 'ferro-fibrous', triplestrengthmyomer: 'tsm', industrialtriplestrengthmyomer: 'tsm',
     commercial: 'ferro-fibrous', industrial: 'ferro-fibrous', heavyindustrial: 'ferro-fibrous',
     environmentalsealingmech: 'environmental-sealing', heatsink: 'heat-sink',
-    jumpjet: 'jump-jet', improvedjumpjet: 'improved-jump-jet', case: 'case',
+    jumpjet: 'jump-jet', improvedjumpjet: 'improved-jump-jet', prototypejumpjet: 'prototype-jump-jet', case: 'case',
     endocomposite: 'endo-steel', endosteelprototype: 'endo-steel', ferrolamellor: 'ferro-fibrous', reactive: 'ferro-fibrous',
     reflective: 'ferro-fibrous', ballisticreinforced: 'ferro-fibrous', impactresistant: 'ferro-fibrous',
     heatdissipating: 'ferro-fibrous', antipenetrativeablation: 'ferro-fibrous',
@@ -535,7 +535,7 @@ function parseMtf(text: string): ParsedMech {
     if (/\(OMNIPOD\)/.test(main.raw)) pods.add(item);
   }
   fixAmmoTech(equipment);
-  const externalHS = equipment.filter((e) => HEAT_SINK_IDS.includes(e.equipmentId)).length;
+  const externalHS = equipment.filter((e) => HEAT_SINK_IDS.includes(e.equipmentId) || e.equipmentId === 'prototype-double-heat-sink').length;
   const jets = equipment.filter((e) => /jump-jet$/.test(e.equipmentId));
   const design: MechDesign = {
     schemaVersion: 1, era: '3025', techBase, mixedTech,
@@ -543,7 +543,7 @@ function parseMtf(text: string): ParsedMech {
     ...(laserHeatSinks ? { laserHeatSinks: true } : {}),
     structureType, engineType, gyroType, cockpitType, heatSinkType,
     ...(equipment.some((e) => e.equipmentId === 'environmental-sealing') ? { environmentalSealing: true } : {}),
-    jumpJetType: jets.some((e) => e.equipmentId === 'improved-jump-jet') ? 'improved' : 'standard',
+    jumpJetType: jets.some((e) => e.equipmentId === 'improved-jump-jet') ? 'improved' : jets.some((e) => e.equipmentId === 'prototype-jump-jet') ? 'prototype' : 'standard',
     armorType, ...(Object.keys(patchwork).length ? { patchwork } : {}), myomer,
     config: quadVee ? 'quadvee' : quad ? 'quad' : tripod ? 'tripod' : 'biped', ...(quadVeeMotive ? { quadVeeMotive } : {}), lam, omni: null,
     ...(kv.has('ejection') ? { fullHeadEjection: true } : {}),

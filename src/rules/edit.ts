@@ -544,7 +544,7 @@ export function parseDesign(raw: unknown): MechDesign {
         pod: Array.isArray(c?.pod) ? parseItems(c.pod).map((p) => ({ ...p, pod: true })) : [],
         ...(ca && typeof ca === 'object' ? { actuators: { LA: arm(ca.LA), RA: arm(ca.RA) } } : {}),
         ...(typeof c?.mixedTech === 'boolean' ? { mixedTech: c.mixedTech } : {}),
-        ...(c?.jumpJetType === 'standard' || c?.jumpJetType === 'improved' ? { jumpJetType: c.jumpJetType as JumpJetType } : {}),
+        ...(c?.jumpJetType === 'standard' || c?.jumpJetType === 'improved' || c?.jumpJetType === 'prototype' ? { jumpJetType: c.jumpJetType as JumpJetType } : {}),
       };
     });
     const active = typeof o.active === 'number' && configurations[o.active] ? o.active : 0;
@@ -559,7 +559,7 @@ export function parseDesign(raw: unknown): MechDesign {
     structureType: pick(r.structureType, Object.keys(STRUCTURE_OPTIONS) as StructureType[], 'standard'),
     engineType: pick(r.engineType, Object.keys(ENGINE_OPTIONS) as EngineType[], 'standard'),
     gyroType: pick(r.gyroType, Object.keys(GYRO_OPTIONS) as GyroType[], 'standard'),
-    jumpJetType: pick(r.jumpJetType, ['standard', 'improved'] as const, 'standard'),
+    jumpJetType: pick(r.jumpJetType, ['standard', 'improved', 'prototype'] as const, 'standard'),
     cockpitType: pick(r.cockpitType, Object.keys(COCKPIT_OPTIONS) as CockpitType[], 'standard'),
     heatSinkType: pick(r.heatSinkType, ['single', 'double'] as const, 'single'),
     armorType: pick(r.armorType, Object.keys(ARMOR_OPTIONS) as ArmorType[], 'standard'),

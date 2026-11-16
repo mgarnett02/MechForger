@@ -261,7 +261,7 @@ export const ITEM_VALUES: Record<string, ItemValue> = {
 Object.assign(ITEM_VALUES, {
   'clan-er-small-laser-prototype': v(17, 11250), mass: v(9, 4000), 'laser-insulator': v(0, 3000), 'harjel-ii': v(0, 240000), 'harjel-iii': v(0, 360000),
   'chaff-pod': v(19, 2000), 'ew-equipment': v(39, 500000), 'risc-viral-jammer-decoy': v(284, 990000), 'risc-viral-jammer-homing': v(284, 990000),
-  'drone-carrier-control': v(0, 20000), 'drone-carrier-slot': v(0, 5000),
+  'prototype-double-heat-sink': v(0, 18000), 'drone-carrier-control': v(0, 20000), 'drone-carrier-slot': v(0, 5000),
   'risc-emergency-coolant': v(0, 460000), 'risc-laser-pulse-module': v(0, 0), 'remote-drone-command-console': v(0, 50000), 'collapsible-command-module': v(0, 500000),
   'light-bridge-layer': v(5, 40000), 'medium-bridge-layer': v(10, 75000), 'heavy-bridge-layer': v(20, 100000), 'fluid-suction-light': v(0, 1000), 'fluid-suction': v(0, 25000),
   'infrared-imager': v(0, 250000), 'extended-fuel-tank': v(0, 2000), 'vehicle-escape-pod': v(0, 10000), 'cockpit-command-console': v(0, 500000), 'flotation-hull': v(0, 0),

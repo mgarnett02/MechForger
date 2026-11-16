@@ -182,7 +182,7 @@ export const TECH_BASE_NAMES: Record<TechBase, string> = { IS: 'Inner Sphere', C
 export type StructureType = 'standard' | 'endo-steel' | 'endo-prototype' | 'endo-composite' | 'composite' | 'reinforced' | 'industrial';
 export type EngineType = 'standard' | 'xl' | 'xxl' | 'light' | 'compact' | 'ice' | 'fuel-cell' | 'fission';
 export type GyroType = 'standard' | 'xl' | 'heavy-duty' | 'compact' | 'none' | 'superheavy';
-export type JumpJetType = 'standard' | 'improved';
+export type JumpJetType = 'standard' | 'improved' | 'prototype';
 /** Cockpits shared with fighters. */
 export type BasicCockpitType = 'standard' | 'small';
 /** 'industrial': an IndustrialMech cockpit without advanced fire control (a standard cockpit on an IndustrialMech has it). */

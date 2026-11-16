@@ -474,10 +474,12 @@ export const HEAT_SINK_ID = 'heat-sink';
 export const DOUBLE_HEAT_SINK_ID = 'double-heat-sink';
 export const CLAN_DOUBLE_HEAT_SINK_ID = 'clan-double-heat-sink';
 export const CLAN_LASER_HEAT_SINK_ID = 'clan-laser-heat-sink';
+export const PROTOTYPE_DOUBLE_HEAT_SINK_ID = 'prototype-double-heat-sink';
 export const HEAT_SINK_IDS: readonly string[] = [HEAT_SINK_ID, DOUBLE_HEAT_SINK_ID, CLAN_DOUBLE_HEAT_SINK_ID, CLAN_LASER_HEAT_SINK_ID];
 export const JUMP_JET_ID = 'jump-jet';
 export const IMPROVED_JUMP_JET_ID = 'improved-jump-jet';
-export const JUMP_JET_IDS: readonly string[] = [JUMP_JET_ID, IMPROVED_JUMP_JET_ID];
+export const PROTOTYPE_JUMP_JET_ID = 'prototype-jump-jet';
+export const JUMP_JET_IDS: readonly string[] = [JUMP_JET_ID, IMPROVED_JUMP_JET_ID, PROTOTYPE_JUMP_JET_ID];
 export const ENDO_STEEL_ID = 'endo-steel';
 export const FERRO_FIBROUS_ID = 'ferro-fibrous';
 export const TSM_ID = 'tsm';
@@ -497,6 +499,11 @@ export const OTHER_EQUIPMENT: readonly Equipment[] = [
   managed(CLAN_3050, CLAN_LASER_HEAT_SINK_ID, 'Laser Heat Sink', 1, 2),
   {
     ...managed(ANY_3025, JUMP_JET_ID, 'Jump Jet', 0, 1),
+    variableWeight: 'jumpJet',
+    allowedLocations: ['CT', 'LT', 'RT', 'LL', 'RL'],
+  },
+  {
+    ...managed(ANY_3025, PROTOTYPE_JUMP_JET_ID, 'Prototype Jump Jet', 0, 1),
     variableWeight: 'jumpJet',
     allowedLocations: ['CT', 'LT', 'RT', 'LL', 'RL'],
   },
@@ -1114,7 +1121,7 @@ export function meleeSlots(kind: MeleeKind, tonnage: number): number {
 }
 
 export function jumpJetIdFor(d: Pick<MechDesign, 'jumpJetType'>): string {
-  return d.jumpJetType === 'improved' ? IMPROVED_JUMP_JET_ID : JUMP_JET_ID;
+  return d.jumpJetType === 'improved' ? IMPROVED_JUMP_JET_ID : d.jumpJetType === 'prototype' ? PROTOTYPE_JUMP_JET_ID : JUMP_JET_ID;
 }
 
 /** Heat sink equipment id for a design's heat sink type and tech base. */

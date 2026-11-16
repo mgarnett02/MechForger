@@ -174,7 +174,7 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
       error('IndustrialMechs can only use standard fusion, fission, fuel cell or internal combustion engines.');
     }
     if (design.gyroType !== 'standard') error('IndustrialMechs can only mount standard gyros.');
-    if (design.jumpJetType !== 'standard') error('IndustrialMechs can only mount standard jump jets.');
+    if (design.jumpJetType === 'improved') error('IndustrialMechs can only mount standard (or prototype) jump jets.');
     if (design.heatSinkType !== 'single') error('IndustrialMechs may only mount standard single heat sinks.');
     if (design.myomer === 'tsm') error('IndustrialMechs use Industrial TSM, not combat Triple-Strength Myomer.');
     if (design.cockpitType === 'industrial' && design.equipment.some((e) => /^(c3|improved-c3)/.test(e.equipmentId))) {
@@ -319,6 +319,9 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
   }
 
   if (design.gyroType === 'none' && design.cockpitType !== 'interface') error('Only an interface cockpit lets a \'Mech go without a gyro.');
+  if (design.heatSinkType === 'double' && design.equipment.some((e) => e.equipmentId === 'prototype-double-heat-sink')) {
+    error('Prototype double heat sinks are mounted alongside single heat sinks.');
+  }
   if (design.laserHeatSinks && (design.heatSinkType !== 'double' || techOf(design, 'heatSinks') !== 'Clan')) {
     error('Laser heat sinks are Clan double heat sinks; choose Clan double heat sinks.');
   }
