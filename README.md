@@ -245,6 +245,29 @@ Advanced or Experimental level and is not modeled yet.
   type), look-down radar, hyperspectral and high-resolution imagers, SDS self-destruct systems, booby traps and
   spacecraft MASH
 
+### More weapons and equipment (MegaMek stats, BV and cost)
+
+- **Weapons:** Clan chemical lasers; Clan improved autocannons, Gauss rifle, LRMs and SRMs; prototype weapons
+  (ER and pulse lasers, Streak SRMs, UAC/10, LB 10-X, Gauss rifle, rocket launchers; they share the standard
+  weapon's ammunition, and prototype lasers count their extra 1d6 heat for BV as MegaMek does); primitive
+  autocannons and PPC; light / medium / heavy rifles; HVACs; 'Mech mortars; cruise missiles 50–120; TSEMP
+  one-shot and repeating cannons; vehicular grenade launcher; nail / rivet gun; RISC hyper laser; APDS;
+  C3 remote sensor launcher; Centurion weapon system; flail
+- **Ammunition:** flak autocannon ammo (×1.5 cost); Artemis IV ammo for enhanced and improved LRMs (both take
+  Artemis IV)
+- **Equipment:** HarJel II / III (armor BV ×1.1 / ×1.2 in their location), MASS, laser insulator (−1 heat for
+  one laser), chaff pod, EW equipment, RISC viral jammers, emergency coolant and laser pulse module, drone
+  command console, collapsible command module, light / medium / heavy bridge layers, fluid suction systems,
+  infrared imager, extended fuel tanks, vehicle escape pod, cockpit command console, flotation hull
+  (vehicle cost ×1.25 with it or vehicle environmental sealing), smart robotic control systems (5–7% of
+  tonnage), drone carrier control system (2 t + 0.5 t per drone) and vehicle MASH units
+- **'Mechs:** prototype jump jets (built as standard jets, +3 to the landing roll); prototype "freezer"
+  double heat sinks (1 t, 3 slots, mounted with single heat sinks, each dissipating 2); **head, shoulder and
+  quad turrets** (a tenth of the turret-mounted equipment, rounded up to the half ton; tick "Turret" on an
+  item; turret and arm weapons stay out of the front/rear BV halving, as MegaMek)
+- **Fighters:** reflective (1 slot), ferro-lamellor (2 slots) and stealth (2 slots, needs ECM) armor, and XXL
+  engines
+
 ### Combat vehicles (every era)
 
 - Motive types: tracked (up to 100 t), wheeled (80 t), hover (50 t), VTOL (30 t),
@@ -307,18 +330,23 @@ fixed-wing support).
   infantry compartments. Fighters can carry troop / cargo space.
 - **Utility equipment** (searchlights, lift hoists, cargo containers, field
   kitchens, bulldozers, MASH units, ladders, sprayers, …), also available to combat vehicles
-- Battle Value and cost are not calculated for support vehicles, and item
-  slots are not checked
+- **Infantry weapons** (over 300, with MegaMek's figures; the only weapons a small support vehicle may carry):
+  each weighs what the weapon does and carries one ammunition clip, with more clips at the weapon's ammo
+  weight and cost; fire control does not change their BV. **Pintle turrets** on small support vehicles weigh
+  a twentieth of their weapons (1,000 C-bills per ton)
+- Spacecraft imagers and look-down radar, command consoles and superchargers (10% of the engine, 10,000
+  C-bills per engine ton, doubled cruise MP for BV)
+- Item slots are not checked
 
 ### Everywhere
 
 - Critical slot allocation (click to place, or **Auto-allocate**) with live validation
 - Red / amber / green status light: illegal, legal but incomplete (unused tonnage,
   unallocated armor), or fully legal
-- **Canon units**: about 3,260 canon 'Mechs (about 110 of them IndustrialMechs), including 47 quads, 19 Land-Air 'Mechs, 3 superheavies, 5 tripods (with the Ares superheavy tripod OmniMech), 5 QuadVee designs and around 100 melee-armed designs (OmniMechs with all their
-  configurations), about 1,140 canon combat vehicles (10 superheavies) (OmniVehicles with all their configurations), 160 support vehicles, about 480 aerospace, Omni, primitive and
-  conventional fighters and about 415 spacecraft (small craft, DropShips, JumpShips, WarShips and
-  space stations), about 1,190 battle armor squads, 86 ProtoMechs, about 750 gun emplacements and handheld weapons and about 1,990 infantry platoons, searchable by name, era, tech base,
+- **Canon units**: about 3,360 canon 'Mechs (about 110 of them IndustrialMechs), including 47 quads, 19 Land-Air 'Mechs, 3 superheavies, 5 tripods (with the Ares superheavy tripod OmniMech), 5 QuadVee designs and around 100 melee-armed designs (OmniMechs with all their
+  configurations), about 1,210 canon combat vehicles (10 superheavies) (OmniVehicles with all their configurations), about 220 support vehicles, about 540 aerospace, Omni, primitive and
+  conventional fighters and about 425 spacecraft (small craft, DropShips, JumpShips, WarShips and
+  space stations), about 1,190 battle armor squads, 86 ProtoMechs, about 1,060 gun emplacements and handheld weapons and about 1,990 infantry platoons, searchable by name, era, tech base,
   weight and type, ready to load, modify and print (see *Canon unit data* below)
   - Apocryphal (video-game and other non-canon) designs are left out. A canon design keeps its Master
     Unit List id: the editor shows it as a link to the unit's MUL page. Units without a MUL entry
@@ -330,13 +358,16 @@ fixed-wing support).
 
   | Unit type | BV | Cost |
   |---|---|---|
-  | BattleMechs (3,005 compared) | 94% | 80% (96% within 2%) |
-  | Combat vehicles (1,109) | 97% | 52% (75% within 2%; marked approximate) |
-  | Support vehicles (175) | 96% | 93% |
-  | Aerospace / conventional fighters (479) | 99% | 71% (95% within 2%) |
-  | Small craft, DropShips, JumpShips, WarShips, stations (375) | 83% (95% within 2%) | 62% (99.7% within 2%) |
+  | BattleMechs (3,136 compared) | 95% | 80% (95% within 2%) |
+  | Combat vehicles (1,206) | 97% | 52% (75% within 2%; marked approximate) |
+  | Support vehicles (218) | 97% | 90% (94% within 2%) |
+  | Aerospace / conventional fighters (542) | 97% | 70% (95% within 2%) |
+  | Small craft, DropShips, JumpShips, WarShips, stations (422) | 81% (94% within 2%) | 62% (99% within 2%) |
   | ProtoMechs (86) | 100% | 100% |
-  | Gun emplacements and handheld weapons (971) | 98% | (emplacements have no cost in MegaMek) |
+  | Gun emplacements and handheld weapons (1,058) | 97% | (emplacements have no cost in MegaMek) |
+
+  The comparison uses MegaMek's calculated BV; some unit files carry a published (manual) BV that MegaMek
+  reports instead.
 
   Known differences: LB-X cluster and other special munitions are not separate ammunition yet, and a few
   canon files share a name with another design. Spacecraft ammunition bins are priced as MegaMek does (one
@@ -360,7 +391,7 @@ commercially; see `src/data/canon/LICENSE.md`.
 
 Only units MechForger can represent are included: 'Mechs (biped, quad, tripod, QuadVee, LAM and
 superheavy), combat vehicles (superheavies too) and support vehicles using modeled equipment. Units with
-dual or sponson turrets, or with equipment MechForger does not model yet, are skipped. Of the converted mechs, 99% weigh exactly their published tonnage
+equipment MechForger does not model yet are skipped. Of the converted mechs, 99% weigh exactly their published tonnage
 under MechForger's tables, and Battle Values match the Master Unit List for
 the checked designs. Weights match for about 93% of combat vehicles (99% pass every construction check) and 71% of
 support vehicles (most others within half a ton); in the
@@ -438,6 +469,9 @@ vehicles, support, fighters, vessels, protomechs, stationary). The MegaMek check
 
 ## Not yet supported
 
-Some Advanced / Experimental equipment (e.g. rifles, chemical lasers outside ProtoMechs, prototype and primitive weapons, cruise missiles, tactical analysis computers, space mine dispensers), special munitions (LB-X cluster and so on), and per-configuration jump jet type or tech base on OmniMechs
+A long tail of Advanced / Experimental items used by a handful of canon units each: compact heat sinks,
+super-cooled myomer, prototype ferro-fibrous armor and prototype improved jump jets, 'Mech mechanical jump
+boosters, dumpers, ram plates, chain drape capes, virtual-reality piloting pods, tactical analysis computers and
+space mine dispensers; special munitions other than flak and Artemis (LB-X cluster and so on); and per-configuration jump jet type or tech base on OmniMechs
 (mixed-tech and improved-jump-jet configurations of a standard Prime are left out of the canon list).
 
