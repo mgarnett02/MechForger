@@ -392,7 +392,7 @@ fixed-wing support).
   | Combat vehicles (1,208) | 99.6% | 59% (77% within 2%; marked approximate) |
   | Support vehicles (229) | 97% | 92% (94% within 2%) |
   | Aerospace / conventional fighters (542) | 99.6% | 74% (95% within 2%) |
-  | Small craft, DropShips, JumpShips, WarShips, stations (428) | 95% (99.8% within 2%) | 67% (99.8% within 2%) |
+  | Small craft, DropShips, JumpShips, WarShips, stations (428) | 99% (99.8% within 2%) | 67% (99.8% within 2%) |
   | ProtoMechs (86) | 100% | 100% |
   | Gun emplacements and handheld weapons (1,058) | 98% | (emplacements have no cost in MegaMek) |
 
@@ -401,12 +401,11 @@ fixed-wing support).
 
   Known differences: MegaMek rates non-BAR armor on support vehicles as BAR 0 for BV (MechForger uses BAR 10,
   as the rules do), charges ICE 'Mechs with fewer than 10 heat sinks a negative heat-sink cost (MechForger
-  charges nothing), and a few canon files share a name with another design. Every remaining BV difference for
-  'Mechs, vehicles, fighters, support vehicles and emplacements has been checked and is a MegaMek slip or a
-  canon-data issue MechForger corrects (about 20 spacecraft still differ by under 2%): MegaMek halves turret and side
+  charges nothing), and a few canon files share a name with another design. Every remaining BV difference has
+  been checked and is a MegaMek slip or a canon-data issue MechForger corrects: MegaMek halves turret and side
   weapons on superheavy tanks (it checks the ordinary tank's turret location), counts a superheavy's rear weapons
   in full, drops stealth armor's +2 on units with no MP of their own, links only one PPC capacitor per spacecraft
-  bay and one machine gun per array on gun emplacements, halves handheld half-ton ammunition twice, applies a
+  bay (outside the arc multiplier), links rear-arc Artemis to forward extended LRMs and one machine gun per array on gun emplacements, halves handheld half-ton ammunition twice, applies a
   drone operating system twice on fighters, and rounds 0.5 down; and a few canon files load Inner Sphere ammunition
   into Clan launchers, which MechForger converts to the launcher's own ammunition. Spacecraft ammunition bins are priced as MegaMek does (one
   ton's price per bin, whatever its size), which is below the TechManual's per-ton price for big bins

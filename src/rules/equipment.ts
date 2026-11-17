@@ -190,7 +190,7 @@ const IS_3050_WEAPONS: Equipment[] = [
   weapon(IS_3050, 'uac-2', 'Ultra AC/2', 'Ballistic', 7, 3, 1, '2 (×2)', [3, 8, 17, 25], 45),
   weapon(IS_3050, 'uac-5', 'Ultra AC/5', 'Ballistic', 9, 5, 1, '5 (×2)', [2, 6, 13, 20], 20),
   weapon(IS_3050, 'uac-10', 'Ultra AC/10', 'Ballistic', 13, 7, 4, '10 (×2)', [0, 6, 12, 18], 10),
-  weapon(IS_3050, 'uac-20', 'Ultra AC/20', 'Ballistic', 15, 10, 8, '20 (×2)', [0, 3, 7, 10], 7),
+  weapon(IS_3050, 'uac-20', 'Ultra AC/20', 'Ballistic', 15, 10, 8, '20 (×2)', [0, 3, 7, 10], 5),
   weapon(IS_3050, 'streak-srm-2', 'Streak SRM 2', 'Missile', 1.5, 1, 2, '2/missile', [0, 3, 6, 9], 50),
   weapon(IS_3050, 'streak-srm-4', 'Streak SRM 4', 'Missile', 3, 1, 3, '2/missile', [0, 3, 6, 9], 25),
   weapon(IS_3050, 'streak-srm-6', 'Streak SRM 6', 'Missile', 4.5, 2, 4, '2/missile', [0, 3, 6, 9], 15),

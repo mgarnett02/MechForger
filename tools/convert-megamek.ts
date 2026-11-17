@@ -18,7 +18,7 @@ import type {
 import type { EraId } from '../src/rules/eras';
 import { ERAS } from '../src/rules/eras';
 import type { Equipment } from '../src/rules/equipment';
-import { ALL_EQUIPMENT, HEAT_SINK_IDS, getEquipment, heatSinkUnits, itemSlots } from '../src/rules/equipment';
+import { ALL_EQUIPMENT, HEAT_SINK_IDS, getEquipment, heatSinkUnits, isArtemisVCapable, itemSlots } from '../src/rules/equipment';
 import { EXTRA_EQUIPMENT_MM_NAMES, EXTRA_WEAPON_MM_NAMES } from '../src/rules/extraWeapons';
 import { autoAllocate, canSplit } from '../src/rules/edit';
 import { engineRatingFor } from '../src/rules/types';
@@ -291,6 +291,15 @@ function usesOtherTech(techBase: TechBase, ids: string[], parts: (TechBase | 'Bo
   const other = (tb: TechBase | 'Both' | undefined) => !!tb && tb !== 'Both' && tb !== techBase;
   // Ammunition follows its launcher (fixAmmoTech), so only weapons and equipment count.
   return parts.some(other) || ids.some((id) => { const eq = getEquipment(id); return eq?.category !== 'Ammo' && other(eq?.techBase); });
+}
+
+/** Whether linked equipment (Artemis, PPC capacitor, Apollo, insulator, pulse module) can serve this weapon. */
+function linksTo(id: string, w: Equipment): boolean {
+  if (/artemis/.test(id)) return !!w.artemisCapable || isArtemisVCapable(w.id);
+  if (id === 'ppc-capacitor') return /ppc/.test(w.id);
+  if (id === 'apollo-fcs') return /^mrm-/.test(w.id);
+  if (id === 'laser-insulator' || id === 'risc-laser-pulse-module') return /laser/.test(w.id);
+  return false;
 }
 
 function eraForYear(year: number): EraId {
@@ -1190,9 +1199,13 @@ function parseVesselBlk(text: string): { design: VesselDesign; year: number; mul
   let uid = 0;
   for (const [tag, loc] of blocks) {
     let bay = 0;
+    // Linked equipment (Artemis, capacitors, …) follows the weapon it serves, rear-facing or not, even when the
+    // file leaves its "(R)" off (as MegaMek links it).
+    let lastWeaponRear = false;
+    let lastWeapon: Equipment | null = null;
     for (const raw0 of tags.get(tag) ?? []) {
       let raw = raw0;
-      const rear = /\(R\)/.test(raw);
+      let rear = /\(R\)/.test(raw);
       const newBay = /\(B\)/.test(raw);
       raw = raw.replace(/\((R|B)\)\s*/g, '').trim();
       let shots: number | undefined;
@@ -1223,6 +1236,8 @@ function parseVesselBlk(text: string): { design: VesselDesign; year: number; mul
       if (/heat-sink/.test(id)) continue;
       if (eq.managed) fail(`mech-only item ${id}`);
       if ((id === 'case' || id === 'clan-case') && techBase === 'Clan') continue;
+      if (eq.isWeapon) { lastWeaponRear = rear; lastWeapon = eq; }
+      else if (lastWeapon && linksTo(id, lastWeapon)) rear ||= lastWeaponRear;
       const item: VesselItem = { uid: `s${uid++}`, equipmentId: id, location: loc };
       if (rear) item.rear = true;
       if (eq.isWeapon && vesselType !== 'small-craft') { if (newBay || bay === 0) bay++; item.bay = bay; }

@@ -51,4 +51,15 @@ describe('BV rules matched to MegaMek', () => {
     expect(vesselBV(decodeVessel(find(vessels, 'Union (3070)'))).total).toBe(4954); // AMS ammo counted by shots
     expect(vesselBV(decodeVessel(find(vessels, 'Tramp JumpShip (3071)'))).total).toBe(1788); // screen launchers defensive
   });
+
+  it('spacecraft arcs and ammunition', () => {
+    // Artemis listed after rear-facing LRMs (without its own "(R)") serves those LRMs.
+    expect(vesselBV(decodeVessel(find(vessels, 'Lee (Aerospace Carrier)'))).total).toBe(15063);
+    // ...but Artemis listed after rear lasers, ahead of forward LRMs, stays forward.
+    expect(vesselBV(decodeVessel(find(vessels, 'Union-X (3065)'))).total).toBe(7550);
+    // Inner Sphere Ultra AC/20 ammunition: 5 shots a ton.
+    expect(vesselBV(decodeVessel(find(vessels, 'Achilles (3088)'))).total).toBe(12212);
+    // Ammunition counts up to the weapons' listed BV (before Artemis).
+    expect(vesselBV(decodeVessel(find(vessels, 'Leviathan II Battleship'))).total).toBe(373246);
+  });
 });

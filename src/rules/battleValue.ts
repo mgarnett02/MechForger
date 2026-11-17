@@ -213,6 +213,14 @@ function takeCapacitor(left: Map<string, number>, i: { equipmentId: string; loca
 }
 
 /** Ammo BV, capped per weapon type at the BV of the weapons that use it. */
+/**
+ * Ammunition counts up to the BV of the weapons that fire it: their listed BV, before Artemis, targeting
+ * computer or arc adjustments (as MegaMek).
+ */
+function ammoCap(weapons: WeaponEntry[], weaponId: string): number {
+  return weapons.filter((w) => w.id === weaponId).reduce((a, w) => a + (value(w.id)?.bv ?? w.bv), 0);
+}
+
 export function ammoBV(items: { equipmentId: string }[], weapons: WeaponEntry[]): number {
   const perWeapon = new Map<string, number>();
   for (const i of items) {
@@ -222,8 +230,7 @@ export function ammoBV(items: { equipmentId: string }[], weapons: WeaponEntry[])
   }
   let total = 0;
   for (const [weaponId, bv] of perWeapon) {
-    const cap = weapons.filter((w) => w.id === weaponId).reduce((a, w) => a + w.bv, 0);
-    total += Math.min(bv, cap);
+    total += Math.min(bv, ammoCap(weapons, weaponId));
   }
   return total;
 }
@@ -922,7 +929,7 @@ export function vesselBV(d: VesselDesign): BVBreakdown {
       const eq = getEquipment(item.equipmentId);
       if (eq?.ammoFor && !DEFENSIVE_IDS.has(eq.ammoFor)) perWeapon.set(eq.ammoFor, (perWeapon.get(eq.ammoFor) ?? 0) + ammoBin(item, eq));
     }
-    for (const [id, bv] of perWeapon) ammo += Math.min(bv, weapons.filter((w) => w.id === id).reduce((a, w) => a + w.bv, 0));
+    for (const [id, bv] of perWeapon) ammo += Math.min(bv, ammoCap(weapons, id));
   } else {
     // DropShips: six arcs. The strongest arc counts in full; its neighbours count full and half
     // (dropping to half and quarter once heat efficiency is exceeded); the rest count a quarter.
@@ -956,7 +963,7 @@ export function vesselBV(d: VesselDesign): BVBreakdown {
         if (eq?.ammoFor && !DEFENSIVE_IDS.has(eq.ammoFor)) perWeapon.set(eq.ammoFor, (perWeapon.get(eq.ammoFor) ?? 0) + ammoBin(item, eq));
       }
       for (const [id, bv] of perWeapon) {
-        const cap = arcWeapons[a].filter((w) => w.id === id).reduce((x, w) => x + w.bv, 0);
+        const cap = ammoCap(arcWeapons[a], id);
         ammo += Math.min(bv, cap) * factor[a];
       }
     }
