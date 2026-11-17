@@ -7,7 +7,7 @@
  * approximate.
  */
 import type { EffectiveCockpit, Location, MechDesign } from './types';
-import { LOCATIONS, REAR_FACING, armorTypeAt, effectiveCockpit, isIndustrial, isPatchwork, isQuad, isQuadVee, isSuperheavy, isTripod, legLocations, techOf } from './types';
+import { LOCATIONS, REAR_FACING, armorTypeAt, effectiveCockpit, isIndustrial, isPatchwork, isQuad, isQuadVee, isSuperheavy, isTripod, legLocations, mechLocations, techOf } from './types';
 import type { Equipment } from './equipment';
 import { canArmor, getEquipment, isArtemisVCapable, isDirectFire, isPPC, itemSlots, itemWeight } from './equipment';
 import { armoredSystemSlots, computeMech, fixedSlots } from './construction';
@@ -21,7 +21,7 @@ import { BAY_INFO, VESSEL_ARMOR_COST, bayWeight, isPrimitiveVessel, vesselFormul
 import type { VehicleDesign } from './vehicle';
 import { computeVehicle, vehicleItemWeight } from './vehicle';
 import type { SupportVehicleDesign } from './support';
-import { SV_TYPES, computeSupport, svItemWeight, svStructureForCost, svTransportCost } from './support';
+import { SV_TYPES, computeSupport, svCruiseMP, svItemWeight, svStructureForCost, svTransportCost } from './support';
 import { DEFENSIVE_IDS, ITEM_VALUES, MML_AMMO_BV, isGaussType } from './values';
 
 export interface BVBreakdown {
@@ -80,11 +80,21 @@ export function ammoValue(eq: Equipment): { bv: number; cost: number } {
 }
 
 /** Heat a weapon counts for in the BV heat calculation. */
+/**
+ * Ammunition that can explode: not Gauss slugs, plasma, fluid gun loads, nails and rivets or C3 remote sensors
+ * (as MegaMek).
+ */
+function isExplosiveAmmo(eq: Equipment): boolean {
+  return eq.category === 'Ammo' && !!eq.ammoFor && !isGaussType(eq.ammoFor) && !/plasma|fluid-gun|nail-rivet-gun|c3-remote-sensor/.test(eq.ammoFor);
+}
+
 function bvHeat(eq: Equipment): number {
-  if (eq.oneShot) return eq.heat / 4; // one-shot launchers count a quarter of their heat (MegaMek)
+  // One-shot launchers, rocket launchers included, count a quarter of their heat (MegaMek).
+  if (eq.oneShot || /(^|-)rl-\d+/.test(eq.id)) return eq.heat / 4;
   if (/(^|-)uac-/.test(eq.id)) return eq.heat * 2;
   if (/(^|-)rac-/.test(eq.id)) return eq.heat * 6;
-  if (/streak/.test(eq.id)) return eq.heat / 2;
+  // Streak launchers and improved ATMs (which fire like Streaks) count half their heat (MegaMek).
+  if (/streak|(^|-)iatm-/.test(eq.id)) return eq.heat / 2;
   // Prototype lasers with 1d6 extra heat count half of it (+3) for BV (MegaMek).
   if (eq.id === 'er-large-laser-prototype' || eq.id === 'medium-pulse-laser-prototype') return eq.heat + 3;
   return eq.heat;
@@ -125,14 +135,24 @@ export function weaponEntries(
   // Apollo FCS: ×1.15 for an MRM launcher in the same location.
   const insulatorsLeft = new Map<string, number>();
   for (const i of items) if (i.equipmentId === 'laser-insulator') insulatorsLeft.set(i.location ?? '', (insulatorsLeft.get(i.location ?? '') ?? 0) + 1);
+  const pulseModulesLeft = new Map<string, number>();
+  // Where Artemis links anywhere (vehicles), so do Apollo and laser pulse modules.
+  const linkKey = (i: { location?: string | null }) => (artemisAnywhere ? '' : i.location ?? '');
+  for (const i of items) if (i.equipmentId === 'risc-laser-pulse-module') pulseModulesLeft.set(linkKey(i), (pulseModulesLeft.get(linkKey(i)) ?? 0) + 1);
   const apolloLeft = new Map<string, number>();
-  for (const i of items) if (i.equipmentId === 'apollo-fcs') apolloLeft.set(i.location ?? '', (apolloLeft.get(i.location ?? '') ?? 0) + 1);
+  for (const i of items) if (i.equipmentId === 'apollo-fcs') apolloLeft.set(linkKey(i), (apolloLeft.get(linkKey(i)) ?? 0) + 1);
   const out: WeaponEntry[] = [];
   for (const i of items) {
     const eq = getEquipment(i.equipmentId);
     if (!eq || !eq.isWeapon || DEFENSIVE_IDS.has(eq.id)) continue;
     let bv = value(eq.id)?.bv ?? 0;
     let heat = bvHeat(eq);
+    // A RISC laser pulse module in the same location: the laser counts ×1.15 and +2 heat (as MegaMek).
+    if (/laser/.test(eq.id) && !/pulse/.test(eq.id) && !eq.ammoPerTon && (pulseModulesLeft.get(linkKey(i)) ?? 0) > 0) {
+      pulseModulesLeft.set(linkKey(i), pulseModulesLeft.get(linkKey(i))! - 1);
+      bv *= 1.15;
+      heat += 2;
+    }
     // A laser insulator in the same location takes 1 heat off a laser (to a minimum of 1).
     if (/laser/.test(eq.id) && !eq.ammoPerTon && (insulatorsLeft.get(i.location ?? '') ?? 0) > 0) {
       insulatorsLeft.set(i.location ?? '', insulatorsLeft.get(i.location ?? '')! - 1);
@@ -145,8 +165,8 @@ export function weaponEntries(
       const linked = items.filter((x) => x.equipmentId === mgId && x.location === i.location).length;
       bv = 0.67 * Math.min(4, linked) * (value(mgId)?.bv ?? 0);
     }
-    if (/^mrm-/.test(eq.id) && (apolloLeft.get(i.location ?? '') ?? 0) > 0) {
-      apolloLeft.set(i.location ?? '', apolloLeft.get(i.location ?? '')! - 1);
+    if (/^mrm-/.test(eq.id) && (apolloLeft.get(linkKey(i)) ?? 0) > 0) {
+      apolloLeft.set(linkKey(i), apolloLeft.get(linkKey(i))! - 1);
       bv *= 1.15;
     }
     // A PPC Capacitor adds its BV to the linked PPC (as MegaMek) and 5 heat.
@@ -209,19 +229,29 @@ export function ammoBV(items: { equipmentId: string }[], weapons: WeaponEntry[])
 }
 
 /** BV of defensive equipment (AMS, ECM, active probes) and AMS ammo. */
-export function defensiveEquipmentBV(items: { equipmentId: string }[]): number {
+const SHIELDS = new Set(['small-shield', 'medium-shield', 'large-shield']);
+
+export function defensiveEquipmentBV(items: { equipmentId: string; shots?: number }[]): number {
   let equipment = 0;
   let amsAmmo = 0;
+  let screenAmmo = 0;
   for (const i of items) {
     const eq = getEquipment(i.equipmentId);
     if (!eq) continue;
     if (DEFENSIVE_IDS.has(eq.id)) equipment += value(eq.id)?.bv ?? 0;
-    else if (eq.ammoFor && DEFENSIVE_IDS.has(eq.ammoFor)) amsAmmo += ammoValue(eq).bv;
+    // Spacecraft store ammunition as shots: count every full bin (as offensive ammunition does).
+    else if (eq.ammoFor && DEFENSIVE_IDS.has(eq.ammoFor)) {
+      const bv = ammoValue(eq).bv * (i.shots ? Math.max(1, Math.floor(i.shots / shotsPerBin(eq))) : 1);
+      amsAmmo += bv;
+      if (eq.ammoFor === 'screen-launcher') screenAmmo += bv;
+    }
   }
   const amsBV = items
     .filter((i) => i.equipmentId === 'ams' || i.equipmentId === 'clan-ams' || i.equipmentId === 'apds')
     .reduce((a, i) => a + (value(i.equipmentId)?.bv ?? 0), 0);
-  return equipment + Math.min(amsAmmo, amsBV);
+  // Screen launchers are defensive, their ammunition capped at the launchers' BV (MegaMek).
+  const screenBV = items.filter((i) => i.equipmentId === 'screen-launcher').reduce((a) => a + (value('screen-launcher')?.bv ?? 0), 0);
+  return equipment + Math.min(amsAmmo - screenAmmo, amsBV) + Math.min(screenAmmo, screenBV);
 }
 
 const round = (n: number) => Math.round(n);
@@ -275,10 +305,12 @@ export function mechBV(d: MechDesign): BVBreakdown {
   // A torso-mounted cockpit counts the center torso armor twice.
   const cockpitArmor = d.cockpitType === 'torso-mounted' || d.cockpitType === 'vrrp' ? d.armor.CT + d.armor.CTR : 0;
   // Commercial armor has a barrier armor rating of 5 (half value).
-  const bar = d.armorType === 'commercial' ? 0.5 : 1;
+  // A Blue Shield adds 0.2 to the armor and structure multipliers (Tactical Operations, as MegaMek).
+  const blueShield = d.equipment.some((e) => e.equipmentId === 'blue-shield') ? 0.2 : 0;
+  const bar = 1;
   // Modular armor: 10 extra armor points each.
   const modular = 10 * d.equipment.filter((e) => e.equipmentId === 'modular-armor').length;
-  const armorMult = (t: MechDesign['armorType']) => ARMOR_BV_MULTIPLIER[t] ?? 1;
+  const armorMult = (t: MechDesign['armorType']) => (ARMOR_BV_MULTIPLIER[t] ?? 1) * (t === 'commercial' ? 0.5 : 1) + blueShield;
   // Patchwork armor: each location's points at its own armor's multiplier.
   const armor = isPatchwork(d)
     ? (LOCATIONS.reduce((a, l) => a + locPoints(d, l) * armorMult(armorTypeAt(d, l)), 0) + (cockpitArmor + modular) * armorMult(d.armorType)) * 2.5 * bar
@@ -293,10 +325,14 @@ export function mechBV(d: MechDesign): BVBreakdown {
   // 6+ → 0.25, 3+ → 0.5, 2 → 0.75, 1 → 0.825.
   const sideSlots = engineSideTorsoSlots(d.engineType, techOf(d, 'engine'), isSuperheavy(d));
   const engineMod = sideSlots >= 6 ? 0.25 : sideSlots >= 3 ? 0.5 : sideSlots === 2 ? 0.75 : sideSlots === 1 ? 0.825 : 1;
-  const structureMod = d.structureType === 'composite' || d.structureType === 'industrial' ? 0.5 : d.structureType === 'reinforced' ? 2 : 1;
+  const structureMod = (d.structureType === 'composite' || d.structureType === 'industrial' ? 0.5 : d.structureType === 'reinforced' ? 2 : 1) + blueShield;
   const structure = isPoints * 1.5 * structureMod * engineMod;
   const gyro = d.tonnage * (d.gyroType === 'heavy-duty' ? 1 : 0.5);
-  const defEquip = defensiveEquipmentBV(d.equipment) + 4 * d.equipment.filter((e) => e.equipmentId === 'spikes').length;
+  // Spikes (4 each) and shields (small 50, medium 135, large 263) are defensive equipment (Tactical Operations, MegaMek).
+  const defEquip = defensiveEquipmentBV(d.equipment) + d.equipment.reduce((a, e) => {
+    const m = getEquipment(e.equipmentId)?.melee;
+    return a + (m === 'spikes' || (m && SHIELDS.has(m)) ? meleeBV(m, d) : 0);
+  }, 0);
   const armoredBV = armoredComponentBV(d);
 
   // Explosive ammo (−15 per slot) and Gauss weapons (−1 per slot) where CASE does not protect.
@@ -313,6 +349,21 @@ export function mechBV(d: MechDesign): BVBreakdown {
     return hasCase(loc) || protectedLoc(loc === 'LA' ? 'LT' : 'RT');
   };
   let explosive = 0;
+  // A Blue Shield is explosive: −1 for each location it fills (all but the head) that CASE does not protect
+  // (as MegaMek: CASE II anywhere; with an engine of at most 2 side-torso slots, CASE in a side torso and CASE in
+  // an arm or its side torso; Clan arms always).
+  if (blueShield) {
+    const bsSafe = (loc: Location): boolean => {
+      if (caseII.has(loc)) return true;
+      const arm = loc === 'LA' || loc === 'RA';
+      const torso = loc === 'LT' || loc === 'RT';
+      if (isClan) return arm || (torso && sideSlots <= 2);
+      if (sideSlots > 2) return false;
+      if (torso) return caseIn.has(loc);
+      return arm && (caseIn.has(loc) || caseIn.has(loc === 'LA' ? 'LT' : 'RT'));
+    };
+    explosive += mechLocations(d).filter((l: Location) => l !== 'HD' && l !== 'CL' && !bsSafe(l)).length;
+  }
   const capsLeft = capacitorCounts(d.equipment);
   // Superheavies: penalties count the slots actually filled (half as many; two tons of ammo share one).
   const pairedAmmo = new Set(Object.values(s.slots).flatMap((l) => l.slots.map((x) => x.uid2).filter((u): u is string => !!u)));
@@ -321,7 +372,7 @@ export function mechBV(d: MechDesign): BVBreakdown {
     // A split weapon is a hazard if either of its locations is unprotected.
     if (!eq || !item.location || (protectedLoc(item.location) && (!item.split || protectedLoc(item.split.location)))) continue;
     const slots = itemSlots(eq, d);
-    if (eq.category === 'Ammo' && eq.ammoFor && !isGaussType(eq.ammoFor) && !/plasma/.test(eq.ammoFor)) explosive += pairedAmmo.has(item.uid) ? 0 : 15;
+    if (isExplosiveAmmo(eq)) explosive += pairedAmmo.has(item.uid) ? 0 : 15;
     // HVACs: −1 in all, whatever their slots (MegaMek).
     else if (/^hvac-\d+$/.test(eq.id)) explosive += 1;
     else if (eq.explosiveLow) explosive += slots;
@@ -331,12 +382,19 @@ export function mechBV(d: MechDesign): BVBreakdown {
     else if (eq.isWeapon && isGaussType(eq.id)) explosive += slots;
   }
 
-  const run = s.mascRunMP ?? s.tsmMP?.run ?? s.runMP;
+  // MASC / supercharger running MP doubles the walking MP including TSM's +1 when both are fitted (as MegaMek).
+  const fitted = (id: string) => d.equipment.some((e) => e.equipmentId === id);
+  const boostFactor = (fitted('masc') || fitted('clan-masc')) && fitted('supercharger') ? 2.5 : 2;
+  const run = s.mascRunMP !== null && s.tsmMP
+    ? s.mascRunMP + Math.ceil(s.tsmMP.walk * boostFactor) - Math.ceil((s.tsmMP.walk - 1) * boostFactor)
+    : s.mascRunMP ?? s.tsmMP?.run ?? s.runMP;
   // Jumping MP includes a partial wing's bonus (as MegaMek's BV calculation); mechanical jump boosters count
-  // when they jump further (less a medium shield or modular armor each, none with a large shield).
+  // when they jump further (less a medium shield each, none with a large shield). BV ignores modular armor's
+  // movement penalty (as MegaMek: the armor can be shed), so its lost jump MP is added back.
+  const modularJump = s.jumpMP > 0 && !d.equipment.some((e) => e.equipmentId === 'large-shield') && d.equipment.some((e) => e.equipmentId === 'modular-armor') ? 1 : 0;
   const boosterMP = d.jumpBoosterMP && !d.equipment.some((e) => e.equipmentId === 'large-shield')
-    ? Math.max(0, d.jumpBoosterMP - d.equipment.filter((e) => e.equipmentId === 'medium-shield' || e.equipmentId === 'modular-armor').length) : 0;
-  const jump = Math.max(s.totalJumpMP, boosterMP);
+    ? Math.max(0, d.jumpBoosterMP - d.equipment.filter((e) => e.equipmentId === 'medium-shield').length) : 0;
+  const jump = Math.max(s.totalJumpMP + modularJump, boosterMP);
   // Standard LAMs are rated on AirMech flank speed, with +1 for being airborne (IO p. 192, as in MegaMek).
   const airMechFlank = d.lam === 'standard' ? s.lam?.airMech?.flank ?? 0 : null;
   const runTMM = airMechFlank !== null ? (airMechFlank ? targetMovementModifier(airMechFlank) + 1 : 0) : targetMovementModifier(run);
@@ -363,8 +421,10 @@ export function mechBV(d: MechDesign): BVBreakdown {
   const weapons = weaponEntries(d.equipment);
   for (const item of d.equipment) {
     const eq = getEquipment(item.equipmentId);
-    // Spikes count as defensive equipment (4 each, MegaMek).
-    if (eq?.melee && eq.melee !== 'spikes') weapons.push({ bv: meleeBV(eq.melee, d), heat: 0, rear: false, id: eq.id, loc: item.location });
+    // Spikes and shields count as defensive equipment instead.
+    // Vibroblades generate heat when active (small 3, medium 5, large 7), counted against heat efficiency (MegaMek).
+    const meleeHeat = eq?.melee === 'small-vibroblade' ? 3 : eq?.melee === 'medium-vibroblade' ? 5 : eq?.melee === 'large-vibroblade' ? 7 : 0;
+    if (eq?.melee && eq.melee !== 'spikes' && !SHIELDS.has(eq.melee)) weapons.push({ bv: meleeBV(eq.melee, d), heat: meleeHeat, rear: false, id: eq.id, loc: item.location });
   }
   // Ram plate: offensive equipment worth half the charge damage, +1 per torso spike, × 1.1 (MegaMek).
   const ramSpikes = d.equipment.filter((e) => e.equipmentId === 'spikes' && /T$/.test(e.location ?? '')).length;
@@ -419,8 +479,10 @@ export function mechBV(d: MechDesign): BVBreakdown {
   // (A Drone Operating System also costs 5%; MegaMek applies one 0.95 modifier, not both.)
   const droneOS = d.equipment.some((e) => e.equipmentId === 'drone-os');
   // A virtual-reality piloting pod multiplies BV by 1.4 (IO:AE p.183); a RISC heat sink override kit by 1.01 (MegaMek).
-  const cockpitMod = d.cockpitType === 'vrrp' ? 1.4 : d.cockpitType === 'small' || d.cockpitType === 'torso-mounted' || droneOS ? 0.95 : 1;
-  if (cockpitMod !== 1) lines.push([`× ${cockpitMod} ${d.cockpitType === 'vrrp' ? 'virtual-reality piloting pod' : d.cockpitType === 'small' ? 'small cockpit' : d.cockpitType === 'torso-mounted' ? 'torso-mounted cockpit' : 'drone operating system'}`, cockpitMod]);
+  // An interface cockpit multiplies BV by 1.3 (MegaMek).
+  const cockpitMod = d.cockpitType === 'vrrp' ? 1.4 : d.cockpitType === 'small' || d.cockpitType === 'torso-mounted' || droneOS ? 0.95
+    : d.cockpitType === 'interface' ? 1.3 : 1;
+  if (cockpitMod !== 1) lines.push([`× ${cockpitMod} ${d.cockpitType === 'vrrp' ? 'virtual-reality piloting pod' : d.cockpitType === 'small' ? 'small cockpit' : d.cockpitType === 'torso-mounted' ? 'torso-mounted cockpit' : d.cockpitType === 'interface' ? 'interface cockpit' : 'drone operating system'}`, cockpitMod]);
   const riscKit = d.heatSinkOverrideKit ? 1.01 : 1;
   if (riscKit !== 1) lines.push(['× 1.01 RISC heat sink override kit', riscKit]);
 
@@ -504,7 +566,7 @@ function implicitClanCase(d: { techBase: string; equipment: { equipmentId: strin
     const eq = getEquipment(i.equipmentId);
     if (!eq) continue;
     if (eq.id === 'case' || eq.id === 'clan-case') explicit++;
-    else if ((eq.category === 'Ammo' && eq.ammoFor && !isGaussType(eq.ammoFor) && !/plasma/.test(eq.ammoFor))
+    else if ((isExplosiveAmmo(eq))
       || (eq.isWeapon && isGaussType(eq.id)) || eq.explosive) locs.add(i.location ?? '');
   }
   return Math.max(0, locs.size - explicit);
@@ -584,9 +646,14 @@ const LIFT_COST: Record<string, number> = { hover: 20000, vtol: 40000, hydrofoil
 export function vehicleBV(d: VehicleDesign): BVBreakdown {
   const s = computeVehicle(d);
   const lines: [string, number][] = [];
-  const armor = s.armorTotal * 2.5 * (ARMOR_BV_MULTIPLIER[d.armorType] ?? 1);
-  const structure = s.structurePoints * s.armorLocations.length * 1.5;
-  const defEquip = defensiveEquipmentBV(d.equipment);
+  // A Blue Shield adds 0.2 to the armor and structure multipliers (as MegaMek).
+  const blueShield = d.equipment.some((e) => e.equipmentId === 'blue-shield') ? 0.2 : 0;
+  const armor = s.armorTotal * 2.5 * ((ARMOR_BV_MULTIPLIER[d.armorType] ?? 1) + blueShield);
+  const structure = s.structurePoints * s.armorLocations.length * 1.5 * (1 + blueShield);
+  // A VTOL mast mount: +10 BV for each ECM suite or active probe on the mast (Tactical Operations, MegaMek).
+  const mast = d.motive === 'vtol' && d.equipment.some((e) => e.equipmentId === 'mast-mount' && e.location === 'RO')
+    ? 10 * d.equipment.filter((e) => e.location === 'RO' && /ecm|probe/.test(e.equipmentId)).length : 0;
+  const defEquip = defensiveEquipmentBV(d.equipment) + mast;
   // VTOLs and WiGEs +1; stealth armor +2.
   // Running TMM (VTOLs and WiGEs +1; a supercharger or VTOL jet booster doubles cruise MP, as MegaMek), or jumping
   // TMM (+1); stealth armor +2.
@@ -619,7 +686,8 @@ export function vehicleBV(d: VehicleDesign): BVBreakdown {
     return eq && !eq.isWeapon && eq.category !== 'Ammo' && !DEFENSIVE_IDS.has(eq.id) ? a + (value(eq.id)?.bv ?? 0) : a;
   }, 0);
   const tonnage = d.tonnage / 2;
-  const sf = speedFactor(runMP + Math.round(s.jumpMP / 2));
+  // Trailers (no MP of their own) count 1 MP for the speed factor (as MegaMek; they move with a tractor).
+  const sf = speedFactor((d.trailer && d.cruiseMP === 0 ? 1 : runMP) + Math.round(s.jumpMP / 2));
   const offensive = (weaponBV + ammo + offEquip + tonnage) * sf;
   lines.push(['Weapons', weaponBV], ['Ammunition', ammo]);
   if (offEquip) lines.push(['Offensive equipment', offEquip]);
@@ -668,20 +736,25 @@ export function fighterBV(d: FighterDesign): BVBreakdown {
 
   // Defensive: armor, structural integrity, defensive equipment, unprotected explosives, type modifier.
   // Reflective armor ×1.5, ferro-lamellor ×1.2 (as 'Mechs, MegaMek).
-  const armor = s.armorTotal * 2.5 * (ARMOR_BV_MULTIPLIER[d.armorType as MechDesign['armorType']] ?? 1);
+  // Modular armor: 10 extra armor points each (as 'Mechs, MegaMek).
+  const modularArmor = 10 * d.equipment.filter((e) => e.equipmentId === 'modular-armor').length;
+  const armor = (s.armorTotal + modularArmor) * 2.5 * (ARMOR_BV_MULTIPLIER[d.armorType as MechDesign['armorType']] ?? 1);
   const structure = s.si * 2;
   const defEquip = defensiveEquipmentBV(d.equipment);
   // Clan fighters and fighters with CASE ignore explosives; otherwise −15 per ammo type, −1 per Gauss weapon.
-  const protectedAll = d.techBase === 'Clan' || d.equipment.some((e) => e.equipmentId === 'case' || e.equipmentId === 'clan-case');
+  const protectedAll = d.techBase === 'Clan' || d.equipment.some((e) => ['case', 'clan-case', 'case-ii', 'clan-case-ii'].includes(e.equipmentId));
   let explosive = 0;
   if (!protectedAll) {
     const ammoTypes = new Set<string>();
     for (const item of d.equipment) {
       const eq = getEquipment(item.equipmentId);
       if (!eq) continue;
-      if (eq.category === 'Ammo' && eq.ammoFor && !isGaussType(eq.ammoFor) && !/plasma/.test(eq.ammoFor)) ammoTypes.add(eq.id);
+      if (isExplosiveAmmo(eq)) ammoTypes.add(eq.id);
       else if (eq.isWeapon && isGaussType(eq.id)) explosive += 1;
-      else if (eq.explosive) explosive += 1;
+      // Low-explosive weapons and equipment (improved heavy lasers, TSEMPs, …): −1 each (MegaMek).
+      else if (eq.explosive || eq.explosiveLow) explosive += 1;
+      // A PPC with a capacitor is explosive too: −1 for the PPC as well as the capacitor (MegaMek).
+      if (eq.id === 'ppc-capacitor') explosive += 1;
     }
     explosive += 15 * ammoTypes.size;
   }
@@ -719,9 +792,10 @@ export function fighterBV(d: FighterDesign): BVBreakdown {
   lines.push([`Speed factor (max thrust ${s.maxThrust})`, sf]);
 
   let total = defensive + offensive;
-  if (d.cockpitType === 'small') {
+  // A small cockpit or a drone operating system: ×0.95 (once; MegaMek applies the drone's twice).
+  if (d.cockpitType === 'small' || d.equipment.some((e) => e.equipmentId === 'drone-os')) {
     total *= 0.95;
-    lines.push(['× 0.95 small cockpit', 0.95]);
+    lines.push([d.cockpitType === 'small' ? '× 0.95 small cockpit' : '× 0.95 drone operating system', 0.95]);
   }
   return { total: round(total), defensive, offensive, lines, approximate: false };
 }
@@ -809,7 +883,7 @@ export function vesselBV(d: VesselDesign): BVBreakdown {
     for (const item of d.equipment) {
       const eq = getEquipment(item.equipmentId);
       if (!eq) continue;
-      if (eq.category === 'Ammo' && eq.ammoFor && !isGaussType(eq.ammoFor) && !/plasma/.test(eq.ammoFor)) ammoTypes.add(eq.id);
+      if (isExplosiveAmmo(eq)) ammoTypes.add(eq.id);
       else if ((eq.isWeapon && isGaussType(eq.id)) || eq.explosive) explosive += 1;
     }
     explosive += 15 * ammoTypes.size;
@@ -1046,7 +1120,7 @@ export function supportBV(d: SupportVehicleDesign): BVBreakdown {
       for (const item of d.equipment) {
         const eq = getEquipment(item.equipmentId);
         if (!eq) continue;
-        if (eq.category === 'Ammo' && eq.ammoFor && !isGaussType(eq.ammoFor) && !/plasma/.test(eq.ammoFor)) ammoTypes.add(eq.id);
+        if (isExplosiveAmmo(eq)) ammoTypes.add(eq.id);
         else if ((eq.isWeapon && isGaussType(eq.id)) || eq.explosive) explosive += 1;
       }
       explosive += 15 * ammoTypes.size;
@@ -1070,12 +1144,14 @@ export function supportBV(d: SupportVehicleDesign): BVBreakdown {
   const naval = d.svType === 'naval' || d.svType === 'rail';
   const body = d.svType === 'tracked' ? 0.9 : d.svType === 'wheeled' ? 0.8 : naval ? 0.6 : 0.7;
   // A supercharger doubles cruise MP for the running TMM and speed factor (as combat vehicles, MegaMek).
-  const runMP = d.equipment.some((e) => e.equipmentId === 'supercharger') ? d.cruiseMP * 2 : s.flankMP;
-  const tmm = targetMovementModifier(runMP) + (d.svType === 'vtol' || d.svType === 'wige' ? 1 : 0);
+  const runMP = d.equipment.some((e) => e.equipmentId === 'supercharger') ? svCruiseMP(d) * 2 : s.flankMP;
+  // Vehicle jump jets: jumping TMM (+1), and half the jump MP adds to the speed factor (as combat vehicles).
+  const jumpMP = d.equipment.filter((e) => e.equipmentId === 'vehicle-jump-jet').length;
+  const tmm = Math.max(targetMovementModifier(runMP) + (d.svType === 'vtol' || d.svType === 'wige' ? 1 : 0), jumpMP ? targetMovementModifier(jumpMP) + 1 : 0);
   const defensive = (armor + structure + defEquip) * body * (1 + tmm / 10);
   const weaponBV = weapons.reduce((a, w) => a + w.bv, 0);
   const trailer = d.chassisMods.includes('trailer') && d.cruiseMP === 0;
-  const speedMP = trailer ? 1 : d.svType === 'rail' ? d.cruiseMP : runMP;
+  const speedMP = (trailer ? 1 : d.svType === 'rail' ? d.cruiseMP : runMP) + Math.round(jumpMP / 2);
   const sf = speedFactor(speedMP);
   const offensive = (weaponBV + ammo + offEquip + d.tonnage / 2) * sf;
   lines.push([`Armor (× 2.5 × BAR ${d.bar}/10)`, armor], ['Internal structure', structure]);

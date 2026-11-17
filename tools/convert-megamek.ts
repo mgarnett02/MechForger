@@ -366,6 +366,9 @@ function parseMtf(text: string): ParsedMech {
   const tbRaw = get('techbase');
   const techBase: TechBase = /^Clan|Clan Chassis/.test(tbRaw) ? 'Clan' : 'IS';
   const mixedTech = /^Mixed/.test(tbRaw);
+  // MegaMek looks up unprefixed item names on mixed-tech 'Mechs without a tech-base preference, which finds the
+  // Inner Sphere item (e.g. "LRM 10" on the Clan-chassis Pulverizer is an IS LRM-10).
+  const lookupTech: TechBase = mixedTech ? 'IS' : techBase;
   const tonnage = Number(get('mass'));
   if (!(tonnage >= 10 && tonnage <= 200 && tonnage % 5 === 0)) fail(`tonnage ${tonnage}`);
   const walkMP = Number(get('walk mp'));
@@ -530,7 +533,7 @@ function parseMtf(text: string): ParsedMech {
         if (tonnage <= 100 || names.length !== 2) fail(`shared slot "${raw}"`);
         for (let n = 0; n < run; n++) {
           for (const name of names) {
-            const rr = resolveName(name, techBase);
+            const rr = resolveName(name, lookupTech);
             if (rr.kind !== 'item' || itemSlots(getEquipment(rr.id)!, sizing) !== 1) fail(`shared slot "${raw}"`);
             const item: MountedItem = { uid: `c${uid++}`, equipmentId: (rr as { id: string }).id, location: l };
             equipment.push(item);
@@ -539,7 +542,7 @@ function parseMtf(text: string): ParsedMech {
         }
         continue;
       }
-      const r = resolveName(raw, techBase);
+      const r = resolveName(raw, lookupTech);
       if (r.kind === 'fixed') {
         const kind = systemKind(raw.replace(/\s*\((ARMORED|OMNIPOD)\)/gi, ''));
         const seen = sysSeen.get(`${l}|${kind}`) ?? 0;
@@ -672,7 +675,9 @@ function parseBlk(text: string): { design: VehicleDesign; year: number; rulesLev
   if (tags.has('Turret 2 Equipment')) fail('dual turret');
   // Dual turrets: a rear (main) turret and a front turret.
   const dualTurret = tags.has('Front Turret Equipment') || tags.has('Rear Turret Equipment');
-  const turret = tags.has('Turret Equipment') || dualTurret;
+  // An empty turret (an unarmed variant keeps the turret and its armor) shows only as an extra armor value.
+  const baseFacings = (six ? 6 : 4) + (motive === 'vtol' ? 1 : 0);
+  const turret = tags.has('Turret Equipment') || dualTurret || (tags.get('armor') ?? []).length > baseFacings;
   // Troop compartments and cargo bays (seats, quarters and handles are ignored).
   let cargo = 0;
   // Each cargo bay takes an item slot; all troop space together takes one (MegaMek).
@@ -706,7 +711,9 @@ function parseBlk(text: string): { design: VehicleDesign; year: number; rulesLev
       ['Rear Left Equipment', 'RLS'], ['Rear Equipment', 'RR'], ['Turret Equipment', 'TU'], ['Rear Turret Equipment', 'TU'],
       ['Front Turret Equipment', 'TU2'], ['Body Equipment', 'BD']]
     : [['Front Equipment', 'FR'], ['Right Equipment', 'RS'], ['Left Equipment', 'LS'], ['Rear Equipment', 'RR'],
-      ['Turret Equipment', 'TU'], ['Rear Turret Equipment', 'TU'], ['Front Turret Equipment', 'TU2'], ['Body Equipment', 'BD']];
+      ['Turret Equipment', 'TU'], ['Rear Turret Equipment', 'TU'], ['Front Turret Equipment', 'TU2'], ['Body Equipment', 'BD'],
+      // VTOL mast mounts and the equipment on them.
+      ['Rotor Equipment', 'RO']];
   const equipment: VehicleItem[] = [];
   let uid = 0;
   let sponsons = false;
@@ -740,7 +747,7 @@ function parseBlk(text: string): { design: VehicleDesign; year: number; rulesLev
         for (let c = 0; c < Math.round(Number(comms[1])); c++) equipment.push({ uid: `v${uid++}`, equipmentId: 'communications-equipment', location: 'BD' as VehicleLocation });
         continue;
       }
-      const r = resolveName(raw, techBase);
+      const r = resolveName(raw, mixedTech ? 'IS' : techBase);
       if (r.kind === 'fixed') continue;
       if (r.kind === 'unknown') fail(`unknown item "${r.name}"`);
       const id = (r as { id: string }).id;
@@ -748,7 +755,7 @@ function parseBlk(text: string): { design: VehicleDesign; year: number; rulesLev
       if (eq.managed && id !== 'heat-sink') fail(`mech-only item ${id}`);
       if (id === 'heat-sink') continue;
       if ((id === 'case' || id === 'clan-case') && techBase === 'Clan') continue; // Clan CASE is built in
-      equipment.push({ uid: `v${uid++}`, equipmentId: id, location: eq.isWeapon || id === 'dumper' ? loc : 'BD' as VehicleLocation, ...(sponson ? { sponson: true } : {}) });
+      equipment.push({ uid: `v${uid++}`, equipmentId: id, location: eq.isWeapon || id === 'dumper' ? loc : loc === 'RO' ? 'RO' : 'BD' as VehicleLocation, ...(sponson ? { sponson: true } : {}) });
     }
   }
   // "(ST)" without a sponson turret (older designs whose weapons sit in side sponsons) is a plain side mount,
@@ -830,7 +837,7 @@ function parseFighterBlk(text: string): { design: FighterDesign; year: number; m
       const raw = raw0.replace(/:OMNI$/i, '').replace(/:SIZE:[\d.]+$/i, '');
       // Armor slots (stealth, ferro-lamellor, …) belong to the armor; MechForger reserves them itself.
       if (/^(IS|CL|Clan)?\s*Vehicular Stealth$/i.test(raw) || r0IsArmorSlot(raw)) continue;
-      const r = resolveName(raw, techBase);
+      const r = resolveName(raw, mixedTech ? 'IS' : techBase);
       if (r.kind === 'fixed') continue;
       if (r.kind === 'unknown') fail(`unknown item "${r.name}"`);
       const id = (r as { id: string }).id;
@@ -1021,7 +1028,7 @@ function parseStationaryBlk(text: string, kind: 'emplacement' | 'handheld'): { d
   for (const raw0 of tags.get(kind === 'handheld' ? 'gun equipment' : 'guns equipment') ?? []) {
     const shotsM = /:Shots(\d+)#/.exec(raw0);
     const raw = raw0.replace(/:Shots\d+#/, '').replace(/:SIZE:.*$/i, '').replace(/:OMNI$/i, '').trim();
-    const r = resolveName(raw, techBase);
+    const r = resolveName(raw, mixedTech ? 'IS' : techBase);
     if (r.kind === 'fixed') continue;
     if (r.kind === 'unknown') fail(`unknown item "${r.name}"`);
     const id = (r as { id: string }).id;
@@ -1208,7 +1215,7 @@ function parseVesselBlk(text: string): { design: VesselDesign; year: number; mul
       }
       if (/^Communications Equipment:SIZE:0(\.0+)?$/i.test(raw)) continue;
       const capAmmo = CAPITAL_AMMO.get(norm(raw));
-      const r = capAmmo ? { kind: 'item' as const, id: capAmmo } : resolveName(raw, techBase);
+      const r = capAmmo ? { kind: 'item' as const, id: capAmmo } : resolveName(raw, mixedTech ? 'IS' : techBase);
       if (r.kind === 'fixed') continue;
       if (r.kind === 'unknown') fail(`unknown item "${r.name}"`);
       const id = (r as { id: string }).id;
@@ -1299,8 +1306,9 @@ function parseSupportBlk(text: string): { design: SupportVehicleDesign; year: nu
   for (const k of ['Front Turret Equipment', 'Rear Turret Equipment', 'Wings Equipment', ...(large ? ['Left Equipment', 'Right Equipment'] : ['Front Right Equipment', 'Front Left Equipment', 'Rear Right Equipment', 'Rear Left Equipment'])]) {
     if ((tags.get(k) ?? []).length) fail(k);
   }
-  const turret = tags.has('Turret Equipment');
   const armorVals = (tags.get('armor') ?? []).map(Number);
+  // An empty turret shows only as an extra armor value (after the rotor's on VTOLs).
+  const turret = tags.has('Turret Equipment') || (!aero && armorVals.length > (large ? 6 : 4) + (svType === 'vtol' ? 1 : 0));
   const armor: SupportVehicleDesign['armor'] = {};
   if (aero) [armor.NO, armor.LW, armor.RW, armor.AF] = armorVals;
   else if (large) {
@@ -1309,7 +1317,7 @@ function parseSupportBlk(text: string): { design: SupportVehicleDesign; year: nu
     if (turret) armor.TU = armorVals[6] ?? 0;
   } else {
     [armor.FR, armor.RS, armor.LS, armor.RR] = armorVals;
-    if (svType === 'vtol') armor.RO = armorVals[4] ?? 0;
+    if (svType === 'vtol') { armor.RO = armorVals[4] ?? 0; if (turret) armor.TU = armorVals[5] ?? 0; }
     else if (turret) armor.TU = armorVals[4] ?? 0;
   }
   const blocks: [string, SVLocation][] = aero
@@ -1366,7 +1374,7 @@ function parseSupportBlk(text: string): { design: SupportVehicleDesign; year: nu
       }
       if (/^Basic Fire Control$/i.test(raw)) { fireControl = 'basic'; continue; }
       if (/^Advanced Fire Control$/i.test(raw)) { fireControl = 'advanced'; continue; }
-      const r = resolveName(raw, techBase);
+      const r = resolveName(raw, /^Mixed/.test(typeStr) ? 'IS' : techBase);
       if (r.kind === 'fixed') continue;
       if (r.kind === 'unknown') fail(`unknown item "${r.name}"`);
       const id = (r as { id: string }).id;

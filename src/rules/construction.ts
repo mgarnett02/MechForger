@@ -1,7 +1,7 @@
 import type { Location, MechDesign, MountedItem, WeightClass } from './types';
 import {
   LOCATIONS, REAR_FACING, armorTypeAt, effectiveCockpit, engineRatingFor, isIndustrial, isPatchwork, isQuad, isQuadVee,
-  isSuperheavy, isTripod, techOf, isTorsoCockpit,
+  isSuperheavy, isTripod, legLocations, techOf, isTorsoCockpit,
 } from './types';
 import {
   freeHeatSinks, armorPointsPerTon, cockpitWeight, engineCenterSlots, engineHeatSinkCapacity,
@@ -388,9 +388,12 @@ export function computeMech(design: MechDesign): MechSummary {
   const slots = {} as Record<Location, LocationSlots>;
   for (const loc of LOCATIONS) slots[loc] = layoutLocation(design, loc);
   const xxl = design.engineType === 'xxl';
-  // Hardened armor costs one running MP; a chain drape one walking MP (as MegaMek, BV included).
-  const hardened = LOCATIONS.some((l) => armorTypeAt(design, l) === 'hardened') ? 1 : 0;
-  const walk = Math.max(0, walkMP - (design.equipment.some((e) => e.equipmentId === 'chain-drape-cape') ? 1 : 0));
+  // Hardened armor costs one running MP; a chain drape one walking MP; each medium or large shield one walking MP,
+  // leaving at least 1 (Tactical Operations, as MegaMek, BV included).
+  // (Hardened patchwork costs the running MP only when it covers a leg.)
+  const hardened = legLocations(design).some((l) => armorTypeAt(design, l) === 'hardened') ? 1 : 0;
+  const shields = Math.min(ids.filter((id) => id === 'medium-shield' || id === 'large-shield').length, Math.max(0, walkMP - 1));
+  const walk = Math.max(0, walkMP - shields - (design.equipment.some((e) => e.equipmentId === 'chain-drape-cape') ? 1 : 0));
 
   return {
     rating,
@@ -424,7 +427,13 @@ export function computeMech(design: MechDesign): MechSummary {
       // IndustrialMechs take no movement heat (Total Warfare p. 158).
       // Super-cooled myomer removes walking and running heat; prototype improved jump jets: 2 per MP, at least 6.
       running: isIndustrial(design) || design.myomer === 'super-cooled' ? 0 : xxl ? 6 : 2,
-      jumping: totalJumpMP > 0 ? (xxl || design.jumpJetType === 'prototype-improved' ? Math.max(6, totalJumpMP * 2) : Math.max(3, totalJumpMP)) : 0,
+      // Improved jump jets heat as if jumping half the MP, rounded up (as MegaMek); prototype improved jets 2 per MP.
+      jumping: totalJumpMP > 0 ? (() => {
+        // MP from a partial wing generates no heat (MegaMek).
+        const jumped = Math.max(0, totalJumpMP - (wing?.jumpBonus ?? 0));
+        const mp = design.jumpJetType === 'improved' ? Math.ceil(jumped / 2) : jumped;
+        return xxl || design.jumpJetType === 'prototype-improved' ? Math.max(6, mp * 2) : Math.max(3, mp);
+      })() : 0,
     },
     weights,
     slots,

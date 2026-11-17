@@ -265,7 +265,8 @@ export function vehicleArmorLocations(d: Pick<VehicleDesign, 'motive' | 'turret'
 export function vehicleItemLocations(eq: Equipment, d: Pick<VehicleDesign, 'motive' | 'turret'> & Partial<Pick<VehicleDesign, 'tonnage' | 'dualTurret'>>): VehicleLocation[] {
   // Dumpers, and the cargo they unload, may sit at the front, sides or rear (MegaMek).
   const located = eq.variableWeight === 'dumper' || /^(cargo|liquid-storage)-/.test(eq.id);
-  if (!eq.isWeapon && !located) return ['BD'];
+  // VTOLs may carry equipment on a mast mount above the rotor.
+  if (!eq.isWeapon && !located) return d.motive === 'vtol' ? ['BD', 'RO'] : ['BD'];
   if (located) return d.tonnage !== undefined && hasSixFacings({ motive: d.motive, tonnage: d.tonnage })
     ? ['BD', 'FR', 'FRS', 'FLS', 'RRS', 'RLS', 'RR'] : ['BD', 'FR', 'LS', 'RS', 'RR'];
   const arcs: VehicleLocation[] = d.tonnage !== undefined && hasSixFacings({ motive: d.motive, tonnage: d.tonnage })

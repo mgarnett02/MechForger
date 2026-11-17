@@ -381,7 +381,8 @@ const ADVANCED_WEAPONS: Equipment[] = [
   weapon(CLAN_3050, 'clan-improved-large-laser', 'Improved Large Laser', 'Energy', 4, 1, 8, '8', [0, 5, 10, 15]),
   weapon(CLAN_3050, 'clan-enhanced-ppc', 'Enhanced PPC', 'Energy', 7, 3, 15, '12', [0, 7, 14, 23]),
   // Electromagnetic and other special weapons.
-  weapon(IS_3081, 'tsemp-cannon', 'TSEMP Cannon', 'Energy', 6, 5, 10, 'EMP', [0, 5, 10, 15]),
+  // TSEMP cannons can explode: −1 BV per slot, as Gauss rifles (MegaMek).
+  { ...weapon(IS_3081, 'tsemp-cannon', 'TSEMP Cannon', 'Energy', 6, 5, 10, 'EMP', [0, 5, 10, 15]), explosiveLow: true },
   { ...weapon(IS_3062, 'mech-taser', "'Mech Taser", 'Energy', 4, 3, 6, '1 + shutdown', [0, 1, 2, 4], 5), explosiveLow: true },
   weapon(IS_3025, 'fluid-gun', 'Fluid Gun', 'Ballistic', 2, 2, 0, 'special', [0, 1, 2, 3], 20),
   weapon(CLAN_3050, 'clan-fluid-gun', 'Fluid Gun', 'Ballistic', 2, 2, 0, 'special', [0, 1, 2, 3], 20),

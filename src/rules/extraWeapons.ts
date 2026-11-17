@@ -45,8 +45,8 @@ export const EXTRA_WEAPONS: Equipment[] = [
   { id: 'rifle-light', name: "Rifle (Cannon, Light)", category: 'Ballistic', tons: 3, slots: 1, heat: 1, damage: '3', range: { min: 0, short: 4, medium: 8, long: 12 }, ammoPerTon: 18, isWeapon: true, techBase: 'IS', firstEra: '3025' },
   { id: 'rifle-medium', name: "Rifle (Cannon, Medium)", category: 'Ballistic', tons: 5, slots: 2, heat: 2, damage: '6', range: { min: 1, short: 5, medium: 10, long: 15 }, ammoPerTon: 9, isWeapon: true, techBase: 'IS', firstEra: '3025' },
   { id: 'rifle-heavy', name: "Rifle (Cannon, Heavy)", category: 'Ballistic', tons: 8, slots: 3, heat: 4, damage: '9', range: { min: 2, short: 6, medium: 12, long: 18 }, ammoPerTon: 6, isWeapon: true, techBase: 'IS', firstEra: '3025' },
-  { id: 'tsemp-one-shot', name: "TSEMP One-Shot", category: 'Energy', tons: 4, slots: 3, heat: 10, damage: 'special', range: { min: 0, short: 5, medium: 10, long: 15 }, isWeapon: true, techBase: 'IS', firstEra: '3081', oneShot: 'os' },
-  { id: 'tsemp-repeating-cannon', name: "TSEMP Repeating Cannon", category: 'Energy', tons: 8, slots: 7, heat: 10, damage: 'special', range: { min: 0, short: 5, medium: 10, long: 15 }, isWeapon: true, techBase: 'IS', firstEra: '3131' },
+  { id: 'tsemp-one-shot', name: "TSEMP One-Shot", category: 'Energy', tons: 4, slots: 3, heat: 10, damage: 'special', range: { min: 0, short: 5, medium: 10, long: 15 }, isWeapon: true, techBase: 'IS', firstEra: '3081', oneShot: 'os', explosiveLow: true },
+  { id: 'tsemp-repeating-cannon', name: "TSEMP Repeating Cannon", category: 'Energy', tons: 8, slots: 7, heat: 10, damage: 'special', range: { min: 0, short: 5, medium: 10, long: 15 }, isWeapon: true, techBase: 'IS', firstEra: '3131', explosiveLow: true },
   { id: 'vehicular-grenade-launcher', name: "Vehicular Grenade Launcher", category: 'Other', tons: 0.5, slots: 1, heat: 1, damage: 'special', range: { min: 0, short: 1, medium: 1, long: 1 }, isWeapon: true, techBase: 'Both', firstEra: '3025' },
   { id: 'rl-10-prototype', name: "Prototype Rocket Launcher 10", category: 'Missile', tons: 0.5, slots: 1, heat: 3, damage: '10 (cluster)', range: { min: 0, short: 5, medium: 11, long: 18 }, isWeapon: true, techBase: 'Both', firstEra: '3025' },
   { id: 'rl-15-prototype', name: "Prototype Rocket Launcher 15", category: 'Missile', tons: 1, slots: 2, heat: 4, damage: '15 (cluster)', range: { min: 0, short: 4, medium: 9, long: 15 }, isWeapon: true, techBase: 'Both', firstEra: '3025' },
@@ -157,7 +157,7 @@ export const EXTRA_EQUIPMENT: Equipment[] = [
   misc('risc-viral-jammer-decoy', 'Viral Jammer (Decoy)', 2.5, 1, 'IS', '3131'),
   misc('risc-viral-jammer-homing', 'Viral Jammer (Homing)', 2.5, 1, 'IS', '3131'),
   misc('risc-emergency-coolant', 'RISC Emergency Coolant', 2, 1, 'IS', '3131', { explosiveLow: true }),
-  misc('risc-laser-pulse-module', 'Laser Pulse Module', 1, 1, 'IS', '3131'),
+  misc('risc-laser-pulse-module', 'Laser Pulse Module', 1, 1, 'IS', '3131', { explosiveLow: true }), // −1 BV explosive (MegaMek)
   misc('remote-drone-command-console', 'Drone Command Console', 2, 1, 'IS', '3101'),
   misc('collapsible-command-module', 'Collapsible Cmd Module', 16, 12, 'Both', '3025'),
   misc('light-bridge-layer', 'Bridge Layer (Light)', 1, 2, 'Both', '3025'),
@@ -166,7 +166,7 @@ export const EXTRA_EQUIPMENT: Equipment[] = [
   misc('fluid-suction-light', 'Fluid Suction (Light)', 0.5, 1, 'Both', '3025'),
   misc('fluid-suction', 'Fluid Suction', 1, 1, 'Both', '3025'),
   misc('infrared-imager', 'Infrared Imager', 5, 1, 'Both', '3025'),
-  misc('extended-fuel-tank', 'Extended Fuel Tank', 1, 1, 'Both', '3025'),
+  misc('extended-fuel-tank', 'Extended Fuel Tank', 1, 1, 'Both', '3025', { explosive: true }), // explosive like ammunition (MegaMek)
   misc('vehicle-escape-pod', 'Vehicle Escape Pod', 4, 0, 'IS', '3025', { vehicleOnly: true }),
   misc('cockpit-command-console', 'Command Console', 3, 0, 'Both', '3025', { vehicleOnly: true, supportOk: true, fighterOk: true }),
   { id: 'flotation-hull', name: 'Flotation Hull', category: 'Utility', tons: 0, slots: 0, heat: 0, isWeapon: false, vehicleOnly: true, fighterOk: true, techBase: 'Both', firstEra: '3025' },

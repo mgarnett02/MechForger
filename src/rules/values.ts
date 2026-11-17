@@ -255,7 +255,7 @@ export const ITEM_VALUES: Record<string, ItemValue> = {
   'naval-comm-scanner-small': v(0, 50000000), 'naval-comm-scanner-large': v(0, 250000000), 'naval-tug-adaptor': v(0, 100000),
   'look-down-radar': v(0, 400000), 'hyperspectral-imager': v(0, 550000), 'booby-trap': v(0, 100000), 'high-res-imager': v(0, 150000), 'sds-self-destruct': v(0, 1000000), 'field-kitchen': v(0, 25000), 'mobile-field-base': v(0, 150000),
   'lifeboat-maritime': v(0, 5000), 'lifeboat-atmospheric': v(0, 6000), 'refueling-drogue': v(0, 25000),
-  'mast-mount': v(0, 50000), 'trailer-hitch': v(0, 0), 'mine-dispenser': v(8, 20000), 'mine-sweeper': v(0, 40000),
+  'mast-mount': v(0, 50000), 'trailer-hitch': v(0, 0), 'mine-dispenser': v(8, 20000), 'mine-sweeper': v(30, 40000),
   'remote-sensor-dispenser': v(0, 51000), manipulator: v(0, 7500), 'recon-camera': v(0, 20000),
 };
 
@@ -263,7 +263,7 @@ export const ITEM_VALUES: Record<string, ItemValue> = {
 Object.assign(ITEM_VALUES, SV_WEAPON_VALUES);
 
 Object.assign(ITEM_VALUES, {
-  'clan-er-small-laser-prototype': v(17, 11250), mass: v(9, 4000), 'laser-insulator': v(0, 3000), 'harjel-ii': v(0, 240000), 'harjel-iii': v(0, 360000),
+  'clan-er-small-laser-prototype': v(17, 11250), mass: v(9, 4000), 'laser-insulator': v(0, 3000), 'harjel-ii': v(-1, 240000), 'harjel-iii': v(-2, 360000),
   'chaff-pod': v(19, 2000), 'ew-equipment': v(39, 500000), 'risc-viral-jammer-decoy': v(284, 990000), 'risc-viral-jammer-homing': v(284, 990000),
   'prototype-double-heat-sink': v(0, 18000), 'drone-carrier-control': v(0, 20000), 'drone-carrier-slot': v(0, 5000),
   'risc-emergency-coolant': v(0, 460000), 'risc-laser-pulse-module': v(0, 0), 'remote-drone-command-console': v(0, 50000), 'collapsible-command-module': v(0, 500000),
@@ -349,6 +349,12 @@ export const DEFENSIVE_IDS = new Set([
   'bulldozer', 'apds',
   // and these (as MegaMek's countsAsDefensiveEquipment)
   'mass', 'chaff-pod', 'ew-equipment', 'risc-viral-jammer-decoy', 'risc-viral-jammer-homing', 'light-bridge-layer', 'medium-bridge-layer', 'heavy-bridge-layer',
+  // HarJel II / III: −1 / −2 defensive BV each (Interstellar Operations, as MegaMek).
+  'harjel-ii', 'harjel-iii',
+  // Mine sweeper: 30 defensive BV (Tactical Operations).
+  'mine-sweeper',
+  // Screen launchers lay defensive screens (MegaMek).
+  'screen-launcher',
 ]);
 
 /** Gauss-type weapons: their ammo does not explode, but the weapon itself does. */

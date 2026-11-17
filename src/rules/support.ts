@@ -457,7 +457,8 @@ export function computeSupport(d: SupportVehicleDesign): SupportSummary {
 
   return {
     size,
-    flankMP: Math.ceil(d.cruiseMP * 1.5),
+    // A hydrofoil chassis multiplies cruising MP by 1.25, rounded (TechManual, as MegaMek).
+    flankMP: Math.ceil(svCruiseMP(d) * 1.5),
     armorLocations,
     armorTotal,
     armorMax: svMaxArmor(d),
@@ -616,6 +617,13 @@ export function svPintleWeight(d: SupportVehicleDesign): number {
     total += roundUp(w / 20, small);
   }
   return total / turrets.length;
+}
+
+/** Cruising MP after a hydrofoil (×1.25, rounded) or dune buggy chassis (−1). */
+export function svCruiseMP(d: Pick<SupportVehicleDesign, 'cruiseMP' | 'chassisMods'>): number {
+  const mp = d.chassisMods.includes('hydrofoil') ? Math.round(d.cruiseMP * 1.25) : d.cruiseMP;
+  // A dune buggy chassis costs 1 cruising MP (Tactical Operations, as MegaMek).
+  return Math.max(0, mp - (d.chassisMods.includes('dune-buggy') ? 1 : 0));
 }
 
 export function svItemWeight(eq: Equipment, d: SupportVehicleDesign): number {
