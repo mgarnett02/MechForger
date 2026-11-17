@@ -1283,7 +1283,10 @@ function parseVesselBlk(text: string): { design: VesselDesign; year: number; mul
   }
   fixAmmoTech(equipment);
   // Some canon files are marked Inner Sphere yet carry Clan equipment (or vice versa).
-  const mixed = mixedTech || equipment.some((e) => { const tb = getEquipment(e.equipmentId)!.techBase; return tb !== 'Both' && tb !== techBase; });
+  // Mixed tech: the armor's own tech level says whether it is Clan or Inner Sphere armor (as for vehicles).
+  const vesselArmorLevel = tags.has('armor_tech_level') ? Number(one('armor_tech_level')) : null;
+  const vesselArmorTech: TechBase = vesselArmorLevel !== null && vesselArmorLevel >= 0 ? (CLAN_TECH_LEVELS.has(vesselArmorLevel) ? 'Clan' : 'IS') : techBase;
+  const mixed = mixedTech || vesselArmorTech !== techBase || equipment.some((e) => { const tb = getEquipment(e.equipmentId)!.techBase; return tb !== 'Both' && tb !== techBase; });
   const tonnage = Number(one('tonnage'));
   const dropship = vesselType === 'dropship';
   // Fuel points per ton as the rules give them (primitive craft get fewer by year of construction).
@@ -1292,6 +1295,9 @@ function parseVesselBlk(text: string): { design: VesselDesign; year: number; mul
   });
   const design: VesselDesign = {
     schemaVersion: 1, unitType: 'vessel', vesselType, shape, military: one('designtype') !== '0', era: '3025', techBase, mixedTech: mixed,
+    ...(vesselArmorTech !== techBase ? { armorTech: vesselArmorTech } : {}),
+    ...(vesselType === 'dropship' && one('collartype') === '2' ? { noCollar: true } : {}),
+    ...(vesselType === 'space-station' && one('armor_type') === '40' ? { primitiveArmor: true } : {}),
     ...(primitive ? { primitiveYear } : {}),
     // Non-primitive small craft and DropShips built before 2500 still have the heavier engines of their year.
     ...(!primitive && !large && techBase === 'IS' && primitiveYear < 2500 ? { buildYear: primitiveYear } : {}),

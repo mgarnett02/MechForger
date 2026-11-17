@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest';
 import mechs from '../data/canon/mechs.json';
 import fighters from '../data/canon/fighters.json';
 import support from '../data/canon/support.json';
+import vessels from '../data/canon/vessels.json';
 import type { CanonEntry } from '../data/canonFormat';
-import { decodeFighter, decodeMech, decodeSupport } from '../data/canonFormat';
-import { fighterCost, mechCost, supportCost } from './battleValue';
+import { decodeFighter, decodeMech, decodeSupport, decodeVessel } from '../data/canonFormat';
+import { fighterCost, mechCost, supportCost, vesselCost } from './battleValue';
+import { kfIntegrity } from './vessel';
 import { computeSupport } from './support';
 import { computeFighter } from './fighter';
 
@@ -71,5 +73,28 @@ describe('support vehicle costs', () => {
     const w = computeSupport(supportOf('Buffalo BFFL Drone Bomb')).weights;
     expect(w.engine).toBe(23);
     expect(w.free).toBe(-2.5); // overweight in MegaMek too
+  });
+});
+
+const vesselOf = (name: string) => decodeVessel((vessels as CanonEntry[]).find((e) => e.n === name)!.d);
+
+// Spacecraft costs matched to MegaMek's (each figure is MegaMek's).
+describe('spacecraft costs', () => {
+  it.each([
+    ['Black Lion I Battlecruiser', 7019158000], // WarShip K-F integrity: 2 + drive weight / 25,000
+    ['Confederate C (3048)', 145840800], // mixed tech: Inner Sphere armor on a Clan hull
+    ['Bus S-7AC', 3802500], // the armor's own tech level
+    ['Mingo', 123006800], // pre-K-F boom DropShuttle: no docking collar
+    ['Black Eagle', 237104000], // fuel rounds to the half ton before the 2% for pumps
+    ['Habitat Small (2400)', 392471500], // primitive station armor: 5,000 a ton
+    ['Conestoga Transport JumpShip', 12114913000], // primitive armor points ÷ 0.66 round up
+  ])('%s', (name, c) => {
+    expect(Math.round(vesselCost(vesselOf(name)).total)).toBe(c);
+  });
+
+  it('reads WarShip K-F integrity and boomless DropShips', () => {
+    expect(kfIntegrity(vesselOf('Black Lion I Battlecruiser'))).toBeGreaterThan(kfIntegrity({ ...vesselOf('Black Lion I Battlecruiser'), vesselType: 'jumpship' }));
+    expect(vesselOf('Mingo').noCollar).toBe(true);
+    expect(vesselOf('Confederate C (3048)').armorTech).toBe('IS');
   });
 });

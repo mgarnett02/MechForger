@@ -997,7 +997,7 @@ export function vesselBV(d: VesselDesign): BVBreakdown {
 
 /** Primitive craft carry Primitive Aerospace armor, 5,000 C-bills a ton (MegaMek). */
 function vesselArmorCostPerTon(d: VesselDesign): number {
-  return d.armorType === 'standard' && isPrimitiveVessel(d) ? 5000 : VESSEL_ARMOR_COST[d.armorType];
+  return d.armorType === 'standard' && (isPrimitiveVessel(d) || (d.vesselType === 'space-station' && d.primitiveArmor)) ? 5000 : VESSEL_ARMOR_COST[d.armorType];
 }
 
 export function vesselCost(d: VesselDesign): CostBreakdown {
@@ -1042,7 +1042,8 @@ export function vesselCost(d: VesselDesign): CostBreakdown {
   const q = d.quarters;
   const quarters = 30000 * (q['first-class'] ?? 0) + 15000 * ((q['second-class'] ?? 0) + (q.crew ?? 0)) + 5000 * (q.steerage ?? 0);
   if (d.vesselType === 'dropship') {
-    lines.push(['Docking collar', 10000], ['Bays and doors', bays + 1000 * s.bayDoors], ['Life boats / escape pods', 5000 * (d.lifeboats + d.escapePods)]);
+    if (!d.noCollar) lines.push(['Docking collar', 10000]);
+    lines.push(['Bays and doors', bays + 1000 * s.bayDoors], ['Life boats / escape pods', 5000 * (d.lifeboats + d.escapePods)]);
     multiplier = d.shape === 'spheroid' ? 28 : 36;
   } else {
     lines.push(['Bays and doors', bays + 1000 * s.bayDoors], ['Quarters', quarters]);

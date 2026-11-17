@@ -175,6 +175,10 @@ export interface VesselDesign {
   shape: VesselShape;
   /** Military DropShips get more weight-free heat sinks. */
   military: boolean;
+  /** DropShips built before the K-F boom (DropShuttles carried in bays): no docking collar. */
+  noCollar?: boolean;
+  /** Space stations with primitive armor: weighs as standard capital armor, costs 5,000 a ton (MegaMek). */
+  primitiveArmor?: boolean;
   /** Primitive small craft and DropShips (Interstellar Operations): the year of construction sets the
    * engine, control and fuel factors; armor gets only 66% of its points. */
   primitiveYear?: number;
@@ -185,6 +189,8 @@ export interface VesselDesign {
   era: EraId;
   techBase: TechBase;
   mixedTech: boolean;
+  /** Mixed tech: the armor's tech base when it differs from the chassis'. */
+  armorTech?: TechBase;
   chassis: string;
   model: string;
   tonnage: number;
@@ -261,9 +267,9 @@ const CAPITAL_PPT: Partial<Record<VesselArmorType, { IS: number[]; Clan: number[
 const CAPITAL_BANDS = [150000, 250000];
 
 /** Armor points per ton; 0 if the armor cannot be used on this kind of vessel. */
-export function vesselArmorPointsPerTon(d: Pick<VesselDesign, 'armorType' | 'techBase' | 'shape' | 'tonnage' | 'vesselType'>): number {
+export function vesselArmorPointsPerTon(d: Pick<VesselDesign, 'armorType' | 'techBase' | 'shape' | 'tonnage' | 'vesselType'> & { mixedTech?: boolean; armorTech?: TechBase }): number {
   const large = isLargeCraft(d);
-  const table = (large ? CAPITAL_PPT : PPT)[d.armorType]?.[d.techBase];
+  const table = (large ? CAPITAL_PPT : PPT)[d.armorType]?.[(d.mixedTech && d.armorTech) || d.techBase];
   if (!table) return 0;
   const bands = large ? CAPITAL_BANDS : d.shape === 'spheroid' ? SPHEROID_BANDS : AERODYNE_BANDS;
   const i = bands.findIndex((b) => d.tonnage < b);
@@ -399,7 +405,8 @@ export function kfDriveWeight(d: Pick<VesselDesign, 'vesselType' | 'driveCore' |
 
 /** K-F drive integrity (used for cost). */
 export function kfIntegrity(d: Pick<VesselDesign, 'vesselType' | 'driveCore' | 'tonnage'> & { jumpRange?: number }): number {
-  return Math.ceil(1.2 + kfDriveWeight(d) / 60000);
+  // WarShips: 2 + drive weight / 25,000; JumpShips: 1.2 + drive weight / 60,000 (MegaMek).
+  return d.vesselType === 'warship' ? Math.ceil(2 + kfDriveWeight(d) / 25000) : Math.ceil(1.2 + kfDriveWeight(d) / 60000);
 }
 
 export function sailWeight(d: Pick<VesselDesign, 'vesselType' | 'sail' | 'tonnage'> & { driveCore?: DriveCore; primitiveYear?: number }): number {
@@ -719,10 +726,12 @@ export function computeVessel(d: VesselDesign): VesselSummary {
     engine: vesselEngineWeight(d),
     controls,
     // Fuel pumps: 2% of the fuel (rounded up to the ton on large craft, with the total to the half ton on smaller craft).
-    fuel: large ? d.fuelTons + tonUp(d.fuelTons * 0.02) : halfUp(d.fuelTons * 1.02),
+    // Small craft and DropShips: the fuel tonnage rounds to the nearest half ton (its points are derived from it
+    // and rounded down) before the 2% for pumps and plumbing (MegaMek).
+    fuel: large ? d.fuelTons + tonUp(d.fuelTons * 0.02) : halfUp((Math.round(2 * d.fuelTons) / 2) * 1.02),
     heatSinks: Math.max(0, d.heatSinks - free),
     // Primitive armor: points = (tons × points per ton + SI bonus) × 0.66.
-    armor: armorTotal > 0 ? halfUp(Math.max(0, (isPrimitiveVessel(d) ? armorTotal / 0.66 : armorTotal) - siBonusArmor(d)) / ppt) : 0,
+    armor: armorTotal > 0 ? halfUp(Math.max(0, (isPrimitiveVessel(d) ? Math.ceil(armorTotal / 0.66 - 1e-9) : armorTotal) - siBonusArmor(d)) / ppt) : 0,
     fireControl,
     lifeboats: (d.lifeboats + d.escapePods) * 7,
     equipment,
@@ -1014,11 +1023,14 @@ export function parseVessel(raw: unknown): VesselDesign {
     vesselType: pick(r.vesselType, ['small-craft', 'dropship', 'jumpship', 'warship', 'space-station'] as const, 'dropship'),
     shape: pick(r.shape, ['aerodyne', 'spheroid'] as const, 'spheroid'),
     military: r.military !== false,
+    ...(r.noCollar === true ? { noCollar: true } : {}),
+    ...(r.primitiveArmor === true ? { primitiveArmor: true } : {}),
     ...(typeof r.primitiveYear === 'number' ? { primitiveYear: r.primitiveYear } : {}),
     ...(typeof r.buildYear === 'number' ? { buildYear: r.buildYear } : {}),
     era: getEra(String(r.era))?.id ?? DEFAULT_ERA,
     techBase: pick(r.techBase, ['IS', 'Clan'] as const, 'IS'),
     mixedTech: r.mixedTech === true,
+    ...(r.armorTech === 'IS' || r.armorTech === 'Clan' ? { armorTech: r.armorTech } : {}),
     chassis: typeof r.chassis === 'string' ? r.chassis : 'Unnamed',
     model: typeof r.model === 'string' ? r.model : '',
     tonnage: num(r.tonnage, 'tonnage'),

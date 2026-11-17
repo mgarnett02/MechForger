@@ -81,6 +81,18 @@ function VesselChassisPanel({ design, summary, update }: Props) {
             <input type="checkbox" checked={design.military} onChange={(e) => update((d) => ({ ...d, military: e.target.checked }))} />
             Military
           </label>
+          {design.vesselType === 'space-station' && design.armorType === 'standard' && (
+            <label className="check" title="Primitive armor weighs as standard capital armor but costs 5,000 C-bills a ton">
+              <input type="checkbox" checked={!!design.primitiveArmor} onChange={(e) => update((d) => ({ ...d, primitiveArmor: e.target.checked || undefined }))} />
+              Primitive armor
+            </label>
+          )}
+          {design.vesselType === 'dropship' && (
+            <label className="check" title="DropShuttles built before the K-F boom ride in bays and have no docking collar">
+              <input type="checkbox" checked={!!design.noCollar} onChange={(e) => update((d) => ({ ...d, noCollar: e.target.checked || undefined }))} />
+              No docking collar
+            </label>
+          )}
           {!large && (
             <>
               {' '}
