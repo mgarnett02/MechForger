@@ -51,6 +51,8 @@ export interface Equipment {
   artemisAmmo?: boolean;
   /** An infantry weapon mounted on a support vehicle (clips of ammunition instead of tons). */
   infantryWeapon?: boolean;
+  /** Infantry support weapon (heavier crew-served weapons; light infantry weapons need no fire control). */
+  infantrySupport?: boolean;
   /** Ammo bins: flak autocannon ammunition (costs half as much again). */
   flakAmmo?: boolean;
   /** Ammo bins: a special munition (LB-X cluster, ATM ER / HE, Narc-capable, Arrow IV homing, …). */
@@ -596,6 +598,8 @@ export const OTHER_EQUIPMENT: readonly Equipment[] = [
     id: 'case', name: 'CASE', category: 'Other', tons: 0.5, slots: 1, heat: 0, isWeapon: false,
     allowedLocations: TORSO, ...IS_3050,
   },
+  // Clan CASE weighs nothing (Clan designs have it built in; mixed-tech Inner Sphere chassis mount it).
+  { id: 'clan-case', name: 'CASE', category: 'Other', tons: 0, slots: 1, heat: 0, isWeapon: false, ...CLAN_3050 },
   // CASE II: fits in any location and also protects the head, center torso and legs (and XL side torsos).
   { id: 'case-ii', name: 'CASE II', category: 'Other', tons: 1, slots: 1, heat: 0, isWeapon: false, ...IS_3062 },
   { id: 'clan-case-ii', name: 'CASE II', category: 'Other', tons: 0.5, slots: 1, heat: 0, isWeapon: false, ...CLAN_3062 },
@@ -1078,12 +1082,31 @@ export function shortEquipmentName(eq: Equipment, d: Pick<MechDesign, 'mixedTech
 
 type SizingDesign = Pick<MechDesign, 'tonnage' | 'techBase' | 'equipment'> & { config?: MechConfig } & Partial<Pick<MechDesign, 'engineType' | 'walkMP' | 'jumpBoosterMP'>>;
 
+/** Energy and ballistic weapons MegaMek does not count as direct fire (and so not toward a targeting computer). */
+const NOT_DIRECT_FIRE = new Set(['silver-bullet-gauss', 'mech-taser', 'fluid-gun', 'clan-fluid-gun', 'apds', 'centurion-weapon-system', 'nail-rivet-gun']);
+
 /** Weapons a targeting computer is sized from: direct-fire energy and ballistic weapons. */
 export function isDirectFire(eq: Equipment): boolean {
   // As MegaMek: lasers, PPCs, autocannon, Gauss rifles and plasma weapons are direct fire; artillery,
-  // flamers, machine guns and anti-missile systems are not.
-  if (!eq.isWeapon || eq.artillery || /flamer|machine-gun|mga$|(^|-)ams$|mortar/.test(eq.id)) return false;
+  // flamers, machine guns, anti-missile systems, fluid guns, tasers and Silver Bullet Gauss rifles are not.
+  if (!eq.isWeapon || eq.artillery || NOT_DIRECT_FIRE.has(eq.id) || /flamer|machine-gun|mga$|(^|-)ams$|mortar/.test(eq.id)) return false;
   return eq.category === 'Energy' || eq.category === 'Ballistic';
+}
+
+/** Tons an item adds to the weight a targeting computer is sized from (RISC laser pulse modules count, as MegaMek). */
+export function targetingComputerTons(eq: Equipment): number {
+  return isDirectFire(eq) || eq.id === 'risc-laser-pulse-module' ? eq.tons : 0;
+}
+
+/**
+ * Heat removed by laser insulators on a heat-neutral unit (vehicles, conventional fighters): each insulator
+ * takes 1 heat off a laser, leaving at least 1 (as MegaMek).
+ */
+export function laserInsulatorHeatReduction(items: { equipmentId: string }[]): number {
+  const insulators = items.filter((i) => i.equipmentId === 'laser-insulator').length;
+  if (!insulators) return 0;
+  const lasers = items.filter((i) => { const eq = getEquipment(i.equipmentId); return eq?.isWeapon && /laser/.test(eq.id) && !eq.ammoPerTon && eq.heat > 1; }).length;
+  return Math.min(insulators, lasers);
 }
 
 /** Targeting computer: 1 ton per 4 (IS) or 5 (Clan) tons of direct-fire weapons, rounded up. */
@@ -1091,7 +1114,7 @@ export function targetingComputerWeight(eq: Equipment, d: SizingDesign): number 
   let tons = 0;
   for (const m of d.equipment) {
     const w = getEquipment(m.equipmentId);
-    if (w && isDirectFire(w)) tons += w.tons;
+    if (w) tons += targetingComputerTons(w);
   }
   return Math.max(1, Math.ceil(tons / (eq.techBase === 'Clan' ? 5 : 4) - 1e-9));
 }

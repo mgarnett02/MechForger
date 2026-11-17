@@ -16,7 +16,7 @@ import {
 } from './tables';
 import type { Equipment } from './equipment';
 import {
-  shortEquipmentName, getEquipment, isArtemisVCapable, isDirectFire, isEquipmentAvailable, dumperWeight, srcsWeight, usesAmmo,
+  shortEquipmentName, getEquipment, isArtemisVCapable, laserInsulatorHeatReduction, targetingComputerTons, isEquipmentAvailable, dumperWeight, srcsWeight, usesAmmo,
 } from './equipment';
 import { armorPointsForTons, armorTonnage } from './armor';
 import type { Issue } from './validation';
@@ -68,6 +68,8 @@ export interface VehicleDesign {
   engineType: VehicleEngineType;
   structureType: BasicStructureType;
   armorType: VehicleArmorType;
+  /** Mixed tech: the armor's tech base when it differs from the chassis' (e.g. Clan ferro-fibrous on an Inner Sphere chassis). */
+  armorTech?: TechBase;
   /** OmniVehicle: pod-mounted equipment (each canon configuration loads as its own design); cost ×1.25. */
   omni?: boolean;
   /** OmniVehicle: turret weight fixed by the base chassis (tons); pods may fill up to it. */
@@ -234,6 +236,11 @@ export function vehicleStructureSlots(type: BasicStructureType, techBase: TechBa
   return type === 'endo-steel' ? (techBase === 'Clan' ? 1 : 2) : 0;
 }
 
+/** Tech base of a vehicle's armor: its own on a mixed-tech design, otherwise the chassis'. */
+export function vehicleArmorTech(d: Pick<VehicleDesign, 'techBase' | 'mixedTech' | 'armorTech'>): TechBase {
+  return (d.mixedTech && d.armorTech) || d.techBase;
+}
+
 export function vehicleArmorSlots(type: VehicleArmorType, techBase: TechBase): number {
   switch (type) {
     case 'ferro-fibrous': case 'reactive': return techBase === 'Clan' ? 1 : 2;
@@ -391,7 +398,7 @@ export function vehicleItemWeight(eq: Equipment, d: VehicleDesign): number {
     let tons = 0;
     for (const m of d.equipment) {
       const w = getEquipment(m.equipmentId);
-      if (w && isDirectFire(w)) tons += w.tons;
+      if (w) tons += targetingComputerTons(w);
     }
     return Math.max(1, Math.ceil(tons / (eq.techBase === 'Clan' ? 5 : 4) - 1e-9));
   }
@@ -422,14 +429,14 @@ export function vehicleEngineSlots(d: Pick<VehicleDesign, 'engineType' | 'techBa
  * armor's slots, Endo Steel structure, and one for troop space.
  */
 export function vehicleSlotsUsed(d: VehicleDesign): number {
-  let used = vehicleStructureSlots(d.structureType, d.techBase) + vehicleArmorSlots(d.armorType, d.techBase) + vehicleEngineSlots(d);
+  let used = vehicleStructureSlots(d.structureType, d.techBase) + vehicleArmorSlots(d.armorType, vehicleArmorTech(d)) + vehicleEngineSlots(d);
   const ammoTypes = new Set<string>();
   const groups = new Set<string>();
   for (const item of d.equipment) {
     const eq = getEquipment(item.equipmentId);
     if (!eq) continue;
     if (eq.category === 'Ammo') { ammoTypes.add(eq.ammoFor ?? eq.id); continue; }
-    if (NO_SLOT.has(eq.id) || eq.vehicleChassisMod || (eq.id === 'case' && d.techBase === 'Clan')) continue;
+    if (NO_SLOT.has(eq.id) || eq.vehicleChassisMod || eq.id === 'clan-case' || (eq.id === 'case' && d.techBase === 'Clan')) continue;
     const g = ONE_SLOT_GROUPS.find(([re]) => re.test(eq.id));
     if (g) { groups.add(g[1]); continue; }
     used += eq.id === 'blue-shield' ? 5 : 1;
@@ -444,7 +451,7 @@ export function computeVehicle(d: VehicleDesign): VehicleSummary {
   const baseEngine = vehicleEngineWeight(d.engineType, rating);
   const engineWt = baseEngine === null ? null
     : d.motive === 'hover' ? Math.max(baseEngine, halfUp(d.tonnage * 0.2)) : baseEngine;
-  const ppt = armorPointsPerTon(d.armorType, d.techBase);
+  const ppt = armorPointsPerTon(d.armorType, vehicleArmorTech(d));
   const armorLocations = vehicleArmorLocations(d);
   const armorTotal = armorLocations.reduce((a, l) => a + (d.armor[l] ?? 0), 0);
 
@@ -471,6 +478,7 @@ export function computeVehicle(d: VehicleDesign): VehicleSummary {
     // Heat-producing equipment must be sunk too (MegaMek's heat-neutral rule).
     if (!eq.isWeapon && eq.heat > 0) energyHeat += eq.heat;
   }
+  energyHeat -= laserInsulatorHeatReduction(d.equipment);
   // Stealth armor generates 10 heat that the heat sinks must handle (as MegaMek).
   if (d.armorType === 'stealth') energyHeat += 10;
 
@@ -544,9 +552,9 @@ export function validateVehicle(d: VehicleDesign, s: VehicleSummary = computeVeh
     if (!era.techBases.includes(d.techBase)) {
       error(`${TECH_BASE_NAMES[d.techBase]} vehicles cannot be built in the ${era.name} era.`);
     }
-    const chosen = [VEHICLE_ENGINE_OPTIONS[d.engineType], STRUCTURE_OPTIONS[d.structureType], ARMOR_OPTIONS[d.armorType]];
-    for (const o of chosen) {
-      if (!componentEraOk(o, d.era, d.techBase)) error(`${o.label} cannot be used in the ${era.name} era.`);
+    const chosen: [ComponentOption, TechBase][] = [[VEHICLE_ENGINE_OPTIONS[d.engineType], d.techBase], [STRUCTURE_OPTIONS[d.structureType], d.techBase], [ARMOR_OPTIONS[d.armorType], vehicleArmorTech(d)]];
+    for (const [o, tech] of chosen) {
+      if (!componentEraOk(o, d.era, tech)) error(`${o.label} cannot be used in the ${era.name} era.`);
       else if (!componentTechOk(o, d.techBase, d.mixedTech)) {
         error(`${o.label}: ${TECH_BASE_NAMES[o.techBase as TechBase]} technology only (needs mixed tech on a ${TECH_BASE_NAMES[d.techBase]} design).`);
       }
@@ -803,7 +811,7 @@ export function distributeVehicleArmor(d: VehicleDesign, points: number): Vehicl
 }
 
 export function setVehicleArmorTonnage(d: VehicleDesign, tons: number): VehicleDesign {
-  const ppt = armorPointsPerTon(d.armorType, d.techBase);
+  const ppt = armorPointsPerTon(d.armorType, vehicleArmorTech(d));
   return distributeVehicleArmor(d, armorPointsForTons(Math.round(tons * 2) / 2, ppt));
 }
 
@@ -845,6 +853,7 @@ export function parseVehicle(raw: unknown): VehicleDesign {
     engineType: pick(r.engineType, ['ice', 'standard', 'xl', 'light', 'compact', 'xxl', 'fuel-cell', 'fission', 'none'] as const, 'ice'),
     structureType: pick(r.structureType, ['standard', 'endo-steel'] as const, 'standard'),
     armorType: pick(r.armorType, ['standard', 'ferro-fibrous', 'light-ferro', 'heavy-ferro', 'reactive', 'reflective', 'hardened', 'stealth', 'ferro-lamellor', 'ballistic-reinforced'] as const, 'standard'),
+    ...(r.mixedTech === true && (r.armorTech === 'IS' || r.armorTech === 'Clan') && r.armorTech !== r.techBase ? { armorTech: r.armorTech } : {}),
     ...(r.omni === true ? { omni: true } : {}),
     ...(r.trailer === true ? { trailer: true } : {}),
     ...(r.trailer === true && r.noControls === true ? { noControls: true } : {}),

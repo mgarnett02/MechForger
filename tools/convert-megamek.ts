@@ -242,6 +242,7 @@ function resolveName(raw: string, unitTech: TechBase): Resolved {
   };
   // Stealth armor's slots are fixed (two per side torso, arm and leg); MechForger places them itself.
   if (b === 'stealth') return { kind: 'fixed' };
+  if (b === 'case') return { kind: 'item', id: (tech ?? unitTech) === 'Clan' ? 'clan-case' : 'case' };
   if (structural[b]) return { kind: 'item', id: structural[b] };
   if (UTILITY_NAMES[b]) return { kind: 'item', id: UTILITY_NAMES[b] };
   if (/^dumper(front|rear|left|right)?$/.test(b)) return { kind: 'item', id: 'dumper' };
@@ -538,7 +539,7 @@ function parseMtf(text: string): ParsedMech {
       }
       if (r.kind === 'unknown') fail(`unknown item "${r.name}"`);
       // Clan CASE is built in (weightless); MechForger does not list it.
-      if ((r as { id: string }).id === 'case' && techBase === 'Clan' && /^CL|^Clan/.test(raw)) continue;
+      if (['case', 'clan-case'].includes((r as { id: string }).id) && techBase === 'Clan' && /^CL|^Clan/.test(raw)) continue;
       const eq = getEquipment((r as { id: string }).id)!;
       const variable = eq.variableWeight === 'masc' || eq.variableWeight === 'targetingComputer';
       const size = variable ? run : itemSlots(eq, sizing);
@@ -644,6 +645,8 @@ function parseBlk(text: string): { design: VehicleDesign; year: number; rulesLev
   const tonnage = Number(one('tonnage'));
   const engineType = BLK_ENGINES[one('engine_type')] ?? fail(`engine ${one('engine_type')}`);
   const armorType = BLK_ARMOR[one('armor_type')] ?? fail(`armor ${one('armor_type')}`);
+  // Mixed tech: the armor's own tech level says whether it is Clan or Inner Sphere armor.
+  const armorTech: TechBase = mixedTech && tags.has('armor_tech_level') ? (CLAN_TECH_LEVELS.has(Number(one('armor_tech_level'))) ? 'Clan' : 'IS') : techBase;
   if (tags.has('internal_type') && one('internal_type') !== '-1' && one('internal_type') !== '0') fail('structure');
   for (const k of ['Turret 2 Equipment', ...(six ? ['Left Equipment', 'Right Equipment'] : ['Front Right Equipment', 'Front Left Equipment', 'Rear Right Equipment', 'Rear Left Equipment'])]) {
     if ((tags.get(k) ?? []).length) fail(k);
@@ -724,7 +727,7 @@ function parseBlk(text: string): { design: VehicleDesign; year: number; rulesLev
       const eq = getEquipment(id)!;
       if (eq.managed && id !== 'heat-sink') fail(`mech-only item ${id}`);
       if (id === 'heat-sink') continue;
-      if (id === 'case' && techBase === 'Clan') continue; // Clan CASE is built in
+      if ((id === 'case' || id === 'clan-case') && techBase === 'Clan') continue; // Clan CASE is built in
       equipment.push({ uid: `v${uid++}`, equipmentId: id, location: eq.isWeapon || id === 'dumper' ? loc : 'BD' as VehicleLocation, ...(sponson ? { sponson: true } : {}) });
     }
   }
@@ -736,6 +739,7 @@ function parseBlk(text: string): { design: VehicleDesign; year: number; rulesLev
     schemaVersion: 1, unitType: 'vehicle', era: '3025', techBase, mixedTech,
     chassis: one('Name'), model: one('Model'), motive, tonnage, cruiseMP: Number(one('cruiseMP')),
     engineType, structureType: 'standard', armorType, turret, heatSinks: 0, armor, equipment,
+    ...(armorTech !== techBase ? { armorTech } : {}),
     ...(omni ? { omni: true } : {}),
     ...(['1', 'true'].includes(one('trailer')) ? { trailer: true } : {}),
     ...(['1', 'true'].includes(one('trailer')) && ['1', 'true'].includes(one('hasNoControlSystems')) ? { noControls: true } : {}),
@@ -812,7 +816,7 @@ function parseFighterBlk(text: string): { design: FighterDesign; year: number; m
       const eq = getEquipment(id)!;
       if (/heat-sink/.test(id)) continue; // fighters count heat sinks in the <heatsinks> total
       if (eq.managed) fail(`mech-only item ${id}`);
-      if (id === 'case' && techBase === 'Clan') continue; // built into Clan fighters
+      if ((id === 'case' || id === 'clan-case') && techBase === 'Clan') continue; // built into Clan fighters
       equipment.push({ uid: `a${uid++}`, equipmentId: id, location: loc, ...(rear ? { rear: true } : {}) });
     }
   }
@@ -1190,7 +1194,7 @@ function parseVesselBlk(text: string): { design: VesselDesign; year: number; mul
       const eq = getEquipment(id)!;
       if (/heat-sink/.test(id)) continue;
       if (eq.managed) fail(`mech-only item ${id}`);
-      if (id === 'case' && techBase === 'Clan') continue;
+      if ((id === 'case' || id === 'clan-case') && techBase === 'Clan') continue;
       const item: VesselItem = { uid: `s${uid++}`, equipmentId: id, location: loc };
       if (rear) item.rear = true;
       if (eq.isWeapon && vesselType !== 'small-craft') { if (newBay || bay === 0) bay++; item.bay = bay; }
@@ -1347,7 +1351,7 @@ function parseSupportBlk(text: string): { design: SupportVehicleDesign; year: nu
       const id = (r as { id: string }).id;
       const eq = getEquipment(id)!;
       if (id === 'heat-sink') continue;
-      if (id === 'case' && techBase === 'Clan') continue;
+      if ((id === 'case' || id === 'clan-case') && techBase === 'Clan') continue;
       if (eq.managed) fail(`mech-only item ${id}`);
       const count = id === 'communications-equipment' ? Math.round(size) : 1;
       for (let n = 0; n < count; n++) equipment.push({ uid: `s${uid++}`, equipmentId: id, location: eq.isWeapon || id === 'dumper' ? loc : 'BD' });

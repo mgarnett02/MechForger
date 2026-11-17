@@ -153,7 +153,7 @@ export const ITEM_VALUES: Record<string, ItemValue> = {
   'clan-hag-40': v(535, 600000, 67, 30000),
 
   // Equipment (variable costs such as MASC and targeting computers are computed separately)
-  case: v(0, 50000),
+  case: v(0, 50000), 'clan-case': v(0, 50000),
   'case-ii': v(0, 175000),
   'clan-case-ii': v(0, 175000),
   'artemis-iv': v(0, 100000),

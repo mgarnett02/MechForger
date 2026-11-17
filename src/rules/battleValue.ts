@@ -304,7 +304,7 @@ export function mechBV(d: MechDesign): BVBreakdown {
   // holds 3+ engine slots (IS XL, any XXL); arms are protected by CASE in the arm or its side torso.
   const at = (ids: string[]) => new Set(d.equipment.filter((e) => ids.includes(e.equipmentId)).map((e) => e.location));
   const caseII = at(['case-ii', 'clan-case-ii']);
-  const caseIn = at(['case']);
+  const caseIn = at(['case', 'clan-case']);
   const hasCase = (loc: Location) => isClan || caseIn.has(loc) || caseII.has(loc);
   const protectedLoc = (loc: Location): boolean => {
     if (caseII.has(loc)) return true;
@@ -503,7 +503,7 @@ function implicitClanCase(d: { techBase: string; equipment: { equipmentId: strin
   for (const i of d.equipment) {
     const eq = getEquipment(i.equipmentId);
     if (!eq) continue;
-    if (eq.id === 'case') explicit++;
+    if (eq.id === 'case' || eq.id === 'clan-case') explicit++;
     else if ((eq.category === 'Ammo' && eq.ammoFor && !isGaussType(eq.ammoFor) && !/plasma/.test(eq.ammoFor))
       || (eq.isWeapon && isGaussType(eq.id)) || eq.explosive) locs.add(i.location ?? '');
   }
@@ -672,7 +672,7 @@ export function fighterBV(d: FighterDesign): BVBreakdown {
   const structure = s.si * 2;
   const defEquip = defensiveEquipmentBV(d.equipment);
   // Clan fighters and fighters with CASE ignore explosives; otherwise −15 per ammo type, −1 per Gauss weapon.
-  const protectedAll = d.techBase === 'Clan' || d.equipment.some((e) => e.equipmentId === 'case');
+  const protectedAll = d.techBase === 'Clan' || d.equipment.some((e) => e.equipmentId === 'case' || e.equipmentId === 'clan-case');
   let explosive = 0;
   if (!protectedAll) {
     const ammoTypes = new Set<string>();
@@ -804,7 +804,7 @@ export function vesselBV(d: VesselDesign): BVBreakdown {
   const structure = d.si * (large ? 20 : 2);
   const defEquip = defensiveEquipmentBV(d.equipment);
   let explosive = 0;
-  if (!dropship && d.techBase !== 'Clan' && !d.equipment.some((e) => e.equipmentId === 'case')) {
+  if (!dropship && d.techBase !== 'Clan' && !d.equipment.some((e) => e.equipmentId === 'case' || e.equipmentId === 'clan-case')) {
     const ammoTypes = new Set<string>();
     for (const item of d.equipment) {
       const eq = getEquipment(item.equipmentId);

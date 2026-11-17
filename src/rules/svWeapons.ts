@@ -36,6 +36,7 @@ export const SV_INFANTRY_WEAPONS: Equipment[] = SOURCE.map((e): Equipment => {
     techBase: e.techBase === 'Both' ? 'Both' : e.techBase === 'Clan' ? 'Clan' : 'IS',
     firstEra: eraForYear(firstYear(e)),
     infantryWeapon: true,
+    ...(e.flags.includes('F_INF_SUPPORT') ? { infantrySupport: true } : {}),
   };
 });
 

@@ -13,7 +13,7 @@ import { TECH_BASE_NAMES } from './types';
 import type { EraId } from './eras';
 import { DEFAULT_ERA, getEra, isAvailableIn } from './eras';
 import type { Equipment } from './equipment';
-import { shortEquipmentName, getEquipment, isDirectFire, isEquipmentAvailable, dumperWeight, srcsWeight, usesAmmo } from './equipment';
+import { shortEquipmentName, getEquipment, targetingComputerTons, isEquipmentAvailable, dumperWeight, srcsWeight, usesAmmo } from './equipment';
 import { svClipExtras } from './svWeapons';
 import type { Issue } from './validation';
 
@@ -266,8 +266,9 @@ function roundNearest(w: number, small: boolean): number {
 }
 
 function roundUp(w: number, small: boolean): number {
-  const t = Math.round(w * 1e6) / 1e6;
-  return (small ? Math.ceil(t * 1000) / 1000 : Math.ceil(t * 2) / 2) || 0;
+  // Work in grams so floating-point noise (4.054000000000001) does not round up a whole kilogram.
+  const g = Math.round(w * 1e6);
+  return (small ? Math.ceil(g / 1000) / 1000 : Math.ceil(g / 500000) / 2) || 0;
 }
 
 /** Large ground and naval support vehicles (MegaMek's "large support tanks") have six armor facings. */
@@ -414,7 +415,8 @@ export function computeSupport(d: SupportVehicleDesign): SupportSummary {
     const w = svItemWeight(eq, d) + svClipExtras(eq.id, item.clips).tons;
     equipment += w;
     if (item.location === 'TU') turretItems += w;
-    if (eq.isWeapon && !/ams$/.test(eq.id)) weapons += w;
+    // Fire control covers weapons other than anti-missile systems and light (non-support) infantry weapons (as MegaMek).
+    if (eq.isWeapon && !/ams$/.test(eq.id) && !(eq.infantryWeapon && !eq.infantrySupport)) weapons += svItemWeight(eq, d);
     if (isEnergyHeat(eq)) {
       energyAmp += eq.tons;
       heat += eq.heat;
@@ -629,7 +631,7 @@ export function svItemWeight(eq: Equipment, d: SupportVehicleDesign): number {
     let tons = 0;
     for (const m of d.equipment) {
       const w = getEquipment(m.equipmentId);
-      if (w && isDirectFire(w)) tons += w.tons;
+      if (w) tons += targetingComputerTons(w);
     }
     return Math.max(1, Math.ceil(tons / (eq.techBase === 'Clan' ? 5 : 4) - 1e-9));
   }

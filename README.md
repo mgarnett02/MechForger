@@ -39,7 +39,8 @@ Everything above, plus:
   LRM/SRM/Streak SRM, ATM, Narc, AMS, active probe, ECM
 - **Artemis IV** fire control (one per LRM/SRM launcher, same location) and Artemis ammo
 - **Targeting computers** (Clan: 1 t per 5 t of direct-fire weapons; the IS version
-  arrives with the Civil War era)
+  arrives with the Civil War era). As MegaMek, fluid guns, tasers, the RISC APDS, nail/rivet guns, the Centurion
+  weapon system and Silver Bullet Gauss rifles are not direct fire; RISC laser pulse modules count
 - **Triple-Strength Myomer** (IS; 6 slots, +1 walking MP at 9+ heat; not with MASC)
 - **C3** master computer and slave unit (IS)
 - **Half-ton machine gun ammo**
@@ -294,8 +295,12 @@ Advanced or Experimental level and is not modeled yet.
   structure (not on naval vehicles), and six armor facings (front, front and rear sides, rear) on ground and
   naval superheavies
 - Engine rating = cruising MP × tonnage − suspension factor (rounded up to 5);
-  ICE engines (2× standard weight, power amplifiers for energy weapons), fuel cells (1 free heat sink),
-  fission (5 free heat sinks) or fusion, XL, XXL, Light and Compact engines with 50% extra shielding weight
+  ICE engines (2× standard weight, power amplifiers for energy weapons other than chemical lasers and vehicle
+  flamers), fuel cells (1 free heat sink), fission (5 free heat sinks) or fusion, XL, XXL, Light and Compact
+  engines with 50% extra shielding weight; heat sinks cover energy weapons, each laser insulator taking 1 heat
+  off a laser (minimum 1)
+- Mixed tech: the armor may be Clan or Inner Sphere whatever the chassis (e.g. Clan ferro-fibrous at 19.2 points
+  a ton on an Inner Sphere chassis); Clan CASE weighs nothing
 - **OmniVehicles** (cost ×1.25; the turret weight is fixed by the base chassis) and **trailers**
   (no engine or cruise MP needed, optionally no control systems)
 - Chassis modifications: fully and limited amphibious (tracked and wheeled), environmental sealing
@@ -383,7 +388,7 @@ fixed-wing support).
 
   | Unit type | BV | Cost |
   |---|---|---|
-  | BattleMechs (3,161 compared) | 95% | 86% (95% within 2%) |
+  | BattleMechs (3,167 compared) | 95% | 86% (95% within 2%) |
   | Combat vehicles (1,208) | 97% | 58% (77% within 2%; marked approximate) |
   | Support vehicles (229) | 94% | 92% (94% within 2%) |
   | Aerospace / conventional fighters (542) | 97% | 74% (95% within 2%) |

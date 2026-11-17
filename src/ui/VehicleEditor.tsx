@@ -16,7 +16,7 @@ import {
   VTOL_ROTOR_MAX_ARMOR, addVehicleItem, distributeVehicleArmor, emptyVehicleArmor, isVehicleEquipment,
   removeVehicleItem, setVehicleArmorTonnage, setVehicleEngine, setVehicleItemLocation, setVehicleMotive, setVehicleTonnage,
   hasSixFacings, isSuperheavyVehicle, motiveMaxTonnage,
-  setVehicleTurret, setVehicleDualTurret, setVehicleSponsons, setVehicleItemSponson, SPONSON_LOCATIONS, turretName, vehicleArmorSlots, vehicleItemLocations, vehicleItemWeight, vehicleReadout,
+  setVehicleTurret, setVehicleDualTurret, setVehicleSponsons, setVehicleItemSponson, SPONSON_LOCATIONS, turretName, vehicleArmorSlots, vehicleArmorTech, vehicleItemLocations, vehicleItemWeight, vehicleReadout,
   vehicleStructureSlots,
 } from '../rules/vehicle';
 import { NumberField } from './NumberField';
@@ -228,7 +228,7 @@ function VehicleArmorPanel({ design, summary, update }: Props) {
   const maxTons = armorTonnage(summary.armorMax, ppt);
   const unused = armorPointsForTons(summary.weights.armor, ppt) - summary.armorTotal;
   const opt = (k: VehicleArmorType) => componentAvailable(ARMOR_OPTIONS[k], design.era, design.techBase, design.mixedTech);
-  const slots = (k: VehicleArmorType) => vehicleArmorSlots(k, design.techBase);
+  const slots = (k: VehicleArmorType) => vehicleArmorSlots(k, vehicleArmorTech(design));
   return (
     <section className="panel">
       <h2>
@@ -243,6 +243,17 @@ function VehicleArmorPanel({ design, summary, update }: Props) {
             <option key={k} value={k} disabled={!opt(k)}>{ARMOR_NAMES[k]} ({slots(k)} slot{slots(k) === 1 ? '' : 's'})</option>
           ))}
         </select>{' '}
+        {design.mixedTech && (
+          <select aria-label="Armor tech base" value={vehicleArmorTech(design)}
+            onChange={(e) => update((d) => {
+              const { armorTech: _old, ...rest } = d;
+              const tech = e.target.value as TechBase;
+              return tech === d.techBase ? rest : { ...rest, armorTech: tech };
+            })}>
+            <option value="IS">IS</option>
+            <option value="Clan">Clan</option>
+          </select>
+        )}{' '}
         <span className="muted small">{Number.isInteger(ppt) ? ppt : ppt.toFixed(2)} pts/ton</span>
       </h2>
       <table className="armor-table">

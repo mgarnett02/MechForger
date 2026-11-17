@@ -17,7 +17,7 @@ import {
   componentTechOk, engineWeight, standardFusionEngineWeight,
 } from './tables';
 import type { Equipment } from './equipment';
-import { getEquipment, isEquipmentAvailable, itemWeight, shortEquipmentName } from './equipment';
+import { getEquipment, isEquipmentAvailable, laserInsulatorHeatReduction, itemWeight, shortEquipmentName } from './equipment';
 import { armorPointsForTons, armorTonnage } from './armor';
 import type { Issue } from './validation';
 
@@ -180,7 +180,7 @@ export function isFighterEquipment(eq: Equipment): boolean {
 
 /** Where an item may be mounted. */
 export function fighterItemLocations(eq: Equipment): FighterLocation[] {
-  if (eq.category === 'Ammo' || eq.id === 'case') return ['FUS'];
+  if (eq.category === 'Ammo' || eq.id === 'case' || eq.id === 'clan-case') return ['FUS'];
   if (eq.id === 'heavy-gauss-rifle') return ['NOS', 'AFT'];
   if (eq.isWeapon || /artemis/.test(eq.id)) return ['NOS', 'LWG', 'RWG', 'AFT'];
   return [...FIGHTER_LOCATIONS];
@@ -279,7 +279,7 @@ export function heatNeutralRequirement(d: FighterDesign): number {
     const eq = getEquipment(item.equipmentId);
     if (eq?.isWeapon && eq.category === 'Energy' && (!eq.ammoPerTon || /plasma/.test(eq.id))) heat += eq.heat;
   }
-  return heat;
+  return heat - laserInsulatorHeatReduction(d.equipment);
 }
 
 export function computeFighter(d: FighterDesign): FighterSummary {
@@ -303,7 +303,8 @@ export function computeFighter(d: FighterDesign): FighterSummary {
     const w = fighterItemWeight(eq, d);
     equipment += w;
     if (eq.isWeapon) weaponHeat += eq.heat;
-    if (eq.isWeapon && eq.category === 'Energy') energyTons += w;
+    // Ammunition-fed chemical lasers and vehicle flamers need no power amplifiers (as MegaMek); plasma weapons do.
+    if (eq.isWeapon && eq.category === 'Energy' && !(eq.ammoPerTon && !/plasma/.test(eq.id))) energyTons += w;
     if (item.location && item.location !== 'FUS' && usesWeaponSlot(eq)) slots[item.location].used++;
   }
 
