@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { supportBV, supportCost } from './battleValue';
 import {
   addSupportItem, barWeightPerPoint, computeSupport, kgPerFuelPoint, newSupportVehicle, parseSupport,
-  isLargeSupportTank, setSupportType, svBayWeight, sizeClass, supportReadout, svArmorLocations, svMaxArmor, validateSupport,
+  isLargeSupportTank, setSupportType, svBayWeight, sizeClass, supportReadout, svArmorLocations, svMaxArmor, svMinimumCrew, validateSupport,
 } from './index';
 import type { SVBay, SupportVehicleDesign } from './support';
 import support from '../data/canon/support.json';
@@ -83,8 +83,9 @@ describe('canon support vehicles', () => {
   });
 
   it('almost all are within their published tonnage (engine to the nearest half ton, total rounded up, as MegaMek)', () => {
-    // A few canon designs (the Estevez tanks, J-37, Air Car) are overweight in MegaMek's own validator too.
-    expect(S.filter((e) => e.ok).length / S.length).toBeGreaterThan(0.94);
+    // A few canon designs are overweight (the Estevez tanks, J-37, Air Car) or over their item slots (Brunel dump
+    // trucks, two Zugvogel configurations) in MegaMek's own validator too.
+    expect(S.filter((e) => e.ok).length / S.length).toBeGreaterThan(0.93);
   });
 
   it.each([['Prime Mover (Succession Wars)', 59.5], ['Cobra VTOL Transport', 29.5], ['Caravan Heavy Transport', 200], ['Flatbed Railcar', 120]] as const)(
@@ -190,5 +191,25 @@ describe('support vehicles with non-BAR armor', () => {
     const s = computeSupport(j37);
     expect(s.weights.armor).toBe(Math.ceil((s.armorTotal / 16) * 2) / 2);
     expect(supportCost(j37).total).toBe(454219); // as MegaMek
+  });
+});
+
+describe('support vehicle item slots', () => {
+  it('match MegaMek: 5 + tonnage ÷ 10; weapons use their \'Mech slots, utility gear one, ammo one per kind', () => {
+    const p = canon('Prometheus Combat Support Bridgelayer');
+    const sl = computeSupport(p).slots;
+    expect(sl.capacity).toBe(12);
+    expect(sl.equipment).toBe(6); // LRM 15 (3), medium laser (1), two heavy bridge layers (1 each)
+    expect(sl.ammo).toBe(1);
+    expect(sl.transport).toBe(2);
+    expect(sl.used).toBe(9);
+  });
+  it('flag designs over their slots and count quarters beyond the minimum crew', () => {
+    const brunel = canon('Brunel Dump Truck (AC)');
+    expect(validateSupport(brunel).some((i) => /item slots/.test(i.message))).toBe(true);
+    const base = newSupportVehicle();
+    const crew = svMinimumCrew(base);
+    const quarters = { ...base, transport: { ...base.transport, steerage: 5 * (crew + 60) } };
+    expect(computeSupport(quarters).slots.crew).toBe(2); // 60 extra people in steerage: ⌈60 / 50⌉
   });
 });

@@ -1332,6 +1332,7 @@ function parseSupportBlk(text: string): { design: SupportVehicleDesign; year: nu
     }
   }
   const transport = emptyTransport();
+  let cargoBays = 0;
   for (const t of tags.get('transporters') ?? []) {
     const [kind, amount] = t.split(':');
     const n = Number(amount);
@@ -1344,10 +1345,11 @@ function parseSupportBlk(text: string): { design: SupportVehicleDesign; year: nu
       case '1stclassquarters': transport.firstClass += n; break;
       case 'crewquarters': transport.crewQuarters += n; break;
       // Special cargo bays weigh more than their capacity.
-      case 'cargobay': transport.cargo += n; transport.cargoDoors = (transport.cargoDoors ?? 0) + (Number(t.split(':')[2]) || 0); break;
+      case 'cargobay': transport.cargo += n; cargoBays++; transport.cargoDoors = (transport.cargoDoors ?? 0) + (Number(t.split(':')[2]) || 0); break;
       case 'liquidcargobay': case 'insulatedcargobay': case 'refrigeratedcargobay': {
         const w = Math.round((n / (kind.toLowerCase() === 'liquidcargobay' ? 0.91 : 0.87)) * 1000) / 1000;
         transport.cargo += w;
+        cargoBays++;
         transport.cargoDoors = (transport.cargoDoors ?? 0) + (Number(t.split(':')[2]) || 0);
         transport.specialCargoCost = (transport.specialCargoCost ?? 0)
           + ({ liquidcargobay: 100, refrigeratedcargobay: 200, insulatedcargobay: 250 } as Record<string, number>)[kind.toLowerCase()] * Math.ceil(w);
@@ -1373,6 +1375,8 @@ function parseSupportBlk(text: string): { design: SupportVehicleDesign; year: nu
       default: fail(`transporter ${kind}`);
     }
   }
+  // Each separate cargo bay takes an item slot.
+  if (cargoBays > 1) transport.cargoBays = cargoBays;
   const design: SupportVehicleDesign = {
     schemaVersion: 1, unitType: 'support', era: '3025', techBase, mixedTech: /^Mixed/.test(typeStr),
     chassis: one('Name'), model: one('Model'), svType, tonnage,

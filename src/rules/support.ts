@@ -63,6 +63,8 @@ export interface SVTransport {
   bays?: SVBay[];
   /** Doors on the cargo bays (1,000 C-bills each). */
   cargoDoors?: number;
+  /** Separate cargo bays the cargo tonnage is split into (each takes an item slot); 1 when unset. */
+  cargoBays?: number;
   /** Cost of liquid, refrigerated and insulated cargo bays (canon designs). */
   specialCargoCost?: number;
 }
@@ -341,6 +343,20 @@ export interface SupportSummary {
   heatSinks: number;
   weights: SVWeights;
   unallocated: SVItem[];
+  /** Item slots: 5 + tonnage ÷ 10, and what uses them (TechManual, as MegaMek's validator). */
+  slots: SVSlots;
+}
+
+export interface SVSlots {
+  capacity: number;
+  used: number;
+  equipment: number;
+  ammo: number;
+  armor: number;
+  crew: number;
+  transport: number;
+  /** Minimum crew (drivers, gunners and equipment operators), which needs no slots for its quarters. */
+  minimumCrew: number;
 }
 
 // Ammunition-fed flamers need neither power amplifiers nor heat sinks (as MegaMek).
@@ -446,7 +462,124 @@ export function computeSupport(d: SupportVehicleDesign): SupportSummary {
     heatSinks,
     weights,
     unallocated: d.equipment.filter((e) => e.location === null),
+    slots: svSlotUsage(d),
   };
+}
+
+/** Items that take a support vehicle slot of their own regardless of their 'Mech critical slots (MegaMek's svSlots). */
+const SV_ITEM_SLOTS: Record<string, number> = {
+  'c3-master': 1, 'improved-c3': 1, 'c3-boosted-master': 6, 'fluid-gun': 1, 'clan-fluid-gun': 1,
+  'cruise-missile-50': 25, 'cruise-missile-70': 35, 'cruise-missile-90': 45, 'cruise-missile-120': 60,
+  thumper: 7, 'long-tom': 15, sniper: 10, 'arrow-iv': 7, 'clan-arrow-iv': 6, 'hyperspectral-imager': 2,
+  'laser-insulator': 0, 'environmental-sealing': 0, 'naval-comm-scanner-small': 1, 'pintle-turret': 0,
+  // Second and later pieces of a sized system share the first one's slot.
+  'mash-theater': 0, 'drone-carrier-slot': 0,
+  // Items with no critical slots in MegaMek take no support vehicle slot either.
+  'searchlight-handheld': 0, 'lifeboat-maritime': 0, 'mobile-field-base': 0, 'trailer-hitch': 0,
+  'light-bridge-layer': 1, 'medium-bridge-layer': 1, 'heavy-bridge-layer': 1,
+};
+/** Sized items whose pieces take one slot per location (MegaMek mounts them as one item). */
+const SV_GROUPED = /^(cargo-(1|half)|liquid-storage-(1|half)|communications-equipment|ladder-20m)$/;
+
+/** Item slots one piece of equipment takes on a support vehicle (as MegaMek). */
+export function svEquipmentSlots(eq: Equipment, d: SupportVehicleDesign): number {
+  if (eq.id in SV_ITEM_SLOTS) return SV_ITEM_SLOTS[eq.id];
+  if (eq.infantryWeapon) return 1;
+  // Chassis modifications (armored motive system, …) take none.
+  if (eq.vehicleChassisMod) return 0;
+  // Industrial and utility equipment takes one slot (not its 'Mech critical slots).
+  if (eq.category === 'Utility') return 1;
+  if (eq.variableWeight === 'targetingComputer') return Math.ceil(svItemWeight(eq, d) - 1e-9);
+  if (eq.variableWeight === 'srcs') return 0;
+  return eq.slots;
+}
+
+/** Armor slots: BAR 10 armor at tech rating E (2) or F (1); other armor as on combat vehicles (MegaMek). */
+function svArmorSlots(d: SupportVehicleDesign): number {
+  if (!d.armorType) return d.bar === 10 ? (d.armorTech === 'E' ? 2 : d.armorTech === 'F' ? 1 : 0) : 0;
+  const clan = d.techBase === 'Clan';
+  switch (d.armorType) {
+    case 'ferro-fibrous': case 'reactive': return clan ? 1 : 2;
+    case 'heavy-ferro': return 3;
+    case 'stealth': return 2;
+    case 'light-ferro': case 'reflective': case 'ferro-lamellor': case 'ballistic-reinforced': return 1;
+    default: return 0;
+  }
+}
+
+/** Minimum crew (TechManual p. 129, as MegaMek): base crew, gunners and equipment operators, +1 per 6 from 4 up. */
+export function svMinimumCrew(d: SupportVehicleDesign): number {
+  const has = (id: string) => d.equipment.some((e) => e.equipmentId === id);
+  if (has('drone-os')) return 0;
+  const size = sizeClass(d);
+  const naval = d.svType === 'naval';
+  let base = 0;
+  if (!(d.chassisMods.includes('trailer') && d.engineType === 'none')) {
+    if (size === 'small') base = 1;
+    else if (size === 'medium') base = naval || d.svType === 'airship' ? 4 : 2;
+    else base = 3 + (naval ? Math.ceil(d.tonnage / 5000) : d.svType === 'airship' ? Math.ceil(d.tonnage / 500) : 0);
+  }
+  const weapons = d.equipment.map((e) => ({ e, eq: getEquipment(e.equipmentId) })).filter((x) => x.eq?.isWeapon);
+  let gunners: number;
+  if (size === 'small') {
+    if (d.fireControl === 'none') gunners = weapons.length;
+    else {
+      // One gunner per facing (pintle mounts count as their own); advanced fire control lets the driver shoot.
+      const facings = new Set(weapons.map((x) => `${x.e.pintle ? 'P' : ''}${x.e.location}`));
+      gunners = Math.max(0, facings.size - (d.fireControl === 'advanced' ? 1 : 0));
+    }
+  } else {
+    const tons = weapons.filter((x) => !/(^|-)ams$|laser-ams/.test(x.eq!.id)).reduce((a, x) => a + svItemWeight(x.eq!, d), 0);
+    const per = d.fireControl === 'advanced' ? (d.structureTech === 'F' ? 6 : d.structureTech === 'E' ? 5 : 4) : d.fireControl === 'basic' ? 3 : 2;
+    gunners = Math.ceil(tons / per - 1e-9);
+  }
+  const count = (id: string) => d.equipment.filter((e) => e.equipmentId === id).length;
+  const mash = count('mash-core') + count('mash-theater');
+  // Communications operators (1 per ton), MASH doctors and medics (5 per theater), field kitchens (3), mobile field bases (5).
+  const operators = count('communications-equipment') + 5 * mash + 3 * count('field-kitchen') + 5 * count('mobile-field-base');
+  const crew = base + gunners + operators;
+  return crew < 4 ? crew : crew + Math.ceil(crew / 6);
+}
+
+/** Support vehicle item slots (TechManual, as MegaMek's TestSupportVehicle). */
+export function svSlotUsage(d: SupportVehicleDesign): SVSlots {
+  const small = sizeClass(d) === 'small';
+  let equipment = 0;
+  const grouped = new Set<string>();
+  const ammo = new Set<string>();
+  let jumpJets = false;
+  for (const item of d.equipment) {
+    const eq = getEquipment(item.equipmentId);
+    if (!eq) continue;
+    if (eq.category === 'Ammo') {
+      // One slot per kind of ammunition, whatever its munition (small support vehicles: none).
+      if (!small) ammo.add(eq.ammoFor ?? eq.id);
+      continue;
+    }
+    if (eq.variableWeight === 'vehicleJumpJet') { jumpJets = true; continue; }
+    if (SV_GROUPED.test(eq.id)) {
+      const k = `${eq.id.replace(/-(1|half)$/, '')}|${item.location}`;
+      if (!grouped.has(k)) { grouped.add(k); equipment++; }
+      continue;
+    }
+    equipment += svEquipmentSlots(eq, d);
+  }
+  if (jumpJets) equipment++;
+  const t = d.transport;
+  // Quarters for the minimum crew need no slots; second-class (passenger) quarters always do. Extra crew is
+  // put in the least bulky quarters first: steerage, then standard crew quarters, then first class.
+  const minimumCrew = svMinimumCrew(d);
+  let extra = Math.floor(t.firstClass / 10) + Math.floor(t.crewQuarters / 7) + Math.floor(t.steerage / 5) - minimumCrew;
+  const take = (n: number) => { const x = Math.max(0, Math.min(extra, n)); extra -= x; return x; };
+  const steerage = take(Math.floor(t.steerage / 5));
+  const stdCrew = take(Math.floor(t.crewQuarters / 7));
+  const first = take(Math.floor(t.firstClass / 10));
+  const crew = Math.ceil(first / 5) + Math.ceil(Math.floor(t.secondClass / 7) / 20) + Math.ceil(stdCrew / 20) + Math.ceil(steerage / 50);
+  // Each bay takes a slot (cargo bays counted separately; all troop space together takes one); seats take none.
+  const transport = (t.cargo > 0 ? Math.max(1, t.cargoBays ?? 1) : 0) + (t.troops > 0 ? 1 : 0) + (t.bays?.length ?? 0);
+  const armor = svArmorSlots(d);
+  const used = equipment + ammo.size + armor + crew + transport;
+  return { capacity: 5 + Math.floor(d.tonnage / 10), used, equipment, ammo: ammo.size, armor, crew, transport, minimumCrew };
 }
 
 /** Engine weight before rounding (TM p.133). */
@@ -569,6 +702,12 @@ export function validateSupport(d: SupportVehicleDesign, s: SupportSummary = com
     error(`BAR ${d.bar} armor is not available at armor tech rating ${d.armorTech}.`);
   }
   if (s.armorTotal > s.armorMax) error(`Armor total ${s.armorTotal} exceeds the maximum of ${s.armorMax}.`);
+  const sl = s.slots;
+  if (sl.used > sl.capacity) {
+    const parts = [['equipment', sl.equipment], ['ammunition', sl.ammo], ['armor', sl.armor], ['extra quarters', sl.crew], ['bays', sl.transport]]
+      .filter(([, n]) => n).map(([k, n]) => `${k} ${n}`).join(', ');
+    error(`Uses ${sl.used} item slots but has ${sl.capacity} (5 + tonnage ÷ 10): ${parts}.`);
+  }
   if (d.svType === 'vtol' && (d.armor.RO ?? 0) > 2) error('A VTOL rotor can carry at most 2 points of armor.');
   if (d.turret && info.aero) error('Fixed-wing aircraft and airships cannot mount turrets.');
 
@@ -775,7 +914,8 @@ export function supportReadout(d: SupportVehicleDesign, s: SupportSummary = comp
   for (const b of d.transport.bays ?? []) {
     lines.push(row(`${SV_BAY_INFO[b.kind].name}: ${fmt(b.size)} ${SV_BAY_INFO[b.kind].unit}, ${b.doors} door${b.doors === 1 ? '' : 's'}${b.variant ? `, ${b.variant === 'clan' ? 'Clan' : 'ComStar'}` : ''}`, svBayWeight(b)));
   }
-  lines.push(row(`Armor: BAR ${d.bar}, ${s.armorTotal} points`, w.armor));
+  lines.push(row(`Armor: ${d.armorType ? `${ARMOR_NAMES[d.armorType]} (BAR 10)` : `BAR ${d.bar}`}, ${s.armorTotal} points`, w.armor));
+  lines.push(`Item slots: ${s.slots.used} of ${s.slots.capacity}  ·  minimum crew ${s.slots.minimumCrew}`);
   lines.push('');
   for (const l of s.armorLocations) lines.push(`    ${SV_LOCATION_NAMES[l].padEnd(18)}${String(d.armor[l] ?? 0).padStart(5)}`);
   const nameWidth = Math.max(30, ...d.equipment.map((e) => { const eq = getEquipment(e.equipmentId); return eq ? shortEquipmentName(eq, d).length + 4 : 0; }));

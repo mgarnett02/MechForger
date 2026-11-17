@@ -350,7 +350,13 @@ fixed-wing support).
   C-bills per engine ton, doubled cruise MP for BV)
 - Non-BAR armor (Advanced rules): any combat-vehicle armor type, weighed by its points per ton and rated
   BAR 10
-- Item slots are not checked
+- **Item slots** (5 + tonnage ÷ 10, as MegaMek's validator): weapons and electronics take their 'Mech critical
+  slots (artillery, cruise missiles and a few others their own counts), infantry weapons and industrial or utility
+  equipment one, each kind of ammunition one (none on small support vehicles), jump jets one in all, armor as
+  combat vehicles (BAR 10 at tech rating E or F: 2 / 1), each cargo or unit bay one (all troop space together one;
+  seats none), and quarters beyond the minimum crew one per 5 (first class), 20 (second class and crew) or 50
+  (steerage) people. The minimum crew (drivers, gunners by weapon tonnage or facing, and operators for
+  communications, MASH units, field kitchens and mobile field bases) is shown in the editor
 
 ### Everywhere
 

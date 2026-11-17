@@ -431,6 +431,10 @@ function SupportSummaryPanel({ design, summary, issues }: Props) {
       <div className="stats">
         <div><span className="muted">Move</span> {design.cruiseMP}/{summary.flankMP}</div>
         <div><span className="muted">Size</span> {summary.size}</div>
+        <div title={`Equipment ${summary.slots.equipment} · ammunition ${summary.slots.ammo} · armor ${summary.slots.armor} · quarters beyond the minimum crew of ${summary.slots.minimumCrew}: ${summary.slots.crew} · bays ${summary.slots.transport}`}>
+          <span className="muted">Item slots</span> <span className={summary.slots.used > summary.slots.capacity ? 'bad' : ''}>{summary.slots.used}/{summary.slots.capacity}</span>
+        </div>
+        <div><span className="muted">Minimum crew</span> {summary.slots.minimumCrew}</div>
         <div><span className="muted">Tech</span> {design.structureTech}-{design.engineTech}-{design.armorTech}</div>
         <div><span className="muted">Armor</span> {summary.armorTotal}/{summary.armorMax} (BAR {design.bar})</div>
       </div>
