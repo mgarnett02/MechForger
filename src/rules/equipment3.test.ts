@@ -170,3 +170,23 @@ describe('compact heat sinks, super-cooled myomer, prototype armor and jump jets
     expect(mechBV(griffin).total).toBe(1269);
   });
 });
+
+describe('mechanical jump boosters, dumpers and cargo containers', () => {
+  const get = (n: string) => decodeMech(canon.find((e) => e.n === n)!.d);
+  it('jump boosters: 5% of tonnage per MP, 2 slots per leg, no heat, MP² × tonnage × 150', () => {
+    const lil = get("Juggernaut JG-R9TX1 'Leapin' Lil'");
+    expect(lil.jumpBoosterMP).toBe(2);
+    expect(lil.equipment.filter((e) => e.equipmentId === 'mech-jump-booster').length).toBe(2);
+    expect(computeMech(lil).weights.total).toBe(90);
+    expect(mechBV(lil).total).toBe(1951);
+    expect(mechCost(lil).total).toBe(15676900);
+  });
+  it('dumpers weigh 5% of the cargo in their location; a cargo container takes one slot', () => {
+    const kiso = get('Kiso K-3N-KRHQ CommandMech');
+    expect(computeMech(kiso).weights.total).toBe(100);
+    expect(mechCost(kiso).total).toBe(5024792);
+    const lumberjack = get('Lumberjack LM4/P');
+    expect(lumberjack.equipment.some((e) => e.equipmentId === 'dumper')).toBe(true);
+    expect(mechBV(lumberjack).total).toBe(651);
+  });
+});

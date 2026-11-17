@@ -246,6 +246,14 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
     error('Wheels can only be used on QuadVees.');
   }
 
+  // Mechanical jump boosters (as MegaMek): not with a partial wing, not on superheavies.
+  if (design.jumpBoosterMP) {
+    if (design.equipment.some((e) => getEquipment(e.equipmentId)?.variableWeight === 'partialWing')) error('Partial wings cannot be combined with jump boosters.');
+    if (isSuperheavy(design)) error("Superheavy 'Mechs cannot mount mechanical jump boosters.");
+    if (!design.equipment.some((e) => e.equipmentId === 'mech-jump-booster')) error('Mechanical jump boosters need their slots in every leg.');
+    if (!componentEraOk({ label: '', techBase: 'IS', firstEra: '3050' }, design.era)) error('Mechanical jump boosters are available from 3060.');
+  }
+
   // Jump jets
   if (design.jumpJetType === 'improved' || design.jumpJetType === 'prototype-improved') {
     if (summary.jumpMP > summary.runMP) {

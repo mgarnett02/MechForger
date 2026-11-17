@@ -40,7 +40,7 @@ export interface Equipment {
   allowedLocations?: readonly Location[];
   isWeapon: boolean;
   /** Weight (and for MASC / targeting computers, slots) depends on the mech. */
-  variableWeight?: 'jumpJet' | 'improvedJumpJet' | 'masc' | 'supercharger' | 'targetingComputer' | 'aes' | 'partialWing' | 'droneOS' | 'tracks' | 'wheels' | 'vehicleJumpJet' | 'vesselFormula' | 'boobyTrap' | 'srcs' | 'mechTurret' | 'pintleTurret';
+  variableWeight?: 'jumpJet' | 'improvedJumpJet' | 'masc' | 'supercharger' | 'targetingComputer' | 'aes' | 'partialWing' | 'droneOS' | 'tracks' | 'wheels' | 'vehicleJumpJet' | 'vesselFormula' | 'boobyTrap' | 'srcs' | 'mechTurret' | 'pintleTurret' | 'jumpBooster' | 'dumper';
   /** Combat vehicle chassis modification: weighs this share of the tonnage (Clan share if given). */
   vehicleChassisMod?: { share: number; clan?: number };
   /** Systems spread one piece per location (added and removed as a set). */
@@ -675,6 +675,11 @@ export const OTHER_EQUIPMENT: readonly Equipment[] = [
     id: 'umu', name: 'UMU', category: 'Other', tons: 0, slots: 1, heat: 0, isWeapon: false, variableWeight: 'jumpJet',
     allowedLocations: ['CT', 'LT', 'RT', 'LL', 'RL'], techBase: 'Both', firstEra: '3062',
   },
+  // Mechanical jump boosters (Tactical Operations, 3060): 2 slots per leg; weight from the design's booster MP.
+  {
+    id: 'mech-jump-booster', name: 'Mech. Jump Booster', category: 'Other', tons: 0, slots: 2, heat: 0, isWeapon: false,
+    variableWeight: 'jumpBooster', spread: 'legs', fixedOnly: true, techBase: 'IS', firstEra: '3050', managed: true,
+  },
   // Tracks (Interstellar Operations): 10% of tonnage, one slot per leg.
   {
     id: 'tracks', name: 'Tracks', category: 'Other', tons: 0, slots: 1, heat: 0, isWeapon: false, variableWeight: 'tracks',
@@ -729,7 +734,7 @@ export const OTHER_EQUIPMENT: readonly Equipment[] = [
 /** 'Mech critical slots for industrial equipment (vehicles use one item slot per item). */
 const MECH_UTILITY_SLOTS: Record<string, number> = {
   'lift-hoist': 3, backhoe: 6, chainsaw: 5, 'dual-saw': 7, 'rock-cutter': 5, combine: 4, 'salvage-arm': 2,
-  'spot-welder': 1, 'pile-driver': 8, 'mining-drill': 4, 'cargo-container': 10,
+  'spot-welder': 1, 'pile-driver': 8, 'mining-drill': 4, 'cargo-container': 1,
 };
 /** Industrial and utility equipment carried by vehicles and IndustrialMechs (not BattleMechs). */
 const utility = (id: string, name: string, tons: number): Equipment => ({
@@ -775,6 +780,8 @@ export const UTILITY_EQUIPMENT: readonly Equipment[] = [
   utility('ladder-20m', 'Ladder (20 m)', 0.1),
   // Cargo space and liquid storage, a ton (one slot) or half a ton (one slot) at a time.
   utility('cargo-1', 'Cargo (1 ton)', 1),
+  // Dumper (TechManual): unloads the cargo in its location; 5% of that cargo's weight.
+  { ...utility('dumper', 'Dumper', 0), variableWeight: 'dumper' as const },
   utility('cargo-half', 'Cargo (½ ton)', 0.5),
   utility('liquid-storage-1', 'Liquid Storage (1 ton)', 1),
   utility('liquid-storage-half', 'Liquid Storage (½ ton)', 0.5),
@@ -1014,7 +1021,7 @@ export function shortEquipmentName(eq: Equipment, d: Pick<MechDesign, 'mixedTech
   return `${name} (${eq.techBase === 'Clan' ? 'C' : 'IS'})`;
 }
 
-type SizingDesign = Pick<MechDesign, 'tonnage' | 'techBase' | 'equipment'> & { config?: MechConfig } & Partial<Pick<MechDesign, 'engineType' | 'walkMP'>>;
+type SizingDesign = Pick<MechDesign, 'tonnage' | 'techBase' | 'equipment'> & { config?: MechConfig } & Partial<Pick<MechDesign, 'engineType' | 'walkMP' | 'jumpBoosterMP'>>;
 
 /** Weapons a targeting computer is sized from: direct-fire energy and ballistic weapons. */
 export function isDirectFire(eq: Equipment): boolean {
@@ -1082,6 +1089,18 @@ export function mechTurretWeight(turretId: string, d: SizingDesign): number {
   return total / turrets.length;
 }
 
+/**
+ * Dumpers weigh 5% of the cargo in their location, rounded with the unit's rounding (MegaMek links each to
+ * the cargo beside it). Several dumpers share their total equally.
+ */
+export function dumperWeight(items: readonly { equipmentId: string; location?: string | null }[], round: (n: number) => number = upHalf): number {
+  const dumpers = items.filter((e) => e.equipmentId === 'dumper');
+  if (!dumpers.length) return 0;
+  const cargoTons = (loc: string | null | undefined) => items.reduce((a, e) => a + (e.location === loc
+    ? (e.equipmentId === 'cargo-1' ? 1 : e.equipmentId === 'cargo-half' ? 0.5 : 0) : 0), 0);
+  return dumpers.reduce((a, d) => { const c = cargoTons(d.location); return a + (c ? round(c * 0.05) : 0); }, 0) / dumpers.length;
+}
+
 export function itemWeight(eq: Equipment, d: SizingDesign): number {
   if (eq.variableWeight === 'jumpJet') return jumpJetWeight(d.tonnage);
   if (eq.variableWeight === 'improvedJumpJet') return jumpJetWeight(d.tonnage) * 2;
@@ -1096,9 +1115,12 @@ export function itemWeight(eq: Equipment, d: SizingDesign): number {
   if (eq.variableWeight === 'droneOS') return upHalf(d.tonnage / 10 + 0.5);
   if (eq.variableWeight === 'boobyTrap') return upHalf(d.tonnage / 10);
   if (eq.variableWeight === 'srcs') return srcsWeight(eq.id, d.tonnage);
+  if (eq.variableWeight === 'dumper') return dumperWeight(d.equipment);
   if (eq.variableWeight === 'mechTurret') return mechTurretWeight(eq.id, d);
   // Tracks: 10% of the tonnage, one piece per leg.
   if (eq.variableWeight === 'tracks') return upHalf(d.tonnage * 0.1) / legCount(d);
+  // Mechanical jump boosters: 5% of the tonnage per jump MP, rounded up to the half ton, split over the legs.
+  if (eq.variableWeight === 'jumpBooster') return upHalf(d.tonnage * (d.jumpBoosterMP ?? 0) * 0.05) / legCount(d);
   if (eq.variableWeight === 'wheels') return upHalf(d.tonnage * 0.15) / legCount(d);
   // The wing's weight is split between its two side-torso pieces.
   if (eq.variableWeight === 'partialWing') return upHalf(d.tonnage * (eq.techBase === 'Clan' ? 0.05 : 0.07)) / 2;

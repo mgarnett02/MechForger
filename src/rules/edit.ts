@@ -144,6 +144,16 @@ export function setWalkMP(d: MechDesign, walkMP: number): MechDesign {
   return refitHeatSinks(next, totalHeatSinks(d), preferred);
 }
 
+/** Mechanical jump boosters: jump MP without heat; a set of 2 slots in each leg. */
+export function setJumpBoosterMP(d: MechDesign, mp: number): MechDesign {
+  const n = Math.max(0, Math.floor(mp));
+  const without: MechDesign = { ...d, equipment: d.equipment.filter((e) => e.equipmentId !== 'mech-jump-booster') };
+  delete without.jumpBoosterMP;
+  if (!n) return without;
+  const kept = d.equipment.some((e) => e.equipmentId === 'mech-jump-booster');
+  return kept ? { ...d, jumpBoosterMP: n } : addEquipment({ ...without, jumpBoosterMP: n }, 'mech-jump-booster');
+}
+
 export function setJumpMP(d: MechDesign, jumpMP: number): MechDesign {
   return syncCount(d, jumpJetIdFor(d), jumpMP);
 }
@@ -163,7 +173,7 @@ export function setConfig(d: MechDesign, config: MechConfig): MechDesign {
     ...(config === 'quadvee' ? { quadVeeMotive: 'tracked' as const } : {}),
   };
   // Leg-mounted sets (talons, tracks) and QuadVee motive gear follow the new legs.
-  const legSets = ['talons', 'tracks', 'quadvee-wheels'].filter((id) => next.equipment.some((e) => e.equipmentId === id));
+  const legSets = ['talons', 'tracks', 'quadvee-wheels', 'mech-jump-booster'].filter((id) => next.equipment.some((e) => e.equipmentId === id));
   next = { ...next, equipment: next.equipment.filter((e) => !legSets.includes(e.equipmentId)) };
   for (const id of legSets) if (id !== 'quadvee-wheels' || config === 'quadvee') next = addEquipment(next, id);
   if (config === 'quadvee' && !legSets.includes('tracks') && !legSets.includes('quadvee-wheels')) next = addEquipment(next, 'tracks');
@@ -616,6 +626,9 @@ export function parseDesign(raw: unknown): MechDesign {
     mixedTech: r.mixedTech === true,
     ...parseComponentTech(r.componentTech),
     ...(r.laserHeatSinks === true ? { laserHeatSinks: true } : {}),
+    ...(r.compactHeatSinks === true ? { compactHeatSinks: true } : {}),
+    ...(r.heatSinkOverrideKit === true ? { heatSinkOverrideKit: true } : {}),
+    ...(typeof r.jumpBoosterMP === 'number' && r.jumpBoosterMP > 0 ? { jumpBoosterMP: Math.floor(r.jumpBoosterMP) } : {}),
     config: pick(r.config, ['biped', 'quad', 'tripod', 'quadvee'] as const, 'biped'),
     ...(r.config === 'quadvee' ? { quadVeeMotive: r.quadVeeMotive === 'wheeled' ? 'wheeled' as const : 'tracked' as const } : {}),
     lam: (r.config ?? 'biped') === 'biped' && (r.lam === 'standard' || r.lam === 'bimodal') ? r.lam : null,

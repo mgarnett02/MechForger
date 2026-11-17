@@ -239,6 +239,7 @@ function resolveName(raw: string, unitTech: TechBase): Resolved {
   if (b === 'stealth') return { kind: 'fixed' };
   if (structural[b]) return { kind: 'item', id: structural[b] };
   if (UTILITY_NAMES[b]) return { kind: 'item', id: UTILITY_NAMES[b] };
+  if (/^dumper(front|rear|left|right)?$/.test(b)) return { kind: 'item', id: 'dumper' };
   if (b === 'caseii') return { kind: 'item', id: (tech ?? unitTech) === 'Clan' ? 'clan-case-ii' : 'case-ii' };
   if (b === '1compactheatsink' || b === 'compactheatsink') return { kind: 'item', id: 'compact-heat-sink' };
   if (b === '2compactheatsinks') return { kind: 'item', id: 'compact-heat-sink-pair' };
@@ -460,6 +461,7 @@ function parseMtf(text: string): ParsedMech {
   // Armored system slots: [location, system kind, occurrence of that kind in the location].
   const sysSeen = new Map<string, number>();
   const armoredSys: [Location, string, number][] = [];
+  let jumpBoosterMP = 0;
   for (const [l, slots] of Object.entries(crits) as [Location, string[]][]) {
     let i = 0;
     while (i < slots.length) {
@@ -480,6 +482,13 @@ function parseMtf(text: string): ParsedMech {
             : [...Array(Math.floor(tons)).fill(`${kind}-1`), ...(tons % 1 ? [`${kind}-half`] : [])];
           for (const id of ids) equipment.push({ uid: `c${uid++}`, equipmentId: id, location: l, ...(/\(ARMORED\)/.test(raw) ? { armored: true } : {}) });
         }
+        continue;
+      }
+      // Mechanical jump boosters: the size is the jump MP; one set piece (two slots) per leg.
+      const booster = /^MechanicalJumpBooster:SIZE:([\d.]+)/i.exec(raw);
+      if (booster) {
+        jumpBoosterMP = Math.round(Number(booster[1]));
+        if (!equipment.some((e) => e.equipmentId === 'mech-jump-booster' && e.location === l)) equipment.push({ uid: `c${uid++}`, equipmentId: 'mech-jump-booster', location: l });
         continue;
       }
       // Patchwork armor slots are fixed per location; MechForger places them itself.
@@ -553,6 +562,7 @@ function parseMtf(text: string): ParsedMech {
     ...(laserHeatSinks ? { laserHeatSinks: true } : {}),
     ...(compactHeatSinks ? { compactHeatSinks: true } : {}),
     ...(heatSinkOverrideKit ? { heatSinkOverrideKit: true } : {}),
+    ...(jumpBoosterMP ? { jumpBoosterMP } : {}),
     structureType, engineType, gyroType, cockpitType, heatSinkType,
     ...(equipment.some((e) => e.equipmentId === 'environmental-sealing') ? { environmentalSealing: true } : {}),
     jumpJetType: jets.some((e) => e.equipmentId === 'improved-jump-jet') ? 'improved' : jets.some((e) => e.equipmentId === 'prototype-jump-jet') ? 'prototype'
@@ -673,6 +683,13 @@ function parseBlk(text: string): { design: VehicleDesign; year: number; rulesLev
         else for (let k = 0; k <= n; k++) equipment.push({ uid: `v${uid++}`, equipmentId: k === 0 ? 'drone-carrier-control' : 'drone-carrier-slot', location: 'BD' as VehicleLocation });
         continue;
       }
+      const stored = /^(Cargo|Liquid Storage)(?::OMNI)?:SIZE:([\d.]+)/i.exec(raw);
+      if (stored) {
+        const kind = /^cargo/i.test(stored[1]) ? 'cargo' : 'liquid-storage';
+        const tons = Number(stored[2]);
+        for (const id of [...Array(Math.floor(tons)).fill(`${kind}-1`), ...(tons % 1 ? [`${kind}-half`] : [])]) equipment.push({ uid: `v${uid++}`, equipmentId: id, location: loc });
+        continue;
+      }
       const comms = /^Communications Equipment:SIZE:([\d.]+)/i.exec(raw);
       if (comms) {
         for (let c = 0; c < Math.round(Number(comms[1])); c++) equipment.push({ uid: `v${uid++}`, equipmentId: 'communications-equipment', location: 'BD' as VehicleLocation });
@@ -686,7 +703,7 @@ function parseBlk(text: string): { design: VehicleDesign; year: number; rulesLev
       if (eq.managed && id !== 'heat-sink') fail(`mech-only item ${id}`);
       if (id === 'heat-sink') continue;
       if (id === 'case' && techBase === 'Clan') continue; // Clan CASE is built in
-      equipment.push({ uid: `v${uid++}`, equipmentId: id, location: eq.isWeapon ? loc : 'BD' as VehicleLocation, ...(sponson ? { sponson: true } : {}) });
+      equipment.push({ uid: `v${uid++}`, equipmentId: id, location: eq.isWeapon || id === 'dumper' ? loc : 'BD' as VehicleLocation, ...(sponson ? { sponson: true } : {}) });
     }
   }
   const design: VehicleDesign = {
@@ -1270,6 +1287,12 @@ function parseSupportBlk(text: string): { design: SupportVehicleDesign; year: nu
         for (let k = 0; k <= Math.round(size); k++) equipment.push({ uid: `s${uid++}`, equipmentId: k ? 'drone-carrier-slot' : 'drone-carrier-control', location: 'BD' });
         continue;
       }
+      // Cargo and liquid storage carried as equipment (whole tons plus a half-ton part), kept in their facing.
+      if (/^(Cargo|Liquid Storage)$/i.test(raw)) {
+        const kind = /^cargo/i.test(raw) ? 'cargo' : 'liquid-storage';
+        for (const id of [...Array(Math.floor(size)).fill(`${kind}-1`), ...(size % 1 ? [`${kind}-half`] : [])]) equipment.push({ uid: `s${uid++}`, equipmentId: id, location: loc });
+        continue;
+      }
       if (/^PintleTurret$/i.test(raw)) { equipment.push({ uid: `s${uid++}`, equipmentId: 'pintle-turret', location: loc }); continue; }
       const pintle = /\(PT\)\s*$/.test(raw);
       // Infantry weapons: SIZE is the number of ammunition clips.
@@ -1290,7 +1313,7 @@ function parseSupportBlk(text: string): { design: SupportVehicleDesign; year: nu
       if (id === 'case' && techBase === 'Clan') continue;
       if (eq.managed) fail(`mech-only item ${id}`);
       const count = id === 'communications-equipment' ? Math.round(size) : 1;
-      for (let n = 0; n < count; n++) equipment.push({ uid: `s${uid++}`, equipmentId: id, location: eq.isWeapon ? loc : 'BD' });
+      for (let n = 0; n < count; n++) equipment.push({ uid: `s${uid++}`, equipmentId: id, location: eq.isWeapon || id === 'dumper' ? loc : 'BD' });
     }
   }
   const transport = emptyTransport();

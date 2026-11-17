@@ -14,7 +14,7 @@ import type { MechSummary } from '../rules/construction';
 import { SUPERHEAVY_TONNAGES, TONNAGES, engineSideTorsoSlots, freeHeatSinks, isLargeEngine, maxWalkMP } from '../rules/tables';
 import {
   setActuator, setCockpitType, setConfig, setFullHeadEjection, setLam, setEngineHeatSinks, setEngineType, setGyroType, setHeatSinkTotal,
-  setCompactHeatSinks, setHeatSinkType, setJumpJetType, setJumpMP, setLaserHeatSinks,
+  setCompactHeatSinks, setHeatSinkType, setJumpBoosterMP, setJumpJetType, setJumpMP, setLaserHeatSinks,
   setEnvironmentalSealing, setMixedTech, setMyomer, setQuadVeeMotive, setStructureType, setTechBase, setTonnage, setWalkMP,
 } from '../rules/edit';
 import { setOmni } from '../rules/omni';
@@ -279,6 +279,13 @@ export function ChassisPanel({ design, summary, update }: Props) {
             <option value="prototype-improved" disabled={!ok(JUMP_JET_OPTIONS['prototype-improved'])} title="Standard weight and slots; jump up to running MP for 2 heat per MP (at least 6)">Prototype improved</option>
           </select>
           <span className="muted"> {summary.weights.jumpJets} t{summary.partialWing?.jumpBonus ? ` · +${summary.partialWing.jumpBonus} partial wing = ${summary.totalJumpMP}` : ''}</span>
+        </div>
+
+        <label title="Mechanical jump boosters (Tactical Operations, Inner Sphere 3060): jump without heat; 2 slots in each leg, 5% of tonnage per MP">Jump boosters</label>
+        <div>
+          <NumberField label="Mechanical jump booster MP" value={design.jumpBoosterMP ?? 0} min={0} max={design.walkMP}
+            onChange={(n) => update((d) => setJumpBoosterMP(d, n))} />
+          <span className="muted"> MP (no heat)</span>
         </div>
 
         <label>Heat sinks</label>

@@ -11,7 +11,7 @@ import { TECH_BASE_NAMES } from './types';
 import type { EraId } from './eras';
 import { DEFAULT_ERA, getEra, isAvailableIn } from './eras';
 import type { Equipment } from './equipment';
-import { shortEquipmentName, getEquipment, isDirectFire, isEquipmentAvailable, srcsWeight, usesAmmo } from './equipment';
+import { shortEquipmentName, getEquipment, isDirectFire, isEquipmentAvailable, dumperWeight, srcsWeight, usesAmmo } from './equipment';
 import { svClipExtras } from './svWeapons';
 import type { Issue } from './validation';
 
@@ -278,7 +278,8 @@ export function svArmorLocations(d: Pick<SupportVehicleDesign, 'svType' | 'turre
 }
 
 export function svItemLocations(eq: Equipment, d: Pick<SupportVehicleDesign, 'svType' | 'turret' | 'tonnage'>): SVLocation[] {
-  if (!eq.isWeapon && eq.variableWeight !== 'pintleTurret') return ['BD'];
+  // Pintle turrets, dumpers and the cargo they unload may sit in any facing (MegaMek).
+  if (!eq.isWeapon && eq.variableWeight !== 'pintleTurret' && eq.variableWeight !== 'dumper' && !/^(cargo|liquid-storage)-/.test(eq.id)) return ['BD'];
   return [...svArmorLocations(d).filter((l) => l !== 'RO'), 'BD'];
 }
 
@@ -478,6 +479,7 @@ export function svPintleWeight(d: SupportVehicleDesign): number {
 
 export function svItemWeight(eq: Equipment, d: SupportVehicleDesign): number {
   if (eq.variableWeight === 'pintleTurret') return svPintleWeight(d);
+  if (eq.variableWeight === 'dumper') return dumperWeight(d.equipment, (n) => roundUp(n, sizeClass(d) === 'small'));
   if (eq.variableWeight === 'srcs') return srcsWeight(eq.id, d.tonnage, (n) => roundUp(n, sizeClass(d) === 'small'));
   if (eq.variableWeight === 'supercharger') {
     // 10% of the engine weight, rounded up to the half ton (kilogram for small vehicles).

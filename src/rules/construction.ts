@@ -363,7 +363,8 @@ export function computeMech(design: MechDesign): MechSummary {
     cockpit: cockpitWeight(effectiveCockpit(design)),
     // Compact heat sinks weigh 1.5 t each (MegaMek).
     heatSinks: Math.max(0, totalHS - freeHeatSinks(design.engineType) - protoHS) * (compactHS ? 1.5 : 1),
-    jumpJets: jumpMP * jumpJetWeightFor(design.jumpJetType, tonnage),
+    // Mechanical jump boosters weigh 5% of the tonnage per MP, rounded up to the half ton.
+    jumpJets: jumpMP * jumpJetWeightFor(design.jumpJetType, tonnage) + Math.ceil(tonnage * (design.jumpBoosterMP ?? 0) * 0.05 * 2 - 1e-9) / 2,
     armor: isPatchwork(design) ? patchworkArmorWeight(design) : armorTonnage(armorTotal, ppt),
     // Rounded to the kilogram (spread systems split their weight into fractions of a ton).
     equipment: Math.round(equipmentWeight * 1000) / 1000,

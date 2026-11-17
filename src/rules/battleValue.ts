@@ -327,8 +327,11 @@ export function mechBV(d: MechDesign): BVBreakdown {
   }
 
   const run = s.mascRunMP ?? s.tsmMP?.run ?? s.runMP;
-  // Jumping MP includes a partial wing's bonus (as MegaMek's BV calculation).
-  const jump = s.totalJumpMP;
+  // Jumping MP includes a partial wing's bonus (as MegaMek's BV calculation); mechanical jump boosters count
+  // when they jump further (less a medium shield or modular armor each, none with a large shield).
+  const boosterMP = d.jumpBoosterMP && !d.equipment.some((e) => e.equipmentId === 'large-shield')
+    ? Math.max(0, d.jumpBoosterMP - d.equipment.filter((e) => e.equipmentId === 'medium-shield' || e.equipmentId === 'modular-armor').length) : 0;
+  const jump = Math.max(s.totalJumpMP, boosterMP);
   // Standard LAMs are rated on AirMech flank speed, with +1 for being airborne (IO p. 192, as in MegaMek).
   const airMechFlank = d.lam === 'standard' ? s.lam?.airMech?.flank ?? 0 : null;
   const runTMM = airMechFlank !== null ? (airMechFlank ? targetMovementModifier(airMechFlank) + 1 : 0) : targetMovementModifier(run);
@@ -506,7 +509,9 @@ export function mechCost(d: MechDesign): CostBreakdown {
     const act = d.actuators[arm];
     return a + 100 * t + (act.lowerArm ? 50 * t : 0) + (act.lowerArm && act.hand ? 80 * t : 0);
   }, 0);
-  const jumpCost = (d.jumpJetType === 'improved' ? 500 : 200) * t * s.jumpMP ** 2; // prototype improved: 200 (MegaMek)
+  const jumpCost = (d.jumpJetType === 'improved' ? 500 : 200) * t * s.jumpMP ** 2 // prototype improved: 200 (MegaMek)
+    // Mechanical jump boosters: MP² × tonnage × 150 (MegaMek).
+    + (d.jumpBoosterMP ? d.jumpBoosterMP ** 2 * t * 150 : 0);
   // MegaMek: every double heat sink is paid for; single heat sinks have 10 free (whatever the engine).
   // Compact heat sinks (MegaMek): 3,000 each for the sinks themselves, and the heat sink line is charged as
   // double heat sinks (6,000 each, none free) once a two-sink item is fitted.

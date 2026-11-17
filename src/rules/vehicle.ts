@@ -16,7 +16,7 @@ import {
 } from './tables';
 import type { Equipment } from './equipment';
 import {
-  shortEquipmentName, getEquipment, isArtemisVCapable, isDirectFire, isEquipmentAvailable, srcsWeight, usesAmmo,
+  shortEquipmentName, getEquipment, isArtemisVCapable, isDirectFire, isEquipmentAvailable, dumperWeight, srcsWeight, usesAmmo,
 } from './equipment';
 import { armorPointsForTons, armorTonnage } from './armor';
 import type { Issue } from './validation';
@@ -254,7 +254,11 @@ export function vehicleArmorLocations(d: Pick<VehicleDesign, 'motive' | 'turret'
 
 /** Where an item may be mounted: weapons in firing arcs, everything else in the body. */
 export function vehicleItemLocations(eq: Equipment, d: Pick<VehicleDesign, 'motive' | 'turret'> & Partial<Pick<VehicleDesign, 'tonnage' | 'dualTurret'>>): VehicleLocation[] {
-  if (!eq.isWeapon) return ['BD'];
+  // Dumpers, and the cargo they unload, may sit at the front, sides or rear (MegaMek).
+  const located = eq.variableWeight === 'dumper' || /^(cargo|liquid-storage)-/.test(eq.id);
+  if (!eq.isWeapon && !located) return ['BD'];
+  if (located) return d.tonnage !== undefined && hasSixFacings({ motive: d.motive, tonnage: d.tonnage })
+    ? ['BD', 'FR', 'FRS', 'FLS', 'RRS', 'RLS', 'RR'] : ['BD', 'FR', 'LS', 'RS', 'RR'];
   const arcs: VehicleLocation[] = d.tonnage !== undefined && hasSixFacings({ motive: d.motive, tonnage: d.tonnage })
     ? ['FR', 'FRS', 'FLS', 'RRS', 'RLS', 'RR'] : ['FR', 'LS', 'RS', 'RR'];
   if (d.turret) arcs.push('TU');
@@ -380,6 +384,7 @@ export function vehicleItemWeight(eq: Equipment, d: VehicleDesign): number {
   if (eq.variableWeight === 'vehicleJumpJet') return vehicleJumpJetWeight(d.tonnage);
   if (eq.variableWeight === 'boobyTrap') return halfUp(d.tonnage / 10);
   if (eq.variableWeight === 'srcs') return srcsWeight(eq.id, d.tonnage, halfUp);
+  if (eq.variableWeight === 'dumper') return dumperWeight(d.equipment, halfUp);
   if (eq.variableWeight === 'targetingComputer') {
     let tons = 0;
     for (const m of d.equipment) {

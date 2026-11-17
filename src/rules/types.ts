@@ -235,6 +235,8 @@ export interface MechDesign {
   environmentalSealing?: boolean;
   /** Clan laser heat sinks in place of double heat sinks (same weight, slots and dissipation). */
   laserHeatSinks?: boolean;
+  /** Mechanical jump boosters: jump MP (no heat; 2 slots per leg). */
+  jumpBoosterMP?: number;
   /** RISC heat sink override kit (BV ×1.01, as MegaMek). */
   heatSinkOverrideKit?: boolean;
   /** Compact heat sinks (with single heat sinks): 1.5 t each, two per slot, twice as many fit in the engine. */
