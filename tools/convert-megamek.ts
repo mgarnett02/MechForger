@@ -595,6 +595,15 @@ function parseMtf(text: string): ParsedMech {
     equipment.push(item);
     if (/\(OMNIPOD\)/.test(main.raw)) pods.add(item);
   }
+  // Equipment without critical slots ("nocrit:<item>:<location>").
+  for (const m of text.matchAll(/^nocrit:([^:\r\n]+):([^\r\n]*)$/gm)) {
+    const name = m[1].trim();
+    if (name === 'SmartRoboticControlSystem') equipment.push({ uid: `c${uid++}`, equipmentId: 'srcs', location: 'CT' });
+    else if (name === 'CLCASE') {
+      if (techBase !== 'Clan') fail('nocrit Clan CASE on an Inner Sphere chassis');
+      // Built into Clan 'Mechs, as Clan CASE in a slot.
+    } else fail(`nocrit item ${name}`);
+  }
   fixAmmoTech(equipment);
   const externalHS = equipment.reduce((a, e) => a + heatSinkUnits(e.equipmentId) + (e.equipmentId === 'prototype-double-heat-sink' ? 1 : 0), 0);
   const jets = equipment.filter((e) => /jump-jet$/.test(e.equipmentId));
@@ -608,6 +617,7 @@ function parseMtf(text: string): ParsedMech {
     structureType, engineType, gyroType, cockpitType, heatSinkType,
     ...(equipment.some((e) => e.equipmentId === 'environmental-sealing') ? { environmentalSealing: true } : {}),
     ...(/^quirk:illegal_design\s*$/m.test(text) ? { illegalDesign: true } : {}),
+    ...(/^quirk:good_rep_2\s*$/m.test(text) ? { goodReputation: 2 as const } : /^quirk:good_rep_1\s*$/m.test(text) ? { goodReputation: 1 as const } : {}),
     jumpJetType: jets.some((e) => e.equipmentId === 'improved-jump-jet') ? 'improved' : jets.some((e) => e.equipmentId === 'prototype-jump-jet') ? 'prototype'
       : jets.some((e) => e.equipmentId === 'prototype-improved-jump-jet') ? 'prototype-improved' : 'standard',
     armorType, ...(Object.keys(patchwork).length ? { patchwork } : {}), myomer, ...(franken ? { franken } : {}),

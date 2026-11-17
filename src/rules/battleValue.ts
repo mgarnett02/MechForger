@@ -568,19 +568,23 @@ export function equipmentCost<T extends { equipmentId: string; location?: string
   return total;
 }
 
-/** Clan units pay for the CASE built into each location holding explosive items, less any CASE mounted (MegaMek). */
-function implicitClanCase(d: { techBase: string; equipment: { equipmentId: string; location?: string | null }[] }): number {
+/** Clan units pay for the CASE built into each location holding explosive items that has no CASE mounted (MegaMek). */
+function implicitClanCase(d: { techBase: string; equipment: { equipmentId: string; location?: string | null; split?: { location: string } }[] }, perLocation = true): number {
   if (d.techBase !== 'Clan') return 0;
-  let explicit = 0;
+  const cased = new Set<string>();
   const locs = new Set<string>();
   for (const i of d.equipment) {
     const eq = getEquipment(i.equipmentId);
     if (!eq) continue;
-    if (eq.id === 'case' || eq.id === 'clan-case') explicit++;
-    else if ((isExplosiveAmmo(eq))
-      || (eq.isWeapon && isGaussType(eq.id)) || eq.explosive || eq.explosiveLow) locs.add(i.location ?? '');
+    if (eq.id === 'case' || eq.id === 'clan-case') cased.add(i.location ?? '');
+    else if ((isExplosiveAmmo(eq)) || (eq.isWeapon && isGaussType(eq.id)) || eq.explosive || eq.explosiveLow) {
+      // A split weapon is explosive in both of its locations (MegaMek).
+      locs.add(i.location ?? '');
+      if (i.split) locs.add(i.split.location);
+    }
   }
-  return Math.max(0, locs.size - explicit);
+  // Vehicles keep ammunition and CASE in the body, not their real locations: count CASE against the total.
+  return perLocation ? [...locs].filter((l) => !cased.has(l)).length : Math.max(0, locs.size - d.equipment.filter((i) => ['case', 'clan-case'].includes(i.equipmentId)).length);
 }
 
 export function mechCost(d: MechDesign): CostBreakdown {
@@ -595,7 +599,9 @@ export function mechCost(d: MechDesign): CostBreakdown {
   }, 0);
   const jumpCost = (d.jumpJetType === 'improved' ? 500 : 200) * t * s.jumpMP ** 2 // prototype improved: 200 (MegaMek)
     // Mechanical jump boosters: MP² × tonnage × 150 (MegaMek).
-    + (d.jumpBoosterMP ? d.jumpBoosterMP ** 2 * t * 150 : 0);
+    + (d.jumpBoosterMP ? d.jumpBoosterMP ** 2 * t * 150 : 0)
+    // UMUs cost as jump jets: 200 × tonnage × MP² (TechManual, MegaMek).
+    + 200 * t * s.umuMP ** 2;
   // MegaMek: every double heat sink is paid for; single heat sinks have 10 free (whatever the engine).
   // Compact heat sinks (MegaMek): 3,000 each for the sinks themselves, and the heat sink line is charged as
   // double heat sinks (6,000 each, none free) once a two-sink item is fitted.
@@ -637,8 +643,10 @@ export function mechCost(d: MechDesign): CostBreakdown {
   const subtotal = lines.reduce((a, [, v]) => a + v, 0);
   // IndustrialMechs: × (1 + tonnage/400).
   const divisor = isIndustrial(d) ? 400 : 100;
-  const multiplier = (1 + t / divisor) * (d.omni ? 1.25 : 1);
-  lines.push([`× (1 + tonnage/${divisor})${d.omni ? ' × 1.25 OmniMech' : ''}`, multiplier]);
+  // Good Reputation quirk: ×1.1 (level 1) or ×1.25 (level 2), as MegaMek.
+  const reputation = d.goodReputation === 2 ? 1.25 : d.goodReputation === 1 ? 1.1 : 1;
+  const multiplier = (1 + t / divisor) * (d.omni ? 1.25 : 1) * reputation;
+  lines.push([`× (1 + tonnage/${divisor})${d.omni ? ' × 1.25 OmniMech' : ''}${reputation !== 1 ? ` × ${reputation} Good Reputation` : ''}`, multiplier]);
   return { total: round(subtotal * multiplier), lines, approximate: false };
 }
 
@@ -722,7 +730,7 @@ export function vehicleCost(d: VehicleDesign): CostBreakdown {
     ['Heat sinks', 2000 * Math.max(0, d.heatSinks - s.freeHeatSinks)],
     ['Armor', ARMOR_COST[d.armorType] * w.armor],
     // Clan vehicles buy CASE (50,000) for each location holding explosives, as Clan 'Mechs do (MegaMek).
-    ['Weapons & equipment', equipmentCost(d.equipment, (eq) => vehicleItemWeight(eq, d), s.rating) + 50000 * implicitClanCase(d)],
+    ['Weapons & equipment', equipmentCost(d.equipment, (eq) => vehicleItemWeight(eq, d), s.rating) + 50000 * implicitClanCase(d, false)],
     ['Troop / cargo space', vehicleCargoCost(d)],
   ].filter(([, v]) => v !== 0) as [string, number][];
   const subtotal = lines.reduce((a, [, v]) => a + v, 0);

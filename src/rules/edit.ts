@@ -682,6 +682,7 @@ export function parseDesign(raw: unknown): MechDesign {
     myomer: pick(r.myomer, Object.keys(MYOMER_OPTIONS) as MyomerType[], 'standard'),
     ...(r.environmentalSealing ? { environmentalSealing: true } : {}),
     ...(r.illegalDesign === true ? { illegalDesign: true } : {}),
+    ...(r.goodReputation === 1 || r.goodReputation === 2 ? { goodReputation: r.goodReputation } : {}),
     ...parseArmoredSlots(r.armoredSlots),
     mixedTech: r.mixedTech === true,
     ...parseComponentTech(r.componentTech),

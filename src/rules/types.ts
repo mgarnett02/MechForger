@@ -245,6 +245,8 @@ export interface MechDesign {
    * Emptor and RISC designs). Its construction errors are reported as warnings, as MegaMek accepts such units.
    */
   illegalDesign?: boolean;
+  /** "Good Reputation" design quirk, level 1 or 2: cost ×1.1 / ×1.25 (as MegaMek). */
+  goodReputation?: 1 | 2;
   /** IndustrialMechs: environmental sealing (one slot per location, a tenth of the tonnage). */
   environmentalSealing?: boolean;
   /** Clan laser heat sinks in place of double heat sinks (same weight, slots and dissipation). */

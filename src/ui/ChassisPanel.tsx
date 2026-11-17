@@ -140,6 +140,15 @@ export function ChassisPanel({ design, summary, update }: Props) {
               onChange={(e) => update((d) => { const { illegalDesign: _q, ...rest } = d; return e.target.checked ? { ...rest, illegalDesign: true } : rest; })} />
             Illegal Design quirk
           </label>
+          <label className="check" title="Good Reputation design quirk: the 'Mech costs 10% (level 1) or 25% (level 2) more">
+            Good Reputation{' '}
+            <select aria-label="Good Reputation quirk" value={design.goodReputation ?? 0}
+              onChange={(e) => update((d) => { const { goodReputation: _g, ...rest } = d; const v = Number(e.target.value); return v === 1 || v === 2 ? { ...rest, goodReputation: v } : rest; })}>
+              <option value={0}>none</option>
+              <option value={1}>1 (×1.1 cost)</option>
+              <option value={2}>2 (×1.25 cost)</option>
+            </select>
+          </label>
         </div>
 
         <label>Structure</label>
