@@ -150,7 +150,7 @@ interface SVTypeInfo {
 export const SV_TYPES: Record<SVType, SVTypeInfo> = {
   wheeled: { name: 'Wheeled', mediumMax: 80, largeMax: 160, baseChassis: [0.12, 0.15, 0.18], baseEngine: [0.0025, 0.0075, 0.015], aero: false, description: 'Trucks, cars, APCs and other road vehicles.' },
   tracked: { name: 'Tracked', mediumMax: 100, largeMax: 200, baseChassis: [0.13, 0.15, 0.25], baseEngine: [0.006, 0.013, 0.025], aero: false, description: 'Bulldozers, crawlers and heavy haulers.' },
-  hover: { name: 'Hover', mediumMax: 50, largeMax: 100, baseChassis: [0.2, 0.25, 0.3], baseEngine: [0.0025, 0.004, 0.007], aero: false, description: 'Hovercraft for land and water.' },
+  hover: { name: 'Hover', mediumMax: 50, largeMax: 100, baseChassis: [0.2, 0.25, 0.3], baseEngine: [0.0025, 0.004, 0.008], aero: false, description: 'Hovercraft for land and water.' },
   wige: { name: 'WiGE', mediumMax: 80, largeMax: 240, baseChassis: [0.12, 0.15, 0.17], baseEngine: [0.003, 0.005, 0.006], aero: false, description: 'Wing-in-ground-effect craft that skim over land and water.' },
   vtol: { name: 'VTOL', mediumMax: 30, largeMax: 60, baseChassis: [0.2, 0.25, 0.3], baseEngine: [0.002, 0.0025, 0.004], aero: false, description: 'Helicopters and other rotorcraft.' },
   naval: { name: 'Naval', mediumMax: 300, largeMax: 300, baseChassis: [0.12, 0.15, 0.17], baseEngine: [0.004, 0.007, 0.009], aero: false, description: 'Boats and ships (hydrofoil and submersible as chassis modifications).' },
@@ -630,6 +630,9 @@ export function svItemWeight(eq: Equipment, d: SupportVehicleDesign): number {
   if (eq.variableWeight === 'pintleTurret') return svPintleWeight(d);
   if (eq.variableWeight === 'dumper') return dumperWeight(d.equipment, (n) => roundUp(n, sizeClass(d) === 'small'));
   if (eq.variableWeight === 'srcs') return srcsWeight(eq.id, d.tonnage, (n) => roundUp(n, sizeClass(d) === 'small'));
+  // Drone operating system: a tenth of the tonnage plus 0.5 t; booby trap: a tenth of the tonnage (as MegaMek).
+  if (eq.variableWeight === 'droneOS') return roundUp(d.tonnage / 10 + 0.5, sizeClass(d) === 'small');
+  if (eq.variableWeight === 'boobyTrap') return roundUp(d.tonnage / 10, sizeClass(d) === 'small');
   if (eq.variableWeight === 'supercharger') {
     // 10% of the engine weight, rounded up to the half ton (kilogram for small vehicles).
     const small = sizeClass(d) === 'small';

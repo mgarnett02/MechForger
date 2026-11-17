@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import mechs from '../data/canon/mechs.json';
 import fighters from '../data/canon/fighters.json';
+import support from '../data/canon/support.json';
 import type { CanonEntry } from '../data/canonFormat';
-import { decodeFighter, decodeMech } from '../data/canonFormat';
-import { fighterCost, mechCost } from './battleValue';
+import { decodeFighter, decodeMech, decodeSupport } from '../data/canonFormat';
+import { fighterCost, mechCost, supportCost } from './battleValue';
+import { computeSupport } from './support';
 import { computeFighter } from './fighter';
 
 const design = (name: string) => decodeMech((mechs as CanonEntry[]).find((e) => e.n === name)!.d);
@@ -48,5 +50,26 @@ describe('fighter costs', () => {
     const s = computeFighter(decodeFighter((fighters as CanonEntry[]).find((e) => e.n === 'Drake Medium Strike Fighter')!.d));
     expect(s.heatSinks.required).toBe(12);
     expect(s.weights.free).toBe(0);
+  });
+});
+
+const supportOf = (name: string) => decodeSupport((support as CanonEntry[]).find((e) => e.n === name)!.d);
+
+// Support vehicle costs matched to MegaMek's (each figure is MegaMek's).
+describe('support vehicle costs', () => {
+  it.each([
+    ['Buffalo BFFL Hovertruck', 892125], // large hovercraft engines: base value 0.008
+    ['Barouche Military Transport', 1510730],
+    ['Lewis Skimmer Bus', 827873],
+    ['Buffalo BFFL Drone Bomb', 2443500], // drone OS and booby trap weigh a tenth of the tonnage; supercharger 10,000 per engine ton
+    ['Hi-Scout Drone (NapFind)', 34526],
+  ])('%s', (name, c) => {
+    expect(Math.round(supportCost(supportOf(name)).total)).toBe(c);
+  });
+
+  it('weighs the drone operating system and booby trap', () => {
+    const w = computeSupport(supportOf('Buffalo BFFL Drone Bomb')).weights;
+    expect(w.engine).toBe(23);
+    expect(w.free).toBe(-2.5); // overweight in MegaMek too
   });
 });

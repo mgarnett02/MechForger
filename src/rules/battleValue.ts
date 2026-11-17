@@ -1225,7 +1225,7 @@ export function supportCost(d: SupportVehicleDesign): CostBreakdown {
   const clips = d.equipment.reduce((a, i) => a + svClipExtras(i.equipmentId, i.clips).cost, 0);
   // A support vehicle supercharger costs 10,000 per ton of engine (MegaMek).
   const supercharger = d.equipment.filter((e) => e.equipmentId === 'supercharger').length * 10000 * w.engine;
-  const equipment = equipmentCost(d.equipment, (eq) => svItemWeight(eq, d), 0) + clips + supercharger + fireControl;
+  const equipment = equipmentCost(d.equipment, (eq) => svItemWeight(eq, d), 0) + clips + supercharger + fireControl + 50000 * implicitClanCase(d, false);
   const lines: [string, number][] = [
     ['Chassis', chassis], ['Engine', engine], ['Armor', armor],
     [`Final structural cost (× ${techMultiplier} for tech rating ${d.structureTech})`, structural],
