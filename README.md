@@ -433,7 +433,8 @@ Every canon unit MegaMek's validator accepts also passes MechForger's checks, ex
 - marks a unit mixed tech when it carries the other tech base's equipment or armor even though its file does not say so;
 - reads the **Illegal Design** quirk (Caveat Emptor and RISC designs that deliberately break the rules, such as the
   Carbine CON-9M-D MOD, Crosscut IIC and Malice MAL-Y-SH-RISC). Their rule breaches show as warnings; the quirk is a
-  checkbox on the 'Mech chassis panel;
+  checkbox on the 'Mech chassis panel. Every record sheet prints "Construction: Legal" or "Illegal" (naming the quirk
+  when it applies);
 - places armor critical slots a file leaves out into free slots (as on the Great Wyrm 2 and Shogun C 2);
 - converts specialized cargo bays from capacity to weight (insulated and refrigerated ÷ 0.87, liquid ÷ 0.91).
 

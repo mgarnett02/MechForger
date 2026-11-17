@@ -33,6 +33,15 @@ import { INFANTRY_MOTION_NAMES, SPECIALIZATION_NAMES, computeInfantry, damageTab
 import type { AmmoRow, EquipmentRow, WeaponRow } from '../../rules/recordSheet';
 import { CONSCIOUSNESS, HEAT_SCALE, mechSheetData, vehicleSheetData } from '../../rules/recordSheet';
 import type { VehicleArmorLocation, VehicleDesign } from '../../rules/vehicle';
+import { validate } from '../../rules/validation';
+import { validateVehicle } from '../../rules/vehicle';
+import { validateSupport } from '../../rules/support';
+import { validateFighter } from '../../rules/fighter';
+import { validateVessel } from '../../rules/vessel';
+import { validateBattleArmor } from '../../rules/battlearmor';
+import { validateStationary } from '../../rules/stationary';
+import { validateProtoMech } from '../../rules/protomech';
+import { validateInfantry } from '../../rules/infantry';
 import {
   MOTIVE_TYPES, VEHICLE_ENGINE_LABELS, VEHICLE_LOCATION_NAMES, computeVehicle, hasSixFacings, turretName,
 } from '../../rules/vehicle';
@@ -73,6 +82,12 @@ function Field({ label, value, wide }: { label: string; value?: ReactNode; wide?
       <span className="rs-value">{value ?? ''}</span>
     </div>
   );
+}
+
+/** "Legal" or "Illegal" under the construction rules (the Illegal Design quirk is named when it applies). */
+function Legality({ issues, quirk }: { issues: { severity: string }[]; quirk?: boolean }) {
+  const legal = !issues.some((i) => i.severity === 'error');
+  return <Field label="Construction" value={legal ? 'Legal' : quirk ? 'Illegal (Illegal Design quirk)' : 'Illegal'} />;
 }
 
 function rulesLevel(d: { era: MechDesign['era']; mixedTech: boolean; lam?: MechDesign['lam'] }): string {
@@ -264,6 +279,7 @@ export function MechRecordSheet({ design }: { design: MechDesign }) {
             <Field label="Rules Level" value={rulesLevel(design)} />
             <Field label="Era" value={eraName(design)} />
             <Field label="Battle Value" value={mechBV(design).total.toLocaleString('en-US')} />
+            <Legality issues={validate({ ...design, illegalDesign: undefined })} quirk={!!design.illegalDesign} />
             <Field label="Cost" value={`${mechCost(design).total.toLocaleString('en-US')} C-bills`} />
             <Field label="Engine" value={`${s.rating} ${engine}`} />
             {isQuad(design) && <Field label="Configuration" value="Quad" />}
@@ -389,6 +405,7 @@ export function VehicleRecordSheet({ design }: { design: VehicleDesign }) {
             <Field label="Rules Level" value={rulesLevel(design)} />
             <Field label="Era" value={eraName(design)} />
             <Field label="Battle Value" value={`≈${vehicleBV(design).total.toLocaleString('en-US')}`} />
+            <Legality issues={validateVehicle(design)} />
             <Field label="Cost" value={`≈${vehicleCost(design).total.toLocaleString('en-US')} C-bills`} />
             {design.heatSinks > 0 && <Field label="Heat Sinks" value={`${design.heatSinks} (energy weapons)`} />}
             {(design.cargo ?? 0) > 0 && <Field label="Troop / Cargo" value={`${design.cargo} tons`} />}
@@ -515,6 +532,7 @@ export function SupportRecordSheet({ design }: { design: SupportVehicleDesign })
             <Field label="Era" value={eraName(design)} />
             <Field label="Armor" value={`BAR ${design.bar}`} />
             <Field label="Battle Value" value={supportBV(design).total.toLocaleString('en-US')} />
+            <Legality issues={validateSupport(design)} />
             <Field label="Cost" value={`${supportCost(design).total.toLocaleString('en-US')} C-bills`} />
             {design.fuel > 0 && <Field label="Fuel" value={`${fmt(design.fuel)} t`} />}
             {design.fireControl !== 'none' && <Field label="Fire Control" value={design.fireControl === 'basic' ? 'Basic' : 'Advanced'} />}
@@ -640,6 +658,7 @@ export function FighterRecordSheet({ design }: { design: FighterDesign }) {
             <Field label="Rules Level" value={rulesLevel(design)} />
             <Field label="Era" value={eraName(design)} />
             <Field label="Battle Value" value={fighterBV(design).total.toLocaleString('en-US')} />
+            <Legality issues={validateFighter(design)} />
             <Field label="Cost" value={`${fighterCost(design).total.toLocaleString('en-US')} C-bills`} />
             <Field label="Engine" value={`${s.rating} ${FIGHTER_ENGINE_LABELS[design.engineType]}`} />
             <Field label="Fuel" value={`${s.fuelPoints} points`} />
@@ -767,6 +786,7 @@ export function VesselRecordSheet({ design }: { design: VesselDesign }) {
             <Field label="Era" value={eraName(design)} />
             <Field label="Rules Level" value={rulesLevel(design)} />
             <Field label="Battle Value" value={vesselBV(design).total.toLocaleString('en-US')} />
+            <Legality issues={validateVessel(design)} />
             <Field label="Cost" value={`${vesselCost(design).total.toLocaleString('en-US')} C-bills`} />
             <Field label="Fuel" value={`${s.fuelPoints.toLocaleString('en-US')} points`} />
             <Field label="Crew" value={`${design.crew.crew} (${design.crew.officers} off., ${design.crew.gunners} gun.)`} />
@@ -925,6 +945,7 @@ export function BattleArmorRecordSheet({ design }: { design: BattleArmorDesign }
             <Field label="Era" value={eraName(design)} />
             <Field label="Rules Level" value={rulesLevel(design)} />
             <Field label="Battle Value" value={bv.total.toLocaleString('en-US')} />
+            <Legality issues={validateBattleArmor(design)} />
             <Field label="Cost" value={`${battleArmorCost(design).total.toLocaleString('en-US')} C-bills`} />
             <Field label="Armor" value={`${mmName(armorType ?? ({ name: design.armorId } as MMItem))}`} />
             <Field label="Anti-'Mech" value={antiMek ? 'Swarm / leg attacks' : 'No'} />
@@ -1003,6 +1024,7 @@ export function StationaryRecordSheet({ design }: { design: StationaryDesign }) 
             <Field label="Era" value={eraName(design)} />
             <Field label="Rules Level" value={rulesLevel(design)} />
             <Field label="Battle Value" value={stationaryBV(design).total.toLocaleString('en-US')} />
+            <Legality issues={validateStationary(design)} />
             <Field label="Cost" value={`${stationaryCost(design).total.toLocaleString('en-US')} C-bills`} />
           </div>
           <div className="rs-inventory">
@@ -1084,6 +1106,7 @@ export function ProtoMechRecordSheet({ design }: { design: ProtoMechDesign }) {
             <Field label="Era" value={eraName(design)} />
             <Field label="Rules Level" value={rulesLevel(design)} />
             <Field label="Battle Value" value={bv.total.toLocaleString('en-US')} />
+            <Legality issues={validateProtoMech(design)} />
             <Field label="Cost" value={`${protoMechCost(design, s).total.toLocaleString('en-US')} C-bills`} />
             <Field label="Armor" value={mmName(getMM(design.armorId) ?? ({ name: design.armorId } as MMItem))} />
           </div>
@@ -1177,6 +1200,7 @@ export function InfantryRecordSheet({ design }: { design: InfantryDesign }) {
             <Field label="Era" value={eraName(design)} />
             <Field label="Rules Level" value={rulesLevel(design)} />
             <Field label="Battle Value" value={infantryBV(design).total.toLocaleString('en-US')} />
+            <Legality issues={validateInfantry(design)} />
             <Field label="Cost" value={`${infantryCost(design).total.toLocaleString('en-US')} C-bills`} />
             <Field label="Armor" value={`${kit ? mmName(kit) : design.customArmor ? 'Custom' : 'None'} (divisor ${s.damageDivisor})`} wide />
             <Field label="Anti-'Mech" value={s.canAntiMek ? (design.antiMek ? 'Trained' : 'Untrained (+4)') : 'No'} />
