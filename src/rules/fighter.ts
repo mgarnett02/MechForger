@@ -80,6 +80,8 @@ export interface FighterDesign {
   vstol: boolean;
   /** Troop compartment and cargo bay space, in tons. */
   cargo?: number;
+  /** Cargo bay doors: 1,000 C-bills each (MegaMek). */
+  cargoDoors?: number;
   equipment: FighterItem[];
 }
 
@@ -274,7 +276,8 @@ export function fighterItemWeight(eq: Equipment, d: FighterDesign): number {
 
 /** Heat sinks a heat-neutral unit needs: the heat of its energy weapons that use no ammunition. */
 export function heatNeutralRequirement(d: FighterDesign): number {
-  return heatNeutralHeat(d.equipment, isFusion(d.engineType));
+  // Stealth armor generates 10 heat (MegaMek).
+  return heatNeutralHeat(d.equipment, isFusion(d.engineType)) + (d.armorType === 'stealth' ? 10 : 0);
 }
 
 export function computeFighter(d: FighterDesign): FighterSummary {
@@ -554,6 +557,7 @@ export function parseFighter(raw: unknown): FighterDesign {
     heatSinks: typeof r.heatSinks === 'number' ? r.heatSinks : fighterType === 'conventional' ? 0 : 10,
     fuelTons: typeof r.fuelTons === 'number' ? r.fuelTons : 0,
     ...(typeof r.cargo === 'number' && r.cargo > 0 ? { cargo: r.cargo } : {}),
+    ...(typeof r.cargoDoors === 'number' && r.cargoDoors > 0 ? { cargoDoors: Math.floor(r.cargoDoors) } : {}),
     armorType: pick(r.armorType, ['standard', 'ferro-fibrous', 'light-ferro', 'heavy-ferro', 'primitive', 'reflective', 'ferro-lamellor', 'stealth'] as const, 'standard'),
     armor,
     vstol: r.vstol === true,

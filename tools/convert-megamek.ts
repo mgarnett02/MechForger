@@ -856,10 +856,13 @@ function parseFighterBlk(text: string): { design: FighterDesign; year: number; m
     : cockpit === '0' || cockpit === '' ? 'standard' : cockpit === '1' ? 'small' : fail(`cockpit ${cockpit}`);
   // Infantry compartments and cargo bays (tons); other bays are not modeled for fighters.
   let cargo = 0;
+  let cargoDoors = 0;
   for (const t of tags.get('transporters') ?? []) {
     const m = /^(troopspace|cargobay):([\d.]+)/i.exec(t);
-    if (m) cargo += Number(m[2]);
-    else fail(`fighter transporter ${t.split(':')[0]}`);
+    if (m) {
+      cargo += Number(m[2]);
+      if (/^cargobay$/i.test(m[1])) cargoDoors += Number(t.split(':')[2]) || 0;
+    } else fail(`fighter transporter ${t.split(':')[0]}`);
   }
   const [nose, lw, rw, aft] = (tags.get('armor') ?? []).map(Number);
   const armor = { ...emptyFighterArmor(), NOS: nose ?? 0, LWG: lw ?? 0, RWG: rw ?? 0, AFT: aft ?? 0 };
@@ -882,14 +885,18 @@ function parseFighterBlk(text: string): { design: FighterDesign; year: number; m
       const eq = getEquipment(id)!;
       if (/heat-sink/.test(id)) continue; // fighters count heat sinks in the <heatsinks> total
       if (eq.managed) fail(`mech-only item ${id}`);
-      if ((id === 'case' || id === 'clan-case') && techBase === 'Clan') continue; // built into Clan fighters
-      equipment.push({ uid: `a${uid++}`, equipmentId: id, location: loc, ...(rear ? { rear: true } : {}) });
+      // Clan fighters have CASE built in, but MegaMek charges for any listed (TRO entries sometimes list several).
+      if (id === 'case' && techBase === 'Clan' && !mixedTech) {
+        equipment.push({ uid: `a${uid++}`, equipmentId: 'clan-case', location: 'FUS' });
+        continue;
+      }
+      equipment.push({ uid: `a${uid++}`, equipmentId: id, location: id === 'clan-case' ? 'FUS' : loc, ...(rear ? { rear: true } : {}) });
     }
   }
   fixAmmoTech(equipment);
   const ppt = fighterType === 'conventional' ? 160 : 80;
   const design: FighterDesign = {
-    schemaVersion: 1, unitType: 'fighter', fighterType, era: '3025', techBase, mixedTech: mixedTech || usesOtherTech(techBase, equipment.map((e) => e.equipmentId)), omni: one('omni') === '1', ...(cargo ? { cargo } : {}),
+    schemaVersion: 1, unitType: 'fighter', fighterType, era: '3025', techBase, mixedTech: mixedTech || usesOtherTech(techBase, equipment.map((e) => e.equipmentId)), omni: one('omni') === '1', ...(cargo ? { cargo } : {}), ...(cargoDoors ? { cargoDoors } : {}),
     chassis: one('Name'), model: one('Model'), tonnage, safeThrust: Number(one('SafeThrust')), engineType, cockpitType,
     heatSinkType: one('sink_type') === '1' ? 'double' : 'single', heatSinks: Number(one('heatsinks')) || 0,
     fuelTons: Math.round((2 * Number(one('fuel'))) / ppt) / 2, armorType, armor, vstol: one('vstol') === '1', equipment,

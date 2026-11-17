@@ -826,7 +826,7 @@ export function fighterCost(d: FighterDesign): CostBreakdown {
   const engine = (ENGINE_COST[d.engineType] * s.rating * t) / 75;
   const armor = ARMOR_COST[d.armorType] * s.weights.armor;
   const sinkCost = d.heatSinkType === 'double' ? 6000 : 2000;
-  const equipment = equipmentCost(d.equipment, (eq) => fighterItemWeight(eq, d), s.rating);
+  const equipment = equipmentCost(d.equipment, (eq) => fighterItemWeight(eq, d), s.rating) + 50000 * implicitClanCase(d, false);
   const lines: [string, number][] = d.fighterType === 'conventional'
     ? [
         ['Avionics', 4000 * (Math.ceil(t / 5) / 2)],
@@ -838,6 +838,7 @@ export function fighterCost(d: FighterDesign): CostBreakdown {
         ['Armor', armor],
         ['Heat sinks', sinkCost * s.heatSinks.required],
         ['Weapons & equipment', equipment],
+        ...(d.cargoDoors ? [['Cargo bay doors', 1000 * d.cargoDoors] as [string, number]] : []),
         ...(s.weights.powerAmplifiers ? [['Power amplifiers', 20000 * s.weights.powerAmplifiers] as [string, number]] : []),
       ]
     : [
@@ -851,6 +852,7 @@ export function fighterCost(d: FighterDesign): CostBreakdown {
         ['Armor', armor],
         ['Heat sinks', sinkCost * s.heatSinks.total],
         ['Weapons & equipment', equipment],
+        ...(d.cargoDoors ? [['Cargo bay doors', 1000 * d.cargoDoors] as [string, number]] : []),
       ];
   const subtotal = lines.reduce((a, [, v]) => a + v, 0);
   const multiplier = (1 + t / 200) * (d.omni ? 1.25 : 1);

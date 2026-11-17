@@ -716,7 +716,7 @@ export function FighterRecordSheet({ design }: { design: FighterDesign }) {
 
         <Panel title="Heat Data" className="area-heat">
           {conventional ? (
-            <p className="rs-note left">Conventional fighters are heat-neutral: {s.heatSinks.required} heat sinks for their energy weapons.</p>
+            <p className="rs-note left">Conventional fighters are heat-neutral: {s.heatSinks.required} heat sinks for their energy weapons{design.armorType === 'stealth' ? ' and stealth armor' : ''}.</p>
           ) : (
             <>
               <div className="rs-heat-sinks">

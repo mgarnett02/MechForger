@@ -190,7 +190,10 @@ function FighterChassisPanel({ design, summary, update }: Props) {
         <div>
           <NumberField label="Troop and cargo space" value={design.cargo ?? 0} min={0} step={0.5}
             onChange={(n) => update((d) => ({ ...d, cargo: Math.max(0, Math.round(n * 2) / 2) || undefined }))} />
-          <span className="muted"> tons (infantry compartment / cargo bay)</span>
+          <span className="muted"> tons (infantry compartment / cargo bay) · </span>
+          <NumberField label="Cargo bay doors" value={design.cargoDoors ?? 0} min={0} step={1}
+            onChange={(n) => update((d) => ({ ...d, cargoDoors: Math.max(0, Math.round(n)) || undefined }))} />
+          <span className="muted"> doors</span>
         </div>
       </div>
       <p className="small muted" style={{ marginBottom: 0 }}>
