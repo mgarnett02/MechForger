@@ -719,3 +719,11 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 .form-grid select.fit { width: 14rem; max-width: 100%; }
 .fit-row { display: inline-flex; gap: 0.35rem; width: 14rem; max-width: 100%; vertical-align: middle; }
 .fit-row > select { flex: 1; min-width: 0; }
+
+/* FrankenMek donors: a full-width block under Structure, sized to fit the panel. */
+.franken-donors { grid-column: 1 / -1; border: 1px solid var(--border); border-radius: 8px; padding: 0.5rem 0.6rem; }
+.franken-donors h4 { margin: 0 0 0.35rem; font-size: 0.9rem; }
+.franken-donors table.franken { table-layout: fixed; width: 100%; }
+.franken-donors .c-loc { width: 2.6rem; } .franken-donors .c-tech { width: 4.8rem; } .franken-donors .c-tons { width: 4.4rem; } .franken-donors .c-is { width: 2.4rem; }
+.franken-donors td select, .franken-donors td input { width: 100%; min-width: 0; box-sizing: border-box; }
+.franken-donors p { margin: 0.35rem 0 0; }
