@@ -17,7 +17,7 @@ import { svClipExtras } from './svWeapons';
 import type { FighterDesign } from './fighter';
 import { computeFighter, fighterItemWeight } from './fighter';
 import type { VesselDesign, VesselItem } from './vessel';
-import { BAY_INFO, VESSEL_ARMOR_COST, bayWeight, isPrimitiveVessel, vesselFormulaCost, VESSEL_TYPE_NAMES, computeVessel, isLargeCraft, kfIntegrity, shotsPerBin, vesselItemWeight } from './vessel';
+import { BAY_INFO, VESSEL_ARMOR_COST, bayWeight, isPrimitiveVessel, vesselFormulaCost, VESSEL_TYPE_NAMES, computeVessel, isLargeCraft, kfIntegrity, sailWeight, shotsPerBin, vesselItemWeight } from './vessel';
 import type { VehicleDesign } from './vehicle';
 import { computeVehicle, vehicleCargoCost, vehicleItemWeight } from './vehicle';
 import type { SupportVehicleDesign } from './support';
@@ -1063,14 +1063,16 @@ function largeCraftCost(d: VesselDesign, s: ReturnType<typeof computeVessel>, co
   const kfDocks = docks + 2 * d.bays.filter((b) => b.kind === 'drop-shuttle').reduce((a, b) => a + b.size, 0);
   const lines: [string, number][] = [...common];
   if (warship) {
-    lines.push(['Drive unit', 500 * d.safeThrust * (t / 100)], ['Engine', 1000 * d.safeThrust * t * 0.06]);
+    // Engine: 1,000 per ton of engine (SO:AA p.146), so a primitive engine, heavier before 2300, costs more (MegaMek).
+    lines.push(['Drive unit', 500 * d.safeThrust * (t / 100)], ['Engine', 1000 * s.weights.engine]);
   } else {
     lines.push(['Engine (station-keeping)', 1000 * t * 0.012]);
   }
   lines.push(['Engine control unit', 1000]);
   if (!station) {
     let drive = 60000000 + 75000000 * kfDocks + 25000000 + 5000000 * kfDocks + 50000000 + 50000 * kfIntegrity(d)
-      + 50000 * (30 + t / (warship ? 20000 : 7500)) + 500000 + 200000 * kfDocks;
+      // The jump sail: a WarShip pays for its sail's (rounded) weight; a JumpShip for 30 + tonnage / 7,500 (MegaMek).
+      + 50000 * (warship ? sailWeight(d) : 30 + t / 7500) + 500000 + 200000 * kfDocks;
     if (warship) drive *= 5;
     if (d.lfBattery) drive *= 3;
     lines.push(['K-F drive', drive]);

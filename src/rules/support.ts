@@ -131,6 +131,8 @@ export interface SupportVehicleDesign {
   fuel: number;
   turret: boolean;
   fireControl: 'none' | 'basic' | 'advanced';
+  /** OmniVehicles: fire control weight fixed by the base chassis, whatever the configuration mounts (MegaMek). */
+  omniFireControlTons?: number;
   armor: Partial<Record<SVArmorLocation, number>>;
   transport: SVTransport;
   equipment: SVItem[];
@@ -437,7 +439,7 @@ export function computeSupport(d: SupportVehicleDesign): SupportSummary {
       ? roundUp(armorTotal / armorPointsPerTon(d.armorType, d.techBase), small)
       : roundUp(armorTotal * barWeightPerPoint(d.bar, d.armorTech), small),
     turret: d.turret ? roundUp(turretItems * 0.1, small) : 0,
-    fireControl: d.fireControl === 'none' ? 0 : roundUp(weapons / (d.fireControl === 'basic' ? 20 : 10), small),
+    fireControl: d.fireControl === 'none' ? 0 : d.chassisMods.includes('omni') && d.omniFireControlTons !== undefined ? d.omniFireControlTons : roundUp(weapons / (d.fireControl === 'basic' ? 20 : 10), small),
     powerAmplifiers: small || fusionLike ? 0 : roundUp(energyAmp / 10, small),
     heatSinks,
     accommodations: Math.round((t.seats * 0.075 + t.pillionSeats * 0.025 + t.ejectionSeats * 0.1 +
@@ -652,6 +654,9 @@ export function svItemWeight(eq: Equipment, d: SupportVehicleDesign): number {
   return eq.tons;
 }
 
+/** Sensors that work only on airborne units (as MegaMek). */
+export const AIRBORNE_SENSORS = new Set(['look-down-radar', 'infrared-imager', 'high-res-imager']);
+
 export function isSupportEquipment(eq: Equipment): boolean {
   return !eq.managed && eq.variableWeight !== 'masc' && !eq.lamOnly && eq.variableWeight !== 'mechTurret' && ((!eq.vehicleOnly && !eq.vesselOnly) || !!eq.supportOk) && !eq.melee && !eq.capitalClass && (!eq.vehicleChassisMod || /armored-motive-system$/.test(eq.id));
 }
@@ -746,6 +751,11 @@ export function validateSupport(d: SupportVehicleDesign, s: SupportSummary = com
     if (!isSupportEquipment(eq) && !reported.has(`x${eq.id}`)) {
       reported.add(`x${eq.id}`);
       error(`${eq.name} cannot be mounted on a support vehicle.`);
+    }
+    // Look-down radar and infrared / high-resolution imagers work only from the air (as MegaMek).
+    if (AIRBORNE_SENSORS.has(eq.id) && !info.aero && d.svType !== 'vtol' && !reported.has(`a${eq.id}`)) {
+      reported.add(`a${eq.id}`);
+      error(`${eq.name} works only on airborne units (fixed-wing, airship, VTOL).`);
     }
     if (!isEquipmentAvailable(eq, d.era, d.techBase, d.mixedTech) && !reported.has(eq.id)) {
       reported.add(eq.id);
@@ -892,6 +902,7 @@ export function parseSupport(raw: unknown): SupportVehicleDesign {
     fuel: num(r.fuel, 0),
     turret: r.turret === true,
     fireControl: pick(r.fireControl, ['none', 'basic', 'advanced'] as const, 'none'),
+    ...(typeof r.omniFireControlTons === 'number' && r.omniFireControlTons >= 0 ? { omniFireControlTons: r.omniFireControlTons } : {}),
     armor: typeof r.armor === 'object' && r.armor ? r.armor as SupportVehicleDesign['armor'] : {},
     transport,
     equipment,

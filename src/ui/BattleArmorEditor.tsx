@@ -251,6 +251,20 @@ function BAEquipmentPanel({ design, summary, update }: Props) {
                 <NumberField label="Shots" value={item.shots ?? 1} min={1} max={e.ammoType === 'BA_TUBE' ? 16 : 8}
                   onChange={(n) => update((d) => updateBAItem(d, item.uid, { shots: Math.max(1, Math.round(n)) }))} />
               )}
+              {e.id === 'BACargoLifter' && (
+                <span title="Tons this manipulator can lift: 30 kg per half ton">
+                  <NumberField label="Lift capacity (tons)" value={item.size ?? 1} min={0.5} step={0.5}
+                    onChange={(n) => update((d) => updateBAItem(d, item.uid, { size: Math.max(0.5, Math.round(n * 2) / 2) }))} />
+                  <span className="muted small"> t lift</span>
+                </span>
+              )}
+              {e.id === 'Mission Equipment Storage' && (
+                <span title="Kilograms of mission equipment stored; the storage weighs what it holds">
+                  <NumberField label="Mission equipment (kg)" value={item.size ?? 0} min={0} step={5}
+                    onChange={(n) => update((d) => updateBAItem(d, item.uid, { size: Math.max(0, Math.round(n)) }))} />
+                  <span className="muted small"> kg</span>
+                </span>
+              )}
               {e.kind === 'baWeapon' && design.chassisType === 'biped' && (
                 <label className="check small" title="Squad support weapon mount: shared by the squad">
                   <input type="checkbox" checked={!!item.ssw} onChange={(ev) => update((d) => updateBAItem(d, item.uid, { ssw: ev.target.checked || undefined }))} />

@@ -3,12 +3,16 @@ import mechs from '../data/canon/mechs.json';
 import vehicles from '../data/canon/vehicles.json';
 import fighters from '../data/canon/fighters.json';
 import support from '../data/canon/support.json';
+import vessels from '../data/canon/vessels.json';
+import battlearmor from '../data/canon/battlearmor.json';
 import type { CanonEntry } from '../data/canonFormat';
-import { decodeFighter, decodeMech, decodeSupport, decodeVehicle } from '../data/canonFormat';
+import { decodeBattleArmor, decodeFighter, decodeMech, decodeSupport, decodeVehicle, decodeVessel } from '../data/canonFormat';
 import { computeMech, getEquipment, isDirectFire } from './index';
-import { computeVehicle, newVehicle, newVehicleUid } from './vehicle';
+import { computeVehicle, newVehicle, newVehicleUid, validateVehicle } from './vehicle';
 import { computeFighter } from './fighter';
-import { computeSupport } from './support';
+import { computeSupport, validateSupport } from './support';
+import { computeVessel } from './vessel';
+import { computeBattleArmor } from './battlearmor';
 
 const find = (list: unknown, name: string) => (list as CanonEntry[]).find((e) => e.n === name)!.d;
 
@@ -61,5 +65,47 @@ describe('weight rules matched to MegaMek', () => {
     expect(limpet.weights.fireControl).toBe(0.003);
     expect(limpet.weights.free).toBe(0);
     expect(computeSupport(decodeSupport(find(support, 'Beast Riot Car'))).weights.free).toBe(0);
+  });
+});
+
+// Weights checked against MegaMek's for every canon unit (tools/megamek-check/weights.ts).
+describe('weights matched to MegaMek, second pass', () => {
+  it('a vehicle mounts the Blue Shield as one 3-ton item', () => {
+    expect(computeVehicle(decodeVehicle(find(vehicles, 'Partisan Hull Defense'))).weights.free).toBe(0);
+  });
+
+  it('a Clan SRM-2 I-OS weighs 0.25 t', () => {
+    expect(getEquipment('clan-srm-2-ios')!.tons).toBe(0.25);
+    expect(getEquipment('clan-srm-4-ios')!.tons).toBe(0.5);
+    expect(computeFighter(decodeFighter(find(fighters, 'Avar E'))).weights.total).toBe(32);
+  });
+
+  it('an OmniVehicle\'s fire control weight is fixed by its base chassis', () => {
+    const z = decodeSupport(find(support, 'Zugvogel Omni Support Aircraft A'));
+    expect(z.omniFireControlTons).toBe(5.5);
+    expect(computeSupport(z).weights.fireControl).toBe(5.5);
+    expect(computeSupport(z).weights.total).toBe(200);
+  });
+
+  it('Naval C3 doubles extra fire control', () => {
+    const s = computeVessel(decodeVessel(find(vessels, 'Interdictor Pocket WarShip (3115)')));
+    expect(s.weights.fireControl).toBe(116);
+    expect(s.weights.free).toBe(0);
+  });
+
+  it('battle armor: booster thirds, leg-listed jumpers, cargo lifters, mission storage, rounded pack weapons', () => {
+    const w = (n: string) => computeBattleArmor(decodeBattleArmor(find(battlearmor, n))).weights.total;
+    expect(w('Buraq Fast Battle Armor (Sqd4)')).toBe(1);
+    expect(w('Tengu Heavy Battle Armor [ML](Sqd4)')).toBe(1.49);
+    expect(w('PowerLoader Exoskeleton P-5000(Sqd4)')).toBe(0.4);
+    expect(w('Tornado PA(L) G14(Sqd4)')).toBe(0.4);
+    expect(w('Hauberk Battle Armor U15(Sqd4)')).toBe(2);
+  });
+
+  it('look-down radar and infrared / high-resolution imagers work only from the air', () => {
+    const hector = decodeSupport(find(support, 'Hector Road Train Tractor'));
+    expect(validateSupport(hector).some((i) => i.severity === 'error' && /airborne/.test(i.message))).toBe(true);
+    const tank = { ...newVehicle('3131'), equipment: [{ uid: newVehicleUid(), equipmentId: 'infrared-imager', location: 'BD' as const }] };
+    expect(validateVehicle(tank).some((i) => /airborne/.test(i.message))).toBe(true);
   });
 });

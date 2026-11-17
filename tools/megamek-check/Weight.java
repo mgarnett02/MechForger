@@ -7,7 +7,7 @@ import megamek.common.verifier.TestEntity;
 
 /**
  * MegaMek's construction weight and legality for each unit file read from stdin:
- * file, chassis, model, tech base, tonnage, calculated weight, legal, problems.
+ * file, chassis, model, tech base, tonnage, weight (rounded up as MegaMek reports it), exact weight, legal, problems.
  * With "-v" it prints MegaMek's itemized weight breakdown instead.
  */
 public class Weight {
@@ -28,11 +28,20 @@ public class Weight {
         if (verbose) {
           System.out.println("=== " + f);
           System.out.println(t.printEntity());
+          // Every weight category the verifier computes, including ones printEntity leaves out.
+          for (java.lang.reflect.Method m : t.getClass().getMethods()) {
+            if (m.getName().startsWith("getWeight") && m.getParameterCount() == 0 && m.getReturnType() == double.class) {
+              try {
+                System.out.println("  " + m.getName() + " = " + m.invoke(t));
+              } catch (Exception ignored) {
+              }
+            }
+          }
         }
         StringBuffer sb = new StringBuffer();
         boolean ok = t.correctEntity(sb);
         System.out.println(f + "\t" + e.getChassis() + "\t" + e.getModel() + "\t" + (e.isClan() ? "Clan" : "IS") + "\t"
-              + e.getWeight() + "\t" + t.calculateWeight() + "\t" + (ok ? "LEGAL" : "ILLEGAL") + "\t"
+              + e.getWeight() + "\t" + t.calculateWeight() + "\t" + Math.round(t.calculateWeightExact() * 1e6) / 1e6 + "\t" + (ok ? "LEGAL" : "ILLEGAL") + "\t"
               + sb.toString().trim().replace("\r", "").replace("\n", " | "));
       } catch (Throwable x) {
         System.out.println(f + "\tERROR\t" + x);

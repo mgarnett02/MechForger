@@ -412,7 +412,7 @@ const ONE_SHOT_BASES = /^(clan-)?(srm|streak-srm|lrm|streak-lrm|lrt|srt|narc|ina
 const ONE_SHOTS: Equipment[] = [...BASE_WEAPONS, ...TORPEDOES].filter((w) => ONE_SHOT_BASES.test(w.id) && w.id !== 'clan-streak-lrm').flatMap((w) => {
   const os: Equipment = { ...w, id: `${w.id}-os`, name: `${w.name} (OS)`, tons: w.tons + 0.5, ammoPerTon: undefined, oneShot: 'os' };
   const iosEra: EraId = isAvailableIn(w.firstEra, '3068') ? '3068' : w.firstEra;
-  const ios: Equipment = { ...w, id: `${w.id}-ios`, name: `${w.name} (I-OS)`, tons: w.tons - 0.5, ammoPerTon: undefined, oneShot: 'ios', firstEra: iosEra };
+  const ios: Equipment = { ...w, id: `${w.id}-ios`, name: `${w.name} (I-OS)`, tons: w.tons > 0.5 ? w.tons - 0.5 : w.tons / 2 /* Clan SRM-2 I-OS: 0.25 t (MegaMek) */, ammoPerTon: undefined, oneShot: 'ios', firstEra: iosEra };
   return [os, ios];
 });
 

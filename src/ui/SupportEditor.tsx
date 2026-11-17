@@ -139,6 +139,15 @@ function SupportChassisPanel({ design, summary, update }: Props) {
             <option value="advanced">Advanced (10% of weapons)</option>
           </select>
           <span className="muted"> {summary.weights.fireControl} t</span>
+          {design.chassisMods.includes('omni') && design.fireControl !== 'none' && (<>
+            {' '}<label className="check small" title="OmniVehicles: the base chassis fixes the fire control weight for every configuration">
+              <input type="checkbox" checked={design.omniFireControlTons !== undefined}
+                onChange={(e) => update((d) => { const { omniFireControlTons: _f, ...rest } = d; return e.target.checked ? { ...rest, omniFireControlTons: summary.weights.fireControl } : rest; })} />
+              Fixed by base chassis
+            </label>
+            {design.omniFireControlTons !== undefined && (<NumberField label="Base chassis fire control tons" value={design.omniFireControlTons} min={0} step={0.5}
+              onChange={(n) => update((d) => ({ ...d, omniFireControlTons: Math.max(0, n) }))} />)}
+          </>)}
         </div>
 
         {!info.aero && (

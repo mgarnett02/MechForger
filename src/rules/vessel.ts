@@ -689,10 +689,12 @@ export function computeVessel(d: VesselDesign): VesselSummary {
     }
   }
   // Each full 12 weapons beyond the first in an arc need extra fire control: 10% of the arc's weapons.
+  // Naval C3 doubles the extra fire control (as MegaMek).
   let fireControl = 0;
+  const nc3 = d.equipment.some((e) => e.equipmentId === 'naval-c3') ? 2 : 1;
   for (const { n, tons } of fcSlots.values()) {
     const excess = Math.floor((n - 1) / perArc);
-    if (excess > 0) fireControl += halfUp((excess * tons) / 10);
+    if (excess > 0) fireControl += halfUp((excess * tons) / 10) * nc3;
   }
 
   const bays = d.bays.reduce((a, b) => a + bayWeight(b), 0);

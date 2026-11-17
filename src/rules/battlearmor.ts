@@ -35,6 +35,8 @@ export interface BAItem {
   dwp?: boolean;
   /** Ammunition: shots carried (up to 4 per slot, 8 for tube artillery). */
   shots?: number;
+  /** MegaMek's size: a cargo lifter's lift in tons (1 when absent), mission equipment storage's capacity in kg. */
+  size?: number;
 }
 
 export interface BattleArmorDesign {
@@ -114,6 +116,8 @@ export const antiMekLimit = (d: Pick<BattleArmorDesign, 'chassisType'>, m: BAMou
 // ---------------------------------------------------------------------------------------------------------------
 
 export const baArmorTypes = (): MMItem[] => MM_EQUIPMENT.filter((e) => e.kind === 'baArmor');
+/** Mission equipment storage: its size is the kilograms it holds. */
+export const MISSION_STORAGE = 'Mission Equipment Storage';
 export const isManipulator = (e: MMItem | undefined) => has(e, 'F_BA_MANIPULATOR');
 export const isAPMount = (e: MMItem | undefined) => has(e, 'F_AP_MOUNT') || has(e, 'F_ARMORED_GLOVE');
 export const isWeapon = (e: MMItem | undefined) => e?.kind === 'baWeapon' || e?.kind === 'infantryWeapon';
@@ -144,11 +148,17 @@ export function baItemWeight(d: BattleArmorDesign, item: BAItem, e = getMM(item.
     return ((e.kgPerShot ?? 0) * (item.shots ?? 1)) / 1000 * mod;
   }
   if (has(e, 'F_MECHANICAL_JUMP_BOOSTER')) return 2 * [0.025, 0.025, 0.05, 0.125, 0.25][d.weightClass];
-  if (e.id === 'BACargoLifter') return 0.03 * 2; // a half-ton lifter by default
+  // Cargo lifter: 30 kg per half ton it can lift (as MegaMek).
+  if (e.id === 'BACargoLifter') return 0.03 * Math.ceil((item.size ?? 1) * 2 - 1e-9);
+  // Mission equipment storage weighs what it holds (its size, in kg).
+  if (e?.id === MISSION_STORAGE) return Math.round(item.size ?? 0) / 1000;
   // Weapons carried in a detachable weapon pack weigh 25% less; a squad support weapon is shared
   // (each trooper carries 40% of it in a Clan point, 50% in an Inner Sphere squad).
   const mod = item.dwp ? 0.75 : item.ssw ? (d.techBase === 'Clan' ? 0.4 : 0.5) : 1;
-  return Math.round(mmNum(e.tonnage) * mod * 1000) / 1000;
+  // Kept to the gram's fraction: the myomer booster's three pieces are a third of 0.25 t each (as MegaMek).
+  // A reduced weight (detachable pack, squad support) rounds up to the kilogram (as MegaMek).
+  if (mod !== 1) return Math.ceil(mmNum(e.tonnage) * mod * 1000 - 1e-9) / 1000;
+  return Math.round(mmNum(e.tonnage) * 1e6) / 1e6;
 }
 
 /** Slots one item occupies (armor pieces, manipulators and AP-mounted weapons as MegaMek counts them). */
@@ -500,10 +510,12 @@ export function battleArmorCost(d: BattleArmorDesign): { total: number; lines: [
       : d.weightClass === 4 ? [400000, j * (d.motion === 'umu' ? 150000 : 300000)]
         : [50000, 50000 * j];
   const items = d.equipment.filter((i) => onTrooper(i, 1)).map((i) => ({ i, e: getMM(i.equipmentId) }));
-  const manipulators = items.filter(({ e }) => isManipulator(e)).reduce((a, { e }) => a + mmNum(e?.cost), 0);
+  // A cargo lifter costs 250 per half ton it can lift (as MegaMek).
+  const manipulators = items.filter(({ e }) => isManipulator(e)).reduce((a, { i, e }) => a + (e?.id === 'BACargoLifter' ? 250 * Math.ceil((i.size ?? 1) * 2 - 1e-9) : mmNum(e?.cost)), 0);
   const armor = mmNum(getMM(d.armorId)?.cost) * d.armor;
   const equipment = items.filter(({ e }) => e && !isManipulator(e) && e.kind !== 'baArmor')
-    .reduce((a, { i, e }) => a + (e!.kind === 'ammo' ? mmNum(e!.cost) * (i.shots ?? 1) : mmNum(e!.cost)), 0);
+    .reduce((a, { i, e }) => a + (e!.kind === 'ammo' ? mmNum(e!.cost) * (i.shots ?? 1)
+      : e?.id === MISSION_STORAGE ? (Math.round(i.size ?? 0) / 1000) * 100000 : mmNum(e!.cost)), 0);
   const lines: [string, number][] = [
     ['Chassis', chassis], ['Jump / VTOL / UMU', motive], ['Ground movement', 25000 * Math.max(0, d.walkMP - 1)],
     ['Manipulators', manipulators], ['Armor', armor], ['Weapons & equipment', equipment],

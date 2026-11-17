@@ -955,7 +955,9 @@ function parseBattleArmorBlk(text: string): { design: BattleArmorDesign; year: n
   const turretM = /^(\w+):(\d+)/.exec(one('turret'));
   const turret = turretM ? { size: Number(turretM[2]), modular: /^(modular|configurable)/i.test(turretM[1]) } : null;
   const motionRaw = one('motion_type').toLowerCase();
-  const motion = ({ jump: 'jump', leg: 'leg', vtol: 'vtol', umu: 'umu' } as const)[motionRaw as 'jump'] ?? fail(`motion ${motionRaw}`);
+  const listedMotion = ({ jump: 'jump', leg: 'leg', vtol: 'vtol', umu: 'umu' } as const)[motionRaw as 'jump'] ?? fail(`motion ${motionRaw}`);
+  // A suit listed as leg-moving with jumping MP has jump jets (MegaMek weighs them; e.g. the Tengu jumps 2).
+  const motion = listedMotion === 'leg' && int('jumpingMP') > 0 ? 'jump' : listedMotion;
   const armorCode = BA_ARMOR_CODES[one('armor_type') || '28'] ?? fail(`BA armor ${one('armor_type')}`);
   const armorTech = tags.has('armor_tech') ? int('armor_tech') : -1;
   const armorClan = armorTech >= 0 ? CLAN_TECH_LEVELS.has(armorTech) : techBase === 'Clan';
@@ -973,6 +975,7 @@ function parseBattleArmorBlk(text: string): { design: BattleArmorDesign; year: n
       const ssw = /:SSWM\b/.test(raw);
       const apm = /:APM\b/.test(raw);
       const shotsM = /:Shots(\d+)#/.exec(raw);
+      const sizeM = /:SIZE:([\d.]+)/i.exec(raw);
       raw = raw.replace(/:(Body|LA|RA|TU|DWP|SSWM|APM)\b/g, '').replace(/:Shots\d+#/, '').replace(/:SIZE:.*$/i, '').trim();
       let e = findMM(raw, armorClan ? 'Clan' : techBase) ?? fail(`unknown BA item "${raw}"`);
       if (e.kind === 'baArmor' && e.id !== armorEntry.id) {
@@ -985,6 +988,7 @@ function parseBattleArmorBlk(text: string): { design: BattleArmorDesign; year: n
       if (ssw) item.ssw = true;
       if (dwp) item.dwp = true;
       if (e.kind === 'ammo') item.shots = shotsM ? Number(shotsM[1]) : 1;
+      if ((e.id === 'BACargoLifter' || e.id === 'Mission Equipment Storage') && sizeM) item.size = Number(sizeM[1]);
       equipment.push(item);
     }
   }
@@ -1494,7 +1498,9 @@ function parseSupportBlk(text: string): { design: SupportVehicleDesign; year: nu
     chassis: one('Name'), model: one('Model'), svType, tonnage,
     cruiseMP: Number(aero ? one('SafeThrust') : one('cruiseMP')) || 0,
     structureTech: rating('structural_tech_rating'), engineTech: rating('engine_tech_rating'), armorTech: rating('armor_tech_rating'),
-    engineType, bar, ...(svArmorType ? { armorType: svArmorType } : {}), chassisMods: [...chassisMods], fuel: 0, turret, fireControl, armor, transport, equipment,
+    engineType, bar, ...(svArmorType ? { armorType: svArmorType } : {}), chassisMods: [...chassisMods], fuel: 0, turret, fireControl,
+    ...(chassisMods.has('omni') && tags.has('baseChassisFireConWeight') ? { omniFireControlTons: Number(one('baseChassisFireConWeight')) } : {}),
+    armor, transport, equipment,
     ...(tags.has('baseChassisSponsonPintleWeight') && equipment.some((e) => e.equipmentId === 'pintle-turret') ? { pintleWeight: Number(one('baseChassisSponsonPintleWeight')) } : {}),
   };
   const fuel = Number(one('fuel')) || 0;
@@ -1507,6 +1513,11 @@ function parseSupportBlk(text: string): { design: SupportVehicleDesign; year: nu
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
+
+/** Unit file text with LF line endings (a Windows checkout of mm-data has CRLF). */
+function readText(f: string): string {
+  return fs.readFileSync(f, 'utf8').replace(/\r\n/g, '\n');
+}
 
 function walk(dir: string, ext: string, out: string[] = []): string[] {
   for (const f of fs.readdirSync(dir)) {
@@ -1536,7 +1547,7 @@ function main() {
   const seen = new Set<string>();
   for (const f of mtfs) {
     try {
-      const p = parseMtf(fs.readFileSync(f, 'utf8'));
+      const p = parseMtf(readText(f));
       const key = `${p.design.chassis} ${p.design.model}`;
       if (seen.has(key)) continue; // duplicates across sourcebooks
       seen.add(key);
@@ -1606,7 +1617,7 @@ function main() {
   const vseen = new Set<string>();
   for (const f of blks) {
     try {
-      const p = parseBlk(fs.readFileSync(f, 'utf8'));
+      const p = parseBlk(readText(f));
       const key = `${p.design.chassis} ${p.design.model}`;
       if (vseen.has(key)) continue;
       vseen.add(key);
@@ -1633,7 +1644,7 @@ function main() {
   let svSkipped = 0;
   const sseen = new Set<string>();
   for (const f of blks) {
-    const text = fs.readFileSync(f, 'utf8');
+    const text = readText(f);
     if (!/<UnitType>\s*\n(SupportTank|SupportVTOL|FixedWingSupport|LargeSupportTank)\n/.test(text)) continue;
     try {
       const p = parseSupportBlk(text);
@@ -1660,7 +1671,7 @@ function main() {
   let vslSkipped = 0;
   const vsseen = new Set<string>();
   for (const f of vesselFiles) {
-    const text = fs.readFileSync(f, 'utf8');
+    const text = readText(f);
     if (!/<UnitType>\s*\n(SmallCraft|Dropship|Jumpship|Warship|SpaceStation)\n/.test(text)) continue;
     try {
       const p = parseVesselBlk(text);
@@ -1691,7 +1702,7 @@ function main() {
   let pmSkipped = 0;
   const pmseen = new Set<string>();
   for (const f of pmFiles) {
-    const text = fs.readFileSync(f, 'utf8');
+    const text = readText(f);
     if (!/<UnitType>\s*\nProtoMek\n/.test(text)) continue;
     try {
       const p = parseProtoBlk(text);
@@ -1725,7 +1736,7 @@ function main() {
   const stseen = new Set<string>();
   for (const [dir, kind, type] of [['ge', 'emplacement', 'GunEmplacement'], ['handheld', 'handheld', 'HandheldWeapon']] as const) {
     for (const f of walk(path.join(root, 'data/mekfiles', dir), '.blk').sort()) {
-      const text = fs.readFileSync(f, 'utf8');
+      const text = readText(f);
       if (!new RegExp(`<UnitType>\\s*\\n${type}\\n`).test(text)) continue;
       try {
         const p = parseStationaryBlk(text, kind);
@@ -1761,7 +1772,7 @@ function main() {
   let baSkipped = 0;
   const baseen = new Set<string>();
   for (const f of baFiles) {
-    const text = fs.readFileSync(f, 'utf8');
+    const text = readText(f);
     if (!/<UnitType>\s*\nBattleArmor\n/.test(text)) continue;
     try {
       const p = parseBattleArmorBlk(text);
@@ -1793,7 +1804,7 @@ function main() {
   let infSkipped = 0;
   const infseen = new Set<string>();
   for (const f of infFiles) {
-    const text = fs.readFileSync(f, 'utf8');
+    const text = readText(f);
     if (!/<UnitType>\s*\nInfantry\n/.test(text)) continue;
     try {
       const p = parseInfantryBlk(text);
@@ -1824,7 +1835,7 @@ function main() {
   let ftrSkipped = 0;
   const fseen = new Set<string>();
   for (const f of fighterFiles) {
-    const text = fs.readFileSync(f, 'utf8');
+    const text = readText(f);
     if (!/<UnitType>\s*\n(AeroSpaceFighter|ConvFighter)\n/.test(text)) continue;
     try {
       const p = parseFighterBlk(text);

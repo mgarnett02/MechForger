@@ -410,6 +410,8 @@ export interface VehicleSummary {
 
 export function vehicleItemWeight(eq: Equipment, d: VehicleDesign): number {
   // Chassis modifications weigh a share of the tonnage (rounded up to the half ton).
+  // A vehicle mounts the Blue Shield as one 3-ton item ('Mechs spread it over seven locations).
+  if (eq.id === 'blue-shield') return 3;
   if (eq.vehicleChassisMod) return halfUp(d.tonnage * (eq.techBase === 'Clan' && eq.vehicleChassisMod.clan ? eq.vehicleChassisMod.clan : eq.vehicleChassisMod.share));
   if (eq.variableWeight === 'supercharger') {
     // 10% of the engine weight, rounded up to the half ton.
@@ -681,6 +683,11 @@ export function validateVehicle(d: VehicleDesign, s: VehicleSummary = computeVeh
     if (!isVehicleEquipment(eq) && !reported.has(`v-${eq.id}`)) {
       reported.add(`v-${eq.id}`);
       error(`${eq.name} cannot be mounted on a vehicle.`);
+    }
+    // Look-down radar and infrared / high-resolution imagers work only from the air (as MegaMek).
+    if (['look-down-radar', 'infrared-imager', 'high-res-imager'].includes(eq.id) && d.motive !== 'vtol' && !reported.has(`a-${eq.id}`)) {
+      reported.add(`a-${eq.id}`);
+      error(`${eq.name} works only on airborne units (VTOLs).`);
     }
     if (!isEquipmentAvailable(eq, d.era, d.techBase, d.mixedTech) && !reported.has(eq.id)) {
       reported.add(eq.id);

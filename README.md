@@ -411,6 +411,12 @@ fixed-wing support).
   floating-point rounding of exact half-kilogram engines and livestock bays. Spacecraft: a primitive JumpShip's
   fuel is priced without the primitive fuel factor that its weight includes.
 
+  **Construction weight** matches MegaMek's for every canon BattleMech, combat vehicle, fighter, ProtoMech and
+  spacecraft, and for all support vehicles and battle armor but a few that are MegaMek quirks: it adds up a battle
+  armor squad without its last trooper (so items carried by individual troopers come up short), ignores weapons in
+  detachable packs assigned to single troopers (the Capture Team suits), and rounds a support vehicle engine of
+  exactly half a kilogram down. `tools/megamek-check/Weight.java` and `weights.ts` run the check.
+
   The comparison uses MegaMek's calculated BV; some unit files carry a published (manual) BV that MegaMek
   reports instead.
 
