@@ -388,13 +388,19 @@ fixed-wing support).
 
   | Unit type | BV | Cost |
   |---|---|---|
-  | BattleMechs (3,167 compared) | 99.9% | 86% (95% within 2%) |
-  | Combat vehicles (1,208) | 99.6% | 59% (77% within 2%; marked approximate) |
-  | Support vehicles (229) | 97% | 92% (94% within 2%) |
-  | Aerospace / conventional fighters (542) | 99.6% | 74% (95% within 2%) |
-  | Small craft, DropShips, JumpShips, WarShips, stations (428) | 99% (99.8% within 2%) | 67% (99.8% within 2%) |
+  | BattleMechs (3,167 compared) | 99.9% | 92% (96% within 2%) |
+  | Combat vehicles (1,208) | 99.6% | 93% (99% within 2%) |
+  | Support vehicles (229) | 97% | 93% (95% within 2%) |
+  | Aerospace / conventional fighters (542) | 99.6% | 77% (96% within 2%) |
+  | Small craft, DropShips, JumpShips, WarShips, stations (428) | 99% (99.8% within 2%) | 68% (99.8% within 2%) |
   | ProtoMechs (86) | 100% | 100% |
   | Gun emplacements and handheld weapons (1,058) | 98% | (emplacements have no cost in MegaMek) |
+
+  Every remaining combat vehicle cost difference is a MegaMek quirk: it prices an OmniVehicle's turret from the
+  weapons in it rather than the turret's fixed weight, leaves non-weapon equipment out of a turret's cost (though
+  not its weight) and rounds two turrets together, charges a full ton of ammunition for every one-shot launcher,
+  and buys CASE for a B-pod's hidden ammunition. Troop space costs nothing and cargo bays 1,000 C-bills a door
+  (specialized bays 100–250 a ton).
 
   The comparison uses MegaMek's calculated BV; some unit files carry a published (manual) BV that MegaMek
   reports instead.

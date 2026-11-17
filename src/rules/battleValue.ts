@@ -19,7 +19,7 @@ import { computeFighter, fighterItemWeight } from './fighter';
 import type { VesselDesign, VesselItem } from './vessel';
 import { BAY_INFO, VESSEL_ARMOR_COST, bayWeight, isPrimitiveVessel, vesselFormulaCost, VESSEL_TYPE_NAMES, computeVessel, isLargeCraft, kfIntegrity, shotsPerBin, vesselItemWeight } from './vessel';
 import type { VehicleDesign } from './vehicle';
-import { computeVehicle, vehicleItemWeight } from './vehicle';
+import { computeVehicle, vehicleCargoCost, vehicleItemWeight } from './vehicle';
 import type { SupportVehicleDesign } from './support';
 import { SV_TYPES, computeSupport, svCruiseMP, svItemWeight, svStructureForCost, svTransportCost } from './support';
 import { DEFENSIVE_IDS, ITEM_VALUES, MML_AMMO_BV, isGaussType } from './values';
@@ -542,7 +542,11 @@ export function equipmentCost<T extends { equipmentId: string; location?: string
     const eq = getEquipment(i.equipmentId);
     if (!eq || eq.managed) continue;
     if (eq.melee && mech) total += meleeCost(eq.melee, mech);
+    // A vehicle's Blue Shield is a single piece costing the full 1,000,000 C-bills (MegaMek); a 'Mech's is spread over seven.
+    else if (eq.id === 'blue-shield' && !mech) total += 1000000;
     else if (eq.category === 'Ammo') total += ammoValue(eq).cost;
+    // Rocket launchers come with one load of rockets: 1,000 / 1,500 / 2,000 C-bills (TechManual p.229, MegaMek).
+    else if (/(^|-)rl-(10|15|20)(-prototype)?$/.test(eq.id)) total += (value(eq.id)?.cost ?? 0) + { 10: 1000, 15: 1500, 20: 2000 }[Number(/rl-(\d+)/.exec(eq.id)![1]) as 10 | 15 | 20];
     else if (eq.variableWeight === 'masc') total += rating * weight(eq) * 1000;
     else if (eq.variableWeight === 'supercharger') total += rating * 10000;
     else if (eq.variableWeight === 'targetingComputer') total += weight(eq) * 10000;
@@ -574,7 +578,7 @@ function implicitClanCase(d: { techBase: string; equipment: { equipmentId: strin
     if (!eq) continue;
     if (eq.id === 'case' || eq.id === 'clan-case') explicit++;
     else if ((isExplosiveAmmo(eq))
-      || (eq.isWeapon && isGaussType(eq.id)) || eq.explosive) locs.add(i.location ?? '');
+      || (eq.isWeapon && isGaussType(eq.id)) || eq.explosive || eq.explosiveLow) locs.add(i.location ?? '');
   }
   return Math.max(0, locs.size - explicit);
 }
@@ -717,8 +721,9 @@ export function vehicleCost(d: VehicleDesign): CostBreakdown {
     ['Power amplifiers', 20000 * w.powerAmplifiers],
     ['Heat sinks', 2000 * Math.max(0, d.heatSinks - s.freeHeatSinks)],
     ['Armor', ARMOR_COST[d.armorType] * w.armor],
-    ['Weapons & equipment', equipmentCost(d.equipment, (eq) => vehicleItemWeight(eq, d), s.rating)],
-    ['Troop / cargo space', 5000 * w.cargo],
+    // Clan vehicles buy CASE (50,000) for each location holding explosives, as Clan 'Mechs do (MegaMek).
+    ['Weapons & equipment', equipmentCost(d.equipment, (eq) => vehicleItemWeight(eq, d), s.rating) + 50000 * implicitClanCase(d)],
+    ['Troop / cargo space', vehicleCargoCost(d)],
   ].filter(([, v]) => v !== 0) as [string, number][];
   const subtotal = lines.reduce((a, [, v]) => a + v, 0);
   // A flotation hull or environmental sealing costs ×1.25 (MegaMek).

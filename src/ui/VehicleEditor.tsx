@@ -204,6 +204,18 @@ function VehicleChassisPanel({ design, summary, update }: Props) {
           <NumberField label="Troop and cargo space" value={design.cargo ?? 0} min={0} step={0.5}
             onChange={(n) => update((d) => ({ ...d, cargo: n > 0 ? Math.round(n * 2) / 2 : undefined }))} />
           <span className="muted"> tons{(design.cargo ?? 0) > 0 ? ' · 1 item slot' : ''}</span>
+          {(design.cargo ?? 0) > 0 && (
+            <>
+              {' '}of which troop space{' '}
+              <NumberField label="Troop space (infantry compartment, no cost)" value={design.troopSpace ?? 0} min={0} max={design.cargo} step={0.5}
+                onChange={(n) => update((d) => {
+                  const { troopSpace: _t, ...rest } = d;
+                  const t = Math.min(d.cargo ?? 0, Math.round(n * 2) / 2);
+                  return t > 0 ? { ...rest, troopSpace: t } : rest;
+                })} />
+              <span className="muted" title="Infantry compartments cost nothing; cargo bays cost 1,000 C-bills per door"> tons</span>
+            </>
+          )}
         </div>
 
         <label>Heat sinks</label>

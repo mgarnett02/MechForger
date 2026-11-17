@@ -16,7 +16,7 @@ import {
 } from './tables';
 import type { Equipment } from './equipment';
 import {
-  shortEquipmentName, getEquipment, isArtemisVCapable, laserInsulatorHeatReduction, targetingComputerTons, isEquipmentAvailable, dumperWeight, srcsWeight, usesAmmo,
+  shortEquipmentName, getEquipment, isArtemisVCapable, heatNeutralHeat, targetingComputerTons, isEquipmentAvailable, dumperWeight, srcsWeight, usesAmmo,
 } from './equipment';
 import { armorPointsForTons, armorTonnage } from './armor';
 import type { Issue } from './validation';
@@ -94,6 +94,12 @@ export interface VehicleDesign {
   cargo?: number;
   /** Separate cargo bays (plus one for any troop space) the cargo is split into; each takes an item slot. 1 when unset. */
   cargoBays?: number;
+  /** Of the troop and cargo space, the tons that are infantry compartments (no cost, as MegaMek). */
+  troopSpace?: number;
+  /** Doors on the cargo bays (1,000 C-bills each). One per cargo bay when unset. */
+  cargoDoors?: number;
+  /** Specialized cargo bays among the cargo space (tons of bay, priced per ton as MegaMek). */
+  specialCargo?: { kind: 'liquid' | 'insulated' | 'refrigerated'; tons: number }[];
   armor: Record<VehicleArmorLocation, number>;
   equipment: VehicleItem[];
 }
@@ -237,6 +243,19 @@ export function vehicleStructureSlots(type: BasicStructureType, techBase: TechBa
 }
 
 /** Tech base of a vehicle's armor: its own on a mixed-tech design, otherwise the chassis'. */
+/**
+ * Cost of a vehicle's troop and cargo space (as MegaMek): infantry compartments and plain cargo bays cost nothing
+ * but 1,000 C-bills per bay door; liquid, refrigerated and insulated bays 100 / 200 / 250 per ton (rounded up).
+ */
+export function vehicleCargoCost(d: Pick<VehicleDesign, 'cargo' | 'cargoBays' | 'troopSpace' | 'cargoDoors' | 'specialCargo'>): number {
+  const troop = d.troopSpace ?? 0;
+  const bayTons = Math.max(0, (d.cargo ?? 0) - troop);
+  const bays = Math.max(0, (d.cargoBays ?? 1) - (troop > 0 ? 1 : 0));
+  const doors = d.cargoDoors ?? (bayTons > 0 ? Math.max(1, bays) : 0);
+  const rate = { liquid: 100, refrigerated: 200, insulated: 250 } as const;
+  return 1000 * doors + (d.specialCargo ?? []).reduce((a, b) => a + rate[b.kind] * Math.ceil(b.tons - 1e-9), 0);
+}
+
 export function vehicleArmorTech(d: Pick<VehicleDesign, 'techBase' | 'mixedTech' | 'armorTech'>): TechBase {
   return (d.mixedTech && d.armorTech) || d.techBase;
 }
@@ -265,8 +284,15 @@ export function vehicleArmorLocations(d: Pick<VehicleDesign, 'motive' | 'turret'
 export function vehicleItemLocations(eq: Equipment, d: Pick<VehicleDesign, 'motive' | 'turret'> & Partial<Pick<VehicleDesign, 'tonnage' | 'dualTurret'>>): VehicleLocation[] {
   // Dumpers, and the cargo they unload, may sit at the front, sides or rear (MegaMek).
   const located = eq.variableWeight === 'dumper' || /^(cargo|liquid-storage)-/.test(eq.id);
-  // VTOLs may carry equipment on a mast mount above the rotor.
-  if (!eq.isWeapon && !located) return d.motive === 'vtol' ? ['BD', 'RO'] : ['BD'];
+  // VTOLs may carry equipment on a mast mount above the rotor; equipment may also sit in a turret (and counts toward
+  // its weight), except ammunition and chassis modifications.
+  if (!eq.isWeapon && !located) {
+    const turretOk = d.turret && eq.category !== 'Ammo' && !eq.vehicleChassisMod;
+    return [
+      'BD', ...(d.motive === 'vtol' ? ['RO' as const] : []),
+      ...(turretOk ? ['TU' as const] : []), ...(turretOk && d.dualTurret ? ['TU2' as const] : []),
+    ];
+  }
   if (located) return d.tonnage !== undefined && hasSixFacings({ motive: d.motive, tonnage: d.tonnage })
     ? ['BD', 'FR', 'FRS', 'FLS', 'RRS', 'RLS', 'RR'] : ['BD', 'FR', 'LS', 'RS', 'RR'];
   const arcs: VehicleLocation[] = d.tonnage !== undefined && hasSixFacings({ motive: d.motive, tonnage: d.tonnage })
@@ -472,14 +498,9 @@ export function computeVehicle(d: VehicleDesign): VehicleSummary {
     if (item.sponson && eq.category !== 'Ammo') sponsonItems += w;
     // Ammunition-fed flamers (vehicle and heavy flamers) need neither power amplifiers nor heat sinks (as MegaMek).
     // (as are other ammunition-fed energy weapons such as chemical lasers; plasma weapons still count).
-    if (eq.isWeapon && eq.category === 'Energy' && !(eq.ammoPerTon && !/plasma/.test(eq.id))) {
-      energyTons += eq.tons;
-      energyHeat += eq.heat;
-    }
-    // Heat-producing equipment must be sunk too (MegaMek's heat-neutral rule).
-    if (!eq.isWeapon && eq.heat > 0) energyHeat += eq.heat;
+    if (eq.isWeapon && eq.category === 'Energy' && !(eq.ammoPerTon && !/plasma/.test(eq.id))) energyTons += eq.tons;
   }
-  energyHeat -= laserInsulatorHeatReduction(d.equipment);
+  energyHeat = heatNeutralHeat(d.equipment, powersEnergy(d.engineType));
   // Stealth armor generates 10 heat that the heat sinks must handle (as MegaMek).
   if (d.armorType === 'stealth') energyHeat += 10;
 
@@ -867,6 +888,11 @@ export function parseVehicle(raw: unknown): VehicleDesign {
     heatSinks: typeof r.heatSinks === 'number' ? r.heatSinks : 0,
     cargo: typeof r.cargo === 'number' && r.cargo > 0 ? r.cargo : undefined,
     ...(typeof r.cargoBays === 'number' && r.cargoBays > 1 ? { cargoBays: Math.round(r.cargoBays) } : {}),
+    ...(typeof r.troopSpace === 'number' && r.troopSpace > 0 ? { troopSpace: r.troopSpace } : {}),
+    ...(typeof r.cargoDoors === 'number' && r.cargoDoors >= 0 ? { cargoDoors: Math.round(r.cargoDoors) } : {}),
+    ...(Array.isArray(r.specialCargo) ? { specialCargo: (r.specialCargo as { kind: string; tons: number }[])
+      .filter((b) => ['liquid', 'insulated', 'refrigerated'].includes(b?.kind) && typeof b.tons === 'number')
+      .map((b) => ({ kind: b.kind as 'liquid', tons: b.tons })) } : {}),
     armor,
     equipment,
   };

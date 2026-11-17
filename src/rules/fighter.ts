@@ -17,7 +17,7 @@ import {
   componentTechOk, engineWeight, standardFusionEngineWeight,
 } from './tables';
 import type { Equipment } from './equipment';
-import { getEquipment, isEquipmentAvailable, laserInsulatorHeatReduction, itemWeight, shortEquipmentName } from './equipment';
+import { getEquipment, isEquipmentAvailable, heatNeutralHeat, itemWeight, shortEquipmentName } from './equipment';
 import { armorPointsForTons, armorTonnage } from './armor';
 import type { Issue } from './validation';
 
@@ -274,12 +274,7 @@ export function fighterItemWeight(eq: Equipment, d: FighterDesign): number {
 
 /** Heat sinks a heat-neutral unit needs: the heat of its energy weapons that use no ammunition. */
 export function heatNeutralRequirement(d: FighterDesign): number {
-  let heat = 0;
-  for (const item of d.equipment) {
-    const eq = getEquipment(item.equipmentId);
-    if (eq?.isWeapon && eq.category === 'Energy' && (!eq.ammoPerTon || /plasma/.test(eq.id))) heat += eq.heat;
-  }
-  return heat - laserInsulatorHeatReduction(d.equipment);
+  return heatNeutralHeat(d.equipment, isFusion(d.engineType));
 }
 
 export function computeFighter(d: FighterDesign): FighterSummary {

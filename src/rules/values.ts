@@ -91,7 +91,7 @@ export const ITEM_VALUES: Record<string, ItemValue> = {
   'light-machine-gun': v(5, 5000, 1, 500),
   'heavy-machine-gun': v(6, 7500, 1, 1000),
   magshot: v(15, 8500, 2, 1000),
-  'plasma-rifle': v(210, 260000, 26, 10000),
+  'plasma-rifle': v(210, 260000, 26, 30000), // ammo 30,000 a ton (TechManual p.234, MegaMek)
   'mml-3': v(29, 45000),
   'mml-5': v(45, 75000),
   'mml-7': v(67, 105000),
@@ -131,7 +131,7 @@ export const ITEM_VALUES: Record<string, ItemValue> = {
   'clan-srm-4': v(39, 60000, 5, 27000),
   'clan-srm-6': v(59, 80000, 7, 27000),
   'clan-streak-srm-2': v(40, 15000, 5, 54000),
-  'clan-streak-srm-4': v(79, 60000, 10, 54000),
+  'clan-streak-srm-4': v(79, 90000, 10, 54000),
   'clan-streak-srm-6': v(118, 120000, 15, 54000),
   'clan-atm-3': v(53, 50000, 14, 75000),
   'clan-atm-6': v(105, 125000, 26, 75000),
@@ -146,8 +146,8 @@ export const ITEM_VALUES: Record<string, ItemValue> = {
   'clan-large-heavy-laser': v(244, 250000),
   'clan-tag': v(0, 50000),
   'clan-light-tag': v(0, 40000),
-  'clan-plasma-cannon': v(170, 320000, 21, 12000),
-  'clan-ap-gauss-rifle': v(21, 10000, 3, 3000),
+  'clan-plasma-cannon': v(170, 320000, 21, 30000),
+  'clan-ap-gauss-rifle': v(21, 8500, 3, 1000),
   'clan-hag-20': v(267, 400000, 33, 30000),
   'clan-hag-30': v(401, 500000, 50, 30000),
   'clan-hag-40': v(535, 600000, 67, 30000),
@@ -256,7 +256,7 @@ export const ITEM_VALUES: Record<string, ItemValue> = {
   'look-down-radar': v(0, 400000), 'hyperspectral-imager': v(0, 550000), 'booby-trap': v(0, 100000), 'high-res-imager': v(0, 150000), 'sds-self-destruct': v(0, 1000000), 'field-kitchen': v(0, 25000), 'mobile-field-base': v(0, 150000),
   'lifeboat-maritime': v(0, 5000), 'lifeboat-atmospheric': v(0, 6000), 'refueling-drogue': v(0, 25000),
   'mast-mount': v(0, 50000), 'trailer-hitch': v(0, 0), 'mine-dispenser': v(8, 20000), 'mine-sweeper': v(30, 40000),
-  'remote-sensor-dispenser': v(0, 51000), manipulator: v(0, 7500), 'recon-camera': v(0, 20000),
+  'remote-sensor-dispenser': v(0, 51000), manipulator: v(0, 7500), 'recon-camera': v(0, 10000),
 };
 
 // Weapons and equipment with MegaMek's figures (extraWeapons.ts).

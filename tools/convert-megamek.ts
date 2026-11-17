@@ -676,7 +676,10 @@ function parseBlk(text: string): { design: VehicleDesign; year: number; rulesLev
   const engineType = BLK_ENGINES[one('engine_type')] ?? fail(`engine ${one('engine_type')}`);
   const armorType = BLK_ARMOR[one('armor_type')] ?? fail(`armor ${one('armor_type')}`);
   // Mixed tech: the armor's own tech level says whether it is Clan or Inner Sphere armor.
-  const armorTech: TechBase = mixedTech && tags.has('armor_tech_level') ? (CLAN_TECH_LEVELS.has(Number(one('armor_tech_level'))) ? 'Clan' : 'IS') : techBase;
+  // An unset level (-1) means Inner Sphere armor, as MegaMek reads it (the Clan Chalchiuhtotolin then weighs its 50 t).
+  const armorLevel = tags.has('armor_tech_level') ? Number(one('armor_tech_level')) : null;
+  const armorTech: TechBase = (mixedTech || armorLevel === -1) && armorLevel !== null
+    ? (CLAN_TECH_LEVELS.has(armorLevel) ? 'Clan' : 'IS') : techBase;
   if (tags.has('internal_type') && one('internal_type') !== '-1' && one('internal_type') !== '0') fail('structure');
   for (const k of ['Turret 2 Equipment', ...(six ? ['Left Equipment', 'Right Equipment'] : ['Front Right Equipment', 'Front Left Equipment', 'Rear Right Equipment', 'Rear Left Equipment'])]) {
     if ((tags.get(k) ?? []).length) fail(k);
@@ -692,11 +695,24 @@ function parseBlk(text: string): { design: VehicleDesign; year: number; rulesLev
   // Each cargo bay takes an item slot; all troop space together takes one (MegaMek).
   let bays = 0;
   let troops = false;
+  let troopSpace = 0;
+  let cargoDoors = 0;
+  const specialCargo: NonNullable<VehicleDesign['specialCargo']> = [];
   for (const t of tags.get('transporters') ?? []) {
     const m = /^(troopspace|cargobay|liquidcargobay|insulatedcargobay|refrigeratedcargobay):([\d.]+)/i.exec(t);
     // Specialized bays list their capacity; they weigh capacity ÷ 0.91 (liquid) or ÷ 0.87 (insulated, refrigerated).
     const factor = !m ? 1 : /^liquid/i.test(m[1]) ? 0.91 : /^(insulated|refrigerated)/i.test(m[1]) ? 0.87 : 1;
-    if (m) { cargo = Math.round((cargo + Number(m[2]) / factor) * 1000) / 1000; if (/^troopspace$/i.test(m[1])) { if (!troops) bays++; troops = true; } else bays++; }
+    if (m) {
+      const tons = Math.round((Number(m[2]) / factor) * 1000) / 1000;
+      cargo = Math.round((cargo + tons) * 1000) / 1000;
+      if (/^troopspace$/i.test(m[1])) { if (!troops) bays++; troops = true; troopSpace += tons; }
+      else {
+        bays++;
+        cargoDoors += Number(t.split(':')[2]) || 0;
+        const kind = /^liquid/i.test(m[1]) ? 'liquid' : /^insulated/i.test(m[1]) ? 'insulated' : /^refrigerated/i.test(m[1]) ? 'refrigerated' : null;
+        if (kind) specialCargo.push({ kind, tons });
+      }
+    }
     else if (!/^(BattleArmorHandles|standardseats|pillionseats)/i.test(t)) fail(`transporter ${t.split(':')[0]}`);
   }
   const armorVals = (tags.get('armor') ?? []).map(Number);
@@ -722,7 +738,7 @@ function parseBlk(text: string): { design: VehicleDesign; year: number; rulesLev
     : [['Front Equipment', 'FR'], ['Right Equipment', 'RS'], ['Left Equipment', 'LS'], ['Rear Equipment', 'RR'],
       ['Turret Equipment', 'TU'], ['Rear Turret Equipment', 'TU'], ['Front Turret Equipment', 'TU2'], ['Body Equipment', 'BD'],
       // VTOL mast mounts and the equipment on them.
-      ['Rotor Equipment', 'RO']];
+      ['Rotor Equipment', 'RO'], ['slotless_equipment', 'BD']];
   const equipment: VehicleItem[] = [];
   let uid = 0;
   let sponsons = false;
@@ -763,8 +779,8 @@ function parseBlk(text: string): { design: VehicleDesign; year: number; rulesLev
       const eq = getEquipment(id)!;
       if (eq.managed && id !== 'heat-sink') fail(`mech-only item ${id}`);
       if (id === 'heat-sink') continue;
-      if ((id === 'case' || id === 'clan-case') && techBase === 'Clan') continue; // Clan CASE is built in
-      equipment.push({ uid: `v${uid++}`, equipmentId: id, location: eq.isWeapon || id === 'dumper' ? loc : loc === 'RO' ? 'RO' : 'BD' as VehicleLocation, ...(sponson ? { sponson: true } : {}) });
+      // Clan CASE listed on a vehicle weighs nothing but is bought (50,000 C-bills, as MegaMek).
+      equipment.push({ uid: `v${uid++}`, equipmentId: id === 'case' && techBase === 'Clan' ? 'clan-case' : id, location: eq.isWeapon || id === 'dumper' ? loc : loc === 'RO' || ((loc === 'TU' || loc === 'TU2') && eq.category !== 'Ammo' && !eq.vehicleChassisMod) ? loc : 'BD' as VehicleLocation, ...(sponson ? { sponson: true } : {}) });
     }
   }
   // "(ST)" without a sponson turret (older designs whose weapons sit in side sponsons) is a plain side mount,
@@ -773,7 +789,7 @@ function parseBlk(text: string): { design: VehicleDesign; year: number; rulesLev
   if (!sponsons) for (const e of equipment) delete e.sponson;
   const design: VehicleDesign = {
     schemaVersion: 1, unitType: 'vehicle', era: '3025', techBase,
-    mixedTech: mixedTech || usesOtherTech(techBase, equipment.map((e) => e.equipmentId), [ARMOR_OPTIONS[armorType as keyof typeof ARMOR_OPTIONS]?.techBase]),
+    mixedTech: mixedTech || armorTech !== techBase || usesOtherTech(techBase, equipment.map((e) => e.equipmentId), [ARMOR_OPTIONS[armorType as keyof typeof ARMOR_OPTIONS]?.techBase]),
     chassis: one('Name'), model: one('Model'), motive, tonnage, cruiseMP: Number(one('cruiseMP')),
     engineType, structureType: 'standard', armorType, turret, heatSinks: 0, armor, equipment,
     ...(armorTech !== techBase ? { armorTech } : {}),
@@ -787,6 +803,9 @@ function parseBlk(text: string): { design: VehicleDesign; year: number; rulesLev
     ...(omni && sponsons && tags.has('baseChassisSponsonPintleWeight') ? { omniSponsonTons: Number(one('baseChassisSponsonPintleWeight')) } : {}),
     ...(cargo > 0 ? { cargo } : {}),
     ...(bays > 1 ? { cargoBays: bays } : {}),
+    ...(troopSpace > 0 ? { troopSpace } : {}),
+    ...(cargo - troopSpace > 0 ? { cargoDoors } : {}),
+    ...(specialCargo.length ? { specialCargo } : {}),
   };
   fixAmmoTech(design.equipment);
   // Vehicles carry exactly the heat sinks their energy weapons need (fusion engines include 10).
