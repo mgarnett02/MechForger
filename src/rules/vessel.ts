@@ -586,6 +586,9 @@ export function vesselFormulaWeight(id: string, d: Pick<VesselDesign, 'tonnage' 
     case 'naval-c3': return t * 0.01;
     case 'naval-tug-adaptor': return 100 + t * 0.1;
     case 'booby-trap': return halfUp(t / 10);
+    // Tactical analysis computers: 2% of the craft (at most 50,000 t) / 3%; drone links are separate 150-t items.
+    case 'atac': return Math.min(round(t * 0.02), 50000);
+    case 'dtac': return round(t * 0.03);
     case 'sds-self-destruct': return Math.min(Math.ceil(t * 0.1 - 1e-9), 10000);
     case 'caspar-dcs': case 'improved-caspar-dcs': case 'caspar-ii-dcs': case 'improved-caspar-ii-dcs': {
       const two = id.includes('-ii-');
@@ -600,7 +603,8 @@ export function vesselFormulaWeight(id: string, d: Pick<VesselDesign, 'tonnage' 
 
 /** Cost of formula-priced spacecraft equipment (MegaMek); null for fixed prices. */
 export function vesselFormulaCost(id: string, weight: number): number | null {
-  if (id === 'naval-c3') return weight * 100000;
+  if (id === 'naval-c3' || id === 'atac') return weight * 100000;
+  if (id === 'dtac') return weight * 50000;
   if (/^(improved-)?caspar-dcs$/.test(id)) return weight * 50000 + 500000;
   if (/^(improved-)?caspar-ii-dcs$/.test(id)) return weight * 20000 + 50000;
   return null;

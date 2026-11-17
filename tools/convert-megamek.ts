@@ -1146,6 +1146,14 @@ function parseVesselBlk(text: string): { design: VesselDesign; year: number; mul
         for (let k = 0; k < n; k++) equipment.push({ uid: `s${uid++}`, equipmentId: k === 0 ? 'mash-core' : 'mash-theater', location: loc });
         continue;
       }
+      // Tactical analysis computers and drone carrier control: a core plus one link per drone (SIZE).
+      const linked = /^(AutoTacticalAnalysisComputer|DirectTacticalAnalysisSystem|ISDroneCarrierControlSystem):SIZE:([\d.]+)/i.exec(raw);
+      if (linked) {
+        const [core, link] = /^Auto/i.test(linked[1]) ? ['atac', 'atac-drone'] : /^Direct/i.test(linked[1]) ? ['dtac', 'dtac-drone'] : ['drone-carrier-control', 'drone-carrier-slot'];
+        const n = Math.round(Number(linked[2]));
+        for (let k = 0; k <= n; k++) equipment.push({ uid: `s${uid++}`, equipmentId: k === 0 ? core : link, location: loc });
+        continue;
+      }
       if (/^Communications Equipment:SIZE:0(\.0+)?$/i.test(raw)) continue;
       const capAmmo = CAPITAL_AMMO.get(norm(raw));
       const r = capAmmo ? { kind: 'item' as const, id: capAmmo } : resolveName(raw, techBase);

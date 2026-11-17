@@ -123,6 +123,16 @@ const misc = (id: string, name: string, tons: number, slots: number, techBase: E
 export const EXTRA_EQUIPMENT: Equipment[] = [
   { id: 'clan-er-small-laser-prototype', name: 'Prototype ER Small Laser (CP)', category: 'Energy', tons: 0.5, slots: 1, heat: 2, damage: '3', range: { min: 0, short: 2, medium: 4, long: 5 }, isWeapon: true, techBase: 'Clan', firstEra: '3025' },
   misc('mass', 'MASS', 1.5, 1, 'Both', '3025'),
+  // Ram plate (Interstellar Operations): 3 slots, one per torso; BV half the charge damage × 1.1 (MegaMek).
+  misc('ram-plate', 'Ram Plate', 0, 1, 'Both', '3025', { variableWeight: 'ramPlate', spread: 'torsos', fixedOnly: true }),
+  // Chain drape cape (UrbanFest): 3 slots in each side torso; −1 walking MP.
+  misc('chain-drape-cape', 'Chain Drape (Cape)', 0, 3, 'IS', '3025', { variableWeight: 'chainDrape', spread: 'side-torsos', fixedOnly: true }),
+  // Tactical analysis computers for large craft: a share of the craft plus 150 t per drone controlled.
+  misc('atac', 'ATAC', 0, 0, 'Both', '3025', { variableWeight: 'vesselFormula', vesselOnly: true }),
+  misc('atac-drone', 'ATAC Drone Link', 150, 0, 'Both', '3025', { vesselOnly: true }),
+  misc('dtac', 'DTAC System', 0, 0, 'IS', '3068', { variableWeight: 'vesselFormula', vesselOnly: true }),
+  misc('dtac-drone', 'DTAC Drone Link', 150, 0, 'IS', '3068', { vesselOnly: true }),
+  misc('space-mine-dispenser', 'Space Mine Dispenser', 10, 1, 'Both', '3025', { vesselOnly: true, supportOk: true, fighterOk: true }),
   // Pintle turret (small support vehicles): a twentieth of the weapons it carries; 1,000 C-bills per ton.
   misc('pintle-turret', 'Pintle Turret', 0, 1, 'Both', '3025', { variableWeight: 'pintleTurret', vehicleOnly: true, supportOk: true }),
   // 'Mech turrets (Tactical Operations): a tenth of the turret-mounted equipment's weight; 10,000 C-bills per ton.
@@ -163,7 +173,8 @@ export const EXTRA_EQUIPMENT: Equipment[] = [
 ];
 
 export const EXTRA_EQUIPMENT_MM_NAMES: [string, string][] = [
-  ['ISDoubleHeatSinkPrototype', 'prototype-double-heat-sink'], ['ISHeadTurret', 'mech-turret-head'], ['ISShoulderTurret', 'mech-turret-shoulder'],
+  ['ISDoubleHeatSinkPrototype', 'prototype-double-heat-sink'], ['Ram Plate', 'ram-plate'], ['ChainDrapeCape', 'chain-drape-cape'],
+  ['ISSpaceMineDispenser', 'space-mine-dispenser'], ['CLSpaceMineDispenser', 'space-mine-dispenser'], ['ISHeadTurret', 'mech-turret-head'], ['ISShoulderTurret', 'mech-turret-shoulder'],
   ['ISQuadTurret', 'mech-turret-quad'], ['CLHeadTurret', 'mech-turret-head'], ['CLShoulderTurret', 'mech-turret-shoulder'], ['CLQuadTurret', 'mech-turret-quad'], ['SmartRoboticControlSystem', 'srcs'], ['ImprovedSmartRoboticControlSystem', 'improved-srcs'], ['ShieldedAeroSRCS', 'shielded-aero-srcs'],
   ['ImprovedShieldedAeroSRCS', 'improved-shielded-aero-srcs'],
   ['CLERSmallLaserPrototype', 'clan-er-small-laser-prototype'], ['ISMASS', 'mass'], ['CLMASS', 'mass'], ['ISLaserInsulator', 'laser-insulator'], ['CLLaserInsulator', 'laser-insulator'],

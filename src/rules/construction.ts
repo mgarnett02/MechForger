@@ -382,15 +382,16 @@ export function computeMech(design: MechDesign): MechSummary {
   const slots = {} as Record<Location, LocationSlots>;
   for (const loc of LOCATIONS) slots[loc] = layoutLocation(design, loc);
   const xxl = design.engineType === 'xxl';
-  // Hardened armor costs one running MP.
+  // Hardened armor costs one running MP; a chain drape one walking MP (as MegaMek, BV included).
   const hardened = LOCATIONS.some((l) => armorTypeAt(design, l) === 'hardened') ? 1 : 0;
+  const walk = Math.max(0, walkMP - (design.equipment.some((e) => e.equipmentId === 'chain-drape-cape') ? 1 : 0));
 
   return {
     rating,
-    runMP: runMP(walkMP) - hardened,
+    runMP: runMP(walk) - hardened,
     // MASC or a supercharger: run at twice walking MP; both together: 2.5 times.
-    mascRunMP: hasMasc || hasSupercharger ? Math.ceil(walkMP * (hasMasc && hasSupercharger ? 2.5 : 2)) - hardened : null,
-    tsmMP: design.myomer === 'tsm' ? { walk: walkMP + 1, run: runMP(walkMP + 1) - hardened } : null,
+    mascRunMP: hasMasc || hasSupercharger ? Math.ceil(walk * (hasMasc && hasSupercharger ? 2.5 : 2)) - hardened : null,
+    tsmMP: design.myomer === 'tsm' ? { walk: walk + 1, run: runMP(walk + 1) - hardened } : null,
     omni: design.omni ? omniWeights(design, weights.total) : null,
     lam: lamMovement(design, jumpMP),
     jumpMP,

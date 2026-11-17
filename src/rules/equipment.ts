@@ -40,11 +40,11 @@ export interface Equipment {
   allowedLocations?: readonly Location[];
   isWeapon: boolean;
   /** Weight (and for MASC / targeting computers, slots) depends on the mech. */
-  variableWeight?: 'jumpJet' | 'improvedJumpJet' | 'masc' | 'supercharger' | 'targetingComputer' | 'aes' | 'partialWing' | 'droneOS' | 'tracks' | 'wheels' | 'vehicleJumpJet' | 'vesselFormula' | 'boobyTrap' | 'srcs' | 'mechTurret' | 'pintleTurret' | 'jumpBooster' | 'dumper';
+  variableWeight?: 'jumpJet' | 'improvedJumpJet' | 'masc' | 'supercharger' | 'targetingComputer' | 'aes' | 'partialWing' | 'droneOS' | 'tracks' | 'wheels' | 'vehicleJumpJet' | 'vesselFormula' | 'boobyTrap' | 'srcs' | 'mechTurret' | 'pintleTurret' | 'jumpBooster' | 'dumper' | 'ramPlate' | 'chainDrape';
   /** Combat vehicle chassis modification: weighs this share of the tonnage (Clan share if given). */
   vehicleChassisMod?: { share: number; clan?: number };
   /** Systems spread one piece per location (added and removed as a set). */
-  spread?: 'all-but-head' | 'all-but-head-ct' | 'side-torsos' | 'legs';
+  spread?: 'all-but-head' | 'all-but-head-ct' | 'side-torsos' | 'legs' | 'torsos';
   /** LRM/SRM launchers that can be linked to an Artemis IV fire-control system. */
   artemisCapable?: boolean;
   /** Ammo bins: Artemis IV-capable ammunition. */
@@ -374,7 +374,7 @@ const ADVANCED_WEAPONS: Equipment[] = [
   weapon(CLAN_3050, 'clan-enhanced-ppc', 'Enhanced PPC', 'Energy', 7, 3, 15, '12', [0, 7, 14, 23]),
   // Electromagnetic and other special weapons.
   weapon(IS_3081, 'tsemp-cannon', 'TSEMP Cannon', 'Energy', 6, 5, 10, 'EMP', [0, 5, 10, 15]),
-  weapon(IS_3062, 'mech-taser', "'Mech Taser", 'Energy', 4, 3, 6, '1 + shutdown', [0, 1, 2, 4], 5),
+  { ...weapon(IS_3062, 'mech-taser', "'Mech Taser", 'Energy', 4, 3, 6, '1 + shutdown', [0, 1, 2, 4], 5), explosiveLow: true },
   weapon(IS_3025, 'fluid-gun', 'Fluid Gun', 'Ballistic', 2, 2, 0, 'special', [0, 1, 2, 3], 20),
   weapon(CLAN_3050, 'clan-fluid-gun', 'Fluid Gun', 'Ballistic', 2, 2, 0, 'special', [0, 1, 2, 3], 20),
   // 'Mech mortars (Clan): indirect fire, minimum range 6.
@@ -1044,6 +1044,7 @@ export function targetingComputerWeight(eq: Equipment, d: SizingDesign): number 
 /** Locations a spread system occupies, one piece each. */
 export function spreadLocations(eq: Equipment, d: { config?: MechConfig }): Location[] {
   if (eq.spread === 'side-torsos') return ['LT', 'RT'];
+  if (eq.spread === 'torsos') return ['LT', 'RT', 'CT'];
   if (eq.spread === 'legs') return [...legLocations(d)];
   if (eq.spread === 'all-but-head') return mechLocations(d).filter((l) => l !== 'HD');
   if (eq.spread === 'all-but-head-ct') return mechLocations(d).filter((l) => l !== 'HD' && l !== 'CT');
@@ -1116,6 +1117,10 @@ export function itemWeight(eq: Equipment, d: SizingDesign): number {
   if (eq.variableWeight === 'boobyTrap') return upHalf(d.tonnage / 10);
   if (eq.variableWeight === 'srcs') return srcsWeight(eq.id, d.tonnage);
   if (eq.variableWeight === 'dumper') return dumperWeight(d.equipment);
+  // Ram plate: a tenth of the tonnage, rounded up to the ton, one piece in each torso location.
+  if (eq.variableWeight === 'ramPlate') return Math.ceil(d.tonnage / 10 - 1e-9) / 3;
+  // Chain drape cape: a tenth of the tonnage, rounded up to the half ton, split over the side torsos.
+  if (eq.variableWeight === 'chainDrape') return upHalf(d.tonnage / 10) / 2;
   if (eq.variableWeight === 'mechTurret') return mechTurretWeight(eq.id, d);
   // Tracks: 10% of the tonnage, one piece per leg.
   if (eq.variableWeight === 'tracks') return upHalf(d.tonnage * 0.1) / legCount(d);

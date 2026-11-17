@@ -190,3 +190,18 @@ describe('mechanical jump boosters, dumpers and cargo containers', () => {
     expect(mechBV(lumberjack).total).toBe(651);
   });
 });
+
+describe('ram plate, chain drape, spikes and the taser (MegaMek BV)', () => {
+  const get = (n: string) => decodeMech(canon.find((e) => e.n === n)!.d);
+  it('a ram plate is offensive equipment worth half the charge damage (+1 per torso spike) × 1.1', () => {
+    const rhino = get('Rhino');
+    expect(computeMech(rhino).weights.total).toBe(50);
+    expect(mechBV(rhino).total).toBe(2124);
+    expect(mechCost(rhino).total).toBe(10574250);
+  });
+  it('a chain drape cape costs a walking MP', () => {
+    const knight = get('UrbanKnight UM-DKX');
+    expect(computeMech(knight).runMP).toBe(Math.ceil((knight.walkMP - 1) * 1.5));
+    expect(mechBV(knight).total).toBe(974);
+  });
+});

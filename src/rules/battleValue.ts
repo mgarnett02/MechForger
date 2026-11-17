@@ -63,7 +63,8 @@ export function value(id: string) {
 export function ammoValue(eq: Equipment): { bv: number; cost: number } {
   if (eq.shotBV !== undefined) return { bv: eq.shotBV, cost: eq.shotCost ?? 0 }; // capital ammo: per shot
   const weapon = eq.ammoFor ?? '';
-  const scale = eq.tons; // 1 or 0.5
+  // Half-ton bins count half; heavier bins (cruise missiles) are one load each (MegaMek).
+  const scale = Math.min(1, eq.tons);
   if (MML_AMMO_BV[weapon]) {
     const srm = eq.id.endsWith('-srm');
     return { bv: MML_AMMO_BV[weapon][srm ? 1 : 0] * scale, cost: (srm ? 27000 : 30000) * scale };
@@ -293,7 +294,7 @@ export function mechBV(d: MechDesign): BVBreakdown {
   const structureMod = d.structureType === 'composite' || d.structureType === 'industrial' ? 0.5 : d.structureType === 'reinforced' ? 2 : 1;
   const structure = isPoints * 1.5 * structureMod * engineMod;
   const gyro = d.tonnage * (d.gyroType === 'heavy-duty' ? 1 : 0.5);
-  const defEquip = defensiveEquipmentBV(d.equipment);
+  const defEquip = defensiveEquipmentBV(d.equipment) + 4 * d.equipment.filter((e) => e.equipmentId === 'spikes').length;
   const armoredBV = armoredComponentBV(d);
 
   // Explosive ammo (−15 per slot) and Gauss weapons (−1 per slot) where CASE does not protect.
@@ -358,8 +359,13 @@ export function mechBV(d: MechDesign): BVBreakdown {
   const weapons = weaponEntries(d.equipment);
   for (const item of d.equipment) {
     const eq = getEquipment(item.equipmentId);
-    if (eq?.melee) weapons.push({ bv: meleeBV(eq.melee, d), heat: 0, rear: false, id: eq.id, loc: item.location });
+    // Spikes count as defensive equipment (4 each, MegaMek).
+    if (eq?.melee && eq.melee !== 'spikes') weapons.push({ bv: meleeBV(eq.melee, d), heat: 0, rear: false, id: eq.id, loc: item.location });
   }
+  // Ram plate: offensive equipment worth half the charge damage, +1 per torso spike, × 1.1 (MegaMek).
+  const ramSpikes = d.equipment.filter((e) => e.equipmentId === 'spikes' && /T$/.test(e.location ?? '')).length;
+  const ramPlate = d.equipment.some((e) => e.equipmentId === 'ram-plate')
+    ? (Math.floor(Math.floor(d.tonnage * (s.mascRunMP ?? s.runMP) * 0.1) / 2) + ramSpikes) * 1.1 : 0; // running MP with MASC
   // Weapons (and melee weapons) in an arm with an Actuator Enhancement System: ×1.25.
   const aesArms = isQuad(d) ? new Set<string>() : new Set(d.equipment.filter((e) => e.equipmentId === 'aes' && (e.location === 'LA' || e.location === 'RA')).map((e) => e.location as string));
   for (const w of weapons) if (w.loc && aesArms.has(w.loc)) w.bv *= 1.25;
@@ -392,7 +398,7 @@ export function mechBV(d: MechDesign): BVBreakdown {
   const offEquip = d.equipment.reduce((a, i) => {
     const eq = getEquipment(i.equipmentId);
     return eq && !eq.isWeapon && eq.category !== 'Ammo' && !DEFENSIVE_IDS.has(eq.id) ? a + (value(eq.id)?.bv ?? 0) : a;
-  }, 0);
+  }, 0) + ramPlate;
   // AES: +0.1 per arm, +0.2 (biped) / +0.4 (quad) when every leg has one (tripods get no leg bonus, as MegaMek).
   const legAES = !isTripod(d) && legLocations(d).every((l) => d.equipment.some((e) => e.equipmentId === 'aes' && e.location === l));
   const aesMod = 1 + 0.1 * aesArms.size + (legAES ? (isQuad(d) ? 0.4 : 0.2) : 0);
@@ -473,6 +479,7 @@ export function equipmentCost<T extends { equipmentId: string; location?: string
     else if (eq.variableWeight === 'droneOS') total += weight(eq) * 10000 + 5000;
     else if (eq.variableWeight === 'mechTurret') total += weight(eq) * 10000;
     else if (eq.variableWeight === 'pintleTurret') total += weight(eq) * 1000;
+    else if (eq.variableWeight === 'ramPlate') total += weight(eq) * 10000;
     // SRCS: 10,000 per ton + 5,000 (shielded aerospace: 12,500 per ton + 6,250).
     else if (eq.variableWeight === 'srcs') total += eq.id.includes('shielded') ? weight(eq) * 12500 + 6250 : weight(eq) * 10000 + 5000;
     else if (eq.vehicleChassisMod) total += weight(eq) * (/armored-motive/.test(eq.id) ? 100000 : /amphibious/.test(eq.id) ? 10000 : 0);
