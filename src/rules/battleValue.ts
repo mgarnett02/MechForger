@@ -66,11 +66,13 @@ export function ammoValue(eq: Equipment): { bv: number; cost: number } {
   // Half-ton bins count half; heavier bins (cruise missiles) are one load each (MegaMek).
   const scale = Math.min(1, eq.tons);
   if (MML_AMMO_BV[weapon]) {
-    const srm = eq.id.endsWith('-srm');
-    return { bv: MML_AMMO_BV[weapon][srm ? 1 : 0] * scale, cost: (srm ? 27000 : 30000) * scale };
+    const srm = /-srm(-|$)/.test(eq.id);
+    return { bv: MML_AMMO_BV[weapon][srm ? 1 : 0] * scale, cost: (srm ? 27000 : 30000) * scale * (eq.munitionCost ?? 1) };
   }
   const w = value(weapon);
-  let bv = (w?.ammoBV ?? 0) * scale;
+  let bv = (w?.ammoBV ?? 0) * scale * (eq.munitionBV ?? 1);
+  if (eq.munitionCostPerTon !== undefined) return { bv, cost: eq.munitionCostPerTon * scale };
+  if (eq.munitionCost !== undefined) return { bv, cost: (w?.ammoCost ?? 0) * scale * eq.munitionCost };
   // MegaMek gives Artemis-capable ammunition the same BV as standard ammunition.
   // Artemis IV- and V-capable ammunition costs twice as much (MegaMek).
   // Flak autocannon ammunition costs 1.5 times as much.

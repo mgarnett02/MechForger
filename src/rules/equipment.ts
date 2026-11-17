@@ -53,6 +53,12 @@ export interface Equipment {
   infantryWeapon?: boolean;
   /** Ammo bins: flak autocannon ammunition (costs half as much again). */
   flakAmmo?: boolean;
+  /** Ammo bins: a special munition (LB-X cluster, ATM ER / HE, Narc-capable, Arrow IV homing, …). */
+  munition?: string;
+  /** Special munitions: cost per ton as a multiple of standard ammunition, or a fixed price per ton; BV multiple. */
+  munitionCost?: number;
+  munitionCostPerTon?: number;
+  munitionBV?: number;
   /** Ammo bins: Artemis V-capable ammunition. */
   artemisVAmmo?: boolean;
   /** Can only be fixed equipment on an OmniMech (never pod-mounted). */
@@ -418,9 +424,57 @@ export function isArtemisVCapable(id: string): boolean {
 }
 export const WEAPONS: readonly Equipment[] = ALL_WEAPONS;
 
+/** LB-X cluster ammunition per ton (MegaMek). */
+const LB_CLUSTER_COST: Record<string, number> = { 2: 3300, 5: 15000, 10: 20000, 20: 34000 };
+const laterEra = (a: EraId, b: EraId): EraId => (isAvailableIn(a, b) ? b : a);
+
+/**
+ * Special munitions with MegaMek's prices (BV as standard ammunition except Swarm-I, ×1.2):
+ * LB-X cluster, ATM extended-range / high-explosive, Narc-capable LRM / SRM / MML (×2), Artemis-capable MML (×2),
+ * Arrow IV homing (×1.5) and cluster, SRM inferno (×0.5), LRM Swarm-I and semi-guided (×3).
+ */
+function munitionAmmo(): Equipment[] {
+  const out: Equipment[] = [];
+  const add = (w: Equipment, suffix: string, name: string, munition: string, extra: Partial<Equipment> = {}, era: EraId = w.firstEra) =>
+    out.push({ ...ammoBase(w), id: `ammo-${w.id}-${suffix}`, name, tons: 1, munition, firstEra: laterEra(w.firstEra, era), ...extra });
+  const short = (w: Equipment) => w.name.replace(/ AC$/, '');
+  for (const w of BASE_WEAPONS) {
+    const lb = /^(clan-)?lb-(\d+)x$/.exec(w.id);
+    if (lb && w.ammoPerTon) add(w, 'cluster', `${short(w)} Cluster (${w.ammoPerTon})`, 'cluster', { munitionCostPerTon: LB_CLUSTER_COST[lb[2]] });
+    if (/^clan-atm-\d+$/.test(w.id) && w.ammoPerTon) {
+      add(w, 'er', `${w.name} ER Ammo (${w.ammoPerTon})`, 'er', { munitionCost: 1 });
+      add(w, 'he', `${w.name} HE Ammo (${w.ammoPerTon})`, 'he', { munitionCost: 1 });
+    }
+    if (/^(clan-)?(lrm|srm)-\d+$/.test(w.id) && w.ammoPerTon) add(w, 'narc', `${w.name} Narc Ammo (${w.ammoPerTon})`, 'narc', { munitionCost: 2 });
+    if (/^(clan-)?srm-\d+$/.test(w.id) && w.ammoPerTon) add(w, 'inferno', `${w.name} Inferno (${w.ammoPerTon})`, 'inferno', { munitionCost: 0.5 });
+    if (/^lrm-\d+$/.test(w.id) && w.ammoPerTon) {
+      add(w, 'swarm-i', `${w.name} Swarm-I (${w.ammoPerTon})`, 'swarm-i', { munitionCost: 3, munitionBV: 1.2 }, '3050');
+      add(w, 'semi-guided', `${w.name} Semi-Guided (${w.ammoPerTon})`.replace('LRM 10 Semi-Guided', 'LRM 10 Semi-Guid.'), 'semi-guided', { munitionCost: 3 }, '3050');
+    }
+    if (/^(clan-)?arrow-iv$/.test(w.id) && w.ammoPerTon) {
+      add(w, 'homing', `Arrow IV Homing (${w.ammoPerTon})`, 'homing', { munitionCost: 1.5 });
+      add(w, 'cluster', `Arrow IV Cluster (${w.ammoPerTon})`, 'cluster', { munitionCost: 1 });
+    }
+  }
+  for (const [id, lrm, srm] of MML_AMMO) {
+    const w = BASE_WEAPONS.find((x) => x.id === id);
+    if (!w) continue;
+    const n = w.name;
+    out.push(
+      { ...ammoBase(w), id: `ammo-${id}-lrm-artemis`, name: `${n} LRM Artemis (${lrm})`, tons: 1, munition: 'artemis', artemisAmmo: true, munitionCost: 2, firstEra: laterEra(w.firstEra, '3050') },
+      { ...ammoBase(w), id: `ammo-${id}-srm-artemis`, name: `${n} SRM Artemis (${srm})`, tons: 1, munition: 'artemis', artemisAmmo: true, munitionCost: 2, firstEra: laterEra(w.firstEra, '3050') },
+      { ...ammoBase(w), id: `ammo-${id}-lrm-narc`, name: `${n} LRM Narc (${lrm})`, tons: 1, munition: 'narc', munitionCost: 2, firstEra: w.firstEra },
+      { ...ammoBase(w), id: `ammo-${id}-srm-narc`, name: `${n} SRM Narc (${srm})`, tons: 1, munition: 'narc', munitionCost: 2, firstEra: w.firstEra },
+    );
+  }
+  return out;
+}
+
 const ammoBase = (w: Equipment) => ({
   category: 'Ammo' as const, slots: 1, heat: 0, ammoFor: w.id, isWeapon: false, techBase: w.techBase,
 });
+
+const MUNITION_AMMO = munitionAmmo();
 
 export const AMMO: readonly Equipment[] = [
   ...WEAPONS.filter((w) => w.ammoPerTon).map((w) => ({
@@ -455,6 +509,7 @@ export const AMMO: readonly Equipment[] = [
       { ...ammoBase(w), id: `ammo-${id}-srm`, name: `${w.name} SRM Ammo (${srm})`, tons: 1, firstEra: w.firstEra },
     ];
   }),
+  ...MUNITION_AMMO,
   // Flak autocannon ammunition (Tactical Operations).
   ...WEAPONS.filter((w) => /^ac-\d+$/.test(w.id)).map((w) => ({
     ...ammoBase(w),

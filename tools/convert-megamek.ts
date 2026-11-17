@@ -155,6 +155,10 @@ function resolveAmmo(raw: string, unitTech: TechBase): string | null {
   const artemis = !artemisV && /artemis.capable/i.test(raw);
   const half = /half/i.test(raw);
   const flak = /flak/i.test(raw);
+  // Special munitions (MechForger has them as separate ammunition).
+  const munition = /cluster/i.test(raw) ? 'cluster' : /homing/i.test(raw) ? 'homing' : /narc.capable/i.test(raw) ? 'narc'
+    : /inferno/i.test(raw) ? 'inferno' : /swarm-i\b/i.test(raw) ? 'swarm-i' : /semi.guided/i.test(raw) ? 'semi-guided'
+    : /\bATM-?\d+ ER\b/.test(raw) ? 'er' : /\bATM-?\d+ HE\b/.test(raw) ? 'he' : null;
   let s = norm(raw.replace(/\(clan\)/gi, '')).replace(/^(clan|is|cl)/, '').replace(/ammo|pods|full|half|flak|artemisvcapable|artemiscapable/g, '');
   s = s.replace(/^ammo/, '');
   const families: [RegExp, (m: RegExpExecArray) => string][] = [
@@ -187,7 +191,8 @@ function resolveAmmo(raw: string, unitTech: TechBase): string | null {
     const clanFirst = tech === 'Clan' || (!tech && unitTech === 'Clan');
     const candidates = clanFirst ? [`clan-${weapon}`, weapon] : [weapon, `clan-${weapon}`];
     for (const w of candidates) {
-      const id = mml ? `ammo-${w}-${mml}` : `ammo-${w}${artemis ? '-artemis' : artemisV ? '-artemis-v' : flak ? '-flak' : ''}${half ? '-half' : ''}`;
+      const id = mml ? `ammo-${w}-${mml}${artemis ? '-artemis' : munition === 'narc' ? '-narc' : ''}`
+        : `ammo-${w}${artemis ? '-artemis' : artemisV ? '-artemis-v' : flak ? '-flak' : munition ? `-${munition}` : ''}${half ? '-half' : ''}`;
       if (getEquipment(id)) return id;
     }
     return null;

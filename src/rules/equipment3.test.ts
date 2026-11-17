@@ -7,6 +7,7 @@ import {
 } from './index';
 import { placeItem, setItemLocation, setItemSplit, setItemTurret } from './edit';
 import { itemWeight } from './equipment';
+import { ammoValue } from './battleValue';
 import { mechSheetData } from './recordSheet';
 import type { MechDesign } from './types';
 
@@ -203,5 +204,22 @@ describe('ram plate, chain drape, spikes and the taser (MegaMek BV)', () => {
     const knight = get('UrbanKnight UM-DKX');
     expect(computeMech(knight).runMP).toBe(Math.ceil((knight.walkMP - 1) * 1.5));
     expect(mechBV(knight).total).toBe(974);
+  });
+});
+
+describe('special munitions', () => {
+  it('have MegaMek prices: LB-X cluster per size, Narc-capable ×2, Arrow IV homing ×1.5, inferno ×0.5, Swarm-I ×3 (BV ×1.2)', () => {
+    const cost = (id: string) => ammoValue(getEquipment(id)!).cost;
+    expect(cost('ammo-lb-10x-cluster')).toBe(20000);
+    expect(cost('ammo-clan-lb-20x-cluster')).toBe(34000);
+    expect(cost('ammo-srm-6-narc')).toBe(54000);
+    expect(cost('ammo-arrow-iv-homing')).toBe(15000);
+    expect(cost('ammo-srm-4-inferno')).toBe(13500);
+    expect(cost('ammo-lrm-10-swarm-i')).toBe(90000);
+    expect(ammoValue(getEquipment('ammo-lrm-10-swarm-i')!).bv).toBeCloseTo(ammoValue(getEquipment('ammo-lrm-10')!).bv * 1.2);
+    expect(cost('ammo-mml-9-lrm-artemis')).toBe(60000);
+  });
+  it('canon units keep their munitions', () => {
+    for (const re of [/-cluster"/, /-narc"/, /atm-\d+-er"/, /-homing"/]) expect(canon.some((e) => re.test(JSON.stringify(e.d)))).toBe(true);
   });
 });
