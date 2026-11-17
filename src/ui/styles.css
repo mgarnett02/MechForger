@@ -613,6 +613,10 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 .canon-list tbody tr:hover td { background: var(--accent-soft); }
 .canon-flag { color: var(--warn); cursor: help; }
 .canon-more { margin: 0.5rem; }
+.canon-group th { text-align: left; padding: 0; background: var(--bg); border-top: 1px solid var(--border); }
+.canon-group-toggle { width: 100%; text-align: left; background: none; border: 0; padding: 0.4rem 0.5rem; font-weight: 600; cursor: pointer; color: inherit; }
+.canon-group-toggle:disabled { cursor: default; opacity: 1; }
+.canon-group-toggle:hover:not(:disabled) { background: var(--accent-soft); }
 
 .rs-vehicle-figure.aero { grid-template-areas: "no no no" "lw body rw" "af af af" !important; }
 .vplate-no { border-radius: 50% 50% 6px 6px / 60% 60% 6px 6px; padding-top: 10px; }

@@ -85,7 +85,9 @@ export function CanonBrowser({ unit, onLoad, onClose }: Props) {
   const [sub, setSub] = useState('');
   const [legalOnly, setLegalOnly] = useState(false);
   const [mulOnly, setMulOnly] = useState(false);
-  const [limit, setLimit] = useState(PAGE);
+  // Weight-class groups: collapsed until opened (or while a search or filter narrows the list).
+  const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
+  const [limits, setLimits] = useState<Record<string, number>>({});
   const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -112,7 +114,8 @@ export function CanonBrowser({ unit, onLoad, onClose }: Props) {
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  useEffect(() => setLimit(PAGE), [query, tech, era, cls, sub, legalOnly, mulOnly, kind]);
+  useEffect(() => setLimits({}), [query, tech, era, cls, sub, legalOnly, mulOnly, kind]);
+  useEffect(() => setOpenGroups(new Set()), [kind]);
 
   /** Filter group for an entry: OmniMechs are grouped regardless of how many configurations they have. */
   const group = (k: string) => (k.startsWith('omni:') ? 'omni' : k.startsWith('quadomni:') ? 'quadomni'
@@ -133,6 +136,22 @@ export function CanonBrowser({ unit, onLoad, onClose }: Props) {
       return words.every((w) => name.includes(w));
     });
   }, [entries, query, tech, era, cls, sub, legalOnly, mulOnly, kind]);
+
+  /** The filtered units by weight class, lightest class first. */
+  const groups = useMemo(() => {
+    const by = new Map<string, CanonEntry[]>();
+    for (const e of filtered) {
+      const c = weightClass(e.t, kind, e.k) || 'Other';
+      if (!by.has(c)) by.set(c, []);
+      by.get(c)!.push(e);
+    }
+    const minT = (l: CanonEntry[]) => l.reduce((a, e) => Math.min(a, e.t), Infinity);
+    return [...by].sort((a, b) => minT(a[1]) - minT(b[1]));
+  }, [filtered, kind]);
+  // A search, a weight-class filter or a short list shows every group open.
+  const autoOpen = query.trim() !== '' || cls !== '' || filtered.length <= 40;
+  const isOpen = (c: string) => autoOpen || openGroups.has(c);
+  const toggle = (c: string) => setOpenGroups((s) => { const n = new Set(s); if (n.has(c)) n.delete(c); else n.add(c); return n; });
 
   const open = (e: CanonEntry) => {
     const d: AnyDesign = (kind === 'stationary' ? decodeStationary(e.d) : kind === 'protomech' ? decodeProtoMech(e.d) : kind === 'infantry' ? decodeInfantry(e.d) : kind === 'battlearmor' ? decodeBattleArmor(e.d) : kind === 'vessel' ? decodeVessel(e.d) : kind === 'fighter' ? decodeFighter(e.d) : kind === 'support' ? decodeSupport(e.d) : kind === 'vehicle' ? decodeVehicle(e.d) : decodeMech(e.d));
@@ -186,38 +205,59 @@ export function CanonBrowser({ unit, onLoad, onClose }: Props) {
         {!entries && !error && <p className="muted">Loading…</p>}
         {entries && (
           <>
-            <p className="small muted" style={{ margin: '0.25rem 0' }}>
-              {filtered.length.toLocaleString()} of {entries.length.toLocaleString()} units
+            <p className="small muted row" style={{ margin: '0.25rem 0' }}>
+              <span>{filtered.length.toLocaleString()} of {entries.length.toLocaleString()} units</span>
+              {!autoOpen && groups.length > 1 && (
+                <>
+                  <button className="small" onClick={() => setOpenGroups(new Set(groups.map(([c]) => c)))}>Expand all</button>
+                  <button className="small" onClick={() => setOpenGroups(new Set())}>Collapse all</button>
+                </>
+              )}
             </p>
             <div className="canon-list">
               <table className="catalog">
                 <thead>
                   <tr><th>Name</th><th>Type</th><th className="num">{kind === 'battlearmor' ? 'kg/suit' : 'Tons'}</th><th>Tech</th><th>Era</th><th className="num">BV</th><th /></tr>
                 </thead>
-                <tbody>
-                  {filtered.slice(0, limit).map((e) => (
-                    <tr key={`${e.k}|${e.t}|${e.y}|${e.n}`} onDoubleClick={() => open(e)}>
-                      <td>
-                        {e.n}
-                        {!e.w && <span className="canon-flag" title="Weight differs from the canon design under MechForger's tables"> ⚖</span>}
-                        {!e.ok && <span className="canon-flag" title="Does not pass all of MechForger's construction checks"> ⚠</span>}
-                        {!e.mul && <span className="canon-flag no-mul" title="No Master Unit List entry: a design built from the published rules, or one the MUL does not list"> no MUL</span>}
-                      </td>
-                      <td className="small">{kindLabel(e.k)}</td>
-                      <td className="num">{kind === 'battlearmor' ? Math.round(e.t * 1000) : e.t}</td>
-                      <td>{e.tb === 'IS' ? 'IS' : 'Clan'}</td>
-                      <td className="small">{e.y}</td>
-                      <td className="num">{e.bv.toLocaleString()}</td>
-                      <td><button className="small" onClick={() => open(e)}>Load</button></td>
-                    </tr>
-                  ))}
-                </tbody>
+                {groups.map(([c, list]) => {
+                  const shown = isOpen(c);
+                  const limit = limits[c] ?? PAGE;
+                  return (
+                    <tbody key={c}>
+                      <tr className="canon-group">
+                        <th colSpan={7}>
+                          <button className="canon-group-toggle" aria-expanded={shown} disabled={autoOpen} onClick={() => toggle(c)}>
+                            <span aria-hidden="true">{shown ? '▾' : '▸'}</span> {c} <span className="muted">({list.length.toLocaleString()})</span>
+                          </button>
+                        </th>
+                      </tr>
+                      {shown && list.slice(0, limit).map((e) => (
+                        <tr key={`${e.k}|${e.t}|${e.y}|${e.n}`} onDoubleClick={() => open(e)}>
+                          <td>
+                            {e.n}
+                            {!e.w && <span className="canon-flag" title="Weight differs from the canon design under MechForger's tables"> ⚖</span>}
+                            {!e.ok && <span className="canon-flag" title="Does not pass all of MechForger's construction checks"> ⚠</span>}
+                            {!e.mul && <span className="canon-flag no-mul" title="No Master Unit List entry: a design built from the published rules, or one the MUL does not list"> no MUL</span>}
+                          </td>
+                          <td className="small">{kindLabel(e.k)}</td>
+                          <td className="num">{kind === 'battlearmor' ? Math.round(e.t * 1000) : e.t}</td>
+                          <td>{e.tb === 'IS' ? 'IS' : 'Clan'}</td>
+                          <td className="small">{e.y}</td>
+                          <td className="num">{e.bv.toLocaleString()}</td>
+                          <td><button className="small" onClick={() => open(e)}>Load</button></td>
+                        </tr>
+                      ))}
+                      {shown && list.length > limit && (
+                        <tr><td colSpan={7}>
+                          <button className="canon-more" onClick={() => setLimits((l) => ({ ...l, [c]: limit + PAGE * 2 }))}>
+                            Show more {c.toLowerCase()} ({(list.length - limit).toLocaleString()} remaining)
+                          </button>
+                        </td></tr>
+                      )}
+                    </tbody>
+                  );
+                })}
               </table>
-              {filtered.length > limit && (
-                <button className="canon-more" onClick={() => setLimit((l) => l + PAGE * 2)}>
-                  Show more ({(filtered.length - limit).toLocaleString()} remaining)
-                </button>
-              )}
             </div>
           </>
         )}
