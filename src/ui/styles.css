@@ -714,3 +714,8 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 .panel-head { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; flex-wrap: wrap; }
 .slot.armored { box-shadow: inset 3px 0 0 var(--accent); }
 .slot-btn.armor-toggle:hover { text-decoration: underline; }
+
+/* Chassis panel: drop-downs share one width so their right edges line up with Configuration. */
+.form-grid select.fit { width: 14rem; max-width: 100%; }
+.fit-row { display: inline-flex; gap: 0.35rem; width: 14rem; max-width: 100%; vertical-align: middle; }
+.fit-row > select { flex: 1; min-width: 0; }

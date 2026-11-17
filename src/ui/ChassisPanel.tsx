@@ -77,7 +77,7 @@ export function ChassisPanel({ design, summary, update }: Props) {
 
         <label>Configuration</label>
         <div>
-          <select aria-label="Configuration" value={design.lam ? `lam-${design.lam}` : design.config}
+          <select className="fit" aria-label="Configuration" value={design.lam ? `lam-${design.lam}` : design.config}
             onChange={(e) => {
               const v = e.target.value;
               update((d) => (v.startsWith('lam-') ? setLam(d, v.slice(4) as LamType) : setConfig(setLam(d, null), v as MechConfig)));
@@ -140,20 +140,21 @@ export function ChassisPanel({ design, summary, update }: Props) {
               onChange={(e) => update((d) => { const { illegalDesign: _q, ...rest } = d; return e.target.checked ? { ...rest, illegalDesign: true } : rest; })} />
             Illegal Design quirk
           </label>
-          <label className="check" title="Good Reputation design quirk: the 'Mech costs 10% (level 1) or 25% (level 2) more">
-            Good Reputation{' '}
-            <select aria-label="Good Reputation quirk" value={design.goodReputation ?? 0}
-              onChange={(e) => update((d) => { const { goodReputation: _g, ...rest } = d; const v = Number(e.target.value); return v === 1 || v === 2 ? { ...rest, goodReputation: v } : rest; })}>
-              <option value={0}>none</option>
-              <option value={1}>1 (×1.1 cost)</option>
-              <option value={2}>2 (×1.25 cost)</option>
-            </select>
-          </label>
+        </div>
+
+        <label title="Good Reputation design quirk: the 'Mech costs 10% (level 1) or 25% (level 2) more">Good Reputation</label>
+        <div>
+          <select className="fit" aria-label="Good Reputation quirk" value={design.goodReputation ?? 0}
+            onChange={(e) => update((d) => { const { goodReputation: _g, ...rest } = d; const v = Number(e.target.value); return v === 1 || v === 2 ? { ...rest, goodReputation: v } : rest; })}>
+            <option value={0}>None</option>
+            <option value={1}>Level 1 (cost ×1.1)</option>
+            <option value={2}>Level 2 (cost ×1.25)</option>
+          </select>
         </div>
 
         <label>Structure</label>
         <div>
-          <select aria-label="Internal structure" value={design.structureType} title={design.franken ? 'A FrankenMek sets its structure per location below' : lockedTitle}
+          <select className="fit" aria-label="Internal structure" value={design.structureType} title={design.franken ? 'A FrankenMek sets its structure per location below' : lockedTitle}
             disabled={!!design.franken}
             onChange={(e) => update((d) => setStructureType(d, e.target.value as StructureType))}>
             {(Object.keys(STRUCTURE_OPTIONS) as StructureType[]).map((k) => {
@@ -221,7 +222,7 @@ export function ChassisPanel({ design, summary, update }: Props) {
 
         <label>Engine</label>
         <div>
-          <select aria-label="Engine type" value={design.engineType}
+          <select className="fit" aria-label="Engine type" value={design.engineType}
             onChange={(e) => update((d) => setEngineType(d, e.target.value as EngineType))}>
             <option value="standard">{summary.rating} Fusion</option>
             <option value="xl" disabled={!ok(ENGINE_OPTIONS.xl)} title={why(ENGINE_OPTIONS.xl)}>
@@ -252,7 +253,7 @@ export function ChassisPanel({ design, summary, update }: Props) {
 
         <label>Myomer</label>
         <div>
-          <select aria-label="Myomer" value={design.myomer}
+          <select className="fit" aria-label="Myomer" value={design.myomer}
             title={advanced ? undefined : lockedTitle}
             onChange={(e) => update((d) => setMyomer(d, e.target.value as MyomerType))}>
             <option value="standard">Standard</option>
@@ -274,7 +275,7 @@ export function ChassisPanel({ design, summary, update }: Props) {
 
         <label>Gyro</label>
         <div>
-          <select aria-label="Gyro type" value={design.gyroType}
+          <select className="fit" aria-label="Gyro type" value={design.gyroType}
             onChange={(e) => update((d) => setGyroType(d, e.target.value as GyroType))}>
             <option value="standard" disabled={sh}>Standard (4 slots)</option>
             <option value="xl" disabled={sh || !ok(GYRO_OPTIONS.xl)} title={why(GYRO_OPTIONS.xl)}>XL (6 slots)</option>
@@ -292,7 +293,7 @@ export function ChassisPanel({ design, summary, update }: Props) {
 
         <label>Cockpit</label>
         <div>
-          <select aria-label="Cockpit type" value={design.cockpitType}
+          <select className="fit" aria-label="Cockpit type" value={design.cockpitType}
             onChange={(e) => update((d) => setCockpitType(d, e.target.value as CockpitType))}>
             <option value="standard">Standard</option>
             <option value="small" disabled={!ok(COCKPIT_OPTIONS.small)} title={why(COCKPIT_OPTIONS.small)}>
@@ -325,9 +326,10 @@ export function ChassisPanel({ design, summary, update }: Props) {
 
         <label>Jumping MP</label>
         <div>
+          <span className="fit-row">
           <NumberField label="Jumping MP" value={summary.jumpMP} min={0} max={jumpMax}
             invalid={summary.jumpMP > jumpMax}
-            onChange={(n) => update((d) => setJumpMP(d, n))} />{' '}
+            onChange={(n) => update((d) => setJumpMP(d, n))} />
           <select aria-label="Jump jet type" value={design.jumpJetType}
             onChange={(e) => update((d) => setJumpJetType(d, e.target.value as JumpJetType))}>
             <option value="standard">Standard</option>
@@ -337,6 +339,7 @@ export function ChassisPanel({ design, summary, update }: Props) {
             <option value="prototype" disabled={!ok(JUMP_JET_OPTIONS.prototype)} title="Built as standard jump jets; +3 to the landing piloting roll">Prototype</option>
             <option value="prototype-improved" disabled={!ok(JUMP_JET_OPTIONS['prototype-improved'])} title="Standard weight and slots; jump up to running MP for 2 heat per MP (at least 6)">Prototype improved</option>
           </select>
+          </span>
           <span className="muted"> {summary.weights.jumpJets} t{summary.partialWing?.jumpBonus ? ` · +${summary.partialWing.jumpBonus} partial wing = ${summary.totalJumpMP}` : ''}</span>
         </div>
 
@@ -349,6 +352,7 @@ export function ChassisPanel({ design, summary, update }: Props) {
 
         <label>Heat sinks</label>
         <div>
+          <span className="fit-row">
           <NumberField label="Total heat sinks" value={hs.total} min={freeHeatSinks(design.engineType)}
             invalid={hs.total < freeHeatSinks(design.engineType)}
             onChange={(n) => update((d) => setHeatSinkTotal(d, n))} />
@@ -361,7 +365,8 @@ export function ChassisPanel({ design, summary, update }: Props) {
             <option value="double" disabled={!ok(HEAT_SINK_OPTIONS.double)} title={why(HEAT_SINK_OPTIONS.double)}>Double</option>
             <option value="laser" disabled={!ok(HEAT_SINK_OPTIONS.double) || techOf(design, 'heatSinks') !== 'Clan'} title="Clan laser heat sinks: same weight, slots and dissipation as Clan double heat sinks">Laser (Clan)</option>
             <option value="compact" disabled={!ok(COMPACT_HS_OPTION) || techOf(design, 'heatSinks') === 'Clan'} title="Compact heat sinks: 1.5 t, two per slot, twice as many in the engine (Inner Sphere, 3058)">Compact (IS)</option>
-          </select>{' '}
+          </select>
+          </span>{' '}
           {design.heatSinkType === 'double' && <TechPicker design={design} part="heatSinks" update={update} />}
           <span className="muted"> {summary.weights.heatSinks} t · dissipates {hs.dissipation}</span>
           <label className="check small" title="RISC heat sink override kit (Dark Age, Experimental): BV × 1.01">
