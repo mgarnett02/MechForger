@@ -90,6 +90,8 @@ export interface VehicleDesign {
   heatSinks: number;
   /** Troop compartment and cargo bay space, in tons. */
   cargo?: number;
+  /** Separate cargo bays (plus one for any troop space) the cargo is split into; each takes an item slot. 1 when unset. */
+  cargoBays?: number;
   armor: Record<VehicleArmorLocation, number>;
   equipment: VehicleItem[];
 }
@@ -396,21 +398,43 @@ export function vehicleItemWeight(eq: Equipment, d: VehicleDesign): number {
   return eq.tons;
 }
 
-/** Item slots used: 1 per weapon or item, 1 per ammunition type, plus structure/armor slots. */
+/** Items that take no vehicle item slot (MegaMek's tankSlots 0): fire-control links, CASE on Clan units, chassis mods, … */
+const NO_SLOT = new Set(['artemis-iv', 'clan-artemis-iv', 'clan-artemis-v', 'ppc-capacitor', 'clan-ppc-capacitor', 'flotation-hull',
+  'laser-insulator', 'trailer-hitch', 'mast-mount', 'mash-theater', 'drone-carrier-slot', 'sponson-turret']);
+/** Sized items whose pieces share one slot (MegaMek mounts each as a single item). */
+const ONE_SLOT_GROUPS: [RegExp, string][] = [
+  [/^communications-equipment$/, 'comms'], [/^vehicle-jump-jet$/, 'jump jets'], [/^extended-fuel-tank$/, 'fuel tanks'],
+  [/^cargo-(1|half)$|^cargo-container$/, 'cargo'], [/^liquid-storage-(1|half)$/, 'liquid storage'], [/^ladder-20m$/, 'ladders'],
+];
+
+/** Engine item slots (TechManual / MegaMek): XL 2 (Clan 1), XXL 4 (Clan 2), light 1, large +1, compact −1. */
+export function vehicleEngineSlots(d: Pick<VehicleDesign, 'engineType' | 'techBase' | 'motive' | 'tonnage' | 'cruiseMP'>): number {
+  const clan = d.techBase === 'Clan';
+  let n = d.engineType === 'xl' ? (clan ? 1 : 2) : d.engineType === 'xxl' ? (clan ? 2 : 4) : d.engineType === 'light' ? 1 : d.engineType === 'compact' ? -1 : 0;
+  if (vehicleEngineRating(d.motive, d.tonnage, d.cruiseMP) > 400) n++;
+  return n;
+}
+
+/**
+ * Item slots used, as MegaMek's Tank.getFreeSlots counts them: one per item (none for fire-control links,
+ * Clan CASE and chassis modifications; five for a Blue Shield), one in all for each sized system (cargo,
+ * communications, jump jets, fuel tanks), one per kind of ammunition whatever its munition, the engine's and
+ * armor's slots, Endo Steel structure, and one for troop space.
+ */
 export function vehicleSlotsUsed(d: VehicleDesign): number {
-  let used = vehicleStructureSlots(d.structureType, d.techBase) + vehicleArmorSlots(d.armorType, d.techBase);
+  let used = vehicleStructureSlots(d.structureType, d.techBase) + vehicleArmorSlots(d.armorType, d.techBase) + vehicleEngineSlots(d);
   const ammoTypes = new Set<string>();
-  let comms = false;
-  let jets = false;
+  const groups = new Set<string>();
   for (const item of d.equipment) {
     const eq = getEquipment(item.equipmentId);
     if (!eq) continue;
-    if (eq.category === 'Ammo') ammoTypes.add(eq.id);
-    else if (eq.id === 'communications-equipment') comms = true; // any tonnage takes one slot
-    else if (eq.id === 'vehicle-jump-jet') jets = true; // all jump jets together take one slot (MegaMek)
-    else used++;
+    if (eq.category === 'Ammo') { ammoTypes.add(eq.ammoFor ?? eq.id); continue; }
+    if (NO_SLOT.has(eq.id) || eq.vehicleChassisMod || (eq.id === 'case' && d.techBase === 'Clan')) continue;
+    const g = ONE_SLOT_GROUPS.find(([re]) => re.test(eq.id));
+    if (g) { groups.add(g[1]); continue; }
+    used += eq.id === 'blue-shield' ? 5 : 1;
   }
-  return used + (comms ? 1 : 0) + (jets ? 1 : 0) + ammoTypes.size + ((d.cargo ?? 0) > 0 ? 1 : 0);
+  return used + groups.size + ammoTypes.size + ((d.cargo ?? 0) > 0 ? Math.max(1, d.cargoBays ?? 1) : 0);
 }
 
 export function computeVehicle(d: VehicleDesign): VehicleSummary {
@@ -832,6 +856,7 @@ export function parseVehicle(raw: unknown): VehicleDesign {
     ...(r.omni === true && typeof r.omniSponsonTons === 'number' ? { omniSponsonTons: r.omniSponsonTons } : {}),
     heatSinks: typeof r.heatSinks === 'number' ? r.heatSinks : 0,
     cargo: typeof r.cargo === 'number' && r.cargo > 0 ? r.cargo : undefined,
+    ...(typeof r.cargoBays === 'number' && r.cargoBays > 1 ? { cargoBays: Math.round(r.cargoBays) } : {}),
     armor,
     equipment,
   };

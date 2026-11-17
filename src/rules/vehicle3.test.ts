@@ -92,3 +92,15 @@ describe('vehicle fixes found against MegaMek', () => {
     expect(vehicleBV(canon('Maxim Flanker')).total).toBe(581); // rear outguns front: sides count half
   });
 });
+
+describe('combat vehicle item slots (as MegaMek)', () => {
+  it('count each cargo bay, engine slots and only slot-taking items', async () => {
+    const V = (await import('../data/canon/vehicles.json')).default as { n: string; d: unknown }[];
+    const { decodeVehicle } = await import('../data/canonFormat');
+    const { vehicleSlotsUsed } = await import('./vehicle');
+    const flatbed = decodeVehicle(V.find((e) => e.n === 'Flatbed Truck (Armor)')!.d);
+    expect(vehicleSlotsUsed(flatbed)).toBe(4); // four separate one-ton cargo bays
+    const demon = decodeVehicle(V.find((e) => e.n === 'Demon Tank CX-2')!.d);
+    expect(demon.equipment.some((e) => e.sponson)).toBe(false); // "(ST)" without a sponson turret is a side mount
+  });
+});

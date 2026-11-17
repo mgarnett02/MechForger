@@ -257,8 +257,10 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
 
   // Jump jets
   if (design.jumpJetType === 'improved' || design.jumpJetType === 'prototype-improved') {
-    if (summary.jumpMP > summary.runMP) {
-      error(`Jumping MP (${summary.jumpMP}) cannot exceed running MP (${summary.runMP}) with improved jump jets.`);
+    // Improved jump jets reach the base running MP (walking × 1.5), whatever reduces running speed (MegaMek).
+    const maxJump = Math.ceil(design.walkMP * 1.5);
+    if (summary.jumpMP > maxJump) {
+      error(`Jumping MP (${summary.jumpMP}) cannot exceed running MP (${maxJump}) with improved jump jets.`);
     }
   } else if (summary.jumpMP > design.walkMP) {
     error(`Jumping MP (${summary.jumpMP}) cannot exceed walking MP (${design.walkMP}).`);
@@ -473,7 +475,7 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
     if (!eq.managed && !isEquipmentAvailable(eq, design.era, design.techBase, design.mixedTech) && !unavailable.has(eq.id)) {
       unavailable.add(eq.id);
       const eraName = era?.name ?? design.era;
-      if (eq.techBase !== 'Both' && eq.techBase !== design.techBase) {
+      if (eq.techBase !== 'Both' && eq.techBase !== design.techBase && !design.mixedTech) {
         error(`${TECH_BASE_NAMES[eq.techBase]} ${eq.name} is not available to ${TECH_BASE_NAMES[design.techBase]} designs.`);
       } else {
         error(`${eq.name} is not available in the ${eraName} era.`);

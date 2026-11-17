@@ -701,8 +701,10 @@ export function computeVessel(d: VesselDesign): VesselSummary {
     : d.vesselType === 'jumpship' ? 6 + Math.ceil(t / 20000)
     : 3 + (d.vesselType === 'dropship' ? Math.ceil(t / 5000) + (d.military ? 1 : 0) : 0);
   const gunners = requiredGunners(d);
-  // Large craft need an officer per six crew actually carried; smaller craft per five required crew.
-  const officers = large ? Math.ceil(Math.max(0, d.crew.crew - bayPersonnel) / 6) : Math.ceil((base + gunners) / 5);
+  // Officers: one per six of the minimum crew on JumpShips, WarShips and space stations, one per five on
+  // small craft and DropShips (base crew plus gunners). MegaMek counts every crewman carried on large craft;
+  // the published designs (e.g. the Alliance station's 13 officers for a minimum crew of 77) follow the minimum.
+  const officers = Math.ceil((base + gunners) / (large ? 6 : 5));
 
   const structure = d.vesselType === 'jumpship' ? halfUp(t / 150)
     : d.vesselType === 'warship' ? halfUp((d.si * t) / 1000)

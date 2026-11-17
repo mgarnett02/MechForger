@@ -654,9 +654,12 @@ function parseBlk(text: string): { design: VehicleDesign; year: number; rulesLev
   const turret = tags.has('Turret Equipment') || dualTurret;
   // Troop compartments and cargo bays (seats, quarters and handles are ignored).
   let cargo = 0;
+  // Each cargo bay takes an item slot; all troop space together takes one (MegaMek).
+  let bays = 0;
+  let troops = false;
   for (const t of tags.get('transporters') ?? []) {
     const m = /^(troopspace|cargobay|liquidcargobay|insulatedcargobay|refrigeratedcargobay):([\d.]+)/i.exec(t);
-    if (m) cargo += Number(m[2]);
+    if (m) { cargo += Number(m[2]); if (/^troopspace$/i.test(m[1])) { if (!troops) bays++; troops = true; } else bays++; }
     else if (!/^(BattleArmorHandles|standardseats|pillionseats)/i.test(t)) fail(`transporter ${t.split(':')[0]}`);
   }
   const armorVals = (tags.get('armor') ?? []).map(Number);
@@ -725,6 +728,10 @@ function parseBlk(text: string): { design: VehicleDesign; year: number; rulesLev
       equipment.push({ uid: `v${uid++}`, equipmentId: id, location: eq.isWeapon || id === 'dumper' ? loc : 'BD' as VehicleLocation, ...(sponson ? { sponson: true } : {}) });
     }
   }
+  // "(ST)" without a sponson turret (older designs whose weapons sit in side sponsons) is a plain side mount,
+  // as MegaMek treats it; an OmniVehicle's base-chassis sponson weight implies the turret.
+  if (!sponsons && omni && tags.has('baseChassisSponsonPintleWeight') && equipment.some((e) => e.sponson)) sponsons = true;
+  if (!sponsons) for (const e of equipment) delete e.sponson;
   const design: VehicleDesign = {
     schemaVersion: 1, unitType: 'vehicle', era: '3025', techBase, mixedTech,
     chassis: one('Name'), model: one('Model'), motive, tonnage, cruiseMP: Number(one('cruiseMP')),
@@ -738,6 +745,7 @@ function parseBlk(text: string): { design: VehicleDesign; year: number; rulesLev
     ...(sponsons ? { sponsons: true } : {}),
     ...(omni && sponsons && tags.has('baseChassisSponsonPintleWeight') ? { omniSponsonTons: Number(one('baseChassisSponsonPintleWeight')) } : {}),
     ...(cargo > 0 ? { cargo } : {}),
+    ...(bays > 1 ? { cargoBays: bays } : {}),
   };
   fixAmmoTech(design.equipment);
   // Vehicles carry exactly the heat sinks their energy weapons need (fusion engines include 10).
@@ -1486,6 +1494,8 @@ function main() {
           name: p.design.model, pod: i === 0 ? [] : podsOf(p), actuators: p.design.actuators,
           ...(i > 0 && p.design.mixedTech !== base.design.mixedTech ? { mixedTech: p.design.mixedTech } : {}),
           ...(i > 0 && p.design.jumpJetType !== base.design.jumpJetType ? { jumpJetType: p.design.jumpJetType } : {}),
+          // Later configurations (from later sourcebooks) keep their own era.
+          ...(i > 0 && p.design.era !== base.design.era ? { era: p.design.era } : {}),
         })),
       },
     };

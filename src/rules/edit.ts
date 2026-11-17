@@ -651,13 +651,14 @@ export function parseDesign(raw: unknown): MechDesign {
   let omni: OmniData | null = null;
   const o = r.omni as { configurations?: unknown; active?: unknown } | null | undefined;
   if (o && Array.isArray(o.configurations) && o.configurations.length > 0) {
-    const configurations = o.configurations.map((c: { name?: unknown; pod?: unknown; actuators?: unknown; mixedTech?: unknown; jumpJetType?: unknown }, i: number) => {
+    const configurations = o.configurations.map((c: { name?: unknown; pod?: unknown; actuators?: unknown; mixedTech?: unknown; jumpJetType?: unknown; era?: unknown }, i: number) => {
       const ca = c?.actuators as Record<string, { lowerArm?: unknown; hand?: unknown }> | undefined;
       return {
         name: typeof c?.name === 'string' && c.name ? c.name : `Config ${i + 1}`,
         pod: Array.isArray(c?.pod) ? parseItems(c.pod).map((p) => ({ ...p, pod: true })) : [],
         ...(ca && typeof ca === 'object' ? { actuators: { LA: arm(ca.LA), RA: arm(ca.RA) } } : {}),
         ...(typeof c?.mixedTech === 'boolean' ? { mixedTech: c.mixedTech } : {}),
+        ...(getEra(String(c?.era)) ? { era: getEra(String(c?.era))!.id } : {}),
         ...(c?.jumpJetType === 'standard' || c?.jumpJetType === 'improved' || c?.jumpJetType === 'prototype' || c?.jumpJetType === 'prototype-improved' ? { jumpJetType: c.jumpJetType as JumpJetType } : {}),
       };
     });

@@ -36,7 +36,7 @@ export function activeConfigName(d: MechDesign): string | null {
 function stash(d: MechDesign): MechDesign {
   if (!d.omni) return d;
   const configurations = d.omni.configurations.map((c, i) =>
-    i === d.omni!.active ? { ...c, pod: podItems(d), actuators: d.actuators, mixedTech: d.mixedTech, jumpJetType: d.jumpJetType } : c,
+    i === d.omni!.active ? { ...c, pod: podItems(d), actuators: d.actuators, mixedTech: d.mixedTech, jumpJetType: d.jumpJetType, era: d.era } : c,
   );
   return { ...d, omni: { ...d.omni, configurations } };
 }
@@ -66,6 +66,7 @@ export function switchConfiguration(d: MechDesign, index: number): MechDesign {
     actuators: incoming.actuators ?? s.actuators,
     mixedTech: incoming.mixedTech ?? s.mixedTech,
     jumpJetType: incoming.jumpJetType ?? s.jumpJetType,
+    era: incoming.era ?? s.era,
     equipment: [...fixedItems(s), ...incoming.pod],
     omni: { ...s.omni!, active: index },
   };
@@ -130,7 +131,7 @@ export function configurationDesigns(d: MechDesign): { name: string; design: Mec
     name: c.name,
     active: i === d.omni!.active,
     design: i === d.omni!.active ? d : {
-      ...d, actuators: c.actuators ?? d.actuators, mixedTech: c.mixedTech ?? d.mixedTech, jumpJetType: c.jumpJetType ?? d.jumpJetType,
+      ...d, actuators: c.actuators ?? d.actuators, mixedTech: c.mixedTech ?? d.mixedTech, jumpJetType: c.jumpJetType ?? d.jumpJetType, era: c.era ?? d.era,
       equipment: [...fixed, ...c.pod], omni: { ...d.omni!, active: i },
     },
   }));

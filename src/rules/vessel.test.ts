@@ -137,3 +137,16 @@ describe('JumpShips, WarShips and space stations', () => {
     expect(back.gravDecks).toEqual(d.gravDecks);
   });
 });
+
+describe('large craft officers', () => {
+  it('are one per six of the minimum crew, as the published designs have them', async () => {
+    const V = (await import('../data/canon/vessels.json')).default as { n: string; d: unknown }[];
+    const { decodeVessel } = await import('../data/canonFormat');
+    const { computeVessel, validateVessel } = await import('./vessel');
+    const alliance = decodeVessel(V.find((e) => e.n === 'Alliance Space Station (2713)')!.d);
+    const s = computeVessel(alliance);
+    expect(s.crewNeeded.officers).toBe(Math.ceil((s.crewNeeded.base + s.crewNeeded.gunners) / 6));
+    expect(alliance.crew.officers).toBe(13);
+    expect(validateVessel(alliance, s).some((i) => /officers/.test(i.message))).toBe(false);
+  });
+});

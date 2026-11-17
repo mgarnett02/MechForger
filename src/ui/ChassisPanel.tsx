@@ -45,7 +45,7 @@ export function ChassisPanel({ design, summary, update }: Props) {
   const xlSlots = sideSlots('xl');
   const large = isLargeEngine(summary.rating);
   const specialCockpit = EFFECTIVE_COCKPIT_NAMES[effectiveCockpit(design)];
-  const jumpMax = design.jumpJetType === 'improved' || design.jumpJetType === 'prototype-improved' ? summary.runMP : design.walkMP;
+  const jumpMax = design.jumpJetType === 'improved' || design.jumpJetType === 'prototype-improved' ? Math.ceil(design.walkMP * 1.5) : design.walkMP;
   /** Whether a construction option can be chosen, and why not when it can't. */
   const ok = (o: ComponentOption) => componentAvailable(o, design.era, design.techBase, design.mixedTech);
   const why = (o: ComponentOption) => {

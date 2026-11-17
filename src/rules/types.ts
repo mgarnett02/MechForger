@@ -166,6 +166,8 @@ export interface OmniConfiguration {
   mixedTech?: boolean;
   /** Jump jet type of this configuration's pod-mounted jets. Absent = same as the active configuration. */
   jumpJetType?: JumpJetType;
+  /** Era of this configuration (later configurations may use later equipment). Absent = the design's era. */
+  era?: EraId;
 }
 
 export interface OmniData {
