@@ -46,19 +46,6 @@ ipcMain.handle('design:open', async (event) => {
   return { name: path.basename(filePaths[0]), text: fs.readFileSync(filePaths[0], 'utf8') };
 });
 
-ipcMain.handle('design:saveAll', async (event, files) => {
-  const win = BrowserWindow.fromWebContents(event.sender);
-  const { canceled, filePaths } = await dialog.showOpenDialog(win, {
-    title: 'Choose a folder for your saved designs',
-    defaultPath: designFolder(),
-    properties: ['openDirectory', 'createDirectory'],
-  });
-  if (canceled || !filePaths[0]) return null;
-  for (const f of files) fs.writeFileSync(path.join(filePaths[0], safeName(f.name)), String(f.text), 'utf8');
-  lastFolder = filePaths[0];
-  return filePaths[0];
-});
-
 function createWindow() {
   const win = new BrowserWindow({
     width: 1500,

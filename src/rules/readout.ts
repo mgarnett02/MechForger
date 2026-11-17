@@ -72,6 +72,7 @@ export function technicalReadout(design: MechDesign, summary: MechSummary = comp
     const sys = [...counts].map(([n, c]) => (c > 1 ? `${n} ×${c}` : n)).join(', ');
     lines.push(row(`Armored Components${sys ? `: ${sys}` : ''}`, s.weights.armored));
   }
+  if (s.weights.powerAmplifiers) lines.push(row('Power Amplifiers:', s.weights.powerAmplifiers));
   if (design.fullHeadEjection) lines.push('Full Head Ejection System');
   const ff = isPatchwork(design)
     ? ` (Patchwork: ${armorTypesUsed(design).map((t) => ARMOR_NAMES[t]).join(' / ')})`

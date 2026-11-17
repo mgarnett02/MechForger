@@ -75,21 +75,7 @@ export function designKey(d: AnyDesign): string {
   return `${d.chassis} ${d.model}`.trim() || 'Unnamed';
 }
 
-/** Designs saved in browser storage by older versions, before designs were saved as files. */
-export function listLegacySaved(): Record<string, AnyDesign> {
-  const raw = read(KEY);
-  if (!raw || typeof raw !== 'object') return {};
-  const out: Record<string, AnyDesign> = {};
-  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
-    try {
-      out[k] = parseAny(v);
-    } catch {
-      /* skip corrupt entries */
-    }
-  }
-  return out;
-}
-
+/** Remove the design list that older versions saved in browser storage, before designs were saved as files. */
 export function clearLegacySaved() {
   try {
     localStorage.removeItem(KEY);

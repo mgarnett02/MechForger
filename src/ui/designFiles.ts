@@ -5,7 +5,6 @@ import { designKey, parseAny } from './storage';
 interface DesktopFiles {
   save(suggestedName: string, text: string): Promise<string | null>;
   open(): Promise<{ name: string; text: string } | null>;
-  saveAll(files: { name: string; text: string }[]): Promise<string | null>;
 }
 
 /** The subset of the browser File System Access API used here (Chrome and Edge). */
@@ -101,13 +100,4 @@ export async function loadDesignFile(): Promise<{ name: string; design: AnyDesig
     throw new Error(`${picked.name} is not a MechForger design file`);
   }
   return { name: picked.name, design: parseAny(raw) };
-}
-
-/** Write several designs as separate files (used to move designs out of old browser storage). */
-export async function saveDesignFiles(designs: AnyDesign[]): Promise<boolean> {
-  const files = designs.map((d) => ({ name: designFileName(d), text: designText(d) }));
-  const app = desktop();
-  if (app) return (await app.saveAll(files)) !== null;
-  for (const f of files) download(f.name, f.text);
-  return true;
 }

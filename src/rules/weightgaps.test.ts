@@ -29,6 +29,13 @@ describe('weight rules matched to MegaMek', () => {
     expect(computeVehicle({ ...d, mixedTech: false }).armorPointsPerTon).toBeCloseTo(17.92);
   });
 
+  it('ICE and fuel cell \'Mechs carry power amplifiers for their energy weapons', () => {
+    const raider = computeMech(decodeMech(find(mechs, 'Raider JL-3B'))); // ICE, 6 t of lasers and PPCs
+    expect(raider.weights.powerAmplifiers).toBe(1);
+    expect(raider.weights.free).toBe(0);
+    expect(computeMech(decodeMech(find(mechs, "CattleMaster CTL-3R2 'Hunter' IndustrialMech"))).weights.powerAmplifiers).toBe(0.5);
+  });
+
   it('Clan CASE weighs nothing', () => {
     expect(getEquipment('clan-case')).toMatchObject({ tons: 0, techBase: 'Clan' });
     expect(computeVehicle(decodeVehicle(find(vehicles, 'Skulker Wheeled Scout Tank C'))).weights.free).toBe(0);

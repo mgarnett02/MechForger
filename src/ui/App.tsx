@@ -44,10 +44,10 @@ import { AboutDialog } from './AboutDialog';
 import { CanonBrowser } from './CanonBrowser';
 import type { AnyDesign, UnitType } from './storage';
 import {
-  clearLegacySaved, listLegacySaved, loadCurrent, loadCurrentBattleArmor, saveCurrentBattleArmor, loadCurrentProtoMech, saveCurrentProtoMech, loadCurrentStationary, saveCurrentStationary, loadCurrentInfantry, saveCurrentInfantry, loadCurrentFighter, loadCurrentSupport, loadCurrentVessel, loadCurrentVehicle, loadUnit,
+  clearLegacySaved, loadCurrent, loadCurrentBattleArmor, saveCurrentBattleArmor, loadCurrentProtoMech, saveCurrentProtoMech, loadCurrentStationary, saveCurrentStationary, loadCurrentInfantry, saveCurrentInfantry, loadCurrentFighter, loadCurrentSupport, loadCurrentVessel, loadCurrentVehicle, loadUnit,
   saveCurrent, saveCurrentFighter, saveCurrentSupport, saveCurrentVessel, saveCurrentVehicle, saveUnit, unitTypeOf,
 } from './storage';
-import { loadDesignFile, saveDesignFile, saveDesignFiles } from './designFiles';
+import { loadDesignFile, saveDesignFile } from './designFiles';
 
 export function App() {
   const [unit, setUnit] = useState<UnitType>(() => loadUnit());
@@ -61,7 +61,6 @@ export function App() {
   const [proto, setProto] = useState<ProtoMechDesign>(() => loadCurrentProtoMech() ?? newProtoMech());
   const [st, setSt] = useState<StationaryDesign>(() => loadCurrentStationary() ?? newStationary());
   const [selected, setSelected] = useState<string | null>(null);
-  const [legacy, setLegacy] = useState(() => Object.values(listLegacySaved()));
   const [notice, setNotice] = useState<string | null>(null);
   // 'startup' = required choice before the main form; 'change' = reopened, can be cancelled.
   const [eraDialog, setEraDialog] = useState<'startup' | 'change' | null>('startup');
@@ -70,6 +69,8 @@ export function App() {
   const [about, setAbout] = useState(false);
   const [canon, setCanon] = useState(false);
   useEffect(() => applyTheme(theme), [theme]);
+  // Delete the design list that older versions kept inside the app (designs are now saved as files).
+  useEffect(() => clearLegacySaved(), []);
 
   const summary = useMemo(() => computeMech(design), [design]);
   const mechIssues = useMemo(() => validate(design, summary), [design, summary]);
@@ -213,18 +214,6 @@ export function App() {
     }
   };
 
-  // Designs saved in browser storage by older versions: offer to write them out as files once.
-  const onMoveLegacy = async () => {
-    try {
-      if (!(await saveDesignFiles(legacy))) return;
-      clearLegacySaved();
-      setNotice(`Saved ${legacy.length} older design${legacy.length === 1 ? '' : 's'} as files`);
-      setLegacy([]);
-    } catch (e) {
-      setNotice(`Could not save older designs: ${(e as Error).message}`);
-    }
-  };
-
   return (
     <div className="app">
       {about && <AboutDialog onClose={() => setAbout(false)} />}
@@ -266,12 +255,6 @@ export function App() {
           <button onClick={() => setCanon(true)} title="Browse and load canon BattleMechs, vehicles and fighters">Canon units…</button>
           <button onClick={() => void onLoad()} title="Open a design file (.json)">Load…</button>
           <button onClick={() => void onSave()} title="Save this design as its own .json file">Save…</button>
-          {legacy.length > 0 && (
-            <button onClick={() => void onMoveLegacy()}
-              title="Designs saved inside the app by an earlier version. Save them as .json files so they can be loaded again.">
-              Save older designs as files ({legacy.length})
-            </button>
-          )}
           <button onClick={() => setPrinting(true)}
             title="Preview and print a record sheet (or save it as PDF)">Print record sheet</button>
         </div>

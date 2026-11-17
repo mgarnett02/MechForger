@@ -56,6 +56,8 @@ export interface WeightBreakdown {
   equipment: number;
   /** Armored components (0.5 t per slot, armored cockpit 1 t). */
   armored: number;
+  /** ICE and fuel cell engines: a tenth of the energy weapons (and PPC capacitors), rounded up to the half ton. */
+  powerAmplifiers: number;
   total: number;
   free: number;
 }
@@ -349,11 +351,14 @@ export function computeMech(design: MechDesign): MechSummary {
 
   let equipmentWeight = 0;
   let weaponHeat = 0;
+  let energyTons = 0;
   for (const item of design.equipment) {
     const eq = getEquipment(item.equipmentId);
     if (!eq || eq.managed) continue;
     equipmentWeight += itemWeight(eq, design);
     if (eq.isWeapon) weaponHeat += eq.heat;
+    // Power amplifiers serve energy weapons that need no ammunition (lasers, PPCs, flamers), and PPC capacitors (as MegaMek).
+    if ((eq.isWeapon && eq.category === 'Energy' && !eq.ammoPerTon) || eq.id === 'ppc-capacitor') energyTons += itemWeight(eq, design);
   }
 
   const ppt = armorPointsPerTon(design.armorType, techOf(design, 'armor'));
@@ -375,6 +380,7 @@ export function computeMech(design: MechDesign): MechSummary {
     // Rounded to the kilogram (spread systems split their weight into fractions of a ton).
     equipment: Math.round(equipmentWeight * 1000) / 1000,
     armored: armoredComponentWeight(design),
+    powerAmplifiers: design.engineType === 'ice' || design.engineType === 'fuel-cell' ? Math.ceil(energyTons / 10 * 2 - 1e-9) / 2 : 0,
     total: 0,
     free: 0,
   };
@@ -382,7 +388,7 @@ export function computeMech(design: MechDesign): MechSummary {
   if (design.environmentalSealing) weights.equipment += Math.ceil(tonnage / 10 * 2 - 1e-9) / 2;
   weights.total =
     weights.structure + weights.conversion + weights.engine + weights.gyro + weights.cockpit +
-    weights.heatSinks + weights.jumpJets + weights.armor + weights.equipment + weights.armored;
+    weights.heatSinks + weights.jumpJets + weights.armor + weights.equipment + weights.armored + weights.powerAmplifiers;
   weights.free = tonnage - weights.total;
 
   const slots = {} as Record<Location, LocationSlots>;
