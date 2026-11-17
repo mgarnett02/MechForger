@@ -388,11 +388,11 @@ fixed-wing support).
 
   | Unit type | BV | Cost |
   |---|---|---|
-  | BattleMechs (3,167 compared) | 99.9% | 92% (96% within 2%) |
+  | BattleMechs (3,167 compared) | 99.9% | 95% (98% within 2%) |
   | Combat vehicles (1,208) | 99.6% | 93% (99% within 2%) |
-  | Support vehicles (229) | 97% | 93% (95% within 2%) |
-  | Aerospace / conventional fighters (542) | 99.6% | 77% (96% within 2%) |
-  | Small craft, DropShips, JumpShips, WarShips, stations (428) | 99% (99.8% within 2%) | 68% (99.8% within 2%) |
+  | Support vehicles (229) | 97% | 96% (98% within 2%) |
+  | Aerospace / conventional fighters (542) | 99.6% | 99% (99% within 2%) |
+  | Small craft, DropShips, JumpShips, WarShips, stations (428) | 99% (99.8% within 2%) | 99.8% (100% within 2%) |
   | ProtoMechs (86) | 100% | 100% |
   | Gun emplacements and handheld weapons (1,058) | 98% | (emplacements have no cost in MegaMek) |
 
@@ -401,6 +401,15 @@ fixed-wing support).
   not its weight) and rounds two turrets together, charges a full ton of ammunition for every one-shot launcher,
   and buys CASE for a B-pod's hidden ammunition. Troop space costs nothing and cargo bays 1,000 C-bills a door
   (specialized bays 100–250 a ton).
+
+  The other cost differences are MegaMek quirks too. 'Mechs: the gyro is priced from walking MP × tonnage
+  rather than the engine rating (primitive 'Mechs), one-shot launchers carry a ton of ammunition (also in a LAM's
+  conversion cost), jump jets are priced at the MP after modular armor or with the partial wing's bonus, and
+  fixed-price equipment skips the armored-component surcharge. Fighters: one-shot ammunition again, and Inner
+  Sphere ammunition on a Clan RAC. Support vehicles: a C3 master counts as a weapon for fire control, rail
+  chassis cost nothing, infantry weapons get a hidden explosive ammunition bin (and Clan CASE for it), and
+  floating-point rounding of exact half-kilogram engines and livestock bays. Spacecraft: a primitive JumpShip's
+  fuel is priced without the primitive fuel factor that its weight includes.
 
   The comparison uses MegaMek's calculated BV; some unit files carry a published (manual) BV that MegaMek
   reports instead.
