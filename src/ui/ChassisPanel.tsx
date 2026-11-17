@@ -7,7 +7,7 @@ import {
   COCKPIT_OPTIONS, COMPACT_HS_OPTION, ENGINE_OPTIONS, GYRO_OPTIONS, HEAT_SINK_OPTIONS, JUMP_JET_OPTIONS, MYOMER_OPTIONS,
   STRUCTURE_NAMES, STRUCTURE_OPTIONS, componentAvailable, structureSlots, componentEraOk, componentFirstEra,
 } from '../rules/tables';
-import { ARM_LOCATIONS, LAM_TYPE_NAMES, LOCATION_NAMES, TECH_BASE_NAMES, isQuad, techOf } from '../rules/types';
+import { ARM_LOCATIONS, LAM_TYPE_NAMES, LOCATION_NAMES, TECH_BASE_NAMES, isQuad, locationName, mechLocations, techOf } from '../rules/types';
 import { TechPicker } from './TechPicker';
 import { ERAS, getEra, isAvailableIn } from '../rules/eras';
 import type { MechSummary } from '../rules/construction';
@@ -15,8 +15,9 @@ import { SUPERHEAVY_TONNAGES, TONNAGES, engineSideTorsoSlots, freeHeatSinks, isL
 import {
   setActuator, setCockpitType, setConfig, setFullHeadEjection, setLam, setEngineHeatSinks, setEngineType, setGyroType, setHeatSinkTotal,
   setCompactHeatSinks, setHeatSinkType, setJumpBoosterMP, setJumpJetType, setJumpMP, setLaserHeatSinks,
-  setEnvironmentalSealing, setMixedTech, setMyomer, setQuadVeeMotive, setStructureType, setTechBase, setTonnage, setWalkMP,
+  setEnvironmentalSealing, setFranken, setFrankenLocation, setMixedTech, setMyomer, setQuadVeeMotive, setStructureType, setTechBase, setTonnage, setWalkMP,
 } from '../rules/edit';
+import { frankenLocation } from '../rules/franken';
 import { setOmni } from '../rules/omni';
 import { NumberField } from './NumberField';
 
@@ -138,7 +139,8 @@ export function ChassisPanel({ design, summary, update }: Props) {
 
         <label>Structure</label>
         <div>
-          <select aria-label="Internal structure" value={design.structureType} title={lockedTitle}
+          <select aria-label="Internal structure" value={design.structureType} title={design.franken ? 'A FrankenMek sets its structure per location below' : lockedTitle}
+            disabled={!!design.franken}
             onChange={(e) => update((d) => setStructureType(d, e.target.value as StructureType))}>
             {(Object.keys(STRUCTURE_OPTIONS) as StructureType[]).map((k) => {
               const n = structureSlots(k, techOf(design, 'structure'), design.tonnage > 100);
@@ -149,9 +151,52 @@ export function ChassisPanel({ design, summary, update }: Props) {
               );
             })}
           </select>{' '}
-          <TechPicker design={design} part="structure" update={update} />
-          <span className="muted"> {summary.weights.structure} t</span>
+          {!design.franken && <TechPicker design={design} part="structure" update={update} />}
+          <span className="muted"> {summary.weights.structure} t</span>{' '}
+          <label className="check small" title="FrankenMek (Campaign Operations, Experimental): each location comes from a donor 'Mech with its own structure type and tonnage">
+            <input type="checkbox" checked={!!design.franken} disabled={!advanced && !design.franken}
+              onChange={(e) => update((d) => setFranken(d, e.target.checked))} />
+            FrankenMek
+          </label>
         </div>
+        {design.franken && (
+          <>
+            <label>Donors</label>
+            <div>
+              <table className="weights franken">
+                <thead><tr><th>Location</th><th>Structure</th><th>Tech</th><th>Donor tons</th><th>IS</th></tr></thead>
+                <tbody>
+                  {mechLocations(design).map((loc) => {
+                    const f = frankenLocation(design, loc);
+                    return (
+                      <tr key={loc}>
+                        <td>{locationName(design, loc)}</td>
+                        <td>
+                          <select aria-label={`${locationName(design, loc)} donor structure`} value={f.type}
+                            onChange={(e) => update((d) => setFrankenLocation(d, loc, { type: e.target.value as StructureType }))}>
+                            {(Object.keys(STRUCTURE_OPTIONS) as StructureType[]).map((k) => <option key={k} value={k}>{STRUCTURE_NAMES[k]}</option>)}
+                          </select>
+                        </td>
+                        <td>
+                          <select aria-label={`${locationName(design, loc)} donor tech base`} value={f.tech}
+                            onChange={(e) => update((d) => setFrankenLocation(d, loc, { tech: e.target.value as TechBase }))}>
+                            <option value="IS">IS</option><option value="Clan">Clan</option>
+                          </select>
+                        </td>
+                        <td>
+                          <NumberField label={`${locationName(design, loc)} donor tonnage`} value={f.tonnage} min={10} max={200} step={5} width="3.5rem"
+                            onChange={(n) => update((d) => setFrankenLocation(d, loc, { tonnage: Math.max(10, Math.min(200, Math.round(n))) }))} />
+                        </td>
+                        <td className="num">{summary.structure?.[loc] ?? 0}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              <p className="muted small">Structure weighs each donor's share (head 5%, center torso 25%, side torsos 15%, limbs 10%); legs must come from donors at least as heavy as the center torso's; jump jets weigh by their location's donor.</p>
+            </div>
+          </>
+        )}
 
         <label>Walking MP</label>
         <div>

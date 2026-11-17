@@ -322,6 +322,8 @@ export function mechBV(d: MechDesign): BVBreakdown {
     if (!eq || !item.location || (protectedLoc(item.location) && (!item.split || protectedLoc(item.split.location)))) continue;
     const slots = itemSlots(eq, d);
     if (eq.category === 'Ammo' && eq.ammoFor && !isGaussType(eq.ammoFor) && !/plasma/.test(eq.ammoFor)) explosive += pairedAmmo.has(item.uid) ? 0 : 15;
+    // HVACs: −1 in all, whatever their slots (MegaMek).
+    else if (/^hvac-\d+$/.test(eq.id)) explosive += 1;
     else if (eq.explosiveLow) explosive += slots;
     else if (eq.explosive) explosive += 15 * slots;
     // A PPC with a capacitor is explosive too (−1 per slot).

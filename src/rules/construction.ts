@@ -12,8 +12,9 @@ import {
 import type { Equipment } from './equipment';
 import { ARMORED_TONS_PER_SLOT, PROTOTYPE_DOUBLE_HEAT_SINK_ID, heatSinkUnits, JUMP_JET_IDS, canArmor, canArmorSystem, equipmentName, getEquipment, itemSlots, itemWeight, shortEquipmentName } from './equipment';
 import type { OmniWeights } from './omni';
+import { frankenArmorMax, frankenJumpJetWeight, frankenStructurePoints, frankenStructureWeight } from './franken';
 import { omniWeights } from './omni';
-import { armorTonnage, maxArmorByLocation, maxTotalArmor, totalArmorPoints } from './armor';
+import { armorTonnage, maxArmorByLocation, totalArmorPoints } from './armor';
 
 export { itemWeight, itemSlots };
 
@@ -323,7 +324,9 @@ export function computeMech(design: MechDesign): MechSummary {
   const engineWt = engineWeight(design.engineType, rating);
   const quad = isQuad(design);
   const tripod = isTripod(design);
-  const structure = internalStructure(tonnage, quad, tripod);
+  // FrankenMeks take each location's structure points from its donor's tonnage.
+  const structure = design.franken ? frankenStructurePoints(design, quad, tripod) : internalStructure(tonnage, quad, tripod);
+  const armorMax = design.franken ? frankenArmorMax(design, structure!) : maxArmorByLocation(tonnage, quad, tripod);
 
   const count = (pred: (id: string) => boolean) => design.equipment.filter((e) => pred(e.equipmentId)).length;
   const jumpMP = count((id) => JUMP_JET_IDS.includes(id));
@@ -356,7 +359,7 @@ export function computeMech(design: MechDesign): MechSummary {
   const ppt = armorPointsPerTon(design.armorType, techOf(design, 'armor'));
   const armorTotal = totalArmorPoints(design.armor);
   const weights: WeightBreakdown = {
-    structure: internalStructureWeight(design.structureType, tonnage, tripod),
+    structure: design.franken ? frankenStructureWeight(design) : internalStructureWeight(design.structureType, tonnage, tripod),
     conversion: lamConversionWeight(design),
     engine: engineWt ?? 0,
     gyro: gyroWeightFor(design.gyroType, rating),
@@ -364,7 +367,10 @@ export function computeMech(design: MechDesign): MechSummary {
     // Compact heat sinks weigh 1.5 t each (MegaMek).
     heatSinks: Math.max(0, totalHS - freeHeatSinks(design.engineType) - protoHS) * (compactHS ? 1.5 : 1),
     // Mechanical jump boosters weigh 5% of the tonnage per MP, rounded up to the half ton.
-    jumpJets: jumpMP * jumpJetWeightFor(design.jumpJetType, tonnage) + Math.ceil(tonnage * (design.jumpBoosterMP ?? 0) * 0.05 * 2 - 1e-9) / 2,
+    // FrankenMek jump jets weigh by their location's donor tonnage.
+    jumpJets: (design.franken
+      ? design.equipment.reduce((a, e) => a + (JUMP_JET_IDS.includes(e.equipmentId) ? frankenJumpJetWeight(design, e.location) : 0), 0)
+      : jumpMP * jumpJetWeightFor(design.jumpJetType, tonnage)) + Math.ceil(tonnage * (design.jumpBoosterMP ?? 0) * 0.05 * 2 - 1e-9) / 2,
     armor: isPatchwork(design) ? patchworkArmorWeight(design) : armorTonnage(armorTotal, ppt),
     // Rounded to the kilogram (spread systems split their weight into fractions of a ton).
     equipment: Math.round(equipmentWeight * 1000) / 1000,
@@ -401,9 +407,9 @@ export function computeMech(design: MechDesign): MechSummary {
     weightClass: weightClass(tonnage),
     engineWeight: engineWt,
     structure,
-    armorMax: maxArmorByLocation(tonnage, quad, tripod),
+    armorMax,
     armorTotal,
-    armorMaxTotal: maxTotalArmor(tonnage, quad, tripod),
+    armorMaxTotal: Object.values(armorMax).reduce((a, b) => a + b, 0),
     armorPointsPerTon: ppt,
     heatSinks: {
       total: totalHS,

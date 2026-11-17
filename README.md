@@ -274,6 +274,11 @@ Advanced or Experimental level and is not modeled yet.
   (BV × 1.01), mechanical jump boosters (jump MP without heat; 2 slots per leg, 5% of tonnage per MP), the ram
   plate (one slot per torso, a tenth of tonnage), the chain drape cape (−1 walking MP) and dumpers (5% of the
   cargo beside them)
+- **FrankenMeks** (Campaign Operations, as MegaMek): each location from a donor 'Mech with its own structure
+  type, tech base and tonnage; structure points from the donor tonnage, structure weight as each donor's share
+  (head 5%, center torso 25%, side torsos 15%, limbs 10%), Endo slots in their own locations, jump jets weighed
+  by their location's donor, armor maximums from each location's structure; legs no lighter than the center
+  torso, no OmniMechs
 - **Special munitions** as their own ammunition, with MegaMek's prices: LB-X cluster, ATM extended-range and
   high-explosive, Narc-capable LRM / SRM / MML, Artemis-capable MML, Arrow IV homing and cluster, SRM inferno,
   LRM Swarm-I and semi-guided, and flak autocannon ammunition
@@ -490,7 +495,7 @@ vehicles, support, fighters, vessels, protomechs, stationary). The MegaMek check
 
 ## Not yet supported
 
-FrankenMeks (mixed-chassis 'Mechs), chain drape aprons and ponchos, munitions no canon unit carries (smoke,
+Chain drape aprons and ponchos, munitions no canon unit carries (smoke,
 tandem-charge, and so on), and per-configuration jump jet type or tech base on OmniMechs
 (mixed-tech and improved-jump-jet configurations of a standard Prime are left out of the canon list).
 

@@ -340,7 +340,9 @@ function parseMtf(text: string): ParsedMech {
   }
   const get = (k: string) => kv.get(k) ?? '';
 
-  const config = get('config');
+  // FrankenMeks: "Biped FrankenMek" and so on; each location records its donor's structure and tonnage.
+  const frankenMek = / FrankenMek$/.test(get('config'));
+  const config = get('config').replace(/ FrankenMek$/, '');
   if (!['Biped', 'Biped OmniMek', 'Quad', 'Quad OmniMek', 'LAM', 'Tripod', 'Tripod OmniMek', 'QuadVee', 'QuadVee OmniMek'].includes(config)) fail(`config ${config}`);
   // Quads and QuadVees: front legs in the arm locations.
   const quad = config.startsWith('Quad');
@@ -372,7 +374,19 @@ function parseMtf(text: string): ParsedMech {
     Standard: 'standard', 'Endo Steel': 'endo-steel', 'Endo Steel Prototype': 'endo-prototype', 'Endo-Composite': 'endo-composite',
     Composite: 'composite', Reinforced: 'reinforced', Industrial: 'industrial',
   };
-  const structureType = st === '' ? 'standard' : STRUCTURES[st.replace(/^(IS|Clan) /, '')] ?? fail(`structure ${st}`);
+  // A FrankenMek with mixed donors has "Hybrid" structure, costed as standard (as MegaMek).
+  const structureType = st === '' || (frankenMek && st === 'Hybrid') ? 'standard' : STRUCTURES[st.replace(/^(IS|Clan) /, '')] ?? fail(`structure ${st}`);
+  let franken: MechDesign['franken'];
+  if (frankenMek) {
+    franken = {};
+    for (const loc of ['HD', 'CT', 'LT', 'RT', 'LA', 'RA', 'LL', 'RL', ...(tripod ? ['CL'] : [])] as Location[]) {
+      const v = get(`${loc.toLowerCase()} structure`);
+      const m = /^(?:(.+):)?(\d+)$/.exec(v) ?? fail(`FrankenMek structure "${v}" in ${loc}`);
+      const name = (m![1] ?? st).trim();
+      const type = name === '' || name === 'Hybrid' ? 'standard' : STRUCTURES[name.replace(/^(IS|Clan) /, '')] ?? fail(`FrankenMek structure ${name}`);
+      franken[loc] = { type, tech: /^Clan /.test(name) ? 'Clan' : /^IS /.test(name) ? 'IS' : techBase, tonnage: Number(m![2]) };
+    }
+  }
   const ar = get('armor');
   const ARMORS: Record<string, MechDesign['armorType']> = {
     Standard: 'standard', 'Ferro-Fibrous': 'ferro-fibrous', 'Ferro-Fibrous Prototype': 'ferro-prototype', 'Light Ferro-Fibrous': 'light-ferro', 'Heavy Ferro-Fibrous': 'heavy-ferro',
@@ -572,7 +586,7 @@ function parseMtf(text: string): ParsedMech {
     ...(equipment.some((e) => e.equipmentId === 'environmental-sealing') ? { environmentalSealing: true } : {}),
     jumpJetType: jets.some((e) => e.equipmentId === 'improved-jump-jet') ? 'improved' : jets.some((e) => e.equipmentId === 'prototype-jump-jet') ? 'prototype'
       : jets.some((e) => e.equipmentId === 'prototype-improved-jump-jet') ? 'prototype-improved' : 'standard',
-    armorType, ...(Object.keys(patchwork).length ? { patchwork } : {}), myomer,
+    armorType, ...(Object.keys(patchwork).length ? { patchwork } : {}), myomer, ...(franken ? { franken } : {}),
     config: quadVee ? 'quadvee' : quad ? 'quad' : tripod ? 'tripod' : 'biped', ...(quadVeeMotive ? { quadVeeMotive } : {}), lam, omni: null,
     ...(kv.has('ejection') ? { fullHeadEjection: true } : {}),
     chassis: get('clanname') ? `${get('clanname')} (${get('chassis')})` : get('chassis'),

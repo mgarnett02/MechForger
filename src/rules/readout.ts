@@ -39,7 +39,10 @@ export function technicalReadout(design: MechDesign, summary: MechSummary = comp
   lines.push(`Cost: ${mechCost(design).total.toLocaleString('en-US')} C-bills`);
   lines.push('');
   lines.push(row('Equipment', 'Mass'));
-  lines.push(row(`Internal Structure: ${design.structureType === 'standard' ? '' : STRUCTURE_NAMES[design.structureType]}`.trimEnd(), s.weights.structure));
+  lines.push(row(`Internal Structure: ${design.franken ? 'FrankenMek' : design.structureType === 'standard' ? '' : STRUCTURE_NAMES[design.structureType]}`.trimEnd(), s.weights.structure));
+  if (design.franken) {
+    for (const [loc, f] of Object.entries(design.franken)) if (f) lines.push(`    ${loc}: ${f.tech === 'Clan' && f.type !== 'standard' ? 'Clan ' : ''}${STRUCTURE_NAMES[f.type]}, ${f.tonnage}-ton donor`);
+  }
   const engineName = { standard: 'Fusion', xl: 'XL', xxl: 'XXL', light: 'Light', compact: 'Compact', ice: 'I.C.E.', 'fuel-cell': 'Fuel Cell', fission: 'Fission' }[design.engineType];
   lines.push(row(`Engine: ${s.rating} ${isLargeEngine(s.rating) ? 'Large ' : ''}${engineName}`, s.weights.engine));
   lines.push(`    Walking MP: ${design.walkMP}`);

@@ -184,6 +184,13 @@ export const TECH_BASE_NAMES: Record<TechBase, string> = { IS: 'Inner Sphere', C
 export type StructureType = 'standard' | 'endo-steel' | 'endo-prototype' | 'endo-composite' | 'composite' | 'reinforced' | 'industrial';
 export type EngineType = 'standard' | 'xl' | 'xxl' | 'light' | 'compact' | 'ice' | 'fuel-cell' | 'fission';
 export type GyroType = 'standard' | 'xl' | 'heavy-duty' | 'compact' | 'none' | 'superheavy';
+/** A FrankenMek location's donor: structure type, its tech base, and the donor 'Mech's tonnage. */
+export interface FrankenLocation {
+  type: StructureType;
+  tech: TechBase;
+  tonnage: number;
+}
+
 export type JumpJetType = 'standard' | 'improved' | 'prototype' | 'prototype-improved';
 /** Cockpits shared with fighters. */
 export type BasicCockpitType = 'standard' | 'small';
@@ -235,6 +242,11 @@ export interface MechDesign {
   environmentalSealing?: boolean;
   /** Clan laser heat sinks in place of double heat sinks (same weight, slots and dissipation). */
   laserHeatSinks?: boolean;
+  /**
+   * FrankenMek (Campaign Operations): each location's donor structure type, tech base and tonnage.
+   * Unset on ordinary 'Mechs.
+   */
+  franken?: Partial<Record<Location, FrankenLocation>>;
   /** Mechanical jump boosters: jump MP (no heat; 2 slots per leg). */
   jumpBoosterMP?: number;
   /** RISC heat sink override kit (BV ×1.01, as MegaMek). */

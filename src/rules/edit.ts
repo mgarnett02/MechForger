@@ -1,8 +1,10 @@
+import { frankenStructureSlots } from './franken';
 import type {
   ArmLocation, ArmorAllocation, ArmorFacing, ArmorType, CockpitType, EngineType, GyroType, HeatSinkType, JumpJetType, Location,
   LamType, MechConfig, MechDesign, MountedItem, MyomerType, OmniData, StructureType, TechBase, TechComponent,
 } from './types';
-import { ARMOR_FACINGS, LOCATIONS, REAR_FACING, SPLIT_ADJACENT, TECH_COMPONENTS, engineRatingFor, isPatchwork, isQuad, isQuadVee, isSuperheavy, isTripod, legLocations, techOf } from './types';
+import { ARMOR_FACINGS, LOCATIONS, REAR_FACING, SPLIT_ADJACENT, TECH_COMPONENTS, engineRatingFor, isPatchwork, isQuad, isQuadVee, isSuperheavy, isTripod, legLocations, techOf, mechLocations } from './types';
+import type { FrankenLocation } from './types';
 import {
   ARMOR_OPTIONS, COCKPIT_OPTIONS, ENGINE_OPTIONS, GYRO_OPTIONS, MYOMER_OPTIONS, STRUCTURE_OPTIONS,
   FREE_HEAT_SINKS, armorPointsPerTon, armorSlots, engineHeatSinkCapacity, maxWalkMP, structureSlots,
@@ -221,6 +223,10 @@ export function setArmor(d: MechDesign, facing: ArmorFacing, points: number): Me
 }
 
 export function maximizeArmor(d: MechDesign): MechDesign {
+  if (d.franken) {
+    const max = computeMech(d).armorMax;
+    return { ...d, armor: distributeArmor(d.tonnage, Object.values(max).reduce((a, b) => a + b, 0), isQuad(d), isTripod(d), max) };
+  }
   return { ...d, armor: distributeArmor(d.tonnage, maxTotalArmor(d.tonnage, isQuad(d), isTripod(d)), isQuad(d), isTripod(d)) };
 }
 
@@ -406,10 +412,62 @@ function normalizeHeatSinks(d: MechDesign): MechDesign {
   };
 }
 
+/** FrankenMeks: each location holds its own donor's Endo Steel / Endo-Composite slots. */
+function syncFrankenEndo(d: MechDesign): MechDesign {
+  let equipment = [...d.equipment];
+  for (const loc of mechLocations(d)) {
+    const want = frankenStructureSlots(d, loc);
+    const here = equipment.filter((e) => e.equipmentId === ENDO_STEEL_ID && e.location === loc);
+    if (here.length > want) {
+      const drop = new Set(here.slice(want).map((e) => e.uid));
+      equipment = equipment.filter((e) => !drop.has(e.uid));
+    } else {
+      for (let n = here.length; n < want; n++) equipment.push({ uid: newUid(), equipmentId: ENDO_STEEL_ID, location: loc });
+    }
+  }
+  // Unplaced or misplaced endo slots go.
+  equipment = equipment.filter((e) => e.equipmentId !== ENDO_STEEL_ID || (e.location && frankenStructureSlots(d, e.location) > 0));
+  return { ...d, equipment };
+}
+
+/** FrankenMek: build from each location's donor (structure type, tech base, tonnage); off returns to one structure. */
+/** FrankenMek donors from a saved design (locations with a known structure type and a tonnage only). */
+function parseFranken(v: unknown): Pick<MechDesign, 'franken'> {
+  if (!v || typeof v !== 'object') return {};
+  const franken: NonNullable<MechDesign['franken']> = {};
+  for (const [loc, f] of Object.entries(v as Record<string, Partial<FrankenLocation>>)) {
+    if (!(LOCATIONS as readonly string[]).includes(loc) || !f || typeof f.tonnage !== 'number' || !(String(f.type) in STRUCTURE_OPTIONS)) continue;
+    franken[loc as Location] = { type: f.type as FrankenLocation['type'], tech: f.tech === 'Clan' ? 'Clan' : 'IS', tonnage: Math.round(f.tonnage) };
+  }
+  return Object.keys(franken).length ? { franken } : {};
+}
+
+export function setFranken(d: MechDesign, on: boolean): MechDesign {
+  if (!on) {
+    const next: MechDesign = { ...d, equipment: d.equipment.filter((e) => e.equipmentId !== ENDO_STEEL_ID) };
+    delete next.franken;
+    return syncFillers(next);
+  }
+  const franken: NonNullable<MechDesign['franken']> = {};
+  for (const loc of mechLocations(d)) franken[loc] = { type: d.structureType, tech: techOf(d, 'structure'), tonnage: d.tonnage };
+  return syncFillers({ ...d, franken, omni: null, equipment: d.equipment.filter((e) => e.equipmentId !== ENDO_STEEL_ID) });
+}
+
+/** Change one FrankenMek location's donor. */
+export function setFrankenLocation(d: MechDesign, loc: Location, patch: Partial<FrankenLocation>): MechDesign {
+  if (!d.franken) return d;
+  const cur = d.franken[loc] ?? { type: d.structureType, tech: techOf(d, 'structure'), tonnage: d.tonnage };
+  const franken = { ...d.franken, [loc]: { ...cur, ...patch } };
+  // The design's overall structure is the donors' common type, or standard when they differ (as MegaMek).
+  const types = new Set(Object.values(franken).map((f) => f!.type));
+  const structureType = types.size === 1 ? [...types][0] : 'standard';
+  return syncFillers({ ...d, franken, structureType });
+}
+
 /** Keep Endo Steel / Ferro-Fibrous slot placeholders at the count the rules require. */
 function syncFillers(d: MechDesign): MechDesign {
   const sh = isSuperheavy(d);
-  const withEndo = syncCount(d, ENDO_STEEL_ID, structureSlots(d.structureType, techOf(d, 'structure'), sh));
+  const withEndo = d.franken ? syncFrankenEndo(d) : syncCount(d, ENDO_STEEL_ID, structureSlots(d.structureType, techOf(d, 'structure'), sh));
   const withFerro = syncCount(withEndo, FERRO_FIBROUS_ID, isPatchwork(d) ? 0 : armorSlots(d.armorType, techOf(d, 'armor'), sh));
   const withTsm = syncCount(withFerro, TSM_ID, sh ? Math.ceil(tsmSlots(d.myomer) / 2) : tsmSlots(d.myomer));
   return syncCount(withTsm, ENV_SEAL_ID, d.environmentalSealing ? 8 : 0);
@@ -627,6 +685,7 @@ export function parseDesign(raw: unknown): MechDesign {
     ...parseComponentTech(r.componentTech),
     ...(r.laserHeatSinks === true ? { laserHeatSinks: true } : {}),
     ...(r.compactHeatSinks === true ? { compactHeatSinks: true } : {}),
+    ...parseFranken(r.franken),
     ...(r.heatSinkOverrideKit === true ? { heatSinkOverrideKit: true } : {}),
     ...(typeof r.jumpBoosterMP === 'number' && r.jumpBoosterMP > 0 ? { jumpBoosterMP: Math.floor(r.jumpBoosterMP) } : {}),
     config: pick(r.config, ['biped', 'quad', 'tripod', 'quadvee'] as const, 'biped'),

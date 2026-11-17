@@ -1,3 +1,4 @@
+import { frankenErrors, frankenLocation, frankenStructureSlots } from './franken';
 import type { MechDesign } from './types';
 import { ARM_LOCATIONS, LAM_TYPE_NAMES, LOCATIONS, facingName, isQuad, isQuadVee, isSuperheavy, isTripod, legLocations, locationName, mechFacings, mechLocations } from './types';
 import type { MeleeKind } from './equipment';
@@ -18,7 +19,7 @@ import { canSplit, tsmSlots } from './edit';
 import type { ComponentOption } from './tables';
 import {
   ARMOR_OPTIONS, COCKPIT_OPTIONS, ENGINE_OPTIONS, GYRO_OPTIONS, HEAT_SINK_OPTIONS, JUMP_JET_OPTIONS,
-  COMPACT_HS_OPTION, MYOMER_OPTIONS, STRUCTURE_OPTIONS, ARMOR_NAMES, STRUCTURE_NAMES, armorSlots, componentEraOk, patchworkSlots, componentTechOk, structureSlots,
+  COMPACT_HS_OPTION, MYOMER_OPTIONS, STRUCTURE_OPTIONS, componentAvailable, ARMOR_NAMES, STRUCTURE_NAMES, armorSlots, componentEraOk, patchworkSlots, componentTechOk, structureSlots,
 } from './tables';
 import { armorPointsForTons } from './armor';
 import { locationArmor } from './armor';
@@ -425,8 +426,24 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
   }
 
   // Endo Steel / Ferro-Fibrous slot placeholders
+  if (design.franken) {
+    for (const m of frankenErrors(design)) error(m);
+    for (const loc of mechLocations(design)) {
+      const want = frankenStructureSlots(design, loc);
+      const have = design.equipment.filter((e) => e.equipmentId === ENDO_STEEL_ID && e.location === loc).length;
+      // As MegaMek: Endo slots may only sit where the donor structure is Endo Steel / Endo-Composite;
+      // a different count from the usual allocation is allowed (canon designs vary) but flagged.
+      if (have && !['endo-steel', 'endo-composite'].includes(frankenLocation(design, loc).type)) {
+        error(`${locationName(design, loc)} has Endo slots, but its donor structure is ${STRUCTURE_NAMES[frankenLocation(design, loc).type]}.`);
+      } else if (have !== want && (want > 0 || have > 0)) {
+        warn(`${locationName(design, loc)} structure usually takes ${want} Endo slot${want === 1 ? '' : 's'} (has ${have}).`);
+      }
+      const f = frankenLocation(design, loc);
+      if (!componentAvailable(STRUCTURE_OPTIONS[f.type], design.era, f.tech, true)) error(`${locationName(design, loc)}: ${STRUCTURE_NAMES[f.type]} structure is not available in this era.`);
+    }
+  }
   const fillerCheck: [string, number, string][] = [
-    [ENDO_STEEL_ID, structureSlots(design.structureType, techOf(design, 'structure'), isSuperheavy(design)), STRUCTURE_NAMES[design.structureType]],
+    ...(design.franken ? [] : [[ENDO_STEEL_ID, structureSlots(design.structureType, techOf(design, 'structure'), isSuperheavy(design)), STRUCTURE_NAMES[design.structureType]] as [string, number, string]]),
     [FERRO_FIBROUS_ID, isPatchwork(design) ? 0 : armorSlots(design.armorType, techOf(design, 'armor'), isSuperheavy(design)), `${ARMOR_NAMES[design.armorType]} armor`],
     [TSM_ID, isSuperheavy(design) ? Math.ceil(tsmSlots(design.myomer) / 2) : tsmSlots(design.myomer),
       design.myomer === 'industrial-tsm' ? 'Industrial TSM' : design.myomer === 'super-cooled' ? 'Super-Cooled Myomer' : 'Triple-Strength Myomer'],

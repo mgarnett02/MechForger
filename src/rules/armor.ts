@@ -52,9 +52,9 @@ const FILL_ORDER: Location[] = ['CT', 'LT', 'RT', 'LL', 'RL', 'CL', 'LA', 'RA', 
  * Spread `points` of armor across the mech in proportion to each location's
  * maximum. Torso armor is split roughly 3:1 front/rear.
  */
-export function distributeArmor(tonnage: number, points: number, quad = false, tripod = false): ArmorAllocation {
-  const max = maxArmorByLocation(tonnage, quad, tripod);
-  const maxTotal = maxTotalArmor(tonnage, quad, tripod);
+export function distributeArmor(tonnage: number, points: number, quad = false, tripod = false, maxIn?: Record<Location, number>): ArmorAllocation {
+  const max = maxIn ?? maxArmorByLocation(tonnage, quad, tripod);
+  const maxTotal = Object.values(max).reduce((a, b) => a + b, 0);
   const target = Math.max(0, Math.min(Math.floor(points), maxTotal));
   const perLoc = {} as Record<Location, number>;
   let used = 0;

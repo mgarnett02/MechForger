@@ -223,3 +223,30 @@ describe('special munitions', () => {
     for (const re of [/-cluster"/, /-narc"/, /atm-\d+-er"/, /-homing"/]) expect(canon.some((e) => re.test(JSON.stringify(e.d)))).toBe(true);
   });
 });
+
+describe('FrankenMeks', () => {
+  const get = (n: string) => decodeMech(canon.find((e) => e.n === n)!.d);
+  it('canon FrankenMeks load, weigh what MegaMek computes and match its BV and cost', () => {
+    const gustav = get('Schwerer Gustav');
+    expect(gustav.franken?.LA).toEqual({ type: 'endo-steel', tech: 'IS', tonnage: 65 });
+    const s = computeMech(gustav);
+    expect(s.weights.total).toBe(100);
+    expect(s.structure?.LA).toBe(10); // a 65-ton donor arm
+    expect(mechBV(gustav).total).toBe(1643);
+    expect(mechCost(gustav).total).toBe(31691333);
+    expect(errors(gustav)).toEqual([]);
+    expect(mechBV(get('Temax Cat Ninjabolt TMC-NB')).total).toBe(1490);
+  });
+  it('structure weight is each donor’s share; legs lighter than the center torso are illegal', async () => {
+    const { setFranken, setFrankenLocation } = await import('./edit');
+    const base = newDesign('3050');
+    const f = setFranken(base, true);
+    expect(computeMech(f).weights.structure).toBe(computeMech(base).weights.structure);
+    const heavyArm = setFrankenLocation(f, 'LA', { tonnage: 100 });
+    expect(computeMech(heavyArm).structure?.LA).toBe(17);
+    const lightLeg = setFrankenLocation(f, 'LL', { tonnage: f.tonnage - 10 });
+    expect(errors(lightLeg).some((m) => /lighter than the center torso/.test(m))).toBe(true);
+    const endoArm = setFrankenLocation(f, 'LA', { type: 'endo-steel' });
+    expect(endoArm.equipment.filter((e) => e.equipmentId === 'endo-steel' && e.location === 'LA')).toHaveLength(2);
+  });
+});
