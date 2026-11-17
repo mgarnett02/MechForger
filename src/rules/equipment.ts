@@ -605,11 +605,11 @@ export const OTHER_EQUIPMENT: readonly Equipment[] = [
   { id: 'clan-case-ii', name: 'CASE II', category: 'Other', tons: 0.5, slots: 1, heat: 0, isWeapon: false, ...CLAN_3062 },
   {
     id: 'masc', name: 'MASC', category: 'Other', tons: 0, slots: 0, heat: 0, isWeapon: false,
-    variableWeight: 'masc', allowedLocations: NOT_HEAD, fixedOnly: true, ...IS_3050,
+    variableWeight: 'masc', fixedOnly: true, ...IS_3050, // any location (the Locust LCT-6M mounts it in the head)
   },
   {
     id: 'clan-masc', name: 'MASC', category: 'Other', tons: 0, slots: 0, heat: 0, isWeapon: false,
-    variableWeight: 'masc', allowedLocations: NOT_HEAD, fixedOnly: true, ...CLAN_3050,
+    variableWeight: 'masc', fixedOnly: true, ...CLAN_3050, // any location (the Locust LCT-6M mounts it in the head)
   },
   // Physical (melee) weapons
   ...([
@@ -678,7 +678,7 @@ export const OTHER_EQUIPMENT: readonly Equipment[] = [
   // VTOL jet booster (10% of the engine, rounded up to the half ton; flank speed becomes twice cruise speed).
   {
     id: 'vehicle-jump-jet', name: 'Vehicle Jump Jet', category: 'Other', tons: 0, slots: 1, heat: 0, isWeapon: false,
-    variableWeight: 'vehicleJumpJet', vehicleOnly: true, techBase: 'Both', firstEra: '3068',
+    variableWeight: 'vehicleJumpJet', vehicleOnly: true, supportOk: true, techBase: 'Both', firstEra: '3068',
   },
   {
     id: 'vtol-jet-booster', name: 'VTOL Jet Booster', category: 'Other', tons: 0, slots: 1, heat: 0, isWeapon: false,

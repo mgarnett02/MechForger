@@ -155,7 +155,8 @@ export function baItemWeight(d: BattleArmorDesign, item: BAItem, e = getMM(item.
 export function baItemSlots(item: BAItem, e = getMM(item.equipmentId)): number {
   // AP-mounted weapons, manipulators and weapons carried in a detachable weapon pack use no slots.
   if (!e || item.apm || isManipulator(e) || (item.dwp && e.kind !== 'misc')) return 0;
-  if (e.kind === 'baArmor') return 1;
+  // Armor pieces and the BA myomer booster (spread over 3 slots, one entry per slot, as MegaMek) take a slot each.
+  if (e.kind === 'baArmor' || e.id === 'CLBAMyomerBooster') return 1;
   if (e.kind === 'ammo') return Math.ceil((item.shots ?? 1) / (e.ammoType === 'BA_TUBE' ? 8 : 4));
   return mmNum(e.criticalSlots);
 }
@@ -248,6 +249,8 @@ export function validateBattleArmor(d: BattleArmorDesign, s = computeBattleArmor
       ? `${BA_WEIGHT_CLASS_NAMES[d.weightClass]} ${d.chassisType} suits cannot use ${BA_MOTION_NAMES[d.motion]} movement.`
       : `${BA_MOTION_NAMES[d.motion]} MP ${d.jumpMP} exceeds the maximum of ${s.maxJump}.`);
   }
+  const boosters = d.equipment.filter((i) => i.equipmentId === 'CLBAMyomerBooster' && !i.trooper).length;
+  if (boosters && boosters !== 3) warn(`The BA myomer booster spreads over 3 slots (${boosters} listed).`);
   if (d.armor > s.maxArmor) error(`At most ${s.maxArmor} armor points per trooper (has ${d.armor}).`);
   const armorType = getMM(d.armorId);
   if (!armorType) error('Unknown armor type.');

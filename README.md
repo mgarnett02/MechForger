@@ -32,7 +32,7 @@ Everything above, plus:
 - **XL engines** (half weight; 3 slots per side torso IS / 2 Clan)
 - **Double heat sinks** (dissipate 2; 3 slots IS / 2 Clan; cannot mix with singles)
 - **Ferro-Fibrous** armor (×1.12 points/ton IS, ×1.2 Clan; 14 slots IS / 7 Clan)
-- **CASE** (IS) and **MASC** (IS and Clan)
+- **CASE** (IS) and **MASC** (IS and Clan; any location, even the head as on the Locust LCT-6M)
 - IS weapons: ER and pulse lasers, ER PPC, Gauss rifle, LB-X and Ultra autocannons,
   Streak SRMs, MRMs, Narc, Anti-Missile System, Beagle probe, Guardian ECM
 - The full Clan weapon list: ER/pulse lasers, ER PPC, Gauss, LB-X and Ultra ACs,
@@ -427,6 +427,19 @@ under MechForger's tables, and Battle Values match the Master Unit List for
 the checked designs. Weights match for about 93% of combat vehicles (99% pass every construction check) and 71% of
 support vehicles (most others within half a ton); in the
 browser, ⚖ marks a weight difference and ⚠ a failed construction check.
+
+Every canon unit MegaMek's validator accepts also passes MechForger's checks, except the Svartalfa 3 ProtoMech
+(its file is 0.1 t over in MegaMek's own breakdown too). To get there the converter:
+- marks a unit mixed tech when it carries the other tech base's equipment or armor even though its file does not say so;
+- reads the **Illegal Design** quirk (Caveat Emptor and RISC designs that deliberately break the rules, such as the
+  Carbine CON-9M-D MOD, Crosscut IIC and Malice MAL-Y-SH-RISC). Their rule breaches show as warnings; the quirk is a
+  checkbox on the 'Mech chassis panel;
+- places armor critical slots a file leaves out into free slots (as on the Great Wyrm 2 and Shogun C 2);
+- converts specialized cargo bays from capacity to weight (insulated and refrigerated ÷ 0.87, liquid ÷ 0.91).
+
+As MegaMek, mixed-tech 'Mechs may combine Inner Sphere and Clan double heat sinks, and industrial and heavy industrial
+armor may be patchwork. Support vehicles may mount vehicle jump jets and the armored motive system, and their battle
+armor bays may hold part squads. The battle armor myomer booster takes one slot per piece, three pieces in all.
 
 To regenerate the data from a checkout of mm-data:
 

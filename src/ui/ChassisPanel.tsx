@@ -135,6 +135,11 @@ export function ChassisPanel({ design, summary, update }: Props) {
               Environmental sealing
             </label>
           )}
+          <label className="check" title="Illegal Design quirk: a published unit that breaks the construction rules. Errors are reported as warnings.">
+            <input type="checkbox" checked={!!design.illegalDesign}
+              onChange={(e) => update((d) => { const { illegalDesign: _q, ...rest } = d; return e.target.checked ? { ...rest, illegalDesign: true } : rest; })} />
+            Illegal Design quirk
+          </label>
         </div>
 
         <label>Structure</label>

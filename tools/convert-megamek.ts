@@ -20,15 +20,15 @@ import { ERAS } from '../src/rules/eras';
 import type { Equipment } from '../src/rules/equipment';
 import { ALL_EQUIPMENT, HEAT_SINK_IDS, getEquipment, heatSinkUnits, itemSlots } from '../src/rules/equipment';
 import { EXTRA_EQUIPMENT_MM_NAMES, EXTRA_WEAPON_MM_NAMES } from '../src/rules/extraWeapons';
-import { canSplit } from '../src/rules/edit';
+import { autoAllocate, canSplit } from '../src/rules/edit';
 import { engineRatingFor } from '../src/rules/types';
-import { SPLIT_ADJACENT } from '../src/rules/types';
+import { SPLIT_ADJACENT, isPatchwork, isSuperheavy, techOf } from '../src/rules/types';
 import { computeMech, fixedSlots } from '../src/rules/construction';
 import { validate } from '../src/rules/validation';
 import { fighterBV, mechBV, mechCost, supportBV, vehicleBV, vehicleCost, vesselBV } from '../src/rules/battleValue';
 import type { MotiveType, VehicleArmorType, VehicleDesign, VehicleEngineType, VehicleItem, VehicleLocation } from '../src/rules/vehicle';
 import { computeVehicle, emptyVehicleArmor, hasSixFacings, motiveMaxTonnage, validateVehicle, vehicleFreeHeatSinks } from '../src/rules/vehicle';
-import { armorPointsPerTon } from '../src/rules/tables';
+import { ARMOR_OPTIONS, armorPointsPerTon, armorSlots } from '../src/rules/tables';
 import { encodeBattleArmor, encodeProtoMech, encodeStationary, encodeInfantry, encodeFighter, encodeMech, encodeSupport, encodeVehicle, encodeVessel } from '../src/data/canonFormat';
 import type { BAItem, BattleArmorDesign } from '../src/rules/battlearmor';
 import type { ProtoItem, ProtoLocation, ProtoMechDesign } from '../src/rules/protomech';
@@ -282,6 +282,16 @@ function fixAmmoTech(items: { equipmentId: string }[]) {
 // ---------------------------------------------------------------------------
 // Eras
 // ---------------------------------------------------------------------------
+
+/**
+ * MegaMek files sometimes leave the mixed-tech flag off a unit that carries the other tech base's equipment
+ * (or armor); MegaMek does not check tech bases, so such a unit loads as mixed tech here.
+ */
+function usesOtherTech(techBase: TechBase, ids: string[], parts: (TechBase | 'Both')[] = []): boolean {
+  const other = (tb: TechBase | 'Both' | undefined) => !!tb && tb !== 'Both' && tb !== techBase;
+  // Ammunition follows its launcher (fixAmmoTech), so only weapons and equipment count.
+  return parts.some(other) || ids.some((id) => { const eq = getEquipment(id); return eq?.category !== 'Ammo' && other(eq?.techBase); });
+}
 
 function eraForYear(year: number): EraId {
   let id: EraId = ERAS[0].id;
@@ -577,7 +587,7 @@ function parseMtf(text: string): ParsedMech {
   const externalHS = equipment.reduce((a, e) => a + heatSinkUnits(e.equipmentId) + (e.equipmentId === 'prototype-double-heat-sink' ? 1 : 0), 0);
   const jets = equipment.filter((e) => /jump-jet$/.test(e.equipmentId));
   const design: MechDesign = {
-    schemaVersion: 1, era: '3025', techBase, mixedTech,
+    schemaVersion: 1, era: '3025', techBase, mixedTech: mixedTech || usesOtherTech(techBase, equipment.map((e) => e.equipmentId)),
     ...(Object.keys(componentTech).length ? { componentTech } : {}),
     ...(laserHeatSinks ? { laserHeatSinks: true } : {}),
     ...(compactHeatSinks ? { compactHeatSinks: true } : {}),
@@ -585,6 +595,7 @@ function parseMtf(text: string): ParsedMech {
     ...(jumpBoosterMP ? { jumpBoosterMP } : {}),
     structureType, engineType, gyroType, cockpitType, heatSinkType,
     ...(equipment.some((e) => e.equipmentId === 'environmental-sealing') ? { environmentalSealing: true } : {}),
+    ...(/^quirk:illegal_design\s*$/m.test(text) ? { illegalDesign: true } : {}),
     jumpJetType: jets.some((e) => e.equipmentId === 'improved-jump-jet') ? 'improved' : jets.some((e) => e.equipmentId === 'prototype-jump-jet') ? 'prototype'
       : jets.some((e) => e.equipmentId === 'prototype-improved-jump-jet') ? 'prototype-improved' : 'standard',
     armorType, ...(Object.keys(patchwork).length ? { patchwork } : {}), myomer, ...(franken ? { franken } : {}),
@@ -596,6 +607,13 @@ function parseMtf(text: string): ParsedMech {
     actuators: quad ? { LA: { lowerArm: true, hand: true }, RA: { lowerArm: true, hand: true } } : { LA: arm('LA'), RA: arm('RA') },
     equipment,
   };
+  // Some files leave the armor's critical slots out (MegaMek does not require them to be placed);
+  // place them in free slots as MechForger's editor would.
+  const armorNeed = isPatchwork(design) ? 0 : armorSlots(design.armorType, techOf(design, 'armor'), isSuperheavy(design));
+  if (armorNeed && !equipment.some((e) => e.equipmentId === 'ferro-fibrous')) {
+    for (let k = 0; k < armorNeed; k++) equipment.push({ uid: `c${uid++}`, equipmentId: 'ferro-fibrous', location: null });
+    design.equipment = autoAllocate(design).equipment;
+  }
   // Map armored system crits onto MechForger's fixed slots, matching the n-th engine / gyro / … slot.
   for (const [l, kind, occ] of armoredSys) {
     const fixed = fixedSlots(design, l);
@@ -662,7 +680,9 @@ function parseBlk(text: string): { design: VehicleDesign; year: number; rulesLev
   let troops = false;
   for (const t of tags.get('transporters') ?? []) {
     const m = /^(troopspace|cargobay|liquidcargobay|insulatedcargobay|refrigeratedcargobay):([\d.]+)/i.exec(t);
-    if (m) { cargo += Number(m[2]); if (/^troopspace$/i.test(m[1])) { if (!troops) bays++; troops = true; } else bays++; }
+    // Specialized bays list their capacity; they weigh capacity ÷ 0.91 (liquid) or ÷ 0.87 (insulated, refrigerated).
+    const factor = !m ? 1 : /^liquid/i.test(m[1]) ? 0.91 : /^(insulated|refrigerated)/i.test(m[1]) ? 0.87 : 1;
+    if (m) { cargo = Math.round((cargo + Number(m[2]) / factor) * 1000) / 1000; if (/^troopspace$/i.test(m[1])) { if (!troops) bays++; troops = true; } else bays++; }
     else if (!/^(BattleArmorHandles|standardseats|pillionseats)/i.test(t)) fail(`transporter ${t.split(':')[0]}`);
   }
   const armorVals = (tags.get('armor') ?? []).map(Number);
@@ -736,7 +756,8 @@ function parseBlk(text: string): { design: VehicleDesign; year: number; rulesLev
   if (!sponsons && omni && tags.has('baseChassisSponsonPintleWeight') && equipment.some((e) => e.sponson)) sponsons = true;
   if (!sponsons) for (const e of equipment) delete e.sponson;
   const design: VehicleDesign = {
-    schemaVersion: 1, unitType: 'vehicle', era: '3025', techBase, mixedTech,
+    schemaVersion: 1, unitType: 'vehicle', era: '3025', techBase,
+    mixedTech: mixedTech || usesOtherTech(techBase, equipment.map((e) => e.equipmentId), [ARMOR_OPTIONS[armorType as keyof typeof ARMOR_OPTIONS]?.techBase]),
     chassis: one('Name'), model: one('Model'), motive, tonnage, cruiseMP: Number(one('cruiseMP')),
     engineType, structureType: 'standard', armorType, turret, heatSinks: 0, armor, equipment,
     ...(armorTech !== techBase ? { armorTech } : {}),
@@ -823,7 +844,7 @@ function parseFighterBlk(text: string): { design: FighterDesign; year: number; m
   fixAmmoTech(equipment);
   const ppt = fighterType === 'conventional' ? 160 : 80;
   const design: FighterDesign = {
-    schemaVersion: 1, unitType: 'fighter', fighterType, era: '3025', techBase, mixedTech, omni: one('omni') === '1', ...(cargo ? { cargo } : {}),
+    schemaVersion: 1, unitType: 'fighter', fighterType, era: '3025', techBase, mixedTech: mixedTech || usesOtherTech(techBase, equipment.map((e) => e.equipmentId)), omni: one('omni') === '1', ...(cargo ? { cargo } : {}),
     chassis: one('Name'), model: one('Model'), tonnage, safeThrust: Number(one('SafeThrust')), engineType, cockpitType,
     heatSinkType: one('sink_type') === '1' ? 'double' : 'single', heatSinks: Number(one('heatsinks')) || 0,
     fuelTons: Math.round((2 * Number(one('fuel'))) / ppt) / 2, armorType, armor, vstol: one('vstol') === '1', equipment,
@@ -1011,7 +1032,7 @@ function parseStationaryBlk(text: string, kind: 'emplacement' | 'handheld'): { d
   }
   fixAmmoTech(equipment);
   const design: StationaryDesign = {
-    schemaVersion: 1, unitType: 'stationary', kind, era: '3025', techBase, mixedTech,
+    schemaVersion: 1, unitType: 'stationary', kind, era: '3025', techBase, mixedTech: mixedTech || usesOtherTech(techBase, equipment.map((e) => e.equipmentId)),
     chassis: one('Name'), model: one('Model'), turret: kind === 'emplacement' && one('turret') === '1',
     tonnage: kind === 'handheld' ? Number(one('tonnage')) || 1 : 0, armor: kind === 'handheld' ? Number(one('armor')) || 0 : 0, equipment,
   };

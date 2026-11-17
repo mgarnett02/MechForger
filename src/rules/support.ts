@@ -481,7 +481,7 @@ const SV_ITEM_SLOTS: Record<string, number> = {
   'light-bridge-layer': 1, 'medium-bridge-layer': 1, 'heavy-bridge-layer': 1,
 };
 /** Sized items whose pieces take one slot per location (MegaMek mounts them as one item). */
-const SV_GROUPED = /^(cargo-(1|half)|liquid-storage-(1|half)|communications-equipment|ladder-20m)$/;
+const SV_GROUPED = /^(cargo-(1|half)|liquid-storage-(1|half)|communications-equipment|ladder-20m|vehicle-jump-jet)$/;
 
 /** Item slots one piece of equipment takes on a support vehicle (as MegaMek). */
 export function svEquipmentSlots(eq: Equipment, d: SupportVehicleDesign): number {
@@ -627,6 +627,9 @@ export function svItemWeight(eq: Equipment, d: SupportVehicleDesign): number {
     const small = sizeClass(d) === 'small';
     return roundUp(roundNearest(svRawEngineWeight(d), small) / 10, small);
   }
+  // Vehicle jump jets weigh as 'Mech jump jets; the armored motive system is a share of the tonnage (as MegaMek).
+  if (eq.variableWeight === 'vehicleJumpJet') return d.tonnage <= 55 ? 0.5 : d.tonnage <= 85 ? 1 : 2;
+  if (eq.vehicleChassisMod) return roundUp(d.tonnage * (eq.techBase === 'Clan' && eq.vehicleChassisMod.clan ? eq.vehicleChassisMod.clan : eq.vehicleChassisMod.share), sizeClass(d) === 'small');
   if (eq.variableWeight === 'targetingComputer') {
     let tons = 0;
     for (const m of d.equipment) {
@@ -639,7 +642,7 @@ export function svItemWeight(eq: Equipment, d: SupportVehicleDesign): number {
 }
 
 export function isSupportEquipment(eq: Equipment): boolean {
-  return !eq.managed && eq.variableWeight !== 'masc' && !eq.lamOnly && eq.variableWeight !== 'mechTurret' && ((!eq.vehicleOnly && !eq.vesselOnly) || !!eq.supportOk) && !eq.melee && !eq.capitalClass && !eq.vehicleChassisMod;
+  return !eq.managed && eq.variableWeight !== 'masc' && !eq.lamOnly && eq.variableWeight !== 'mechTurret' && ((!eq.vehicleOnly && !eq.vesselOnly) || !!eq.supportOk) && !eq.melee && !eq.capitalClass && (!eq.vehicleChassisMod || /armored-motive-system$/.test(eq.id));
 }
 
 // ---------------------------------------------------------------------------
@@ -688,7 +691,8 @@ export function validateSupport(d: SupportVehicleDesign, s: SupportSummary = com
   for (const b of d.transport.bays ?? []) {
     const info = SV_BAY_INFO[b.kind];
     if (!(b.size > 0)) error(`${info.name} needs a capacity.`);
-    if (b.kind !== 'livestock-cargo' && !Number.isInteger(b.size)) error(`${info.name}: capacity must be a whole number of ${info.unit}.`);
+    // Battle armor bays may hold part squads (the Trireme's 4.5, as MegaMek).
+    if (b.kind !== 'livestock-cargo' && b.kind !== 'battle-armor' && !Number.isInteger(b.size)) error(`${info.name}: capacity must be a whole number of ${info.unit}.`);
     if (b.doors < 1 && b.kind !== 'livestock-cargo') warn(`${info.name} has no doors, so units cannot load or unload.`);
   }
   if (s.weights.free < -1e-9) error(`Overweight by ${fmt(-s.weights.free)} tons.`);

@@ -240,6 +240,11 @@ export interface MechDesign {
   quadVeeMotive?: QuadVeeMotive;
   /** Land-Air 'Mech type (bipeds only); absent or null for an ordinary 'Mech. */
   lam?: LamType | null;
+  /**
+   * "Illegal Design" negative quirk: a published unit that deliberately breaks construction rules (e.g. Caveat
+   * Emptor and RISC designs). Its construction errors are reported as warnings, as MegaMek accepts such units.
+   */
+  illegalDesign?: boolean;
   /** IndustrialMechs: environmental sealing (one slot per location, a tenth of the tonnage). */
   environmentalSealing?: boolean;
   /** Clan laser heat sinks in place of double heat sinks (same weight, slots and dissipation). */

@@ -35,6 +35,8 @@ export interface Issue {
 
 const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
 
+const DOUBLE_HS = new Set(['double-heat-sink', 'clan-double-heat-sink']);
+
 export function validate(design: MechDesign, summary: MechSummary = computeMech(design)): Issue[] {
   const issues = validateConfiguration(design, summary);
   // OmniMechs: every configuration must be legal, not just the one on screen.
@@ -50,7 +52,15 @@ export function validate(design: MechDesign, summary: MechSummary = computeMech(
       }
     }
   }
+  if (design.illegalDesign) return illegalDesignIssues(issues);
   return issues;
+}
+
+/** Units with the Illegal Design quirk keep their rule breaches, as warnings. */
+export function illegalDesignIssues(issues: Issue[]): Issue[] {
+  const out = issues.map((i): Issue => (i.severity === 'error' ? { ...i, severity: 'warning' } : i));
+  if (issues.some((i) => i.severity === 'error')) out.unshift({ severity: 'info', message: 'Illegal Design quirk: this unit breaks the construction rules as published.' });
+  return out;
 }
 
 function validateConfiguration(design: MechDesign, summary: MechSummary = computeMech(design)): Issue[] {
@@ -159,7 +169,9 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
   }
   const hsId = heatSinkIdFor(design);
   const wrongHS = design.equipment.filter((e) => HEAT_SINK_IDS.includes(e.equipmentId) && e.equipmentId !== hsId
-    && !(hsId === 'compact-heat-sink' && e.equipmentId === 'compact-heat-sink-pair'));
+    && !(hsId === 'compact-heat-sink' && e.equipmentId === 'compact-heat-sink-pair')
+    // Mixed tech: Inner Sphere and Clan double heat sinks work together (as MegaMek).
+    && !(design.mixedTech && DOUBLE_HS.has(hsId) && DOUBLE_HS.has(e.equipmentId)));
   if (design.compactHeatSinks && (design.heatSinkType !== 'single' || techOf(design, 'heatSinks') === 'Clan')) {
     error('Compact heat sinks are Inner Sphere single-type heat sinks.');
   }
@@ -325,7 +337,8 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
       const have = fixedSlots(design, loc).filter((x) => x === ARMOR_NAMES[type]).length;
       if (have < need) error(`${locationName(design, loc)}: no room for ${need} ${ARMOR_NAMES[type]} armor slots.`);
     }
-    for (const t of ['commercial', 'industrial', 'heavy-industrial', 'primitive'] as const) {
+    // Industrial and heavy industrial armor may be patchwork (the Spindrift Aquatic SecurityMech, as MegaMek).
+    for (const t of ['commercial', 'primitive'] as const) {
       if (armorTypesUsed(design).includes(t)) error(`${ARMOR_NAMES[t]} armor cannot be used as patchwork armor.`);
     }
   }
