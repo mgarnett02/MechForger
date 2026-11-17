@@ -16,6 +16,8 @@ import {
 import { NumberField } from './NumberField';
 import { ValueCard } from './ValueCard';
 import { supportBV, supportCost } from '../rules/battleValue';
+import type { VehicleArmorType } from '../rules/vehicle';
+import { ARMOR_NAMES, ARMOR_OPTIONS, armorPointsPerTon, componentAvailable } from '../rules/tables';
 import { SV_INFANTRY_WEAPONS, svClipExtras } from '../rules/svWeapons';
 
 interface Props {
@@ -180,6 +182,19 @@ function SupportArmorPanel({ design, summary, update }: Props) {
     <section className="panel">
       <h2>
         Armor{' '}
+        <select aria-label="Support armor type" value={design.armorType ?? 'bar'} title="BAR armor, or (Advanced rules) a combat-vehicle armor rated BAR 10"
+          onChange={(e) => update((d) => {
+            const v = e.target.value;
+            const next = { ...d, ...(v === 'bar' ? {} : { armorType: v as VehicleArmorType, bar: 10 }) };
+            if (v === 'bar') delete next.armorType;
+            return next;
+          })}>
+          <option value="bar">BAR armor</option>
+          {(['standard', 'ferro-fibrous', 'light-ferro', 'heavy-ferro', 'reactive', 'reflective', 'hardened', 'ferro-lamellor', 'stealth', 'ballistic-reinforced'] as VehicleArmorType[]).map((k) => (
+            <option key={k} value={k} disabled={!componentAvailable(ARMOR_OPTIONS[k], design.era, design.techBase, design.mixedTech)}>{ARMOR_NAMES[k]}</option>
+          ))}
+        </select>{' '}
+        {!design.armorType && <>
         <select aria-label="BAR rating" value={design.bar} onChange={(e) => update((d) => ({ ...d, bar: Number(e.target.value) }))}>
           {[2, 3, 4, 5, 6, 7, 8, 9, 10].map((b) => (
             <option key={b} value={b} disabled={barWeightPerPoint(b, design.armorTech) === 0}>BAR {b}</option>
@@ -187,6 +202,8 @@ function SupportArmorPanel({ design, summary, update }: Props) {
         </select>{' '}
         <TechSelect label="Armor tech rating" value={design.armorTech} onChange={(v) => update((d) => ({ ...d, armorTech: v }))} />
         <span className="muted small"> {wpp ? `${Math.round(wpp * 1000)} kg/point` : 'not available'}</span>
+        </>}
+        {design.armorType && <span className="muted small"> {Math.round(armorPointsPerTon(design.armorType, design.techBase) * 100) / 100} points/ton · BAR 10</span>}
       </h2>
       <table className="armor-table">
         <thead><tr><th>Location</th><th>Armor</th><th /></tr></thead>

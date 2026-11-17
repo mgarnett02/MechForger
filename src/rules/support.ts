@@ -1,3 +1,5 @@
+import type { VehicleArmorType } from './vehicle';
+import { ARMOR_NAMES, ARMOR_OPTIONS, armorPointsPerTon, componentAvailable } from './tables';
 /**
  * Support vehicle construction (TechManual): wheeled, tracked, hover, VTOL,
  * naval, rail, airship and fixed-wing support vehicles.
@@ -120,6 +122,8 @@ export interface SupportVehicleDesign {
   engineType: SVEngine;
   /** Barrier Armor Rating, 2–10. */
   bar: number;
+  /** Non-BAR armor (Advanced rules): a combat-vehicle armor type, rated BAR 10 and weighed by its points per ton. */
+  armorType?: VehicleArmorType;
   chassisMods: string[];
   /** Fuel in tons. */
   fuel: number;
@@ -411,7 +415,9 @@ export function computeSupport(d: SupportVehicleDesign): SupportSummary {
     // Engine weight rounds to the nearest half ton (kilogram for small vehicles), TM p.133, as MegaMek.
     engine: roundNearest(engine, small),
     fuel: roundUp(d.fuel, small),
-    armor: roundUp(armorTotal * barWeightPerPoint(d.bar, d.armorTech), small),
+    armor: d.armorType
+      ? roundUp(armorTotal / armorPointsPerTon(d.armorType, d.techBase), small)
+      : roundUp(armorTotal * barWeightPerPoint(d.bar, d.armorTech), small),
     turret: d.turret ? roundUp(turretItems * 0.1, small) : 0,
     fireControl: d.fireControl === 'none' ? 0 : roundUp(weapons / (d.fireControl === 'basic' ? 20 : 10), small),
     powerAmplifiers: small || fusionLike ? 0 : roundUp(energyAmp / 10, small),
@@ -556,7 +562,9 @@ export function validateSupport(d: SupportVehicleDesign, s: SupportSummary = com
   if (needsFuel(d) && d.fuel <= 0) error('This engine needs some weight allocated to fuel.');
   if (!needsFuel(d) && d.fuel > 0) warn('This engine does not use fuel.');
 
-  if (!Number.isInteger(d.bar) || d.bar < 2 || d.bar > 10) error('BAR must be between 2 and 10.');
+  if (d.armorType) {
+    if (!componentAvailable(ARMOR_OPTIONS[d.armorType], d.era, d.techBase, d.mixedTech)) error(`${ARMOR_NAMES[d.armorType]} armor is not available in this era or tech base.`);
+  } else if (!Number.isInteger(d.bar) || d.bar < 2 || d.bar > 10) error('BAR must be between 2 and 10.');
   else if (barWeightPerPoint(d.bar, d.armorTech) === 0 && s.armorTotal > 0) {
     error(`BAR ${d.bar} armor is not available at armor tech rating ${d.armorTech}.`);
   }
@@ -705,6 +713,8 @@ export function parseSupport(raw: unknown): SupportVehicleDesign {
       uid: newSupportUid(),
       equipmentId: String(e.equipmentId),
       location: (SV_LOCATIONS as readonly string[]).includes(e.location as string) ? (e.location as SVLocation) : null,
+      ...(typeof e.clips === 'number' && e.clips > 1 ? { clips: Math.round(e.clips) } : {}),
+      ...(e.pintle === true ? { pintle: true } : {}),
     }))
     : [];
   return {
@@ -720,6 +730,8 @@ export function parseSupport(raw: unknown): SupportVehicleDesign {
     structureTech: tr(r.structureTech), engineTech: tr(r.engineTech), armorTech: tr(r.armorTech),
     engineType: pick(r.engineType, Object.keys(ENGINE_TECH) as SVEngine[], 'ice'),
     bar: num(r.bar, 5),
+    ...(typeof r.armorType === 'string' && r.armorType in ARMOR_OPTIONS ? { armorType: r.armorType as VehicleArmorType } : {}),
+    ...(typeof r.pintleWeight === 'number' ? { pintleWeight: r.pintleWeight } : {}),
     chassisMods: Array.isArray(r.chassisMods) ? r.chassisMods.filter((x): x is string => typeof x === 'string') : [],
     fuel: num(r.fuel, 0),
     turret: r.turret === true,

@@ -1013,7 +1013,8 @@ export function supportBV(d: SupportVehicleDesign): BVBreakdown {
   const s = computeSupport(d);
   const aero = SV_TYPES[d.svType].aero;
   const lines: [string, number][] = [];
-  const bar = d.bar / 10;
+  // Non-BAR armor rates BAR 10, at its armor type's multiplier (reflective ×1.5, …).
+  const bar = d.armorType ? ARMOR_BV_MULTIPLIER[d.armorType as MechDesign['armorType']] ?? 1 : d.bar / 10;
   const armor = s.armorTotal * 2.5 * bar;
   const defEquip = defensiveEquipmentBV(d.equipment);
   const fc = SV_FIRE_CONTROL_BV[d.fireControl];
@@ -1104,7 +1105,8 @@ export function supportCost(d: SupportVehicleDesign): CostBreakdown {
   let chassis = d.svType === 'rail' && d.engineType === 'none' ? 0 : 2500 * svStructureForCost(d);
   for (const m of d.chassisMods) chassis *= SV_CHASSIS_COST[m] ?? 1;
   const engine = d.engineType === 'none' ? 0 : 5000 * w.engine * (SV_ENGINE_COST[d.engineType] ?? 1);
-  const armor = s.armorTotal * (BAR_COST[d.bar] ?? 0);
+  // Non-BAR armor: its weight × the armor's price per ton (MegaMek).
+  const armor = d.armorType ? w.armor * ARMOR_COST[d.armorType] : s.armorTotal * (BAR_COST[d.bar] ?? 0);
   const techMultiplier = 0.5 + TECH_INDEX[d.structureTech] * 0.25;
   const structural = (chassis + engine + armor) * techMultiplier;
   // Heat sinks: the heat of energy weapons that need them (fixed-wing: lasers and PPCs); SV engines give none free.

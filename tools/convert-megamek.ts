@@ -1241,8 +1241,10 @@ function parseSupportBlk(text: string): { design: SupportVehicleDesign; year: nu
   const tonnage = Number(one('tonnage'));
   const engineType = SV_ENGINES[one('engine_type')] ?? fail(`engine ${one('engine_type')}`);
   const armorCode = Number(one('armor_type'));
-  if (!(armorCode >= 43 && armorCode <= 51) && tags.has('armor')) fail(`non-BAR armor ${armorCode}`);
-  const bar = Number(one('barrating')) || (armorCode - 41);
+  // Non-BAR armor (standard, ferro-fibrous, …) counts as BAR 10 and weighs as on combat vehicles.
+  const nonBar = !(armorCode >= 43 && armorCode <= 51) && tags.has('armor');
+  const svArmorType = nonBar ? (BLK_ARMOR[String(armorCode)] ?? fail(`non-BAR armor ${armorCode}`)) : undefined;
+  const bar = nonBar ? 10 : Number(one('barrating')) || (armorCode - 41);
   const rating = (k: string): TechRating => TECH_RATINGS[Number(one(k))] ?? fail(`tech rating ${k}`);
   const aero = svType === 'fixed-wing' || svType === 'airship';
   const large = unitType === 'LargeSupportTank';
@@ -1376,7 +1378,7 @@ function parseSupportBlk(text: string): { design: SupportVehicleDesign; year: nu
     chassis: one('Name'), model: one('Model'), svType, tonnage,
     cruiseMP: Number(aero ? one('SafeThrust') : one('cruiseMP')) || 0,
     structureTech: rating('structural_tech_rating'), engineTech: rating('engine_tech_rating'), armorTech: rating('armor_tech_rating'),
-    engineType, bar, chassisMods: [...chassisMods], fuel: 0, turret, fireControl, armor, transport, equipment,
+    engineType, bar, ...(svArmorType ? { armorType: svArmorType } : {}), chassisMods: [...chassisMods], fuel: 0, turret, fireControl, armor, transport, equipment,
     ...(tags.has('baseChassisSponsonPintleWeight') && equipment.some((e) => e.equipmentId === 'pintle-turret') ? { pintleWeight: Number(one('baseChassisSponsonPintleWeight')) } : {}),
   };
   const fuel = Number(one('fuel')) || 0;
