@@ -22,8 +22,9 @@ import { ALL_EQUIPMENT, HEAT_SINK_IDS, getEquipment, heatSinkUnits, isArtemisVCa
 import { EXTRA_EQUIPMENT_MM_NAMES, EXTRA_WEAPON_MM_NAMES } from '../src/rules/extraWeapons';
 import { autoAllocate, canSplit } from '../src/rules/edit';
 import { engineRatingFor } from '../src/rules/types';
-import { SPLIT_ADJACENT, isPatchwork, isSuperheavy, techOf } from '../src/rules/types';
+import { SPLIT_ADJACENT, isPatchwork, isQuad, isSuperheavy, techOf } from '../src/rules/types';
 import { computeMech, fixedSlots } from '../src/rules/construction';
+import { HAND_ACTUATOR_ID, LOWER_ARM_ACTUATOR_ID, actuatorsOf, migrateLegacyActuators } from '../src/rules/actuators';
 import { validate } from '../src/rules/validation';
 import { fighterBV, mechBV, mechCost, supportBV, vehicleBV, vehicleCost, vesselBV } from '../src/rules/battleValue';
 import type { MotiveType, VehicleArmorType, VehicleDesign, VehicleEngineType, VehicleItem, VehicleLocation } from '../src/rules/vehicle';
@@ -607,7 +608,8 @@ function parseMtf(text: string): ParsedMech {
   fixAmmoTech(equipment);
   const externalHS = equipment.reduce((a, e) => a + heatSinkUnits(e.equipmentId) + (e.equipmentId === 'prototype-double-heat-sink' ? 1 : 0), 0);
   const jets = equipment.filter((e) => /jump-jet$/.test(e.equipmentId));
-  const design: MechDesign = {
+  // Lower arm and hand actuators become actuator items in the arms.
+  const design: MechDesign = migrateLegacyActuators({
     schemaVersion: 1, era: '3025', techBase, mixedTech: mixedTech || usesOtherTech(techBase, equipment.map((e) => e.equipmentId)),
     ...(Object.keys(componentTech).length ? { componentTech } : {}),
     ...(laserHeatSinks ? { laserHeatSinks: true } : {}),
@@ -628,16 +630,24 @@ function parseMtf(text: string): ParsedMech {
     engineHeatSinks: hsTotal - externalHS, armor,
     actuators: quad ? { LA: { lowerArm: true, hand: true }, RA: { lowerArm: true, hand: true } } : { LA: arm('LA'), RA: arm('RA') },
     equipment,
-  };
+  });
   // Some files leave the armor's critical slots out (MegaMek does not require them to be placed);
   // place them in free slots as MechForger's editor would.
   const armorNeed = isPatchwork(design) ? 0 : armorSlots(design.armorType, techOf(design, 'armor'), isSuperheavy(design));
   if (armorNeed && !equipment.some((e) => e.equipmentId === 'ferro-fibrous')) {
-    for (let k = 0; k < armorNeed; k++) equipment.push({ uid: `c${uid++}`, equipmentId: 'ferro-fibrous', location: null });
+    for (let k = 0; k < armorNeed; k++) design.equipment.push({ uid: `c${uid++}`, equipmentId: 'ferro-fibrous', location: null });
     design.equipment = autoAllocate(design).equipment;
   }
   // Map armored system crits onto MechForger's fixed slots, matching the n-th engine / gyro / … slot.
   for (const [l, kind, occ] of armoredSys) {
+    // Armored lower arm / hand actuators are armored actuator items.
+    const actuatorId = kind === 'lowerarmactuator' ? LOWER_ARM_ACTUATOR_ID : kind === 'handactuator' ? HAND_ACTUATOR_ID : null;
+    if (actuatorId && !isQuad(design)) {
+      const item = design.equipment.find((e) => e.equipmentId === actuatorId && e.location === l);
+      if (!item) fail(`armored ${kind} slot`);
+      item!.armored = true;
+      continue;
+    }
     const fixed = fixedSlots(design, l);
     let n = 0;
     const idx = fixed.findIndex((f) => f !== null && systemKind(f) === kind && n++ === occ);
@@ -1592,7 +1602,7 @@ function main() {
       omni: {
         active: 0,
         configurations: group.map((p, i) => ({
-          name: p.design.model, pod: i === 0 ? [] : podsOf(p), actuators: p.design.actuators,
+          name: p.design.model, pod: i === 0 ? [] : podsOf(p), actuators: actuatorsOf(p.design),
           ...(i > 0 && p.design.mixedTech !== base.design.mixedTech ? { mixedTech: p.design.mixedTech } : {}),
           ...(i > 0 && p.design.jumpJetType !== base.design.jumpJetType ? { jumpJetType: p.design.jumpJetType } : {}),
           // Later configurations (from later sourcebooks) keep their own era.

@@ -141,8 +141,6 @@ label.check { display: inline-flex; align-items: center; gap: 0.3rem; margin-rig
   align-items: center;
 }
 .form-grid > label { color: var(--muted); }
-.actuators { display: flex; gap: 1.5rem; flex-wrap: wrap; }
-.actuators strong { display: block; margin-bottom: 0.2rem; font-weight: 600; }
 
 table { border-collapse: collapse; width: 100%; }
 th { text-align: left; font-weight: 600; color: var(--muted); font-size: 0.82rem; }
@@ -719,6 +717,7 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 .form-grid select.fit { width: 14rem; max-width: 100%; }
 .fit-row { display: inline-flex; gap: 0.35rem; width: 14rem; max-width: 100%; vertical-align: middle; }
 .fit-row > select { flex: 1; min-width: 0; }
+.nowrap { white-space: nowrap; }
 
 /* FrankenMek donors: a full-width block under Structure, sized to fit the panel. */
 .franken-donors { grid-column: 1 / -1; border: 1px solid var(--border); border-radius: 8px; padding: 0.5rem 0.6rem; }

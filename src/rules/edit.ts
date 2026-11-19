@@ -1,6 +1,6 @@
 import { frankenStructureSlots } from './franken';
 import type {
-  ArmLocation, ArmorAllocation, ArmorFacing, ArmorType, CockpitType, EngineType, GyroType, HeatSinkType, JumpJetType, Location,
+  ArmActuators, ArmLocation, ArmorAllocation, ArmorFacing, ArmorType, CockpitType, EngineType, GyroType, HeatSinkType, JumpJetType, Location,
   LamType, MechConfig, MechDesign, MountedItem, MyomerType, OmniData, StructureType, TechBase, TechComponent,
 } from './types';
 import { ARMOR_FACINGS, LOCATIONS, REAR_FACING, SPLIT_ADJACENT, TECH_COMPONENTS, engineRatingFor, isPatchwork, isQuad, isQuadVee, isSuperheavy, isTripod, legLocations, techOf, mechLocations } from './types';
@@ -14,6 +14,7 @@ import {
   canRearMount, getEquipment, heatSinkIdFor, mechTurretLocation, itemSlots, jumpJetIdFor, spreadLocations,
 } from './equipment';
 import { isFixedOnly } from './omni';
+import { FULL_ARM_ACTUATORS, HAND_ACTUATOR_ID, LOWER_ARM_ACTUATOR_ID, actuatorItems, armActuators, isActuatorId, migrateLegacyActuators, withActuators } from './actuators';
 import { computeMech } from './construction';
 import type { EraId } from './eras';
 import { DEFAULT_ERA, getEra } from './eras';
@@ -50,8 +51,8 @@ export function newDesign(era: EraId = DEFAULT_ERA, techBase: TechBase = 'IS'): 
     walkMP: 4,
     engineHeatSinks: 8,
     armor: emptyArmor(),
-    actuators: { LA: { lowerArm: true, hand: true }, RA: { lowerArm: true, hand: true } },
     equipment: [
+      ...actuatorItems(FULL_ARM_ACTUATORS),
       { uid: newUid(), equipmentId: 'heat-sink', location: 'LT' },
       { uid: newUid(), equipmentId: 'heat-sink', location: 'RT' },
     ],
@@ -179,6 +180,8 @@ export function setConfig(d: MechDesign, config: MechConfig): MechDesign {
   next = { ...next, equipment: next.equipment.filter((e) => !legSets.includes(e.equipmentId)) };
   for (const id of legSets) if (id !== 'quadvee-wheels' || config === 'quadvee') next = addEquipment(next, id);
   if (config === 'quadvee' && !legSets.includes('tracks') && !legSets.includes('quadvee-wheels')) next = addEquipment(next, 'tracks');
+  // Quads have no arm actuators; a 'Mech that gets its arms back starts with full ones.
+  if (quad || isQuad(d)) next = withActuators(next, FULL_ARM_ACTUATORS);
   const limbs: Location[] = ['LA', 'RA', 'LL', 'RL', 'CL'];
   const allowed = (item: MountedItem) => {
     const eq = getEquipment(item.equipmentId);
@@ -207,14 +210,42 @@ export function setFullHeadEjection(d: MechDesign, on: boolean): MechDesign {
   return { ...d, fullHeadEjection: on || undefined };
 }
 
+/** Fit or take out an arm's lower arm or hand actuator (a hand brings a lower arm; no lower arm, no hand). */
 export function setActuator(
   d: MechDesign, arm: ArmLocation, actuator: 'lowerArm' | 'hand', value: boolean,
 ): MechDesign {
-  const cur = d.actuators[arm];
+  if (isQuad(d)) return d;
+  const cur = armActuators(d, arm);
   let next = { ...cur, [actuator]: value };
   if (actuator === 'lowerArm' && !value) next = { lowerArm: false, hand: false };
   if (actuator === 'hand' && value) next = { lowerArm: true, hand: true };
-  return { ...d, actuators: { ...d.actuators, [arm]: next } };
+  const other: ArmLocation = arm === 'LA' ? 'RA' : 'LA';
+  const acts = { [arm]: next, [other]: armActuators(d, other) } as Record<ArmLocation, ArmActuators>;
+  // Loose (unallocated) actuators are left alone.
+  const loose = d.equipment.filter((e) => isActuatorId(e.equipmentId) && e.location !== 'LA' && e.location !== 'RA');
+  const fitted = withActuators(d, acts);
+  return { ...fitted, equipment: [...fitted.equipment, ...loose] };
+}
+
+/**
+ * Arm actuators may only go in an arm (not on quads), one lower arm and one hand actuator per arm,
+ * and a hand only where there is a lower arm actuator.
+ */
+export function actuatorFits(d: MechDesign, uid: string, loc: Location): boolean {
+  const item = d.equipment.find((e) => e.uid === uid);
+  if (!item || !isActuatorId(item.equipmentId)) return true;
+  if (isQuad(d) || (loc !== 'LA' && loc !== 'RA')) return false;
+  const others = d.equipment.filter((e) => e.uid !== uid && e.location === loc);
+  if (others.some((e) => e.equipmentId === item.equipmentId)) return false;
+  return item.equipmentId !== HAND_ACTUATOR_ID || others.some((e) => e.equipmentId === LOWER_ARM_ACTUATOR_ID);
+}
+
+/** A hand actuator left in an arm without a lower arm actuator comes out too (unallocated). */
+function dropOrphanHands(d: MechDesign): MechDesign {
+  if (isQuad(d)) return d;
+  const orphaned = (e: MountedItem) => e.equipmentId === HAND_ACTUATOR_ID && !!e.location
+    && !d.equipment.some((x) => x.equipmentId === LOWER_ARM_ACTUATOR_ID && x.location === e.location);
+  return d.equipment.some(orphaned) ? { ...d, equipment: d.equipment.map((e) => (orphaned(e) ? { ...e, location: null } : e)) } : d;
 }
 
 export function setArmor(d: MechDesign, facing: ArmorFacing, points: number): MechDesign {
@@ -271,11 +302,11 @@ export function removeEquipment(d: MechDesign, uid: string): MechDesign {
   if (target?.equipmentId === 'talons' || (target && getEquipment(target.equipmentId)?.spread)) {
     return { ...d, equipment: d.equipment.filter((e) => e.equipmentId !== target.equipmentId) };
   }
-  return { ...d, equipment: d.equipment.filter((e) => e.uid !== uid) };
+  return dropOrphanHands({ ...d, equipment: d.equipment.filter((e) => e.uid !== uid) });
 }
 
 export function setItemLocation(d: MechDesign, uid: string, location: Location | null): MechDesign {
-  return {
+  return dropOrphanHands({
     ...d,
     equipment: d.equipment.map((e) => {
       if (e.uid !== uid) return e;
@@ -287,7 +318,7 @@ export function setItemLocation(d: MechDesign, uid: string, location: Location |
       const turret = e.turret && location && hasMechTurret(d, location) ? true : undefined;
       return { ...e, location, rear, split, turret };
     }),
-  };
+  });
 }
 
 function parseComponentTech(raw: unknown): Pick<MechDesign, 'componentTech'> {
@@ -346,7 +377,7 @@ export function canSplit(eq: { isWeapon: boolean; slots: number; category: strin
 export function splitFor(d: MechDesign, uid: string, loc: Location): { location: Location; slots: number } | null | 'fits' {
   const item = d.equipment.find((e) => e.uid === uid);
   const eq = item && getEquipment(item.equipmentId);
-  if (!item || !eq) return null;
+  if (!item || !eq || !actuatorFits(d, uid, loc)) return null;
   const without = computeMech({ ...d, equipment: d.equipment.map((e) => (e.uid === uid ? { ...e, location: null, split: undefined } : e)) }).slots;
   const n = itemSlots(eq, d);
   if (without[loc].free >= n) return 'fits';
@@ -584,6 +615,7 @@ export function setCompactHeatSinks(d: MechDesign, on: boolean): MechDesign {
 const PLACE_ORDER: Location[] = ['LT', 'RT', 'CT', 'LA', 'RA', 'LL', 'RL', 'HD'];
 const FILLER_ORDER: Location[] = ['LA', 'RA', 'LL', 'RL', 'LT', 'RT', 'CT', 'HD'];
 const FILLERS = [ENDO_STEEL_ID, FERRO_FIBROUS_ID, TSM_ID, ENV_SEAL_ID];
+const actuatorRank = (id: string) => (id === LOWER_ARM_ACTUATOR_ID ? 0 : id === HAND_ACTUATOR_ID ? 1 : 2);
 
 /**
  * Place every unallocated item in the first location with room for it.
@@ -595,12 +627,15 @@ export function autoAllocate(d: MechDesign): MechDesign {
   const pending = d.equipment
     .filter((e) => e.location === null && getEquipment(e.equipmentId))
     .map((e) => ({ item: e, eq: getEquipment(e.equipmentId)! }))
-    .sort((a, b) => itemSlots(b.eq, d) - itemSlots(a.eq, d));
+    .sort((a, b) => itemSlots(b.eq, d) - itemSlots(a.eq, d))
+    // Arm actuators first (lower arms before hands), so they get their arm slots.
+    .sort((a, b) => actuatorRank(a.eq.id) - actuatorRank(b.eq.id));
   const placed = new Map<string, Location>();
+  const sofar = (): MechDesign => ({ ...d, equipment: d.equipment.map((e) => (placed.has(e.uid) ? { ...e, location: placed.get(e.uid)! } : e)) });
   for (const { item, eq } of pending) {
     const n = itemSlots(eq, d);
     const order = FILLERS.includes(eq.id) ? FILLER_ORDER : PLACE_ORDER;
-    const loc = order.find((l) => allowedLocations(eq, d).includes(l) && free[l] >= n);
+    const loc = order.find((l) => allowedLocations(eq, d).includes(l) && free[l] >= n && (!isActuatorId(eq.id) || actuatorFits(sofar(), item.uid, l)));
     if (loc) {
       free[loc] -= n;
       placed.set(item.uid, loc);
@@ -624,7 +659,6 @@ export function parseDesign(raw: unknown): MechDesign {
   const armorIn = (r.armor ?? {}) as Record<string, unknown>;
   const armor = emptyArmor();
   for (const f of ARMOR_FACINGS) armor[f] = typeof armorIn[f] === 'number' ? (armorIn[f] as number) : 0;
-  const act = (r.actuators ?? {}) as Record<string, { lowerArm?: unknown; hand?: unknown }>;
   const arm = (a?: { lowerArm?: unknown; hand?: unknown }) => ({
     lowerArm: a?.lowerArm !== false,
     hand: a?.hand !== false,
@@ -667,7 +701,7 @@ export function parseDesign(raw: unknown): MechDesign {
   }
   const pick = <T extends string>(v: unknown, options: readonly T[], fallback: T): T =>
     options.includes(v as T) ? (v as T) : fallback;
-  return {
+  const design: MechDesign = {
     schemaVersion: 1,
     era: getEra(String(r.era))?.id ?? DEFAULT_ERA,
     techBase: pick(r.techBase, ['IS', 'Clan'] as const, 'IS'),
@@ -702,7 +736,12 @@ export function parseDesign(raw: unknown): MechDesign {
     walkMP: num(r.walkMP, 'walkMP'),
     engineHeatSinks: typeof r.engineHeatSinks === 'number' ? r.engineHeatSinks : FREE_HEAT_SINKS,
     armor,
-    actuators: { LA: arm(act.LA), RA: arm(act.RA) },
     equipment,
   };
+  // Older files keep the arm actuators as flags rather than items.
+  if (r.actuators && typeof r.actuators === 'object') {
+    const act = r.actuators as Record<string, { lowerArm?: unknown; hand?: unknown }>;
+    return migrateLegacyActuators({ ...design, actuators: { LA: arm(act.LA), RA: arm(act.RA) } });
+  }
+  return isQuad(design) ? withActuators(design, FULL_ARM_ACTUATORS) : design;
 }

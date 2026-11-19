@@ -1,6 +1,7 @@
-import type { MechDesign, MountedItem } from './types';
+import type { MechDesign, MountedItem, OmniConfiguration } from './types';
 import { ARMORED_TONS_PER_SLOT, FILLER_IDS, HEAT_SINK_IDS, getEquipment, heatSinkUnits, itemSlots, itemWeight } from './equipment';
 import { freeHeatSinks } from './tables';
+import { actuatorsOf, withActuators } from './actuators';
 
 /**
  * OmniMechs share a fixed base chassis (structure, engine, armor, fixed equipment)
@@ -36,7 +37,7 @@ export function activeConfigName(d: MechDesign): string | null {
 function stash(d: MechDesign): MechDesign {
   if (!d.omni) return d;
   const configurations = d.omni.configurations.map((c, i) =>
-    i === d.omni!.active ? { ...c, pod: podItems(d), actuators: d.actuators, mixedTech: d.mixedTech, jumpJetType: d.jumpJetType, era: d.era } : c,
+    i === d.omni!.active ? { ...c, pod: podItems(d), actuators: actuatorsOf(d), mixedTech: d.mixedTech, jumpJetType: d.jumpJetType, era: d.era } : c,
   );
   return { ...d, omni: { ...d.omni, configurations } };
 }
@@ -61,15 +62,16 @@ export function switchConfiguration(d: MechDesign, index: number): MechDesign {
   if (!d.omni || index === d.omni.active || !d.omni.configurations[index]) return d;
   const s = stash(d);
   const incoming = s.omni!.configurations[index];
-  return {
+  const next: MechDesign = {
     ...s,
-    actuators: incoming.actuators ?? s.actuators,
     mixedTech: incoming.mixedTech ?? s.mixedTech,
     jumpJetType: incoming.jumpJetType ?? s.jumpJetType,
     era: incoming.era ?? s.era,
     equipment: [...fixedItems(s), ...incoming.pod],
     omni: { ...s.omni!, active: index },
   };
+  // Each configuration may fit its own lower arm and hand actuators.
+  return incoming.actuators ? withActuators(next, incoming.actuators) : next;
 }
 
 function uniqueName(d: MechDesign, wanted: string): string {
@@ -96,7 +98,7 @@ export function addConfiguration(d: MechDesign, copyActive: boolean, name?: stri
   const s = stash(d);
   const pod = copyActive ? podItems(d).map((e) => ({ ...e, uid: freshUid() })) : [];
   const configName = uniqueName(s, name?.trim() || nextLetter(s));
-  const configurations = [...s.omni!.configurations, { name: configName, pod, actuators: d.actuators }];
+  const configurations = [...s.omni!.configurations, { name: configName, pod, actuators: actuatorsOf(d) }];
   return switchConfiguration({ ...s, omni: { ...s.omni!, configurations } }, configurations.length - 1);
 }
 
@@ -123,6 +125,14 @@ export function setItemPod(d: MechDesign, uid: string, pod: boolean): MechDesign
   };
 }
 
+function configDesign(d: MechDesign, c: OmniConfiguration, fixed: MountedItem[], i: number): MechDesign {
+  const design: MechDesign = {
+    ...d, mixedTech: c.mixedTech ?? d.mixedTech, jumpJetType: c.jumpJetType ?? d.jumpJetType, era: c.era ?? d.era,
+    equipment: [...fixed, ...c.pod], omni: { ...d.omni!, active: i },
+  };
+  return c.actuators ? withActuators(design, c.actuators) : design;
+}
+
 /** The full design for each configuration (the active one is `d` itself). */
 export function configurationDesigns(d: MechDesign): { name: string; design: MechDesign; active: boolean }[] {
   if (!d.omni) return [{ name: '', design: d, active: true }];
@@ -130,10 +140,7 @@ export function configurationDesigns(d: MechDesign): { name: string; design: Mec
   return d.omni.configurations.map((c, i) => ({
     name: c.name,
     active: i === d.omni!.active,
-    design: i === d.omni!.active ? d : {
-      ...d, actuators: c.actuators ?? d.actuators, mixedTech: c.mixedTech ?? d.mixedTech, jumpJetType: c.jumpJetType ?? d.jumpJetType, era: c.era ?? d.era,
-      equipment: [...fixed, ...c.pod], omni: { ...d.omni!, active: i },
-    },
+    design: i === d.omni!.active ? d : configDesign(d, c, fixed, i),
   }));
 }
 

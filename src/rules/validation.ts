@@ -25,6 +25,7 @@ import { armorPointsForTons } from './armor';
 import { locationArmor } from './armor';
 import type { MechSummary } from './construction';
 import { armoredSystemSlots, computeMech, fixedSlots, itemSlots } from './construction';
+import { ACTUATOR_IDS, armActuators } from './actuators';
 
 export type Severity = 'error' | 'warning' | 'info';
 
@@ -297,7 +298,7 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
     if (design.armorType !== 'standard') error('LAMs cannot use ferro-fibrous armor (or any armor that takes slots).');
     if (summary.jumpMP < 3) error(`LAMs need at least 3 jumping MP (fighter thrust comes from the jump jets); has ${summary.jumpMP}.`);
     for (const arm of ARM_LOCATIONS) {
-      if (!design.actuators[arm].lowerArm) error(`${locationName(design, arm)}: LAMs need upper and lower arm actuators in both arms.`);
+      if (!armActuators(design, arm).lowerArm) error(`${locationName(design, arm)}: LAMs need upper and lower arm actuators in both arms.`);
     }
     const banned = new Set<string>();
     for (const item of design.equipment) {
@@ -309,11 +310,16 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
     for (const name of banned) error(`LAMs cannot mount a ${name}${/Gauss/.test(name) ? '' : ' (no physical weapons)'}.`);
   }
 
-  // Actuators
+  // Actuators: one lower arm and one hand actuator per arm at most, and a hand needs the lower arm.
   for (const arm of isQuad(design) ? [] : ARM_LOCATIONS) {
-    const a = design.actuators[arm];
+    const a = armActuators(design, arm);
     if (a.hand && !a.lowerArm) {
       error(`${locationName(design, arm)}: a hand actuator requires a lower arm actuator.`);
+    }
+    for (const id of ACTUATOR_IDS) {
+      if (design.equipment.filter((e) => e.equipmentId === id && e.location === arm).length > 1) {
+        error(`${locationName(design, arm)}: an arm has only one ${getEquipment(id)!.name.toLowerCase()}.`);
+      }
     }
   }
 
@@ -548,7 +554,7 @@ function validateConfiguration(design: MechDesign, summary: MechSummary = comput
       .filter((k): k is MeleeKind => !!k && HAND_WEAPONS.includes(k));
     const where = locationName(design, loc);
     if (kinds.length > 1) error(`${where}: only one melee weapon (hatchet, sword, mace, claw, blade or whip) per arm.`);
-    const act = design.actuators[loc];
+    const act = armActuators(design, loc);
     for (const k of new Set(kinds)) {
       const name = getEquipment(k)!.name;
       if (NEEDS_HAND.includes(k) && !(act.lowerArm && act.hand)) {

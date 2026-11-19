@@ -1,6 +1,7 @@
-import type { ArmorAllocation, Location, MechDesign, MountedItem, TechBase } from '../rules/types';
+import type { ArmActuators, ArmLocation, ArmorAllocation, Location, MechDesign, MountedItem, TechBase } from '../rules/types';
 import type { EraId } from '../rules/eras';
 import { newUid } from '../rules/edit';
+import { migrateLegacyActuators } from '../rules/actuators';
 
 /**
  * Sample designs.
@@ -55,7 +56,10 @@ export interface Preset {
   build: () => MechDesign;
 }
 
-export const PRESETS: Preset[] = [
+/** The samples spell out their arm actuators as flags; they become actuator items on build. */
+type LegacyPreset = Omit<Preset, 'build'> & { build: () => MechDesign & { actuators: Record<ArmLocation, ArmActuators> } };
+
+export const PRESETS: Preset[] = ([] as LegacyPreset[]).concat([
   {
     key: 'Locust LCT-1V', era: '3025', techBase: 'IS', canon: true,
     build: () => ({
@@ -347,4 +351,4 @@ export const PRESETS: Preset[] = [
       ]),
     }),
   },
-];
+]).map((p) => ({ ...p, build: () => migrateLegacyActuators(p.build()) }));

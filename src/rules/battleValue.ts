@@ -11,6 +11,7 @@ import { LOCATIONS, REAR_FACING, armorTypeAt, effectiveCockpit, isIndustrial, is
 import type { Equipment } from './equipment';
 import { canArmor, getEquipment, isArtemisVCapable, isDirectFire, isPPC, itemSlots, itemWeight } from './equipment';
 import { armoredSystemSlots, computeMech, fixedSlots } from './construction';
+import { armActuators } from './actuators';
 import { armorPointsPerTon, engineSideTorsoSlots, isLargeEngine } from './tables';
 import { meleeBV, meleeCost } from './melee';
 import { svClipExtras } from './svWeapons';
@@ -594,7 +595,7 @@ export function mechCost(d: MechDesign): CostBreakdown {
   const sh = isSuperheavy(d);
   const tripod = isTripod(d);
   const arms = quad ? 0 : (['LA', 'RA'] as const).reduce((a, arm) => {
-    const act = d.actuators[arm];
+    const act = armActuators(d, arm);
     return a + 100 * t + (act.lowerArm ? 50 * t : 0) + (act.lowerArm && act.hand ? 80 * t : 0);
   }, 0);
   const jumpCost = (d.jumpJetType === 'improved' ? 500 : 200) * t * s.jumpMP ** 2 // prototype improved: 200 (MegaMek)

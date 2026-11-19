@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { armActuators } from './actuators';
 import mechs from '../data/canon/mechs.json';
 import type { CanonEntry } from '../data/canonFormat';
 import { decodeMech } from '../data/canonFormat';
@@ -97,7 +98,7 @@ describe('OmniMech arm actuators per configuration', () => {
     d = addConfiguration(d, true, 'A');
     d = setActuator(d, 'RA', 'hand', false);
     const prime = switchConfiguration(d, 0);
-    expect(prime.actuators.RA.hand).toBe(true);
-    expect(switchConfiguration(prime, 1).actuators.RA.hand).toBe(false);
+    expect(armActuators(prime, 'RA').hand).toBe(true);
+    expect(armActuators(switchConfiguration(prime, 1), 'RA').hand).toBe(false);
   });
 });

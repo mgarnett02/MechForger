@@ -5,7 +5,7 @@ import { ERAS, getEra, isAvailableIn } from '../rules/eras';
 import type { ComponentOption } from '../rules/tables';
 import { ARMOR_NAMES, ARMOR_OPTIONS, STRUCTURE_OPTIONS, componentAvailable, componentEraOk, componentFirstEra } from '../rules/tables';
 import type { Equipment, EquipmentCategory } from '../rules/equipment';
-import { ALL_EQUIPMENT, equipmentName, getEquipment, isEquipmentAvailable } from '../rules/equipment';
+import { ALL_EQUIPMENT, equipmentName, getEquipment, isCatalogEquipment } from '../rules/equipment';
 import { armorPointsForTons, armorTonnage } from '../rules/armor';
 import type { Issue } from '../rules/validation';
 import type {
@@ -326,7 +326,7 @@ function rangeText(eq: Equipment): string {
 function VehicleEquipmentPanel({ design, summary, update }: Props) {
   const [tab, setTab] = useState<EquipmentCategory>('Energy');
   const available = ALL_EQUIPMENT.filter(
-    (e) => isVehicleEquipment(e) && isEquipmentAvailable(e, design.era, design.techBase, design.mixedTech),
+    (e) => isVehicleEquipment(e) && isCatalogEquipment(e, design.era, design.techBase, design.mixedTech),
   );
   const tabs = TABS.filter((x) => available.some((e) => e.category === x.id));
   const active = tabs.some((x) => x.id === tab) ? tab : 'Energy';

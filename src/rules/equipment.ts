@@ -1,7 +1,7 @@
 import type { Location, MechDesign, TechBase, MechConfig } from './types';
 import { LOCATIONS, engineRatingFor, isQuad, isTripod, legLocations, mechLocations, techOf } from './types';
 import type { EraId } from './eras';
-import { isAvailableIn } from './eras';
+import { getEra, isAvailableIn } from './eras';
 import { EXTRA_EQUIPMENT, EXTRA_WEAPONS } from './extraWeapons';
 import { engineWeight, jumpJetWeight, mascWeight } from './tables';
 import { SV_INFANTRY_WEAPONS } from './svWeapons';
@@ -594,6 +594,10 @@ export const OTHER_EQUIPMENT: readonly Equipment[] = [
     ...managed(IS_3050, TSM_ID, 'Triple-Strength Myomer', 0, 1),
   },
   managed(ANY_3025, ENV_SEAL_ID, 'Environmental Sealing', 0, 1),
+  // Lower arm and hand actuators: weightless arm items, one of each per arm (a hand needs a lower arm).
+  // Their cost is in the chassis's actuator line; the 'Mech equipment catalog offers them to bipeds and tripods.
+  { ...managed(ANY_3025, 'lower-arm-actuator', 'Lower Arm Actuator', 0, 1), allowedLocations: ['LA', 'RA'], armOnly: true, fixedOnly: true },
+  { ...managed(ANY_3025, 'hand-actuator', 'Hand Actuator', 0, 1), allowedLocations: ['LA', 'RA'], armOnly: true, fixedOnly: true },
   // Catalog items
   {
     id: 'case', name: 'CASE', category: 'Other', tons: 0.5, slots: 1, heat: 0, isWeapon: false,
@@ -978,6 +982,27 @@ export function canArmorSystem(label: string | null): boolean {
 /** PPCs that a PPC Capacitor can link to. */
 export function isPPC(id: string): boolean {
   return /(^|-)(er-|light-|heavy-|snub-nose-)?ppc$/.test(id);
+}
+
+/**
+ * Introductory rules (the 3025 Succession Wars tech level): the classic weapons and their standard ammunition.
+ * Heat sinks, jump jets and arm actuators come with the chassis.
+ */
+export const INTRODUCTORY_WEAPON_IDS: readonly string[] = [
+  'small-laser', 'medium-laser', 'large-laser', 'ppc', 'flamer', 'machine-gun',
+  'ac-2', 'ac-5', 'ac-10', 'ac-20', 'lrm-5', 'lrm-10', 'lrm-15', 'lrm-20', 'srm-2', 'srm-4', 'srm-6',
+];
+
+/** Whether the era's rules level allows an item: Introductory eras offer only the Introductory weapons and ammunition. */
+export function isRulesLevelOk(eq: Equipment, era: EraId): boolean {
+  if (getEra(era)?.rulesLevel !== 'Introductory') return true;
+  if (eq.category === 'Ammo') return !!eq.ammoFor && INTRODUCTORY_WEAPON_IDS.includes(eq.ammoFor) && !eq.munition && !eq.flakAmmo;
+  return INTRODUCTORY_WEAPON_IDS.includes(eq.id);
+}
+
+/** Equipment the editor's catalog offers: available in the era and tech base, and allowed at the era's rules level. */
+export function isCatalogEquipment(eq: Equipment, era: EraId, techBase: TechBase, mixedTech = false): boolean {
+  return isEquipmentAvailable(eq, era, techBase, mixedTech) && isRulesLevelOk(eq, era);
 }
 
 /** Mixed tech lets a design use equipment from either tech base. */

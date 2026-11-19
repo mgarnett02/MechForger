@@ -5,7 +5,7 @@ import { ERAS, getEra, isAvailableIn } from '../rules/eras';
 import type { ComponentOption } from '../rules/tables';
 import { ARMOR_OPTIONS, COCKPIT_OPTIONS, HEAT_SINK_OPTIONS, componentAvailable, componentEraOk, componentFirstEra } from '../rules/tables';
 import type { Equipment, EquipmentCategory } from '../rules/equipment';
-import { ALL_EQUIPMENT, equipmentName, getEquipment, isEquipmentAvailable } from '../rules/equipment';
+import { ALL_EQUIPMENT, equipmentName, getEquipment, isCatalogEquipment } from '../rules/equipment';
 import { armorPointsForTons, armorTonnage } from '../rules/armor';
 import type { Issue } from '../rules/validation';
 import type { FighterArmorType, FighterCockpitType, FighterDesign, FighterEngineType, FighterLocation, FighterSummary, FighterType } from '../rules/fighter';
@@ -280,7 +280,7 @@ function avText(eq: Equipment): string {
 function FighterEquipmentPanel({ design, summary, update }: Props) {
   const [tab, setTab] = useState<EquipmentCategory>('Energy');
   const available = ALL_EQUIPMENT.filter(
-    (e) => isFighterEquipment(e) && isEquipmentAvailable(e, design.era, design.techBase, design.mixedTech),
+    (e) => isFighterEquipment(e) && isCatalogEquipment(e, design.era, design.techBase, design.mixedTech),
   );
   const tabs = TABS.filter((x) => available.some((e) => e.category === x.id || (x.id === 'Other' && e.category === 'Utility')));
   const active = tabs.some((x) => x.id === tab) ? tab : 'Energy';

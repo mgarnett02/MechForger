@@ -7,13 +7,13 @@ import {
   COCKPIT_OPTIONS, COMPACT_HS_OPTION, ENGINE_OPTIONS, GYRO_OPTIONS, HEAT_SINK_OPTIONS, JUMP_JET_OPTIONS, MYOMER_OPTIONS,
   STRUCTURE_NAMES, STRUCTURE_OPTIONS, componentAvailable, structureSlots, componentEraOk, componentFirstEra,
 } from '../rules/tables';
-import { ARM_LOCATIONS, LAM_TYPE_NAMES, LOCATION_NAMES, TECH_BASE_NAMES, isQuad, locationName, mechLocations, techOf } from '../rules/types';
+import { LAM_TYPE_NAMES, TECH_BASE_NAMES, isQuad, locationName, mechLocations, techOf } from '../rules/types';
 import { TechPicker } from './TechPicker';
 import { ERAS, getEra, isAvailableIn } from '../rules/eras';
 import type { MechSummary } from '../rules/construction';
 import { SUPERHEAVY_TONNAGES, TONNAGES, engineSideTorsoSlots, freeHeatSinks, isLargeEngine, maxWalkMP } from '../rules/tables';
 import {
-  setActuator, setCockpitType, setConfig, setFullHeadEjection, setLam, setEngineHeatSinks, setEngineType, setGyroType, setHeatSinkTotal,
+  setCockpitType, setConfig, setFullHeadEjection, setLam, setEngineHeatSinks, setEngineType, setGyroType, setHeatSinkTotal,
   setCompactHeatSinks, setHeatSinkType, setJumpBoosterMP, setJumpJetType, setJumpMP, setLaserHeatSinks,
   setEnvironmentalSealing, setFranken, setFrankenLocation, setMixedTech, setMyomer, setQuadVeeMotive, setStructureType, setTechBase, setTonnage, setWalkMP,
 } from '../rules/edit';
@@ -367,7 +367,7 @@ export function ChassisPanel({ design, summary, update }: Props) {
           </select>
           </span>{' '}
           {design.heatSinkType === 'double' && <TechPicker design={design} part="heatSinks" update={update} />}
-          <span className="muted"> {summary.weights.heatSinks} t · dissipates {hs.dissipation}</span>
+          <div className="muted nowrap">{summary.weights.heatSinks} t · dissipates {hs.dissipation}</div>
           <label className="check small" title="RISC heat sink override kit (Dark Age, Experimental): BV × 1.01">
             <input type="checkbox" checked={!!design.heatSinkOverrideKit} disabled={!isAvailableIn('3131', design.era) && !design.heatSinkOverrideKit}
               onChange={(e) => update((d) => ({ ...d, heatSinkOverrideKit: e.target.checked || undefined }))} />
@@ -402,31 +402,12 @@ export function ChassisPanel({ design, summary, update }: Props) {
           Tripod: a third (center) leg with its own armor and critical slots, 10% heavier structure and a tripod cockpit.
         </p>
       )}
-      {isQuad(design) ? (
+      {isQuad(design) && (
         <p className="small muted">
           A quad has four legs, each with a hip, upper and lower leg, and foot actuator, and no arms.
           Its legs can carry weapons, which may face forward or to the rear.
         </p>
-      ) : (<>
-      <h3>Arm actuators{design.omni && <span className="muted small"> (this configuration)</span>}</h3>
-      <div className="actuators">
-        {ARM_LOCATIONS.map((arm) => (
-          <div key={arm}>
-            <strong>{LOCATION_NAMES[arm]}</strong>
-            <label className="check">
-              <input type="checkbox" checked={design.actuators[arm].lowerArm}
-                onChange={(e) => update((d) => setActuator(d, arm, 'lowerArm', e.target.checked))} />
-              Lower arm
-            </label>
-            <label className="check">
-              <input type="checkbox" checked={design.actuators[arm].hand}
-                onChange={(e) => update((d) => setActuator(d, arm, 'hand', e.target.checked))} />
-              Hand
-            </label>
-          </div>
-        ))}
-      </div>
-      </>)}
+      )}
     </section>
   );
 }

@@ -8,6 +8,7 @@ import { ARMOR_NAMES, STRUCTURE_NAMES, isLargeEngine } from './tables';
 import type { MountedItem } from './types';
 import { getEquipment, shortEquipmentName } from './equipment';
 import { activeConfigName } from './omni';
+import { isActuatorId } from './actuators';
 import { mechBV, mechCost } from './battleValue';
 import type { MechSummary } from './construction';
 import { armoredSystemSlots, computeMech, fixedSlots, itemSlots, itemWeight } from './construction';
@@ -68,6 +69,11 @@ export function technicalReadout(design: MechDesign, summary: MechSummary = comp
     for (const loc of LOCATIONS) {
       const fixed = fixedSlots(design, loc);
       for (const i of armoredSystemSlots(design, loc)) counts.set(fixed[i]!, (counts.get(fixed[i]!) ?? 0) + 1);
+    }
+    // Armored lower arm and hand actuators (items, not listed with the equipment).
+    for (const e of design.equipment) {
+      const name = e.armored && e.location && isActuatorId(e.equipmentId) ? getEquipment(e.equipmentId)!.name : null;
+      if (name) counts.set(name, (counts.get(name) ?? 0) + 1);
     }
     const sys = [...counts].map(([n, c]) => (c > 1 ? `${n} ×${c}` : n)).join(', ');
     lines.push(row(`Armored Components${sys ? `: ${sys}` : ''}`, s.weights.armored));

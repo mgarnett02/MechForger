@@ -14,6 +14,7 @@ import { ARMORED_TONS_PER_SLOT, PROTOTYPE_DOUBLE_HEAT_SINK_ID, heatSinkUnits, JU
 import type { OmniWeights } from './omni';
 import { frankenArmorMax, frankenJumpJetWeight, frankenStructurePoints, frankenStructureWeight } from './franken';
 import { omniWeights } from './omni';
+import { HAND_ACTUATOR_ID, LOWER_ARM_ACTUATOR_ID, isActuatorId } from './actuators';
 import { armorTonnage, maxArmorByLocation, totalArmorPoints } from './armor';
 
 export { itemWeight, itemSlots };
@@ -162,8 +163,15 @@ export function patchworkArmorWeight(design: MechDesign): number {
   return Math.ceil(Math.round(tons * 1e6) / 1e6 * 2) / 2;
 }
 
+/** Placeholder for the arm slots kept for lower arm / hand actuator items (open slots, but claimed first by them). */
+const ACTUATOR_SLOT = '\0actuator';
+
 /** Fixed components per location; null marks a slot open for equipment. */
 export function fixedSlots(design: MechDesign, loc: Location): (string | null)[] {
+  return rawFixedSlots(design, loc).map((s) => (s === ACTUATOR_SLOT ? null : s));
+}
+
+function rawFixedSlots(design: MechDesign, loc: Location): (string | null)[] {
   const base = baseFixedSlots(design, loc);
   if (loc === 'CL' && !isTripod(design)) return base;
   const sh = isSuperheavy(design);
@@ -220,10 +228,9 @@ function baseFixedSlots(design: MechDesign, loc: Location): (string | null)[] {
     case 'LA':
     case 'RA': {
       if (isQuad(design)) return legSlots(design);
-      const a = design.actuators[loc];
-      const fixed = ['Shoulder', 'Upper Arm Actuator'];
-      if (a.lowerArm) fixed.push('Lower Arm Actuator');
-      if (a.lowerArm && a.hand) fixed.push('Hand Actuator');
+      // Lower arm and hand actuator items take the slots after the upper arm, ahead of stealth armor slots.
+      const actuators = Math.min(2, design.equipment.filter((e) => e.location === loc && isActuatorId(e.equipmentId)).length);
+      const fixed = ['Shoulder', 'Upper Arm Actuator', ...Array(actuators).fill(ACTUATOR_SLOT)];
       return [...fixed, ...Array(12 - fixed.length).fill(null)];
     }
     case 'LL':
@@ -286,7 +293,10 @@ function layoutLocation(design: MechDesign, loc: Location): LocationSlots {
   // Superheavy 'Mechs carry two tons of the same ammunition in one slot.
   const pairable = new Map<string, number>();
   const sh = isSuperheavy(design);
-  for (const item of design.equipment) {
+  // Arm actuators sit right after the upper arm actuator: lower arm, then hand.
+  const rank = (e: MountedItem) => (e.equipmentId === LOWER_ARM_ACTUATOR_ID ? 0 : e.equipmentId === HAND_ACTUATOR_ID ? 1 : 2);
+  const ordered = [...design.equipment].sort((a, b) => rank(a) - rank(b));
+  for (const item of ordered) {
     const primary = item.location === loc;
     if (!primary && item.split?.location !== loc) continue;
     const eq = getEquipment(item.equipmentId);

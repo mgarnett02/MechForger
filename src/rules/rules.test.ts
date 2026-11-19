@@ -125,8 +125,8 @@ describe('validation', () => {
   });
 
   it('hand requires lower arm', () => {
-    const d = newDesign();
-    d.actuators.LA = { lowerArm: false, hand: true };
+    const base = newDesign();
+    const d = { ...base, equipment: base.equipment.filter((e) => !(e.equipmentId === 'lower-arm-actuator' && e.location === 'LA')) };
     expect(errors(d).some((m) => m.includes('hand actuator requires'))).toBe(true);
   });
 

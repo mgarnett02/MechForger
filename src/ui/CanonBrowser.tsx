@@ -73,18 +73,60 @@ function kindLabel(k: string): string {
   return MOTIVE_TYPES[k as keyof typeof MOTIVE_TYPES]?.name ?? k;
 }
 
+/** The browser's filters, remembered per unit type between visits. */
+interface Filters { query: string; tech: string; era: string; cls: string; sub: string; legalOnly: boolean; mulOnly: boolean }
+const FILTERS_KEY = 'mechforger.canonFilters';
+
+function allSavedFilters(): Record<string, unknown> {
+  try {
+    const raw = JSON.parse(localStorage.getItem(FILTERS_KEY) ?? '{}');
+    return raw && typeof raw === 'object' ? raw : {};
+  } catch {
+    return {};
+  }
+}
+
+function savedFilters(kind: UnitType): Filters {
+  const f = (allSavedFilters()[kind] ?? {}) as Partial<Record<keyof Filters, unknown>>;
+  const str = (v: unknown) => (typeof v === 'string' ? v : '');
+  return {
+    query: str(f.query), tech: str(f.tech), era: str(f.era), cls: str(f.cls), sub: str(f.sub),
+    legalOnly: f.legalOnly === true, mulOnly: f.mulOnly === true,
+  };
+}
+
+function saveFilters(kind: UnitType, f: Filters) {
+  try {
+    localStorage.setItem(FILTERS_KEY, JSON.stringify({ ...allSavedFilters(), [kind]: f }));
+  } catch {
+    /* storage unavailable: filters are not remembered */
+  }
+}
+
 /** Searchable list of bundled canon designs (converted from MegaMek Data). */
 export function CanonBrowser({ unit, onLoad, onClose }: Props) {
   const [kind, setKind] = useState<UnitType>(unit);
   const [entries, setEntries] = useState<CanonEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [query, setQuery] = useState('');
-  const [tech, setTech] = useState('');
-  const [era, setEra] = useState('');
-  const [cls, setCls] = useState('');
-  const [sub, setSub] = useState('');
-  const [legalOnly, setLegalOnly] = useState(false);
-  const [mulOnly, setMulOnly] = useState(false);
+  // Start from the filters last used for this unit type.
+  const [initial] = useState(() => savedFilters(unit));
+  const [query, setQuery] = useState(initial.query);
+  const [tech, setTech] = useState(initial.tech);
+  const [era, setEra] = useState(initial.era);
+  const [cls, setCls] = useState(initial.cls);
+  const [sub, setSub] = useState(initial.sub);
+  const [legalOnly, setLegalOnly] = useState(initial.legalOnly);
+  const [mulOnly, setMulOnly] = useState(initial.mulOnly);
+
+  /** Switch unit type, bringing back the filters last used for it. */
+  const switchKind = (k: UnitType) => {
+    if (k === kind) return;
+    const f = savedFilters(k);
+    setKind(k);
+    setEntries(null);
+    setQuery(f.query); setTech(f.tech); setEra(f.era); setCls(f.cls); setSub(f.sub); setLegalOnly(f.legalOnly); setMulOnly(f.mulOnly);
+  };
+  useEffect(() => saveFilters(kind, { query, tech, era, cls, sub, legalOnly, mulOnly }), [kind, query, tech, era, cls, sub, legalOnly, mulOnly]);
   // Weight-class groups: collapsed until opened (or while a search or filter narrows the list).
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
   const [limits, setLimits] = useState<Record<string, number>>({});
@@ -92,7 +134,6 @@ export function CanonBrowser({ unit, onLoad, onClose }: Props) {
 
   useEffect(() => {
     setEntries(null);
-    setSub('');
     const load = kind === 'stationary' ? import('../data/canon/stationary.json')
       : kind === 'protomech' ? import('../data/canon/protomechs.json')
       : kind === 'infantry' ? import('../data/canon/infantry.json')
@@ -121,6 +162,10 @@ export function CanonBrowser({ unit, onLoad, onClose }: Props) {
   const group = (k: string) => (k.startsWith('omni:') ? 'omni' : k.startsWith('quadomni:') ? 'quadomni'
     : k.startsWith('tripodomni:') ? 'tripodomni' : k.startsWith('quadveeomni:') ? 'quadveeomni' : k);
   const subKinds = useMemo(() => [...new Set((entries ?? []).map((e) => group(e.k)))], [entries]);
+  // A remembered type filter that this list no longer has is dropped.
+  useEffect(() => {
+    if (entries && sub && !subKinds.includes(sub)) setSub('');
+  }, [entries, subKinds, sub]);
 
   const filtered = useMemo(() => {
     if (!entries) return [];
@@ -165,15 +210,15 @@ export function CanonBrowser({ unit, onLoad, onClose }: Props) {
         <div className="row wrap">
           <h2 id="canon-title" style={{ margin: 0 }}>Canon units</h2>
           <div className="segmented" role="radiogroup" aria-label="Unit type">
-            <button role="radio" aria-checked={kind === 'mech'} className={kind === 'mech' ? 'active' : ''} onClick={() => setKind('mech')}>BattleMechs</button>
-            <button role="radio" aria-checked={kind === 'vehicle'} className={kind === 'vehicle' ? 'active' : ''} onClick={() => setKind('vehicle')}>Vehicles</button>
-            <button role="radio" aria-checked={kind === 'support'} className={kind === 'support' ? 'active' : ''} onClick={() => setKind('support')}>Support vehicles</button>
-            <button role="radio" aria-checked={kind === 'fighter'} className={kind === 'fighter' ? 'active' : ''} onClick={() => setKind('fighter')}>Fighters</button>
-            <button role="radio" aria-checked={kind === 'vessel'} className={kind === 'vessel' ? 'active' : ''} onClick={() => setKind('vessel')}>Spacecraft</button>
-            <button role="radio" aria-checked={kind === 'battlearmor'} className={kind === 'battlearmor' ? 'active' : ''} onClick={() => setKind('battlearmor')}>Battle armor</button>
-            <button role="radio" aria-checked={kind === 'protomech'} className={kind === 'protomech' ? 'active' : ''} onClick={() => setKind('protomech')}>ProtoMechs</button>
-            <button role="radio" aria-checked={kind === 'stationary'} className={kind === 'stationary' ? 'active' : ''} onClick={() => setKind('stationary')}>Emplacements / handheld</button>
-            <button role="radio" aria-checked={kind === 'infantry'} className={kind === 'infantry' ? 'active' : ''} onClick={() => setKind('infantry')}>Infantry</button>
+            <button role="radio" aria-checked={kind === 'mech'} className={kind === 'mech' ? 'active' : ''} onClick={() => switchKind('mech')}>BattleMechs</button>
+            <button role="radio" aria-checked={kind === 'vehicle'} className={kind === 'vehicle' ? 'active' : ''} onClick={() => switchKind('vehicle')}>Vehicles</button>
+            <button role="radio" aria-checked={kind === 'support'} className={kind === 'support' ? 'active' : ''} onClick={() => switchKind('support')}>Support vehicles</button>
+            <button role="radio" aria-checked={kind === 'fighter'} className={kind === 'fighter' ? 'active' : ''} onClick={() => switchKind('fighter')}>Fighters</button>
+            <button role="radio" aria-checked={kind === 'vessel'} className={kind === 'vessel' ? 'active' : ''} onClick={() => switchKind('vessel')}>Spacecraft</button>
+            <button role="radio" aria-checked={kind === 'battlearmor'} className={kind === 'battlearmor' ? 'active' : ''} onClick={() => switchKind('battlearmor')}>Battle armor</button>
+            <button role="radio" aria-checked={kind === 'protomech'} className={kind === 'protomech' ? 'active' : ''} onClick={() => switchKind('protomech')}>ProtoMechs</button>
+            <button role="radio" aria-checked={kind === 'stationary'} className={kind === 'stationary' ? 'active' : ''} onClick={() => switchKind('stationary')}>Emplacements / handheld</button>
+            <button role="radio" aria-checked={kind === 'infantry'} className={kind === 'infantry' ? 'active' : ''} onClick={() => switchKind('infantry')}>Infantry</button>
           </div>
           <span className="spacer" />
           <button onClick={onClose}>Close</button>

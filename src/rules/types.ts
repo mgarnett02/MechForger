@@ -159,7 +159,7 @@ export interface OmniConfiguration {
   pod: MountedItem[];
   /**
    * Lower arm / hand actuators for this configuration (OmniMechs may change them per configuration).
-   * For the active one, the live copy is design.actuators. Absent = same as the active configuration.
+   * For the active one, the live copy is the actuator items in design.equipment. Absent = same as the active configuration.
    */
   actuators?: Record<ArmLocation, ArmActuators>;
   /** Mixed-tech pods (e.g. Inner Sphere weapons on a Clan OmniMech). Absent = same as the active configuration. */
@@ -278,9 +278,10 @@ export interface MechDesign {
   /** Heat sinks carried inside the engine (no critical slots). */
   engineHeatSinks: number;
   armor: ArmorAllocation;
-  /** Arm actuators (bipeds only; a quad's front legs always have full leg actuators). */
-  actuators: Record<ArmLocation, ArmActuators>;
-  /** Weapons, ammo, plus heat sinks / jump jets that need critical slots. */
+  /**
+   * Weapons, ammo, plus heat sinks / jump jets that need critical slots, and the lower arm and hand
+   * actuators (bipeds and tripods; a quad's front legs always have full leg actuators).
+   */
   equipment: MountedItem[];
 }
 

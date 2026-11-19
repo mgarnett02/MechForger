@@ -5,12 +5,13 @@ import type { MechSummary } from '../rules/construction';
 import type { Equipment, EquipmentCategory } from '../rules/equipment';
 import {
   ALL_EQUIPMENT, FILLER_IDS, allowedLocations, canArmor, canRearMount, equipmentName, getEquipment,
-  isEquipmentAvailable, itemSlots, itemWeight, legCount,
+  isCatalogEquipment, itemSlots, itemWeight, legCount,
 } from '../rules/equipment';
 import { meleeDamage } from '../rules/melee';
-import { addEquipment, canSplit, hasMechTurret, removeEquipment, setItemArmored, setItemLocation, setItemRear, setItemSplit, setItemTurret } from '../rules/edit';
+import { actuatorFits, addEquipment, canSplit, hasMechTurret, removeEquipment, setItemArmored, setItemLocation, setItemRear, setItemSplit, setItemTurret } from '../rules/edit';
 import { activeConfigName, isFixedOnly, setItemPod } from '../rules/omni';
 import { OmniBar } from './OmniBar';
+import { isActuatorId } from '../rules/actuators';
 
 interface Props {
   design: MechDesign;
@@ -38,9 +39,11 @@ function rangeText(eq: Equipment): string {
 
 export function EquipmentPanel({ design, summary, update, selected, setSelected }: Props) {
   const [tab, setTab] = useState<EquipmentCategory>('Energy');
+  // Lower arm and hand actuators are offered with the equipment (bipeds and tripods only).
   const available = ALL_EQUIPMENT.filter(
-    (e) => !e.managed && !e.capitalClass && !e.vehicleChassisMod && !e.vehicleOnly && !e.vesselOnly && (!e.lamOnly || !!design.lam)
-      && isEquipmentAvailable(e, design.era, design.techBase, design.mixedTech),
+    (e) => (!e.managed || (isActuatorId(e.id) && !isQuad(design))) && !e.capitalClass && !e.vehicleChassisMod && !e.vehicleOnly && !e.vesselOnly && (!e.lamOnly || !!design.lam)
+      // Hidden: anything the era or its rules level does not allow (Introductory 3025: the classic weapons only).
+      && (isActuatorId(e.id) || isCatalogEquipment(e, design.era, design.techBase, design.mixedTech)),
   );
   const tabs = TABS.filter((t) => available.some((e) => e.category === t.id));
   const activeTab = tabs.some((t) => t.id === tab) ? tab : 'Energy';
@@ -79,6 +82,8 @@ export function EquipmentPanel({ design, summary, update, selected, setSelected 
               const tons = eq.melee === 'talons' ? itemWeight(eq, design) * legCount(design) : itemWeight(eq, design);
               const noArms = !!eq.armOnly && isQuad(design);
               const tooHeavy = tons > summary.weights.free;
+              // One lower arm and one hand actuator per arm.
+              const bothArms = isActuatorId(eq.id) && design.equipment.filter((e) => e.equipmentId === eq.id).length >= 2;
               return (
                 <tr key={eq.id} className={eq.ammoFor && !mountedIds.has(eq.ammoFor) ? 'dim' : ''}>
                   <td>{equipmentName(eq, design)}</td>
@@ -92,8 +97,8 @@ export function EquipmentPanel({ design, summary, update, selected, setSelected 
                   <td className="num">{tons}</td>
                   <td className="num">{itemSlots(eq, design)}{eq.melee === 'talons' ? ' / leg' : ''}</td>
                   <td>
-                    <button className="small" disabled={tooHeavy || noArms}
-                      title={noArms ? 'Arm-mounted: quads have no arms' : tooHeavy ? 'Not enough free tonnage'
+                    <button className="small" disabled={tooHeavy || noArms || bothArms}
+                      title={noArms ? 'Arm-mounted: quads have no arms' : bothArms ? 'Both arms already have one' : tooHeavy ? 'Not enough free tonnage'
                         : eq.melee === 'talons' ? 'Fits talons to every leg' : 'Add to mech'}
                       onClick={() => update((d) => addEquipment(d, eq.id))}>Add</button>
                   </td>
@@ -108,7 +113,7 @@ export function EquipmentPanel({ design, summary, update, selected, setSelected 
       {items.length === 0 && fillers.length === 0 && <p className="muted">Nothing mounted yet.</p>}
       <ul className="mounted">
         {design.omni && <li className="mounted-heading">Fixed (all configurations)</li>}
-        {items.filter((i) => !i.pod).map((item) => (
+        {items.filter((i) => !i.pod && !(design.omni && isActuatorId(i.equipmentId))).map((item) => (
           <MountedRow key={item.uid} item={item} design={design} summary={summary} update={update}
             selected={selected} setSelected={setSelected} />
         ))}
@@ -132,7 +137,7 @@ export function EquipmentPanel({ design, summary, update, selected, setSelected 
           );
         })}
         {design.omni && <li className="mounted-heading">Pods — {activeConfigName(design)} configuration</li>}
-        {items.filter((i) => i.pod).map((item) => (
+        {items.filter((i) => i.pod || (design.omni && isActuatorId(i.equipmentId))).map((item) => (
           <MountedRow key={item.uid} item={item} design={design} summary={summary} update={update}
             selected={selected} setSelected={setSelected} />
         ))}
@@ -159,7 +164,7 @@ function MountedRow({
       <select aria-label={`${eq.name} location`} value={item.location ?? ''}
         onChange={(e) => update((d) => setItemLocation(d, item.uid, (e.target.value || null) as Location | null))}>
         <option value="">— unallocated —</option>
-        {allowedLocations(eq, design).map((loc) => (
+        {allowedLocations(eq, design).filter((loc) => loc === item.location || actuatorFits(design, item.uid, loc)).map((loc) => (
           <option key={loc} value={loc}>
             {locationName(design, loc)} ({summary.slots[loc].free} free)
           </option>
