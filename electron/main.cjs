@@ -46,6 +46,15 @@ ipcMain.handle('design:open', async (event) => {
   return { name: path.basename(filePaths[0]), text: fs.readFileSync(filePaths[0], 'utf8') };
 });
 
+// Record sheets: the system print dialog would otherwise start from the printer's own orientation,
+// so ask for portrait on the chosen paper size.
+ipcMain.handle('sheet:print', (event, paper) => new Promise((resolve) => {
+  event.sender.print(
+    { landscape: false, pageSize: paper === 'a4' ? 'A4' : 'Letter', printBackground: true },
+    (success) => resolve(success),
+  );
+}));
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 1500,

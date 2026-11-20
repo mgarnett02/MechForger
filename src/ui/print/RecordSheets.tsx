@@ -5,6 +5,7 @@ import { computeMech } from '../../rules/construction';
 import { getEra } from '../../rules/eras';
 import { ARMOR_NAMES, ENGINE_NAMES } from '../../rules/tables';
 import { activeConfigName } from '../../rules/omni';
+import { isActuatorId } from '../../rules/actuators';
 import { mechBV, mechCost, supportBV, supportCost, vehicleBV, vehicleCost } from '../../rules/battleValue';
 import type { SupportVehicleDesign } from '../../rules/support';
 import {
@@ -177,33 +178,27 @@ const BODY: { loc: Location; area: string }[] = [
   { loc: 'CL', area: 'cl' },
 ];
 
-/** A humanoid (or four-legged) figure of pip clusters, one plate per location. */
-function MechFigure({ design, values, kind }: {
-  design: MechDesign; values: Record<Location, number>; kind: 'armor' | 'structure';
+const REAR: [string, ArmorFacing][] = [['Left Torso Rear', 'LTR'], ['Center Torso Rear', 'CTR'], ['Right Torso Rear', 'RTR']];
+
+/**
+ * A humanoid (or four-legged) figure of pip clusters, one plate per location. With `rear` (the armor figure),
+ * the rear torso plates sit directly under their torsos and the legs drop to the bottom row.
+ */
+function MechFigure({ design, values, kind, rear }: {
+  design: MechDesign; values: Record<Location, number>; kind: 'armor' | 'structure'; rear?: Record<ArmorFacing, number>;
 }) {
   return (
-    <div className={`rs-mech-figure ${kind} ${isQuad(design) ? 'quad' : isTripod(design) ? 'tripod' : ''} ${design.tonnage > 100 ? 'dense' : ''}`}>
+    <div className={`rs-mech-figure ${kind} ${isQuad(design) ? 'quad' : isTripod(design) ? 'tripod' : ''} ${rear ? 'with-rear' : ''} ${design.tonnage > 100 ? 'dense' : ''}`}>
       {BODY.filter(({ loc }) => loc !== 'CL' || isTripod(design)).map(({ loc, area }) => (
         <div key={loc} className={`rs-plate plate-${area}`} style={{ gridArea: area }}>
           <div className="rs-plate-label">{locationName(design, loc)} <b>({values[loc]})</b></div>
           <Pips count={values[loc]} kind={kind} />
         </div>
       ))}
-    </div>
-  );
-}
-
-function RearFigure({ armor }: { armor: Record<ArmorFacing, number> }) {
-  // Columns 2–4 of the figure grid: under the left torso / left leg, center torso, right torso / right leg.
-  const rear: [string, ArmorFacing, number][] = [
-    ['Left Torso Rear', 'LTR', 2], ['Center Torso Rear', 'CTR', 3], ['Right Torso Rear', 'RTR', 4],
-  ];
-  return (
-    <div className="rs-rear-figure">
-      {rear.map(([label, f, column]) => (
-        <div key={f} className={`rs-plate plate-${f.toLowerCase()}`} style={{ gridColumn: column }}>
-          <div className="rs-plate-label">{label} <b>({armor[f]})</b></div>
-          <Pips count={armor[f]} kind="armor" />
+      {rear && REAR.map(([label, f]) => (
+        <div key={f} className={`rs-plate plate-${f.toLowerCase()}`} style={{ gridArea: f.toLowerCase() }}>
+          <div className="rs-plate-label">{label} <b>({rear[f]})</b></div>
+          <Pips count={rear[f]} kind="armor" />
         </div>
       ))}
     </div>
@@ -235,6 +230,9 @@ export function MechRecordSheet({ design }: { design: MechDesign }) {
     </div>
   );
 
+  // Lower arm and hand actuators are items, but print like the other actuators (system slots, not equipment).
+  const slotKind = (slot: (typeof s.slots)[Location]['slots'][number]) =>
+    slot.kind === 'item' && design.equipment.some((e) => e.uid === slot.uid && isActuatorId(e.equipmentId)) ? 'fixed' : slot.kind;
   const crit = (loc: Location) => {
     const slots = s.slots[loc].slots;
     const groups = slots.length > 6 ? [slots.slice(0, 6), slots.slice(6)] : [slots];
@@ -249,7 +247,7 @@ export function MechRecordSheet({ design }: { design: MechDesign }) {
             </span>
             <ol>
               {g.map((slot, i) => (
-                <li key={i} className={`${slot.kind} ${slot.label.length > COMPACT_LENGTH - (slot.armored ? 2 : 0) ? 'long' : ''}`}>
+                <li key={i} className={`${slotKind(slot)} ${slot.label.length > COMPACT_LENGTH - (slot.armored ? 2 : 0) ? 'long' : ''}`}>
                   <span className="rs-slot-no">{i + 1}.</span>
                   {slot.armored ? '◆ ' : ''}{slot.kind === 'empty' ? 'Roll Again' : slot.label}
                 </li>
@@ -296,8 +294,7 @@ export function MechRecordSheet({ design }: { design: MechDesign }) {
         </Panel>
 
         <Panel title="Armor Diagram" className="area-armor">
-          <MechFigure design={design} values={design.armor as unknown as Record<Location, number>} kind="armor" />
-          <RearFigure armor={design.armor} />
+          <MechFigure design={design} values={design.armor as unknown as Record<Location, number>} kind="armor" rear={design.armor} />
           <div className="rs-armor-total">
             Armor: <b>{s.armorTotal}</b>
             {isPatchwork(design) ? ' (Patchwork)' : design.armorType !== 'standard' && ` (${ARMOR_NAMES[design.armorType]})`}

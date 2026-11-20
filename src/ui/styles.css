@@ -355,7 +355,10 @@ th.c, td.c { text-align: center; font-variant-numeric: tabular-nums; }
 }
 button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 .print-pages { display: flex; flex-direction: column; align-items: center; gap: 1.5rem; padding: 1.5rem 16px; }
-.print-pages.paper-letter .record-sheet {
+/* On screen each sheet is shown at its portrait paper size (it scales down to fit narrow windows). */
+.print-pages.paper-letter .record-sheet { width: 8.5in; min-height: 11in; }
+.print-pages.paper-a4 .record-sheet { width: 210mm; min-height: 297mm; }
+.record-sheet {
   max-width: 100%;
   background: #fff; color: #111; padding: 7mm; box-sizing: border-box;
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.3);
@@ -466,6 +469,29 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
     "la ll cl rl ra";
 }
 .plate-cl { border-radius: 4px 4px 12px 12px; }
+/* Armor figure: the rear torso plates sit under their torsos and the legs drop to the bottom row. */
+.rs-mech-figure.with-rear {
+  grid-template-areas:
+    ".  .   hd  .   ."
+    "la lt  ct  rt  ra"
+    "la ltr ctr rtr ra"
+    ".  ll  .   rl  .";
+}
+.rs-mech-figure.quad.with-rear {
+  grid-template-areas:
+    ".  .   hd  .   ."
+    "la lt  ct  rt  ra"
+    ".  ltr ctr rtr ."
+    "ll .   .   .   rl";
+}
+.rs-mech-figure.tripod.with-rear {
+  grid-template-areas:
+    ".  .   hd  .   ."
+    "la lt  ct  rt  ra"
+    "la ltr ctr rtr ra"
+    ".  ll  cl  rl  .";
+}
+.plate-ltr, .plate-ctr, .plate-rtr { border-radius: 4px; }
 /* Superheavies: up to twice the armor and structure, so smaller pips keep the sheet on one page. */
 .rs-mech-figure.dense .pips { gap: 1px; }
 .rs-mech-figure.dense .pips > span { width: 4.5px; height: 4.5px; }
@@ -481,9 +507,6 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 .plate-ct { border-radius: 6px 6px 14px 14px; }
 .plate-ll, .plate-rl { border-radius: 4px 4px 12px 12px; }
 .rs-mech-figure.structure .rs-plate { background: #fff; }
-.rs-mech-figure, .rs-rear-figure { --mech-columns: 1fr 1.25fr 1.3fr 1.25fr 1fr; }
-/* Same columns as the figure above, so each rear plate sits under its torso and leg. */
-.rs-rear-figure { display: grid; grid-template-columns: var(--mech-columns); gap: 3px; margin-top: 5px; }
 .rs-armor-total { text-align: right; font-size: 7pt; margin-top: 3px; }
 
 /* Critical hit table */
@@ -491,10 +514,11 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 .rs-crit-loc h4 { margin: 0 0 1px; font-size: 7.5pt; font-weight: 700; text-transform: uppercase; border-bottom: 1.5px solid #111; }
 .rs-crit-group { display: flex; gap: 2px; margin-bottom: 2px; }
 .rs-crit-roll {
-  writing-mode: vertical-rl; transform: rotate(180deg); font-size: 6pt; font-weight: 700;
-  border-left: 1px solid #111; padding: 0 1px; text-align: center;
+  writing-mode: vertical-rl; transform: rotate(180deg); font-size: 6pt; font-weight: 700; line-height: 1;
+  /* Rotated, the left border is the margin line on the label's right: keep clear space between them. */
+  border-left: 1px solid #111; padding: 0 3px 0 1px; text-align: center;
   /* Fixed width so the margin line sits in the same place in every location. */
-  flex: none; width: 9px; box-sizing: border-box;
+  flex: none; width: 12px; box-sizing: border-box;
 }
 .rs-crit-group ol { list-style: none; margin: 0; padding: 0; flex: 1; min-width: 0; font-size: 6.3pt; letter-spacing: -0.01em; }
 .rs-crit-group li { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.25; }
@@ -641,9 +665,14 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 .dmg-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
 .dmg-table th { text-align: right; color: var(--muted); font-weight: 500; }
 .dmg-table td, .dmg-table th { padding: 1px 6px; }
-.value-card { margin-top: 0.75rem; border: 1px solid var(--border); border-radius: 8px; padding: 0.5rem 0.6rem; }
-.value-row { display: flex; gap: 1.25rem; flex-wrap: wrap; }
-.value-row > div { display: flex; flex-direction: column; }
+.value-card { margin-top: 0.75rem; border: 1px solid var(--border); border-radius: 8px; padding: 0.45rem 0.4rem; }
+/* Same four columns as the .stats box above: Battle Value under the first figure, cost under the third. */
+.value-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.25rem; }
+.value-row > div { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 0.1rem; white-space: nowrap; min-width: 0; }
+.value-row > div:first-child { grid-column: 1; }
+.value-row > div:last-child { grid-column: 3; }
+.value-card details { padding: 0 0.2rem; }
+@media (max-width: 420px) { .value-row { grid-template-columns: repeat(2, 1fr); } .value-row > div:last-child { grid-column: 2; } }
 .value-big { font-size: 1.2rem; font-variant-numeric: tabular-nums; }
 .value-card details { margin-top: 0.35rem; }
 .value-card summary { cursor: pointer; color: var(--accent); }

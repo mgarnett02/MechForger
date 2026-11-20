@@ -26,6 +26,13 @@ interface Props {
 
 type Paper = 'letter' | 'a4';
 
+/** In the desktop app, print through Electron so the dialog starts in portrait; in a browser, the page's @page rule does it. */
+function printSheets(paper: Paper) {
+  const desktop = (window as unknown as { mechforgerPrint?: { print: (paper: Paper) => Promise<boolean> } }).mechforgerPrint;
+  if (desktop) void desktop.print(paper);
+  else window.print();
+}
+
 /** Full-screen preview of the record sheet(s), printed with the browser / app print dialog. */
 export function PrintPreview({ design, onClose }: Props) {
   const isMech = !isVehicle(design) && !isSupport(design) && !isFighter(design) && !isVessel(design) && !isBattleArmor(design) && !isInfantry(design) && !isProtoMech(design) && !isStationary(design);
@@ -72,7 +79,7 @@ export function PrintPreview({ design, onClose }: Props) {
         </label>
         <span className="spacer" />
         <span className="muted small">Choose “Save as PDF” in the print dialog for a PDF.</span>
-        <button className="primary" onClick={() => window.print()}>Print…</button>
+        <button className="primary" onClick={() => printSheets(paper)}>Print…</button>
         <button onClick={onClose}>Close</button>
       </div>
       <div className={`print-pages paper-${paper}`}>

@@ -7,3 +7,8 @@ contextBridge.exposeInMainWorld('mechforgerFiles', {
   /** Ask which file to open. Resolves to { name, text }, or null if cancelled. */
   open: () => ipcRenderer.invoke('design:open'),
 });
+
+contextBridge.exposeInMainWorld('mechforgerPrint', {
+  /** Print the page in portrait on 'letter' or 'a4' paper. Resolves to true if it was sent to the printer. */
+  print: (paper) => ipcRenderer.invoke('sheet:print', paper),
+});
