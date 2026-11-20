@@ -5,6 +5,7 @@ import type { Issue } from '../rules/validation';
 import { technicalReadout } from '../rules/readout';
 import { mechBV, mechCost } from '../rules/battleValue';
 import { ValueCard } from './ValueCard';
+import { DamageChart } from './DamageChart';
 
 interface Props {
   design: MechDesign;
@@ -54,12 +55,13 @@ export function SummaryPanel({ design, summary, issues }: Props) {
       </table>
 
       <div className="stats">
-        <div><span className="muted">Move</span> {design.walkMP}/{summary.runMP}/{summary.totalJumpMP}</div>
-        <div><span className="muted">Heat sinks</span> {summary.heatSinks.total}</div>
-        <div><span className="muted">Weapon heat</span> {summary.heat.weapons}</div>
-        <div><span className="muted">Armor</span> {summary.armorTotal}/{summary.armorMaxTotal}</div>
+        <div><span className="muted small">Move</span><strong>{design.walkMP}/{summary.runMP}/{summary.totalJumpMP}</strong></div>
+        <div><span className="muted small">Heat sinks</span><strong>{summary.heatSinks.total}</strong></div>
+        <div><span className="muted small">Weapon heat</span><strong>{summary.heat.weapons}</strong></div>
+        <div><span className="muted small">Armor</span><strong>{summary.armorTotal}/{summary.armorMaxTotal}</strong></div>
       </div>
       <ValueCard bv={mechBV(design)} cost={mechCost(design)} />
+      <DamageChart design={design} summary={summary} />
 
       <h3 id="validation">
         Validation{' '}

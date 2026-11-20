@@ -4,7 +4,7 @@ import { SPLIT_ADJACENT, isQuad, locationName } from '../rules/types';
 import type { MechSummary } from '../rules/construction';
 import type { Equipment, EquipmentCategory } from '../rules/equipment';
 import {
-  ALL_EQUIPMENT, FILLER_IDS, allowedLocations, canArmor, canRearMount, equipmentName, getEquipment,
+  ALL_EQUIPMENT, FILLER_IDS, allowedLocations, armoredComponentsAllowed, canArmor, canRearMount, equipmentName, getEquipment,
   isCatalogEquipment, itemSlots, itemWeight, legCount,
 } from '../rules/equipment';
 import { meleeDamage } from '../rules/melee';
@@ -72,8 +72,8 @@ export function EquipmentPanel({ design, summary, update, selected, setSelected 
           <thead>
             <tr>
               <th>Name</th>
-              {showCombat && <><th>Dmg</th><th>Heat</th><th>Range</th></>}
-              <th>Tons</th><th>Crits</th><th />
+              {showCombat && <><th className="c">Dmg</th><th className="c">Heat</th><th>Range</th></>}
+              <th className="c">Tons</th><th className="num">Crits</th><th />
             </tr>
           </thead>
           <tbody>
@@ -89,12 +89,12 @@ export function EquipmentPanel({ design, summary, update, selected, setSelected 
                   <td>{equipmentName(eq, design)}</td>
                   {showCombat && (
                     <>
-                      <td className="num">{eq.melee ? meleeDamage(eq.melee, design.tonnage) : eq.damage ?? '—'}</td>
-                      <td className="num">{eq.heat}</td>
+                      <td className="c">{eq.melee ? meleeDamage(eq.melee, design.tonnage) : eq.damage ?? '—'}</td>
+                      <td className="c">{eq.heat}</td>
                       <td>{rangeText(eq)}</td>
                     </>
                   )}
-                  <td className="num">{tons}</td>
+                  <td className="c">{tons}</td>
                   <td className="num">{itemSlots(eq, design)}{eq.melee === 'talons' ? ' / leg' : ''}</td>
                   <td>
                     <button className="small" disabled={tooHeavy || noArms || bothArms}
@@ -188,8 +188,9 @@ function MountedRow({
         </label>
       )}
       {canArmor(eq) && item.location && (
-        <label className="check small" title="Armored component: +0.5 t per slot, from 3061">
-          <input type="checkbox" checked={!!item.armored}
+        <label className="check small" title={armoredComponentsAllowed(design) ? 'Armored component: +0.5 t per slot, from 3061'
+          : design.tonnage > 100 ? "Superheavy 'Mechs cannot have armored components" : 'Armored components are available from 3061 (Clan Invasion era)'}>
+          <input type="checkbox" checked={!!item.armored} disabled={!item.armored && !armoredComponentsAllowed(design)}
             onChange={(e) => update((d) => setItemArmored(d, item.uid, e.target.checked))} />
           Armored
         </label>

@@ -16,6 +16,11 @@
   --lamp-red: #e5383b;
   --lamp-amber: #f2a900;
   --lamp-green: #2fb344;
+  --chart-line: #2c5f9e;
+  --chart-grid: #ebe8e2;
+  --band-short: #f7f5f1;
+  --band-medium: #efece6;
+  --band-long: #e6e2da;
   color-scheme: light;
 }
 /* Dark theme: chosen explicitly, or following the system when set to System. */
@@ -37,6 +42,11 @@
   --lamp-red: #ff4d4f;
   --lamp-amber: #ffc53d;
   --lamp-green: #52d36b;
+  --chart-line: #3987e5;
+  --chart-grid: #2c2f34;
+  --band-short: #22252a;
+  --band-medium: #282b30;
+  --band-long: #2f3338;
   color-scheme: dark;
 }
 @media (prefers-color-scheme: dark) {
@@ -58,6 +68,11 @@
     --lamp-red: #ff4d4f;
     --lamp-amber: #ffc53d;
     --lamp-green: #52d36b;
+    --chart-line: #3987e5;
+    --chart-grid: #2c2f34;
+    --band-short: #22252a;
+    --band-medium: #282b30;
+    --band-long: #2f3338;
     color-scheme: dark;
   }
 }
@@ -147,6 +162,8 @@ th { text-align: left; font-weight: 600; color: var(--muted); font-size: 0.82rem
 td, th { padding: 0.2rem 0.35rem; }
 .armor-table tbody tr:nth-child(odd), .catalog tbody tr:nth-child(odd) { background: color-mix(in srgb, var(--border) 25%, transparent); }
 .armor-table tfoot td { border-top: 1px solid var(--border); font-weight: 600; }
+/* Centred columns (armor IS / Front / Rear; catalog Dmg / Heat / Tons). */
+th.c, td.c { text-align: center; font-variant-numeric: tabular-nums; }
 
 .tabs { display: flex; gap: 0.25rem; margin-bottom: 0.5rem; }
 .tabs button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
@@ -166,7 +183,12 @@ td, th { padding: 0.2rem 0.35rem; }
 .weight-bar.over > div { background: var(--bad); }
 .weight-line { margin: 0.4rem 0; }
 .weights td:first-child { color: var(--muted); }
-.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 0.25rem 1rem; margin-top: 0.75rem; }
+/* Move / heat sinks / weapon heat / armor: four evenly spaced figures in a box, like the value card. */
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.25rem; margin-top: 0.75rem;
+  border: 1px solid var(--border); border-radius: 8px; padding: 0.45rem 0.4rem; text-align: center; }
+.stats > div { display: flex; flex-direction: column; align-items: center; gap: 0.1rem; min-width: 0; }
+.stats strong { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+@media (max-width: 420px) { .stats { grid-template-columns: repeat(2, 1fr); row-gap: 0.5rem; } }
 
 .issues { margin: 0; padding-left: 1.1rem; }
 .issues li { margin: 0.15rem 0; }
@@ -587,6 +609,38 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 }
 
 /* Battle Value / cost card */
+/* Damage-by-range chart */
+.dmg-chart { margin-top: 0.75rem; }
+.dmg-head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; }
+.dmg-head h3 { margin: 0; }
+.dmg-best { margin: 0.3rem 0 0.2rem; }
+.dmg-legend { display: flex; flex-wrap: wrap; gap: 0.25rem 0.9rem; align-items: center; color: var(--muted); }
+.dmg-legend > span { display: inline-flex; align-items: center; gap: 0.3rem; }
+.dmg-bands { gap: 0.5rem !important; }
+.dmg-bands > span { display: inline-flex; align-items: center; gap: 0.2rem; }
+.dmg-swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; border: 1px solid var(--border); }
+.dmg-plot { position: relative; touch-action: pan-y; }
+.dmg-plot svg { display: block; width: 100%; height: auto; overflow: visible; }
+.dmg-grid { stroke: var(--chart-grid); stroke-width: 1; }
+.dmg-axis, .dmg-cross { stroke: var(--border); stroke-width: 1; }
+.dmg-tick { fill: var(--muted); font-size: 10px; font-variant-numeric: tabular-nums; }
+.dmg-line { fill: none; stroke: var(--chart-line); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.dmg-line.ideal { stroke-dasharray: 5 4; stroke-opacity: 0.75; }
+.dmg-area { fill: var(--chart-line); fill-opacity: 0.1; }
+.dmg-dot { fill: var(--chart-line); stroke: var(--panel); stroke-width: 2; }
+.band-short { fill: var(--band-short); background: var(--band-short); }
+.band-medium { fill: var(--band-medium); background: var(--band-medium); }
+.band-long { fill: var(--band-long); background: var(--band-long); }
+.dmg-tip { position: absolute; top: 4px; min-width: 11rem; max-width: 15rem; pointer-events: none; z-index: 2;
+  background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 0.35rem 0.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15); }
+.dmg-tip-row { display: flex; justify-content: space-between; gap: 0.75rem; font-variant-numeric: tabular-nums; }
+.dmg-tip-row span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dmg-details { margin-top: 0.3rem; }
+.dmg-details summary { cursor: pointer; color: var(--accent); }
+.dmg-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.dmg-table th { text-align: right; color: var(--muted); font-weight: 500; }
+.dmg-table td, .dmg-table th { padding: 1px 6px; }
 .value-card { margin-top: 0.75rem; border: 1px solid var(--border); border-radius: 8px; padding: 0.5rem 0.6rem; }
 .value-row { display: flex; gap: 1.25rem; flex-wrap: wrap; }
 .value-row > div { display: flex; flex-direction: column; }

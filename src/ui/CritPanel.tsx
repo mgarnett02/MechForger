@@ -1,7 +1,7 @@
 import type { Location, MechDesign } from '../rules/types';
 import { isQuad, isTripod, locationName, mechLocations } from '../rules/types';
 import type { MechSummary } from '../rules/construction';
-import { allowedLocations, canArmor, canArmorSystem, equipmentName, getEquipment, itemSlots } from '../rules/equipment';
+import { allowedLocations, armoredComponentsAllowed, canArmor, canArmorSystem, equipmentName, getEquipment, itemSlots } from '../rules/equipment';
 import { useState } from 'react';
 import { autoAllocate, placeItem, setItemArmored, setItemLocation, splitFor, toggleSystemArmor } from '../rules/edit';
 
@@ -33,7 +33,10 @@ export function CritPanel({ design, summary, update, selected, setSelected }: Pr
   }
 
   const [armorMode, setArmorMode] = useState(false);
+  // Off-era or superheavy: armor can only be taken off (no slot can be newly armored).
+  const armorAllowed = armoredComponentsAllowed(design);
   const armorable = (slot: MechSummary['slots'][Location]['slots'][number]) => {
+    if (!armorAllowed && !slot.armored) return false;
     if (slot.kind === 'fixed') return canArmorSystem(slot.label);
     if (slot.kind !== 'item') return false;
     const item = design.equipment.find((e) => e.uid === slot.uid);
@@ -58,8 +61,9 @@ export function CritPanel({ design, summary, update, selected, setSelected }: Pr
     <section className="panel">
       <div className="panel-head">
         <h2>Critical slots</h2>
-        <label className="check small" title="Click slots to armor or un-armor them (0.5 t per slot, from 3061)">
-          <input type="checkbox" checked={armorMode} onChange={(e) => { setArmorMode(e.target.checked); setSelected(null); }} />
+        <label className="check small" title={armorAllowed ? 'Click slots to armor or un-armor them (0.5 t per slot, from 3061)'
+          : design.tonnage > 100 ? "Superheavy 'Mechs cannot have armored components" : 'Armored components are available from 3061 (Clan Invasion era)'}>
+          <input type="checkbox" checked={armorMode} disabled={!armorMode && !armorAllowed && !summary.weights.armored} onChange={(e) => { setArmorMode(e.target.checked); setSelected(null); }} />
           Armor components{summary.weights.armored ? ` (${summary.weights.armored} t)` : ''}
         </label>
       </div>

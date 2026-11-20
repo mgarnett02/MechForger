@@ -29,6 +29,11 @@ export function ArmorPanel({ design, summary, update }: Props) {
   const ppt = summary.armorPointsPerTon;
   const maxTons = armorTonnage(summary.armorMaxTotal, ppt);
   const unused = armorPointsForTons(summary.weights.armor, ppt) - summary.armorTotal;
+  // Column totals: internal structure, front armor and rear armor.
+  const locs = mechLocations(design);
+  const structureTotal = locs.reduce((a, l) => a + (summary.structure?.[l] ?? 0), 0);
+  const frontTotal = locs.reduce((a, l) => a + (design.armor[l] ?? 0), 0);
+  const rearTotal = locs.reduce((a, l) => { const r = REAR_FACING[l]; return a + (r ? design.armor[r] ?? 0 : 0); }, 0);
   const pptLabel = Number.isInteger(ppt) ? String(ppt) : ppt.toFixed(2);
   return (
     <section className="panel">
@@ -55,7 +60,7 @@ export function ArmorPanel({ design, summary, update }: Props) {
       </h2>
       <table className="armor-table">
         <thead>
-          <tr><th>Location</th>{patch && <th>Type</th>}<th>IS</th><th>Front</th><th>Rear</th><th>Max</th></tr>
+          <tr><th>Location</th>{patch && <th>Type</th>}<th className="c">IS</th><th className="c">Front</th><th className="c">Rear</th><th className="num">Max</th></tr>
         </thead>
         <tbody>
           {mechLocations(design).map((loc) => {
@@ -77,13 +82,13 @@ export function ArmorPanel({ design, summary, update }: Props) {
                     </select>
                   </td>
                 )}
-                <td className="num muted">{summary.structure?.[loc] ?? '—'}</td>
-                <td>
+                <td className="c muted">{summary.structure?.[loc] ?? '—'}</td>
+                <td className="c">
                   <NumberField label={`${locationName(design, loc)} armor`} value={design.armor[loc]} min={0}
                     max={max} width="3.5rem" invalid={over}
                     onChange={(n) => update((d) => setArmor(d, loc, n))} />
                 </td>
-                <td>
+                <td className="c">
                   {rear && (
                     <NumberField label={`${locationName(design, loc)} rear armor`} value={design.armor[rear]} min={0}
                       max={max} width="3.5rem" invalid={over}
@@ -97,8 +102,10 @@ export function ArmorPanel({ design, summary, update }: Props) {
         </tbody>
         <tfoot>
           <tr>
-            <td>Total</td>{patch && <td />}<td />
-            <td colSpan={2} className="num">{summary.armorTotal} pts</td>
+            <td>Total <span className="muted small">({summary.armorTotal} armor pts)</span></td>{patch && <td />}
+            <td className="c">{structureTotal}</td>
+            <td className="c">{frontTotal}</td>
+            <td className="c">{rearTotal}</td>
             <td className="num muted">{summary.armorMaxTotal}</td>
           </tr>
         </tfoot>

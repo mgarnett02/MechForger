@@ -145,6 +145,11 @@ export function ChassisPanel({ design, summary, update }: Props) {
               onChange={(e) => update((d) => setFranken(d, e.target.checked))} />
             FrankenMek
           </label>
+          <label className="check" title={isAvailableIn('3131', design.era) ? 'RISC heat sink override kit (Dark Age, Experimental): BV × 1.01' : 'Available from the Dark Age era (3131)'}>
+            <input type="checkbox" checked={!!design.heatSinkOverrideKit} disabled={!isAvailableIn('3131', design.era) && !design.heatSinkOverrideKit}
+              onChange={(e) => update((d) => ({ ...d, heatSinkOverrideKit: e.target.checked || undefined }))} />
+            Heat sink override kit
+          </label>
         </div>
 
         <label title="Good Reputation design quirk: the 'Mech costs 10% (level 1) or 25% (level 2) more">Good Reputation</label>
@@ -368,11 +373,6 @@ export function ChassisPanel({ design, summary, update }: Props) {
           </span>{' '}
           {design.heatSinkType === 'double' && <TechPicker design={design} part="heatSinks" update={update} />}
           <div className="muted nowrap">{summary.weights.heatSinks} t · dissipates {hs.dissipation}</div>
-          <label className="check small" title="RISC heat sink override kit (Dark Age, Experimental): BV × 1.01">
-            <input type="checkbox" checked={!!design.heatSinkOverrideKit} disabled={!isAvailableIn('3131', design.era) && !design.heatSinkOverrideKit}
-              onChange={(e) => update((d) => ({ ...d, heatSinkOverrideKit: e.target.checked || undefined }))} />
-            Override kit
-          </label>
         </div>
 
         <label>In engine</label>

@@ -966,6 +966,14 @@ export function canRearMount(eq: Equipment, location: Location | null, design?: 
   return isQuad(design ?? {});
 }
 
+/**
+ * Whether a 'Mech may armor components (Tactical Operations, prototypes from 3061, so not in the Introductory
+ * 3025 era): never on a superheavy.
+ */
+export function armoredComponentsAllowed(d: { era: EraId; tonnage: number }): boolean {
+  return isAvailableIn('3050', d.era) && d.tonnage <= 100;
+}
+
 /** Armored components: half a ton per critical slot (an armored cockpit is a flat ton). */
 export const ARMORED_TONS_PER_SLOT = 0.5;
 
