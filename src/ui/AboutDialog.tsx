@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { DISCLAIMER, DISCLAIMER_TITLE } from './legal';
+import { APP_VERSION } from '../version';
 
 /** About / Legal window with the full disclaimer. */
 export function AboutDialog({ onClose }: { onClose: () => void }) {
@@ -12,8 +13,8 @@ export function AboutDialog({ onClose }: { onClose: () => void }) {
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal about" role="dialog" aria-modal="true" aria-labelledby="about-title"
         onClick={(e) => e.stopPropagation()}>
-        <h2 id="about-title">MechForger</h2>
-        <p className="muted">A free BattleMech and combat vehicle designer.</p>
+        <h2 id="about-title">MechForger <span className="muted small">{APP_VERSION}</span></h2>
+        <p className="muted">A free BattleMech and combat vehicle designer by Mark Garnett.</p>
         <h3>{DISCLAIMER_TITLE}</h3>
         {DISCLAIMER.map((p, i) => <p key={i}>{p}</p>)}
         <h3>Canon unit data</h3>

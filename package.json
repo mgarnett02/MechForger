@@ -1,7 +1,7 @@
 {
   "name": "mechforger",
   "private": true,
-  "version": "0.1.0",
+  "version": "1.0.0-beta",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit",
     "app": "npm run build && electron .",
     "dist:win": "npm run build && electron-builder --win --publish never",
+    "dist:local": "node tools/package-local.mjs",
     "convert-canon": "vite-node tools/convert-megamek.ts"
   },
   "devDependencies": {
