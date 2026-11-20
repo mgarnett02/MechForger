@@ -5,7 +5,8 @@ import type { CanonEntry } from '../data/canonFormat';
 import { decodeMech } from '../data/canonFormat';
 import { computeMech } from './construction';
 import { addEquipment, newDesign, removeEquipment, setActuator, setConfig, setMyomer, setTonnage } from './edit';
-import { allowedLocations, getEquipment, itemSlots, itemWeight } from './equipment';
+import { ALL_EQUIPMENT, allowedLocations, getEquipment, isCatalogEquipment, itemSlots, itemWeight } from './equipment';
+import { ERAS } from './eras';
 import { meleeBV, meleeCost, meleeDamage } from './melee';
 import { addConfiguration, setOmni, switchConfiguration } from './omni';
 import { validate } from './validation';
@@ -100,5 +101,17 @@ describe('OmniMech arm actuators per configuration', () => {
     const prime = switchConfiguration(d, 0);
     expect(armActuators(prime, 'RA').hand).toBe(true);
     expect(armActuators(switchConfiguration(prime, 1), 'RA').hand).toBe(false);
+  });
+});
+
+describe('melee weapons in the catalog', () => {
+  it('every era and tech base offers melee weapons, Introductory 3025 included', () => {
+    for (const era of ERAS) for (const tb of era.techBases) {
+      expect(ALL_EQUIPMENT.some((e) => e.melee && isCatalogEquipment(e, era.id, tb))).toBe(true);
+    }
+    const intro = ALL_EQUIPMENT.filter((e) => e.melee && isCatalogEquipment(e, '3025', 'IS')).map((e) => e.id);
+    expect(intro).toEqual(['hatchet', 'wrecking-ball']);
+    // The rest of the Introductory catalog stays limited to the classic weapons.
+    expect(isCatalogEquipment(getEquipment('light-bridge-layer')!, '3025', 'IS')).toBe(false);
   });
 });

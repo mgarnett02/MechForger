@@ -1001,9 +1001,12 @@ export const INTRODUCTORY_WEAPON_IDS: readonly string[] = [
   'ac-2', 'ac-5', 'ac-10', 'ac-20', 'lrm-5', 'lrm-10', 'lrm-15', 'lrm-20', 'srm-2', 'srm-4', 'srm-6',
 ];
 
-/** Whether the era's rules level allows an item: Introductory eras offer only the Introductory weapons and ammunition. */
+/**
+ * Whether the era's rules level allows an item: Introductory eras offer only the Introductory weapons and ammunition,
+ * plus the melee weapons of the era (the hatchet and wrecking ball in 3025), so every era has a melee choice.
+ */
 export function isRulesLevelOk(eq: Equipment, era: EraId): boolean {
-  if (getEra(era)?.rulesLevel !== 'Introductory') return true;
+  if (getEra(era)?.rulesLevel !== 'Introductory' || eq.melee) return true;
   if (eq.category === 'Ammo') return !!eq.ammoFor && INTRODUCTORY_WEAPON_IDS.includes(eq.ammoFor) && !eq.munition && !eq.flakAmmo;
   return INTRODUCTORY_WEAPON_IDS.includes(eq.id);
 }
