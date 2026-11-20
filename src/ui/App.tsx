@@ -42,6 +42,7 @@ import { InfantryEditor } from './InfantryEditor';
 import { PrintPreview } from './print/PrintPreview';
 import { AboutDialog } from './AboutDialog';
 import { CanonBrowser } from './CanonBrowser';
+import { mulUrl } from './mulLink';
 import type { AnyDesign, UnitType } from './storage';
 import {
   clearLegacySaved, loadCurrent, loadCurrentBattleArmor, saveCurrentBattleArmor, loadCurrentProtoMech, saveCurrentProtoMech, loadCurrentStationary, saveCurrentStationary, loadCurrentInfantry, saveCurrentInfantry, loadCurrentFighter, loadCurrentSupport, loadCurrentVessel, loadCurrentVehicle, loadUnit,
@@ -248,7 +249,7 @@ export function App() {
           <input aria-label="Model" value={active.model} placeholder="Model" style={{ width: '7rem' }}
             onChange={(e) => setName({ model: e.target.value })} />
           {active.mulId ? (
-            <a className="mul-link" href={`https://masterunitlist.battletech.com/Unit/Details/${active.mulId}`} target="_blank" rel="noreferrer"
+            <a className="mul-link" href={mulUrl(active.chassis, active.model)} target="_blank" rel="noreferrer"
               title="Open this canon design's Master Unit List page">MUL #{active.mulId} ↗</a>
           ) : null}
           <button onClick={() => load(newOf(unit, active.era, active.techBase))}>New</button>

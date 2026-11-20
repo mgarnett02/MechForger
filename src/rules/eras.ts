@@ -88,3 +88,23 @@ export function eraIndex(id: EraId): number {
 export function isAvailableIn(firstEra: EraId, era: EraId): boolean {
   return eraIndex(era) >= eraIndex(firstEra);
 }
+
+/** A 'Mech configuration choice: a leg configuration or a Land-Air 'Mech type. */
+export type ConfigChoice = 'biped' | 'quad' | 'tripod' | 'quadvee' | 'lam-standard' | 'lam-bimodal';
+
+/**
+ * When each configuration exists (dates as the canon units use them): tripods are Inner Sphere from 3132 (Clan
+ * designs only with mixed tech), QuadVees Clan from 3132 (Inner Sphere only with mixed tech), standard LAMs
+ * Inner Sphere from 2688 until they die out after the Jihad (last built 3080), and bimodal LAMs never past
+ * 2684, so no era offers them. Bipeds and quads exist in every era.
+ */
+export function isConfigAvailable(c: ConfigChoice, d: { era: EraId; techBase: TechBase; mixedTech?: boolean }): boolean {
+  const base = (t: TechBase) => d.techBase === t || !!d.mixedTech;
+  switch (c) {
+    case 'biped': case 'quad': return true;
+    case 'tripod': return base('IS') && isAvailableIn('3131', d.era);
+    case 'quadvee': return base('Clan') && isAvailableIn('3131', d.era);
+    case 'lam-standard': return d.techBase === 'IS' && !isAvailableIn('3081', d.era);
+    case 'lam-bimodal': return false;
+  }
+}

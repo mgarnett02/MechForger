@@ -9,7 +9,8 @@ import {
 } from '../rules/tables';
 import { LAM_TYPE_NAMES, TECH_BASE_NAMES, isQuad, locationName, mechLocations, techOf } from '../rules/types';
 import { TechPicker } from './TechPicker';
-import { ERAS, getEra, isAvailableIn } from '../rules/eras';
+import { ERAS, getEra, isAvailableIn, isConfigAvailable } from '../rules/eras';
+import type { ConfigChoice } from '../rules/eras';
 import type { MechSummary } from '../rules/construction';
 import { SUPERHEAVY_TONNAGES, TONNAGES, engineSideTorsoSlots, freeHeatSinks, isLargeEngine, maxWalkMP } from '../rules/tables';
 import {
@@ -35,12 +36,23 @@ const STRUCTURE_NOTES: Partial<Record<StructureType, string>> = {
   composite: ' — half BV, fragile', reinforced: ' — double BV, tough',
 };
 
+/** Configuration drop-down entries: value, label and tooltip. */
+const CONFIG_CHOICES: [ConfigChoice, string, string][] = [
+  ['biped', 'Biped (two legs, two arms)', ''],
+  ['quad', 'Quad (four legs)', ''],
+  ['tripod', 'Tripod (three legs, two arms)', 'Inner Sphere, from 3132'],
+  ['quadvee', 'QuadVee (quad / vehicle)', 'Clan, from 3132: a quad that converts into a tracked or wheeled vehicle'],
+  ['lam-standard', 'LAM, standard (3 modes)', 'Inner Sphere Land-Air \'Mech, until the Jihad (3080)'],
+  ['lam-bimodal', 'LAM, bimodal (no AirMech)', 'Inner Sphere, Star League era only (2680s)'],
+];
+
 export function ChassisPanel({ design, summary, update }: Props) {
   const hs = summary.heatSinks;
   const era = getEra(design.era);
   const advanced = isAvailableIn(ADVANCED_ERA, design.era);
   const lockedTitle = advanced ? undefined : 'Available from the Clan Invasion era (3050)';
   const sh = isSuperheavy(design);
+  const configValue = (design.lam ? `lam-${design.lam}` : design.config) as ConfigChoice;
   const sideSlots = (type: EngineType) => engineSideTorsoSlots(type, techOf(design, 'engine'), sh);
   const xlSlots = sideSlots('xl');
   const large = isLargeEngine(summary.rating);
@@ -77,17 +89,15 @@ export function ChassisPanel({ design, summary, update }: Props) {
 
         <label>Configuration</label>
         <div>
-          <select className="fit" aria-label="Configuration" value={design.lam ? `lam-${design.lam}` : design.config}
+          <select className="fit" aria-label="Configuration" value={configValue}
             onChange={(e) => {
               const v = e.target.value;
               update((d) => (v.startsWith('lam-') ? setLam(d, v.slice(4) as LamType) : setConfig(setLam(d, null), v as MechConfig)));
             }}>
-            <option value="biped">Biped (two legs, two arms)</option>
-            <option value="quad">Quad (four legs)</option>
-            <option value="tripod">Tripod (three legs, two arms)</option>
-            <option value="quadvee" disabled={sh} title="Clan, from 3130: a quad that converts into a tracked or wheeled vehicle">QuadVee (quad / vehicle)</option>
-            <option value="lam-standard" disabled={design.techBase !== 'IS' || sh}>LAM, standard (3 modes)</option>
-            <option value="lam-bimodal" disabled={design.techBase !== 'IS' || sh}>LAM, bimodal (no AirMech)</option>
+            {/* Only configurations that exist in this era and tech base (plus the design's own, so it still shows). */}
+            {CONFIG_CHOICES.filter(([v]) => v === configValue || isConfigAvailable(v, design)).map(([v, label, title]) => (
+              <option key={v} value={v} title={title} disabled={sh && (v === 'quadvee' || v.startsWith('lam-'))}>{label}</option>
+            ))}
           </select>{' '}
           {isQuadVee(design) && (
             <select aria-label="QuadVee motive" value={design.quadVeeMotive ?? 'tracked'}
