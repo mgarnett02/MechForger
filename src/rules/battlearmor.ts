@@ -5,7 +5,7 @@
 import type { EraId } from './eras';
 import { getEra } from './eras';
 import type { TechBase } from './types';
-import { TECH_BASE_NAMES } from './types';
+import { TECH_BASE_NAMES, sourceLine } from './types';
 import type { MMItem } from './mmEquipment';
 import { MM_EQUIPMENT, getMM, has, mmAvailable, mmName, mmNum } from './mmEquipment';
 
@@ -42,6 +42,8 @@ export interface BAItem {
 export interface BattleArmorDesign {
   /** Master Unit List id, for designs loaded from the canon list. */
   mulId?: number;
+  /** Sourcebook(s) a canon design was published in, e.g. "TR:3039,TR:SW". */
+  source?: string;
   schemaVersion: 1;
   unitType: 'battlearmor';
   era: EraId;
@@ -572,6 +574,7 @@ export function battleArmorReadout(d: BattleArmorDesign): string {
     `Squad: ${d.squadSize} troopers, ${kg(s.weights.total)} each (limit ${kg(s.trooperLimit)})`,
     `Tech Base: ${d.mixedTech ? 'Mixed' : TECH_BASE_NAMES[d.techBase]}`,
     era ? `Era: ${era.name} (${era.year})` : '',
+    sourceLine(d),
     `Battle Value: ${battleArmorBV(d).total.toLocaleString('en-US')}`,
     `Cost: ${battleArmorCost(d).total.toLocaleString('en-US')} C-bills`,
     '',

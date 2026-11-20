@@ -9,7 +9,7 @@ import { ARMOR_NAMES, ARMOR_OPTIONS, armorPointsPerTon, componentAvailable } fro
  * modifications, fuel, fire control and crew accommodations).
  */
 import type { TechBase } from './types';
-import { TECH_BASE_NAMES } from './types';
+import { TECH_BASE_NAMES, sourceLine } from './types';
 import type { EraId } from './eras';
 import { DEFAULT_ERA, getEra, isAvailableIn } from './eras';
 import type { Equipment } from './equipment';
@@ -105,6 +105,8 @@ export function svBayWeight(b: SVBay): number {
 export interface SupportVehicleDesign {
   /** Master Unit List id, for designs loaded from the canon list. */
   mulId?: number;
+  /** Sourcebook(s) a canon design was published in, e.g. "TR:3039,TR:SW". */
+  source?: string;
   /** Pintle turrets built empty at a fixed total weight (tons), shared by every pintle turret. */
   pintleWeight?: number;
   schemaVersion: 1;
@@ -924,6 +926,7 @@ export function supportReadout(d: SupportVehicleDesign, s: SupportSummary = comp
   lines.push(`Type: ${info.name} support vehicle, ${t(d.tonnage)} tons (${s.size})`);
   lines.push(`Tech Base: ${d.mixedTech ? `Mixed (${TECH_BASE_NAMES[d.techBase]} chassis)` : TECH_BASE_NAMES[d.techBase]}`);
   if (era) lines.push(`Era: ${era.name} (${era.year})`);
+  lines.push(sourceLine(d));
   if (values) lines.push(`Battle Value: ${values.bv.toLocaleString('en-US')}`, `Cost: ${values.cost.toLocaleString('en-US')} C-bills`);
   lines.push(`Tech ratings: structure ${d.structureTech}, engine ${d.engineTech}, armor ${d.armorTech}`);
   if (d.chassisMods.length) lines.push(`Chassis modifications: ${d.chassisMods.map((id) => CHASSIS_MODS.find((m) => m.id === id)?.name ?? id).join(', ')}`);

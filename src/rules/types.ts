@@ -183,6 +183,12 @@ export interface ArmActuators {
 export type TechBase = 'IS' | 'Clan';
 export const TECH_BASE_NAMES: Record<TechBase, string> = { IS: 'Inner Sphere', Clan: 'Clan' };
 
+/** Technical readout line naming the sourcebook(s) a canon design was published in (MegaMek's abbreviations). */
+export function sourceLine(d: { source?: string }): string {
+  const books = d.source?.split(',').map((s) => s.trim()).filter(Boolean) ?? [];
+  return books.length ? `Source: ${books.join(', ')}` : 'Source unknown';
+}
+
 export type StructureType = 'standard' | 'endo-steel' | 'endo-prototype' | 'endo-composite' | 'composite' | 'reinforced' | 'industrial';
 export type EngineType = 'standard' | 'xl' | 'xxl' | 'light' | 'compact' | 'ice' | 'fuel-cell' | 'fission';
 export type GyroType = 'standard' | 'xl' | 'heavy-duty' | 'compact' | 'none' | 'superheavy';
@@ -216,6 +222,8 @@ export type MyomerType = 'standard' | 'tsm' | 'industrial-tsm' | 'super-cooled';
 export interface MechDesign {
   /** Master Unit List id, for designs loaded from the canon list. */
   mulId?: number;
+  /** Sourcebook(s) a canon design was published in, e.g. "TR:3039,TR:SW". */
+  source?: string;
   schemaVersion: 1;
   /** Tech level / era the design is built for. */
   era: EraId;

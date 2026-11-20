@@ -5,7 +5,7 @@
 import type { EraId } from './eras';
 import { getEra } from './eras';
 import type { TechBase } from './types';
-import { TECH_BASE_NAMES } from './types';
+import { TECH_BASE_NAMES, sourceLine } from './types';
 import type { MMItem } from './mmEquipment';
 import { MM_EQUIPMENT, getMM, has, mmAvailable, mmName, mmNum } from './mmEquipment';
 import { getEquipment, isEquipmentAvailable } from './equipment';
@@ -63,6 +63,8 @@ export interface FieldGun { uid: string; equipmentId: string; ammoTons?: number 
 export interface InfantryDesign {
   /** Master Unit List id, for designs loaded from the canon list. */
   mulId?: number;
+  /** Sourcebook(s) a canon design was published in, e.g. "TR:3039,TR:SW". */
+  source?: string;
   schemaVersion: 1;
   unitType: 'infantry';
   era: EraId;
@@ -470,6 +472,7 @@ export function infantryReadout(d: InfantryDesign): string {
     `Platoon: ${d.squads} squads of ${d.squadSize} (${s.troopers} troopers), ${s.weight} tons`,
     `Tech Base: ${d.mixedTech ? 'Mixed' : TECH_BASE_NAMES[d.techBase]}`,
     era ? `Era: ${era.name} (${era.year})` : '',
+    sourceLine(d),
     `Battle Value: ${infantryBV(d).total.toLocaleString('en-US')}`,
     `Cost: ${infantryCost(d).total.toLocaleString('en-US')} C-bills`, '',
     `Movement: ${mp.walk} ground${mp.jump ? `, ${mp.jump} ${d.motion === 'jump' ? 'jump' : 'VTOL'}` : ''}${mp.umu ? `, ${mp.umu} UMU` : ''}`,

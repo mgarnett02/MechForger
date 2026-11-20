@@ -8,7 +8,7 @@
 import type { EraId } from './eras';
 import { getEra, isAvailableIn } from './eras';
 import type { TechBase } from './types';
-import { TECH_BASE_NAMES } from './types';
+import { TECH_BASE_NAMES, sourceLine } from './types';
 import type { MMItem } from './mmEquipment';
 import { MM_EQUIPMENT, eraForYear, getMM, has, mmAvailable, mmName, mmNum } from './mmEquipment';
 import { standardFusionEngineWeight } from './tables';
@@ -41,6 +41,8 @@ export interface ProtoItem {
 
 export interface ProtoMechDesign {
   mulId?: number;
+  /** Sourcebook(s) a canon design was published in, e.g. "TR:3039,TR:SW". */
+  source?: string;
   schemaVersion: 1;
   unitType: 'protomech';
   era: EraId;
@@ -551,6 +553,7 @@ export function protoMechReadout(d: ProtoMechDesign, s = computeProtoMech(d)): s
     `Type: ${PROTO_MOTION_NAMES[d.motion]} ProtoMech, ${d.tonnage} tons${s.ultraheavy ? ' (ultraheavy)' : ''}`,
     `Tech Base: ${d.mixedTech ? `Mixed (${TECH_BASE_NAMES[d.techBase]} chassis)` : TECH_BASE_NAMES[d.techBase]}`,
     era ? `Era: ${era.name} (${era.year})` : '',
+    sourceLine(d),
     `Battle Value: ${protoMechBV(d, s).total.toLocaleString('en-US')}`,
     `Cost: ${protoMechCost(d, s).total.toLocaleString('en-US')} C-bills`, '',
     row('Internal Structure:', s.weights.structure),

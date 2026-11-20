@@ -1,7 +1,7 @@
 import type { MechDesign } from './types';
 import {
   EFFECTIVE_COCKPIT_NAMES, LAM_TYPE_NAMES, LOCATIONS, REAR_FACING, TECH_BASE_NAMES, armorTypesUsed, effectiveCockpit, facingName,
-  isPatchwork, isQuad, isQuadVee, isTripod, locationAbbr, locationName, mechLocations, mountAbbr,
+  isPatchwork, isQuad, isQuadVee, isTripod, locationAbbr, locationName, mechLocations, mountAbbr, sourceLine,
 } from './types';
 import { getEra } from './eras';
 import { ARMOR_NAMES, STRUCTURE_NAMES, isLargeEngine } from './tables';
@@ -36,6 +36,7 @@ export function technicalReadout(design: MechDesign, summary: MechSummary = comp
   }
   if (design.omni) lines.push(`Config: OmniMech — ${activeConfigName(design)} configuration`);
   if (era) lines.push(`Era: ${era.name} (${era.year})`);
+  lines.push(sourceLine(design));
   lines.push(`Battle Value: ${mechBV(design).total.toLocaleString('en-US')}`);
   lines.push(`Cost: ${mechCost(design).total.toLocaleString('en-US')} C-bills`);
   lines.push('');

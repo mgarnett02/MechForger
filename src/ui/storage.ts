@@ -36,10 +36,14 @@ const CURRENT_PROTO = 'mechforger.currentProtoMech.v1';
 const CURRENT_STATIONARY = 'mechforger.currentStationary.v1';
 const UNIT = 'mechforger.unit.v1';
 
-/** Carry a canon design's Master Unit List id through parsing. */
+/** Carry a canon design's Master Unit List id and sourcebook through parsing. */
 function keepMul<T extends object>(raw: unknown, d: T): T {
-  const id = (raw as { mulId?: unknown })?.mulId;
-  return typeof id === 'number' && id > 0 ? { ...d, mulId: id } : d;
+  const { mulId: id, source } = (raw ?? {}) as { mulId?: unknown; source?: unknown };
+  return {
+    ...d,
+    ...(typeof id === 'number' && id > 0 ? { mulId: id } : {}),
+    ...(typeof source === 'string' && source.trim() ? { source: source.trim() } : {}),
+  };
 }
 
 /** Parse a saved or imported file as whichever kind of design it is. */

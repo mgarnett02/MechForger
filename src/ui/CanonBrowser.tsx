@@ -74,7 +74,7 @@ function kindLabel(k: string): string {
 }
 
 /** The browser's filters, remembered per unit type between visits. */
-interface Filters { query: string; tech: string; era: string; cls: string; sub: string; legalOnly: boolean; mulOnly: boolean }
+interface Filters { query: string; tech: string; era: string; cls: string; sub: string; source: string; legalOnly: boolean; mulOnly: boolean }
 const FILTERS_KEY = 'mechforger.canonFilters';
 
 function allSavedFilters(): Record<string, unknown> {
@@ -90,7 +90,7 @@ function savedFilters(kind: UnitType): Filters {
   const f = (allSavedFilters()[kind] ?? {}) as Partial<Record<keyof Filters, unknown>>;
   const str = (v: unknown) => (typeof v === 'string' ? v : '');
   return {
-    query: str(f.query), tech: str(f.tech), era: str(f.era), cls: str(f.cls), sub: str(f.sub),
+    query: str(f.query), tech: str(f.tech), era: str(f.era), cls: str(f.cls), sub: str(f.sub), source: str(f.source),
     legalOnly: f.legalOnly === true, mulOnly: f.mulOnly === true,
   };
 }
@@ -102,6 +102,11 @@ function saveFilters(kind: UnitType, f: Filters) {
     /* storage unavailable: filters are not remembered */
   }
 }
+
+/** Filter value for units with no sourcebook listed. */
+const UNKNOWN_SOURCE = '(unknown)';
+/** An entry's sourcebooks ("TR:3039,TR:SW" -> two books). */
+const sourcesOf = (e: CanonEntry): string[] => e.src?.split(',').map((s) => s.trim()).filter(Boolean) ?? [];
 
 /** Searchable list of bundled canon designs (converted from MegaMek Data). */
 export function CanonBrowser({ unit, onLoad, onClose }: Props) {
@@ -115,6 +120,7 @@ export function CanonBrowser({ unit, onLoad, onClose }: Props) {
   const [era, setEra] = useState(initial.era);
   const [cls, setCls] = useState(initial.cls);
   const [sub, setSub] = useState(initial.sub);
+  const [source, setSource] = useState(initial.source);
   const [legalOnly, setLegalOnly] = useState(initial.legalOnly);
   const [mulOnly, setMulOnly] = useState(initial.mulOnly);
 
@@ -124,9 +130,9 @@ export function CanonBrowser({ unit, onLoad, onClose }: Props) {
     const f = savedFilters(k);
     setKind(k);
     setEntries(null);
-    setQuery(f.query); setTech(f.tech); setEra(f.era); setCls(f.cls); setSub(f.sub); setLegalOnly(f.legalOnly); setMulOnly(f.mulOnly);
+    setQuery(f.query); setTech(f.tech); setEra(f.era); setCls(f.cls); setSub(f.sub); setSource(f.source); setLegalOnly(f.legalOnly); setMulOnly(f.mulOnly);
   };
-  useEffect(() => saveFilters(kind, { query, tech, era, cls, sub, legalOnly, mulOnly }), [kind, query, tech, era, cls, sub, legalOnly, mulOnly]);
+  useEffect(() => saveFilters(kind, { query, tech, era, cls, sub, source, legalOnly, mulOnly }), [kind, query, tech, era, cls, sub, source, legalOnly, mulOnly]);
   // Weight-class groups: collapsed until opened (or while a search or filter narrows the list).
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
   const [limits, setLimits] = useState<Record<string, number>>({});
@@ -155,7 +161,7 @@ export function CanonBrowser({ unit, onLoad, onClose }: Props) {
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  useEffect(() => setLimits({}), [query, tech, era, cls, sub, legalOnly, mulOnly, kind]);
+  useEffect(() => setLimits({}), [query, tech, era, cls, sub, source, legalOnly, mulOnly, kind]);
   useEffect(() => setOpenGroups(new Set()), [kind]);
 
   /** Filter group for an entry: OmniMechs are grouped regardless of how many configurations they have. */
@@ -166,6 +172,20 @@ export function CanonBrowser({ unit, onLoad, onClose }: Props) {
   useEffect(() => {
     if (entries && sub && !subKinds.includes(sub)) setSub('');
   }, [entries, subKinds, sub]);
+  /** Sourcebooks in this list with their unit counts, alphabetically; units without one count as unknown. */
+  const books = useMemo(() => {
+    const counts = new Map<string, number>();
+    let unknown = 0;
+    for (const e of entries ?? []) {
+      const list = sourcesOf(e);
+      if (!list.length) unknown++;
+      for (const b of list) counts.set(b, (counts.get(b) ?? 0) + 1);
+    }
+    return { list: [...counts].sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true })), unknown };
+  }, [entries]);
+  useEffect(() => {
+    if (entries && source && source !== UNKNOWN_SOURCE && !books.list.some(([b]) => b === source)) setSource('');
+  }, [entries, books, source]);
 
   const filtered = useMemo(() => {
     if (!entries) return [];
@@ -175,12 +195,13 @@ export function CanonBrowser({ unit, onLoad, onClose }: Props) {
       if (era && e.era !== era) return false;
       if (cls && weightClass(e.t, kind, e.k) !== cls) return false;
       if (sub && group(e.k) !== sub) return false;
+      if (source && (source === UNKNOWN_SOURCE ? sourcesOf(e).length > 0 : !sourcesOf(e).includes(source))) return false;
       if (legalOnly && !e.ok) return false;
       if (mulOnly && !e.mul) return false;
       const name = e.n.toLowerCase();
       return words.every((w) => name.includes(w));
     });
-  }, [entries, query, tech, era, cls, sub, legalOnly, mulOnly, kind]);
+  }, [entries, query, tech, era, cls, sub, source, legalOnly, mulOnly, kind]);
 
   /** The filtered units by weight class, lightest class first. */
   const groups = useMemo(() => {
@@ -200,7 +221,7 @@ export function CanonBrowser({ unit, onLoad, onClose }: Props) {
 
   const open = (e: CanonEntry) => {
     const d: AnyDesign = (kind === 'stationary' ? decodeStationary(e.d) : kind === 'protomech' ? decodeProtoMech(e.d) : kind === 'infantry' ? decodeInfantry(e.d) : kind === 'battlearmor' ? decodeBattleArmor(e.d) : kind === 'vessel' ? decodeVessel(e.d) : kind === 'fighter' ? decodeFighter(e.d) : kind === 'support' ? decodeSupport(e.d) : kind === 'vehicle' ? decodeVehicle(e.d) : decodeMech(e.d));
-    onLoad(e.mul ? { ...d, mulId: e.mul } : d);
+    onLoad({ ...d, ...(e.mul ? { mulId: e.mul } : {}), ...(e.src ? { source: e.src } : {}) });
     onClose();
   };
 
@@ -242,6 +263,11 @@ export function CanonBrowser({ unit, onLoad, onClose }: Props) {
             <option value="">All types</option>
             {subKinds.map((k) => <option key={k} value={k}>{k === 'omni' ? 'OmniMechs' : k === 'quadomni' ? 'Quad OmniMechs' : k === 'tripodomni' ? 'Tripod OmniMechs' : k === 'quadveeomni' ? 'OmniQuadVees' : k === 'quad' ? 'Quad BattleMechs' : k === 'lam' ? "Land-Air 'Mechs" : kindLabel(k)}</option>)}
           </select>
+          <select aria-label="Source" value={source} onChange={(e) => setSource(e.target.value)} title="Sourcebook (MegaMek's abbreviations)">
+            <option value="">All sources</option>
+            {books.list.map(([b, n]) => <option key={b} value={b}>{b} ({n.toLocaleString()})</option>)}
+            {books.unknown > 0 && <option value={UNKNOWN_SOURCE}>Source unknown ({books.unknown.toLocaleString()})</option>}
+          </select>
           <label className="check small"><input type="checkbox" checked={legalOnly} onChange={(e) => setLegalOnly(e.target.checked)} /> Legal in MechForger only</label>
           <label className="check small" title="Only units with a Master Unit List entry"><input type="checkbox" checked={mulOnly} onChange={(e) => setMulOnly(e.target.checked)} /> On the MUL only</label>
         </div>
@@ -262,7 +288,7 @@ export function CanonBrowser({ unit, onLoad, onClose }: Props) {
             <div className="canon-list">
               <table className="catalog">
                 <thead>
-                  <tr><th>Name</th><th>Type</th><th className="num">{kind === 'battlearmor' ? 'kg/suit' : 'Tons'}</th><th>Tech</th><th>Era</th><th className="num">BV</th><th /></tr>
+                  <tr><th>Name</th><th>Type</th><th className="num">{kind === 'battlearmor' ? 'kg/suit' : 'Tons'}</th><th>Tech</th><th>Era</th><th>Source</th><th className="num">BV</th><th /></tr>
                 </thead>
                 {groups.map(([c, list]) => {
                   const shown = isOpen(c);
@@ -270,7 +296,7 @@ export function CanonBrowser({ unit, onLoad, onClose }: Props) {
                   return (
                     <tbody key={c}>
                       <tr className="canon-group">
-                        <th colSpan={7}>
+                        <th colSpan={8}>
                           <button className="canon-group-toggle" aria-expanded={shown} disabled={autoOpen} onClick={() => toggle(c)}>
                             <span aria-hidden="true">{shown ? '▾' : '▸'}</span> {c} <span className="muted">({list.length.toLocaleString()})</span>
                           </button>
@@ -288,12 +314,13 @@ export function CanonBrowser({ unit, onLoad, onClose }: Props) {
                           <td className="num">{kind === 'battlearmor' ? Math.round(e.t * 1000) : e.t}</td>
                           <td>{e.tb === 'IS' ? 'IS' : 'Clan'}</td>
                           <td className="small">{e.y}</td>
+                          <td className="small canon-source">{sourcesOf(e).join(', ') || <span className="muted">unknown</span>}</td>
                           <td className="num">{e.bv.toLocaleString()}</td>
                           <td><button className="small" onClick={() => open(e)}>Load</button></td>
                         </tr>
                       ))}
                       {shown && list.length > limit && (
-                        <tr><td colSpan={7}>
+                        <tr><td colSpan={8}>
                           <button className="canon-more" onClick={() => setLimits((l) => ({ ...l, [c]: limit + PAGE * 2 }))}>
                             Show more {c.toLowerCase()} ({(list.length - limit).toLocaleString()} remaining)
                           </button>

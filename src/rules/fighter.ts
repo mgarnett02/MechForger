@@ -8,7 +8,7 @@
  * other equipment.
  */
 import type { BasicArmorType, BasicCockpitType, HeatSinkType, TechBase } from './types';
-import { TECH_BASE_NAMES } from './types';
+import { TECH_BASE_NAMES, sourceLine } from './types';
 import type { EraId } from './eras';
 import { DEFAULT_ERA, getEra, isAvailableIn } from './eras';
 import type { ComponentOption } from './tables';
@@ -56,6 +56,8 @@ export interface FighterItem {
 export interface FighterDesign {
   /** Master Unit List id, for designs loaded from the canon list. */
   mulId?: number;
+  /** Sourcebook(s) a canon design was published in, e.g. "TR:3039,TR:SW". */
+  source?: string;
   schemaVersion: 1;
   unitType: 'fighter';
   fighterType: FighterType;
@@ -584,6 +586,7 @@ export function fighterReadout(
     ? `Tech Base: Mixed (${TECH_BASE_NAMES[d.techBase]} chassis) (Advanced)`
     : `Tech Base: ${TECH_BASE_NAMES[d.techBase]} (${era?.rulesLevel ?? '?'})`);
   if (era) lines.push(`Era: ${era.name} (${era.year})`);
+  lines.push(sourceLine(d));
   if (values) {
     lines.push(`Battle Value: ${values.bv.toLocaleString('en-US')}`);
     lines.push(`Cost: ${values.cost.toLocaleString('en-US')} C-bills`);

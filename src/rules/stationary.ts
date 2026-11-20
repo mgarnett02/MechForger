@@ -17,7 +17,7 @@
 import type { EraId } from './eras';
 import { getEra, isAvailableIn } from './eras';
 import type { TechBase } from './types';
-import { TECH_BASE_NAMES } from './types';
+import { TECH_BASE_NAMES, sourceLine } from './types';
 import type { Equipment } from './equipment';
 import { MML_AMMO, getEquipment, isEquipmentAvailable, targetingComputerWeight, usesAmmo } from './equipment';
 import { ammoBV, ammoValue, defensiveEquipmentBV, equipmentCost, value, weaponEntries } from './battleValue';
@@ -36,6 +36,8 @@ export interface StationaryItem {
 
 export interface StationaryDesign {
   mulId?: number;
+  /** Sourcebook(s) a canon design was published in, e.g. "TR:3039,TR:SW". */
+  source?: string;
   schemaVersion: 1;
   unitType: 'stationary';
   kind: StationaryKind;
@@ -306,6 +308,7 @@ export function stationaryReadout(d: StationaryDesign, s = computeStationary(d))
     `Type: ${STATIONARY_KIND_NAMES[d.kind]}${handheld ? `, ${d.tonnage} tons` : d.turret ? ' (turret)' : ''}`,
     `Tech Base: ${d.mixedTech ? `Mixed (${TECH_BASE_NAMES[d.techBase]})` : TECH_BASE_NAMES[d.techBase]}`,
     era ? `Era: ${era.name} (${era.year})` : '',
+    sourceLine(d),
     `Battle Value: ${stationaryBV(d).total.toLocaleString('en-US')}`,
     `Cost: ${stationaryCost(d).total.toLocaleString('en-US')} C-bills`, '',
     ...(handheld ? [
